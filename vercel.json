@@ -2,10 +2,14 @@
   "installCommand": "npm install --legacy-peer-deps",
   "buildCommand": "npx expo export -p web",
   "outputDirectory": "dist",
-  "rewrites": [
+  "cleanUrls": true,
+  "routes": [
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }

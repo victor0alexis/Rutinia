@@ -32,16 +32,26 @@ export default function RootLayout() {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const styleId = 'expo-vector-icons-ionicons';
       if (!document.getElementById(styleId)) {
-        const iconFont = require('@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf');
-        const style = document.createElement('style');
-        style.id = styleId;
-        style.type = 'text/css';
-        style.appendChild(
-          document.createTextNode(
-            `@font-face { font-family: 'Ionicons'; src: url('${iconFont}') format('truetype'); }`
-          )
-        );
-        document.head.appendChild(style);
+        try {
+          const iconFont = require('@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf');
+          const fontUrl =
+            typeof iconFont === 'string'
+              ? iconFont
+              : iconFont?.uri ||
+                iconFont?.default ||
+                'https://cdnjs.cloudflare.com/ajax/libs/ionicons/5.5.2/fonts/ionicons.ttf';
+          const style = document.createElement('style');
+          style.id = styleId;
+          style.type = 'text/css';
+          style.appendChild(
+            document.createTextNode(
+              `@font-face { font-family: 'Ionicons'; src: url('${fontUrl}') format('truetype'); }`
+            )
+          );
+          document.head.appendChild(style);
+        } catch (e) {
+          console.warn('No se pudo inyectar la fuente Ionicons en web:', e);
+        }
       }
     }
 

@@ -20,7 +20,7 @@ export default function Root({ children }: PropsWithChildren) {
 
         {/* Google Fonts - Outfit */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
           href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap"
           rel="stylesheet"
@@ -30,23 +30,50 @@ export default function Root({ children }: PropsWithChildren) {
         <style dangerouslySetInnerHTML={{ __html: `
           @font-face {
             font-family: 'Ionicons';
-            src: url('https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.0.0/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf') format('truetype');
+            src: url('https://cdnjs.cloudflare.com/ajax/libs/ionicons/5.5.2/fonts/ionicons.ttf') format('truetype'),
+                 url('https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.0.0/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
           }
+          
+          /* Mapeo de nombres de fuentes de Expo Google Fonts a font-family real */
           @font-face {
             font-family: 'Outfit_400Regular';
             src: url('https://fonts.gstatic.com/s/outfit/v11/Q8HY4v156D0v2v-1d9Fv1v4.ttf') format('truetype');
+            font-weight: 400;
+          }
+          @font-face {
+            font-family: 'Outfit_500Medium';
+            src: url('https://fonts.gstatic.com/s/outfit/v11/Q8HY4v156D0v2v-1d9Fv1v4.ttf') format('truetype');
+            font-weight: 500;
           }
           @font-face {
             font-family: 'Outfit_600SemiBold';
             src: url('https://fonts.gstatic.com/s/outfit/v11/Q8HY4v156D0v2v-1d9Fv1v4.ttf') format('truetype');
+            font-weight: 600;
           }
           @font-face {
             font-family: 'Outfit_700Bold';
             src: url('https://fonts.gstatic.com/s/outfit/v11/Q8HY4v156D0v2v-1d9Fv1v4.ttf') format('truetype');
+            font-weight: 700;
+          }
+          @font-face {
+            font-family: 'Outfit_800ExtraBold';
+            src: url('https://fonts.gstatic.com/s/outfit/v11/Q8HY4v156D0v2v-1d9Fv1v4.ttf') format('truetype');
+            font-weight: 800;
           }
           @font-face {
             font-family: 'Outfit_900Black';
             src: url('https://fonts.gstatic.com/s/outfit/v11/Q8HY4v156D0v2v-1d9Fv1v4.ttf') format('truetype');
+            font-weight: 900;
+          }
+
+          *, html, body, #root {
+            box-sizing: border-box;
+            background-color: #0B0D12;
+            color: #F9FAFB;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
           }
 
           html, body, #root {
@@ -54,16 +81,11 @@ export default function Root({ children }: PropsWithChildren) {
             height: 100%;
             margin: 0;
             padding: 0;
-            background-color: #0B0D12 !important;
-            color: #F9FAFB;
-            font-family: 'Outfit', 'Outfit_400Regular', -apple-system, BlinkMacSystemFont, sans-serif;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
             overflow-x: hidden;
           }
 
-          /* Asegurar que los botones, inputs y textos hereden Outfit */
-          input, button, select, textarea {
+          /* Aplicar Outfit por defecto a todo texto en la web salvo Ionicons */
+          div, span, p, label, input, button, select, textarea {
             font-family: 'Outfit', 'Outfit_400Regular', -apple-system, BlinkMacSystemFont, sans-serif;
           }
         ` }} />
