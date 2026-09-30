@@ -9,7 +9,8 @@ import {
   Outfit_800ExtraBold,
   Outfit_900Black,
 } from '@expo-google-fonts/outfit';
-import { ActivityIndicator, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { ActivityIndicator, View, Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { colores } from '../constants/colores';
 
@@ -21,10 +22,29 @@ export default function RootLayout() {
     Outfit_700Bold,
     Outfit_800ExtraBold,
     Outfit_900Black,
+    ...Ionicons.font,
   });
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {});
+
+    // Inyectar fuente de iconos Ionicons en la web si no está cargada
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const styleId = 'expo-vector-icons-ionicons';
+      if (!document.getElementById(styleId)) {
+        const iconFont = require('@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf');
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.type = 'text/css';
+        style.appendChild(
+          document.createTextNode(
+            `@font-face { font-family: 'Ionicons'; src: url('${iconFont}') format('truetype'); }`
+          )
+        );
+        document.head.appendChild(style);
+      }
+    }
+
     return () => subscription.unsubscribe();
   }, []);
 
@@ -46,3 +66,4 @@ export default function RootLayout() {
     </Stack>
   );
 }
+
