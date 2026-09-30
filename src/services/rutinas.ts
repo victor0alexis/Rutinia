@@ -37,6 +37,8 @@ export async function listarRutinas(): Promise<Rutina[]> {
   }
 }
 
+const DEFAULT_USUARIO_ID = '65b515cd-790c-46da-b933-5a86bad00263';
+
 export async function crearRutina(nombre: string, ejercicios: EjercicioNuevo[]) {
   const rutinaId = Date.now().toString();
   const nuevaRutinaLocal: Rutina = {
@@ -57,12 +59,12 @@ export async function crearRutina(nombre: string, ejercicios: EjercicioNuevo[]) 
   try {
     const { data: rutina, error } = await supabase
       .from('rutinas')
-      .insert({ nombre })
+      .insert({ nombre, usuario_id: DEFAULT_USUARIO_ID })
       .select()
       .single();
     if (!error && rutina) {
       if (ejercicios.length) {
-        const filas = ejercicios.map((e, i) => ({ ...e, rutina_id: rutina.id, orden: i }));
+        const filas = ejercicios.map((e, i) => ({ ...e, rutina_id: rutina.id, usuario_id: DEFAULT_USUARIO_ID, orden: i }));
         await supabase.from('ejercicios_rutina').insert(filas);
       }
     }

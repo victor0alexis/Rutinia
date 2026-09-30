@@ -24,17 +24,20 @@ export async function registrosDeRango(desde: string, hasta: string): Promise<Re
   }
 }
 
+const DEFAULT_USUARIO_ID = '65b515cd-790c-46da-b933-5a86bad00263';
+
 // Copia los ejercicios de la rutina a cada fecha elegida
 export async function agregarRutinaAFechas(rutina: Rutina, fechas: string[]) {
   for (const fecha of fechas) {
     const { data: reg, error } = await supabase
       .from('registros_entrenamiento')
-      .insert({ fecha, rutina_id: rutina.id })
+      .insert({ fecha, rutina_id: rutina.id, usuario_id: DEFAULT_USUARIO_ID })
       .select()
       .single();
     if (error) throw error;
     const filas = rutina.ejercicios_rutina.map((e) => ({
       registro_id: reg.id,
+      usuario_id: DEFAULT_USUARIO_ID,
       nombre: e.nombre,
       series: e.series,
       repeticiones: e.repeticiones,
@@ -73,7 +76,7 @@ export async function agregarActividad(
   if (!registroId) {
     const { data, error } = await supabase
       .from('registros_entrenamiento')
-      .insert({ fecha })
+      .insert({ fecha, usuario_id: DEFAULT_USUARIO_ID })
       .select()
       .single();
     if (error) throw error;
@@ -81,7 +84,7 @@ export async function agregarActividad(
   }
   const { error } = await supabase
     .from('ejercicios_registro')
-    .insert({ registro_id: registroId, nombre, series, repeticiones, peso });
+    .insert({ registro_id: registroId, usuario_id: DEFAULT_USUARIO_ID, nombre, series, repeticiones, peso });
   if (error) throw error;
 }
 
