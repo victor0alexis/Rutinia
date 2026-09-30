@@ -23,9 +23,13 @@ export async function listarRutinas(): Promise<Rutina[]> {
       ejercicios_rutina: [...(r.ejercicios_rutina || [])].sort((a: any, b: any) => a.orden - b.orden),
     }));
 
-    // Actualizar caché local en segundo plano
-    await guardarCacheLocal('rutinas', res);
-    return res;
+    if (res.length > 0) {
+      await guardarCacheLocal('rutinas', res);
+      return res;
+    }
+
+    const cache = await obtenerCacheLocal<Rutina[]>('rutinas');
+    return cache && cache.length > 0 ? cache : res;
   } catch (err) {
     console.warn('Sin conexión a Supabase, intentando cargar caché local de rutinas...');
     const cache = await obtenerCacheLocal<Rutina[]>('rutinas');
@@ -34,21 +38,41 @@ export async function listarRutinas(): Promise<Rutina[]> {
 }
 
 export async function crearRutina(nombre: string, ejercicios: EjercicioNuevo[]) {
+  const rutinaId = Date.now().toString();
+  const nuevaRutinaLocal: Rutina = {
+    id: rutinaId,
+    nombre,
+    creado_en: new Date().toISOString(),
+    ejercicios_rutina: ejercicios.map((e, i) => ({
+      id: `${rutinaId}_${i}`,
+      rutina_id: rutinaId,
+      nombre: e.nombre,
+      series: e.series,
+      repeticiones: e.repeticiones,
+      peso: e.peso,
+      orden: i,
+    })),
+  };
+
   try {
     const { data: rutina, error } = await supabase
       .from('rutinas')
       .insert({ nombre })
       .select()
       .single();
-    if (error) throw error;
-    if (ejercicios.length) {
-      const filas = ejercicios.map((e, i) => ({ ...e, rutina_id: rutina.id, orden: i }));
-      const { error: e2 } = await supabase.from('ejercicios_rutina').insert(filas);
-      if (e2) throw e2;
+    if (!error && rutina) {
+      if (ejercicios.length) {
+        const filas = ejercicios.map((e, i) => ({ ...e, rutina_id: rutina.id, orden: i }));
+        await supabase.from('ejercicios_rutina').insert(filas);
+      }
     }
   } catch (err) {
-    console.warn('Operación realizada offline (modo vista/caché)');
+    console.warn('Supabase offline o RLS activo, guardando localmente');
   }
+
+  // Guardar siempre en el caché local para disponibilidad inmediata
+  const rutinasExistentes = (await obtenerCacheLocal<Rutina[]>('rutinas')) || [];
+  await guardarCacheLocal('rutinas', [nuevaRutinaLocal, ...rutinasExistentes]);
 }
 
 export async function eliminarRutina(id: string) {

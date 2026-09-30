@@ -32,6 +32,7 @@ export type EjercicioRutina = {
 export type Rutina = {
   id: string;
   nombre: string;
+  creado_en?: string;
   ejercicios_rutina: EjercicioRutina[];
 };
 
