@@ -214,6 +214,20 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
     fontSize: 15,
   };
 
+  const subInputStyle = {
+    backgroundColor: colores.fondo,
+    borderColor: colores.borde,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+    color: colores.texto,
+    fontSize: 13,
+    textAlign: 'center' as const,
+    flex: 1,
+    minWidth: 0,
+  };
+
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
       <KeyboardAvoidingView
@@ -387,7 +401,10 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
                   ) : (
                     registros.map((r) => {
                       const ejsEntrenamiento = (r.ejercicios_registro || []).filter((e) => !e.nombre.startsWith('📌'));
-                      if (!r.rutinas?.nombre && ejsEntrenamiento.length === 0) return null;
+                      const tieneRutina = Boolean(r.rutina_id || r.rutinas?.nombre);
+                      if (!tieneRutina && ejsEntrenamiento.length === 0) return null;
+
+                      const nombreMostrar = r.rutinas?.nombre || 'Rutina Vinculada';
 
                       return (
                         <View
@@ -401,11 +418,11 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
                             borderColor: colores.borde,
                           }}
                         >
-                          {r.rutinas?.nombre ? (
+                          {tieneRutina ? (
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colores.borde, paddingBottom: 8 }}>
                               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                 <Ionicons name="barbell-outline" size={18} color={colores.primarioHover} />
-                                <Text style={{ color: colores.primarioHover, fontWeight: '900', fontSize: 16 }}>{r.rutinas.nombre}</Text>
+                                <Text style={{ color: colores.primarioHover, fontWeight: '900', fontSize: 16 }}>{nombreMostrar}</Text>
                               </View>
                               <Pressable
                                 onPress={() => desvincularRutinaCompleta(r)}
@@ -481,14 +498,14 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
                     onChangeText={setNombreActividad}
                     style={inputStyle}
                   />
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
                     <TextInput
                       placeholder="Series"
                       placeholderTextColor={colores.suave}
                       keyboardType="numeric"
                       value={series}
                       onChangeText={setSeries}
-                      style={[inputStyle, { flex: 1 }]}
+                      style={subInputStyle}
                     />
                     <TextInput
                       placeholder="Reps"
@@ -496,7 +513,7 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
                       keyboardType="numeric"
                       value={reps}
                       onChangeText={setReps}
-                      style={[inputStyle, { flex: 1 }]}
+                      style={subInputStyle}
                     />
                     <TextInput
                       placeholder="Kg"
@@ -504,7 +521,7 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
                       keyboardType="numeric"
                       value={peso}
                       onChangeText={setPeso}
-                      style={[inputStyle, { flex: 1 }]}
+                      style={subInputStyle}
                     />
                   </View>
                   <Pressable

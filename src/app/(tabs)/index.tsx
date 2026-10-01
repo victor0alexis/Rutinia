@@ -49,10 +49,10 @@ export default function Semana() {
   const notasDelDia = todosEjercicios.filter((e) => e.nombre.startsWith('📌'));
 
   // 2. RUTINAS DEL DÍA (Registros que vienen con un rutina_id / rutinas.nombre)
-  const registrosConRutina = registrosDelDia.filter((r) => r.rutinas?.nombre);
+  const registrosConRutina = registrosDelDia.filter((r) => Boolean(r.rutina_id || r.rutinas?.nombre));
 
   // 3. EJERCICIOS EXTRAS / SUELTOS DEL DÍA (Registros sin rutina asignada)
-  const registrosExtraSueltos = registrosDelDia.filter((r) => !r.rutinas?.nombre);
+  const registrosExtraSueltos = registrosDelDia.filter((r) => !r.rutina_id && !r.rutinas?.nombre);
   const ejerciciosExtras = registrosExtraSueltos
     .flatMap((r) => r.ejercicios_registro || [])
     .filter((e) => !e.nombre.startsWith('📌'));
@@ -351,7 +351,7 @@ export default function Semana() {
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                           <Ionicons name="fitness" size={18} color={r.completado ? colores.exito : colores.primarioHover} />
                           <Text style={{ color: r.completado ? colores.exito : colores.primarioHover, fontFamily: fuentes.black, fontSize: 15 }}>
-                            {r.rutinas?.nombre}
+                            {r.rutinas?.nombre || 'Rutina Vinculada'}
                           </Text>
                         </View>
 

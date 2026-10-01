@@ -1,4 +1,4 @@
-import { View } from 'react-native';
+import { View, Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { ColorValue } from 'react-native';
@@ -9,7 +9,13 @@ const icono =
   ({ focused, color, size }: { focused: boolean; color: ColorValue; size: number }) =>
     <Ionicons name={focused ? activeName : name} color={color as string} size={size} />;
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+  const bottomPadding = insets.bottom > 0 ? insets.bottom : Platform.OS === 'ios' ? 22 : 10;
+  const barHeight = 58 + bottomPadding;
+
   return (
     <Tabs
       screenOptions={{
@@ -20,9 +26,9 @@ export default function TabsLayout() {
           backgroundColor: colores.tarjeta,
           borderTopColor: colores.borde,
           borderTopWidth: 1,
-          height: 68,
-          paddingBottom: 10,
-          paddingTop: 8,
+          height: barHeight,
+          paddingBottom: bottomPadding,
+          paddingTop: 6,
           elevation: 10,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -4 },

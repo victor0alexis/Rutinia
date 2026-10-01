@@ -28,24 +28,31 @@ const DEFAULT_USUARIO_ID = '65b515cd-790c-46da-b933-5a86bad00263';
 
 // Copia los ejercicios de la rutina a cada fecha elegida
 export async function agregarRutinaAFechas(rutina: Rutina, fechas: string[]) {
+  const ejercicios = rutina.ejercicios_rutina || [];
   for (const fecha of fechas) {
-    const { data: reg, error } = await supabase
-      .from('registros_entrenamiento')
-      .insert({ fecha, rutina_id: rutina.id, usuario_id: DEFAULT_USUARIO_ID })
-      .select()
-      .single();
-    if (error) throw error;
-    const filas = rutina.ejercicios_rutina.map((e) => ({
-      registro_id: reg.id,
-      usuario_id: DEFAULT_USUARIO_ID,
-      nombre: e.nombre,
-      series: e.series,
-      repeticiones: e.repeticiones,
-      peso: e.peso,
-    }));
-    if (filas.length) {
-      const { error: e2 } = await supabase.from('ejercicios_registro').insert(filas);
-      if (e2) throw e2;
+    try {
+      const { data: reg, error } = await supabase
+        .from('registros_entrenamiento')
+        .insert({ fecha, rutina_id: rutina.id, usuario_id: DEFAULT_USUARIO_ID })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (ejercicios.length > 0 && reg) {
+        const filas = ejercicios.map((e) => ({
+          registro_id: reg.id,
+          usuario_id: DEFAULT_USUARIO_ID,
+          nombre: e.nombre,
+          series: e.series,
+          repeticiones: e.repeticiones,
+          peso: e.peso,
+          completado: false,
+        }));
+        await supabase.from('ejercicios_registro').insert(filas);
+      }
+    } catch (err) {
+      console.warn('Error vinculando rutina a fecha en Supabase:', err);
     }
   }
 }
