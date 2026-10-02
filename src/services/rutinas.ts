@@ -74,12 +74,11 @@ export async function crearRutina(nombre: string, ejercicios: EjercicioNuevo[]) 
 }
 
 export async function eliminarRutina(id: string) {
-  try {
-    const { error } = await supabase.from('rutinas').delete().eq('id', id);
-    if (error) throw error;
-  } catch (err) {
-    console.warn('Operación realizada offline (modo vista/caché)');
-  }
+  const { error } = await supabase.from('rutinas').delete().eq('id', id);
+  if (error) throw error;
+  // Actualizar caché local: remover la rutina eliminada
+  const rutinasCache = (await obtenerCacheLocal<Rutina[]>('rutinas')) || [];
+  await guardarCacheLocal('rutinas', rutinasCache.filter((r) => r.id !== id));
 }
 
 // Actualizar nombre y ejercicios de una rutina existente sin eliminarla,

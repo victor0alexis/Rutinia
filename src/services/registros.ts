@@ -58,16 +58,15 @@ export async function agregarRutinaAFechas(rutina: Rutina, fechas: string[]) {
 }
 
 // Desvincula/elimina un registro completo de rutina o actividad del día
-// Primero elimina los ejercicios_registro hijos para evitar errores de FK/RLS
+// El paso 1 es tolerante a fallos de FK/RLS — siempre intenta el paso 2
 export async function eliminarRegistroRutina(registroId: string) {
-  // Paso 1: eliminar todos los ejercicios asociados al registro
-  const { error: errorEjs } = await supabase
+  // Paso 1: intentar limpiar ejercicios_registro hijos (sin lanzar error si hay CASCADE o RLS)
+  await supabase
     .from('ejercicios_registro')
     .delete()
     .eq('registro_id', registroId);
-  if (errorEjs) throw errorEjs;
 
-  // Paso 2: eliminar el registro de entrenamiento en sí
+  // Paso 2: eliminar el registro de entrenamiento en sí (sí lanza error si falla)
   const { error } = await supabase
     .from('registros_entrenamiento')
     .delete()

@@ -34,6 +34,16 @@ type Props = {
   alCambiar: () => void;
 };
 
+const PALETA_NOTAS = [
+  { border: '#6366F1', bg: 'rgba(99,102,241,0.10)' },
+  { border: '#10B981', bg: 'rgba(16,185,129,0.10)' },
+  { border: '#F59E0B', bg: 'rgba(245,158,11,0.10)' },
+  { border: '#EC4899', bg: 'rgba(236,72,153,0.10)' },
+  { border: '#3B82F6', bg: 'rgba(59,130,246,0.10)' },
+  { border: '#A855F7', bg: 'rgba(168,85,247,0.10)' },
+  { border: '#14B8A6', bg: 'rgba(20,184,166,0.10)' },
+];
+
 const num = (t: string) => (t.trim() ? Number(t) : null);
 
 // Helper para parsear la nota e identificador visual inteligente
@@ -321,16 +331,29 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
           >
             {/* PANEL 1: Actividad del Día */}
             {tab === 'actividad' && (
-              <View style={{ gap: 18 }}>
-                {/* BLOQUE 1: NOTAS DEL DÍA */}
-                <View style={{ gap: 10 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={{ color: colores.suave, fontWeight: '800', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                      📌 1. NOTAS Y BITÁCORA DEL DÍA ({notasDelDia.length})
-                    </Text>
-                    <Pressable onPress={() => setTab('notas')}>
-                      <Text style={{ color: colores.primarioHover, fontSize: 12, fontWeight: '800' }}>+ Nueva Nota</Text>
+              <View style={{ gap: 22 }}>
+
+                {/* ────── SECCIÓN: NOTAS DEL DÍA ────── */}
+                <View style={{ gap: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(16,185,129,0.30)' }} />
+                    <Pressable
+                      onPress={() => setTab('notas')}
+                      style={{
+                        flexDirection: 'row', alignItems: 'center', gap: 7,
+                        backgroundColor: 'rgba(16,185,129,0.11)',
+                        paddingHorizontal: 14, paddingVertical: 7,
+                        borderRadius: 20, borderWidth: 1,
+                        borderColor: 'rgba(16,185,129,0.35)',
+                      }}
+                    >
+                      <Ionicons name="document-text-outline" size={13} color="#10B981" />
+                      <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 }}>
+                        Notas{notasDelDia.length > 0 ? `  ·  ${notasDelDia.length}` : ''}
+                      </Text>
+                      <Text style={{ color: 'rgba(16,185,129,0.65)', fontSize: 11, fontWeight: '700' }}>+ Añadir</Text>
                     </Pressable>
+                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(16,185,129,0.30)' }} />
                   </View>
 
                   {notasDelDia.length === 0 ? (
@@ -338,41 +361,52 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
                       <Text style={{ color: colores.suave, fontStyle: 'italic', fontSize: 13 }}>Sin notas registradas para este día.</Text>
                     </View>
                   ) : (
-                    notasDelDia.map((n) => {
-                      const { categoria, titulo, cuerpo, colorBadge, bgBadge, iconName } = parsearNotaInteligente(n.nombre);
+                    notasDelDia.map((n, idx) => {
+                      const { categoria, titulo, cuerpo, iconName } = parsearNotaInteligente(n.nombre);
+                      const pal = PALETA_NOTAS[idx % PALETA_NOTAS.length];
                       return (
                         <View
                           key={n.id}
                           style={{
-                            backgroundColor: colores.tarjeta,
+                            backgroundColor: pal.bg,
                             borderRadius: 16,
                             padding: 16,
                             gap: 10,
                             borderWidth: 1,
-                            borderColor: colores.borde,
-                            borderLeftWidth: 4,
-                            borderLeftColor: colorBadge,
+                            borderColor: pal.border + '45',
+                            borderLeftWidth: 3,
+                            borderLeftColor: pal.border,
                           }}
                         >
-                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <View style={{ backgroundColor: bgBadge, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <Ionicons name={iconName} size={14} color={colorBadge} />
-                              <Text style={{ color: colorBadge, fontSize: 11, fontWeight: '800', textTransform: 'uppercase' }}>
-                                {categoria}
-                              </Text>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, paddingRight: 10 }}>
+                              <View style={{
+                                width: 34, height: 34, borderRadius: 10,
+                                backgroundColor: pal.border + '20',
+                                alignItems: 'center', justifyContent: 'center',
+                                borderWidth: 1, borderColor: pal.border + '40',
+                              }}>
+                                <Ionicons name={iconName} size={16} color={pal.border} />
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text style={{ color: pal.border, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 }}>
+                                  {categoria}
+                                </Text>
+                                <Text style={{ color: colores.texto, fontSize: 15, fontWeight: '800', marginTop: 1 }} numberOfLines={2}>
+                                  {titulo}
+                                </Text>
+                              </View>
                             </View>
-
-                            <Pressable onPress={() => quitarEjercicioSolo(n)} hitSlop={10} style={{ padding: 4 }}>
+                            <Pressable
+                              onPress={() => quitarEjercicioSolo(n)}
+                              hitSlop={12}
+                              style={{ backgroundColor: 'rgba(220,38,38,0.12)', borderRadius: 8, padding: 6 }}
+                            >
                               <Ionicons name="trash-outline" size={16} color={colores.peligro} />
                             </Pressable>
                           </View>
-
-                          <Text style={{ color: colores.texto, fontSize: 16, fontWeight: '800' }}>
-                            {titulo}
-                          </Text>
-
                           {cuerpo ? (
-                            <Text style={{ color: colores.suave, fontSize: 13, lineHeight: 20 }}>
+                            <Text style={{ color: colores.suave, fontSize: 13, lineHeight: 20, paddingLeft: 44 }}>
                               {cuerpo}
                             </Text>
                           ) : null}
@@ -382,15 +416,27 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
                   )}
                 </View>
 
-                {/* BLOQUE 2: RUTINAS Y EJERCICIOS DEL DÍA */}
-                <View style={{ gap: 10 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={{ color: colores.suave, fontWeight: '800', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                      🏋️ 2. RUTINAS Y EJERCICIOS DEL DÍA ({ejerciciosPure.length})
-                    </Text>
-                    <Pressable onPress={() => setTab('rutina')}>
-                      <Text style={{ color: colores.primarioHover, fontSize: 12, fontWeight: '800' }}>+ Añadir Ejercicio</Text>
+                {/* ────── SECCIÓN: ENTRENAMIENTOS DEL DÍA ────── */}
+                <View style={{ gap: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={{ flex: 1, height: 1, backgroundColor: colores.primario + '60' }} />
+                    <Pressable
+                      onPress={() => setTab('rutina')}
+                      style={{
+                        flexDirection: 'row', alignItems: 'center', gap: 7,
+                        backgroundColor: colores.primarioSuave,
+                        paddingHorizontal: 14, paddingVertical: 7,
+                        borderRadius: 20, borderWidth: 1,
+                        borderColor: colores.primarioGlow,
+                      }}
+                    >
+                      <Ionicons name="barbell-outline" size={13} color={colores.primarioHover} />
+                      <Text style={{ color: colores.primarioHover, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 }}>
+                        Entrenamientos{ejerciciosPure.length > 0 ? `  ·  ${ejerciciosPure.length}` : ''}
+                      </Text>
+                      <Text style={{ color: colores.primarioHover + 'AA', fontSize: 11, fontWeight: '700' }}>+ Añadir</Text>
                     </Pressable>
+                    <View style={{ flex: 1, height: 1, backgroundColor: colores.primario + '60' }} />
                   </View>
 
                   {registros.length === 0 && ejerciciosPure.length === 0 ? (
@@ -419,24 +465,35 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
                           }}
                         >
                           {tieneRutina ? (
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colores.borde, paddingBottom: 8 }}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colores.borde, paddingBottom: 10 }}>
                               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                <Ionicons name="barbell-outline" size={18} color={colores.primarioHover} />
-                                <Text style={{ color: colores.primarioHover, fontWeight: '900', fontSize: 16 }}>{nombreMostrar}</Text>
+                                <View style={{
+                                  width: 34, height: 34, borderRadius: 10,
+                                  backgroundColor: colores.primarioSuave,
+                                  alignItems: 'center', justifyContent: 'center',
+                                  borderWidth: 1, borderColor: colores.primarioGlow,
+                                }}>
+                                  <Ionicons name="barbell-outline" size={16} color={colores.primarioHover} />
+                                </View>
+                                <Text style={{ color: colores.primarioHover, fontWeight: '900', fontSize: 15 }} numberOfLines={1}>
+                                  {nombreMostrar}
+                                </Text>
                               </View>
                               <Pressable
                                 onPress={() => desvincularRutinaCompleta(r)}
                                 style={{
-                                  backgroundColor: colores.peligro + '20',
+                                  backgroundColor: colores.peligro + '18',
                                   paddingHorizontal: 10,
-                                  paddingVertical: 5,
+                                  paddingVertical: 6,
                                   borderRadius: 8,
+                                  borderWidth: 1,
+                                  borderColor: colores.peligro + '35',
                                   flexDirection: 'row',
                                   alignItems: 'center',
                                   gap: 4,
                                 }}
                               >
-                                <Ionicons name="trash-outline" size={14} color={colores.peligro} />
+                                <Ionicons name="trash-outline" size={13} color={colores.peligro} />
                                 <Text style={{ color: colores.peligro, fontWeight: '700', fontSize: 11 }}>Desvincular</Text>
                               </Pressable>
                             </View>
@@ -470,7 +527,6 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
                                   )}
                                 </View>
                               </Pressable>
-
                               <Pressable onPress={() => quitarEjercicioSolo(e)} hitSlop={10} style={{ padding: 6 }}>
                                 <Ionicons name="close-circle-outline" size={20} color={colores.suave} />
                               </Pressable>
