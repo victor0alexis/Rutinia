@@ -2,14 +2,13 @@ import { View, Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { ColorValue } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colores } from '../../constants/colores';
 
 const icono =
   (name: keyof typeof Ionicons.glyphMap, activeName: keyof typeof Ionicons.glyphMap) =>
   ({ focused, color, size }: { focused: boolean; color: ColorValue; size: number }) =>
     <Ionicons name={focused ? activeName : name} color={color as string} size={size} />;
-
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();

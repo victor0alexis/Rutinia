@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colores, fuentes } from '../constants/colores';
-import { crearRutina, eliminarRutina } from '../services/rutinas';
+import { crearRutina, eliminarRutina, actualizarRutina } from '../services/rutinas';
 import { seguro } from '../utils/errores';
 import { Rutina } from '../types';
 
@@ -160,11 +160,6 @@ export default function GestionarRutinaModal({
       const ejerciciosValidos = ejercicios.filter((ej) => ej.nombre.trim());
       if (ejerciciosValidos.length === 0) throw new Error('Agrega al menos un ejercicio con nombre.');
 
-      // Si estamos editando una rutina preexistente, eliminarla previamente antes de recrearla con los datos actualizados
-      if (rutinaParaEditar?.id) {
-        await eliminarRutina(rutinaParaEditar.id);
-      }
-
       const payloadEjercicios = ejerciciosValidos.map((ej) => {
         const primeraSerie = ej.series[0];
         const numSeriesTotal = ej.series.length;
@@ -189,7 +184,14 @@ export default function GestionarRutinaModal({
         };
       });
 
-      await crearRutina(nombreRutina.trim(), payloadEjercicios);
+      if (rutinaParaEditar?.id) {
+        // ACTUALIZAR: preserva el ID y las vinculaciones de registros_entrenamiento
+        await actualizarRutina(rutinaParaEditar.id, nombreRutina.trim(), payloadEjercicios);
+      } else {
+        // CREAR: nueva rutina
+        await crearRutina(nombreRutina.trim(), payloadEjercicios);
+      }
+
       onGuardado();
       onClose();
       Alert.alert('Éxito', rutinaParaEditar ? 'Rutina actualizada correctamente.' : 'Rutina guardada correctamente.');

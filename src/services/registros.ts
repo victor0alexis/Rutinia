@@ -9,7 +9,7 @@ export async function registrosDeRango(desde: string, hasta: string): Promise<Re
       .select('*, rutinas(nombre), ejercicios_registro(*)')
       .gte('fecha', desde)
       .lte('fecha', hasta)
-      .order('creado_en');
+      .order('fecha', { ascending: true });
 
     if (error) throw error;
     const res = (data ?? []) as Registro[];
@@ -58,8 +58,20 @@ export async function agregarRutinaAFechas(rutina: Rutina, fechas: string[]) {
 }
 
 // Desvincula/elimina un registro completo de rutina o actividad del día
+// Primero elimina los ejercicios_registro hijos para evitar errores de FK/RLS
 export async function eliminarRegistroRutina(registroId: string) {
-  const { error } = await supabase.from('registros_entrenamiento').delete().eq('id', registroId);
+  // Paso 1: eliminar todos los ejercicios asociados al registro
+  const { error: errorEjs } = await supabase
+    .from('ejercicios_registro')
+    .delete()
+    .eq('registro_id', registroId);
+  if (errorEjs) throw errorEjs;
+
+  // Paso 2: eliminar el registro de entrenamiento en sí
+  const { error } = await supabase
+    .from('registros_entrenamiento')
+    .delete()
+    .eq('id', registroId);
   if (error) throw error;
 }
 

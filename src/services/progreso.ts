@@ -86,11 +86,27 @@ export async function obtenerMetricasProgreso(desde: string, hasta: string): Pro
     }))
     .sort((a, b) => b.series - a.series);
 
+  // Cálculo real de racha: días consecutivos completados hacia atrás desde hoy
+  const diasOrdenados = Array.from(diasUnicos).sort();
+  let rachaDias = 0;
+  const hoyISO = hasta; // usamos el límite superior como referencia
+  let fechaCheck = new Date(hoyISO);
+  // Ajustar a la última fecha completada si hoy no está completado
+  while (rachaDias < diasOrdenados.length) {
+    const iso = fechaCheck.toISOString().slice(0, 10);
+    if (diasUnicos.has(iso)) {
+      rachaDias++;
+      fechaCheck.setDate(fechaCheck.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+
   return {
     volumenTotalKg: Math.round(volumenTotalKg),
     diasCompletados: diasUnicos.size,
     seriesTotales,
-    rachaDias: diasUnicos.size,
+    rachaDias,
     recordsPersonales,
     ejerciciosStats,
   };

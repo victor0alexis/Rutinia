@@ -23,13 +23,9 @@ export async function listarRutinas(): Promise<Rutina[]> {
       ejercicios_rutina: [...(r.ejercicios_rutina || [])].sort((a: any, b: any) => a.orden - b.orden),
     }));
 
-    if (res.length > 0) {
-      await guardarCacheLocal('rutinas', res);
-      return res;
-    }
-
-    const cache = await obtenerCacheLocal<Rutina[]>('rutinas');
-    return cache && cache.length > 0 ? cache : res;
+    // Solo guardar en caché si hay datos reales; la lista vacía es un resultado válido
+    await guardarCacheLocal('rutinas', res);
+    return res;
   } catch (err) {
     console.warn('Sin conexión a Supabase, intentando cargar caché local de rutinas...');
     const cache = await obtenerCacheLocal<Rutina[]>('rutinas');
@@ -86,3 +82,58 @@ export async function eliminarRutina(id: string) {
   }
 }
 
+// Actualizar nombre y ejercicios de una rutina existente sin eliminarla,
+// preservando así las vinculaciones en registros_entrenamiento
+export async function actualizarRutina(rutinaId: string, nombre: string, ejercicios: EjercicioNuevo[]) {
+  try {
+    // 1. Actualizar el nombre de la rutina
+    const { error: errNombre } = await supabase
+      .from('rutinas')
+      .update({ nombre })
+      .eq('id', rutinaId);
+    if (errNombre) throw errNombre;
+
+    // 2. Eliminar todos los ejercicios viejos
+    const { error: errDel } = await supabase
+      .from('ejercicios_rutina')
+      .delete()
+      .eq('rutina_id', rutinaId);
+    if (errDel) throw errDel;
+
+    // 3. Insertar los nuevos ejercicios
+    if (ejercicios.length > 0) {
+      const filas = ejercicios.map((e, i) => ({
+        ...e,
+        rutina_id: rutinaId,
+        usuario_id: DEFAULT_USUARIO_ID,
+        orden: i,
+      }));
+      const { error: errIns } = await supabase.from('ejercicios_rutina').insert(filas);
+      if (errIns) throw errIns;
+    }
+  } catch (err) {
+    console.warn('Error actualizando rutina en Supabase:', err);
+    throw err;
+  }
+
+  // Actualizar también el caché local
+  const rutinasExistentes = (await obtenerCacheLocal<Rutina[]>('rutinas')) || [];
+  const actualizadas = rutinasExistentes.map((r) =>
+    r.id === rutinaId
+      ? {
+          ...r,
+          nombre,
+          ejercicios_rutina: ejercicios.map((e, i) => ({
+            id: `${rutinaId}_${i}`,
+            rutina_id: rutinaId,
+            nombre: e.nombre,
+            series: e.series,
+            repeticiones: e.repeticiones,
+            peso: e.peso,
+            orden: i,
+          })),
+        }
+      : r
+  );
+  await guardarCacheLocal('rutinas', actualizadas);
+}

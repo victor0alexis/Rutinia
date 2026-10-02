@@ -111,6 +111,7 @@ export default function Notas() {
   const asignarADia = (d: Date) =>
     seguro(async () => {
       if (!notaParaAsignar) return;
+      // agregarActividad directo (no guardarNotaDelDia) para evitar el doble prefijo 📌
       const textoFormateado = `📌 [${notaParaAsignar.categoria.toUpperCase()}] ${notaParaAsignar.titulo}: ${notaParaAsignar.contenido}`;
       await agregarActividad(aISO(d), textoFormateado, null, null, null);
       setModalAsignarVisible(false);
