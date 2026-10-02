@@ -1,12 +1,12 @@
 import { useCallback, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colores, fuentes } from '../../constants/colores';
 import EncabezadoSeccion from '../../components/EncabezadoSeccion';
 import GestionarRutinaModal from '../../components/GestionarRutinaModal';
-import { listarRutinas } from '../../services/rutinas';
+import { listarRutinas, eliminarRutina, duplicarRutina } from '../../services/rutinas';
 import { agregarRutinaAFechas } from '../../services/registros';
 import { aISO, diasDeSemana, nombreDia } from '../../utils/fechas';
 import { seguro } from '../../utils/errores';
@@ -14,6 +14,7 @@ import { Rutina } from '../../types';
 
 export default function Rutinas() {
   const [rutinas, setRutinas] = useState<Rutina[]>([]);
+  const [busqueda, setBusqueda] = useState('');
   const [modalGestionarVisible, setModalGestionarVisible] = useState(false);
   const [rutinaSeleccionada, setRutinaSeleccionada] = useState<Rutina | null>(null);
 
@@ -40,22 +41,65 @@ export default function Rutinas() {
     setModalGestionarVisible(true);
   };
 
+  const confirmarEliminarRutina = (r: Rutina) => {
+    Alert.alert(
+      'Eliminar Rutina',
+      `¿Deseas eliminar permanentemente la rutina "${r.nombre}" y sus ejercicios asociados?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () =>
+            seguro(async () => {
+              await eliminarRutina(r.id);
+              await cargar();
+              Alert.alert('Eliminada', `La rutina "${r.nombre}" ha sido eliminada.`);
+            }),
+        },
+      ]
+    );
+  };
+
+  const clonarRutina = (r: Rutina) =>
+    seguro(async () => {
+      await duplicarRutina(r);
+      await cargar();
+      Alert.alert('Rutina Clonada', `Se ha creado una copia de "${r.nombre}".`);
+    });
+
   const confirmarAsignacionSemana = () =>
     seguro(async () => {
       if (!elegidaParaSemana) return;
       await agregarRutinaAFechas(elegidaParaSemana, dias);
       setElegidaParaSemana(null);
       setDias([]);
-      Alert.alert('¡Asignado!', `La rutina "${elegidaParaSemana.nombre}" se programó para los días seleccionados.`);
+      Alert.alert('¡Programado!', `La rutina "${elegidaParaSemana.nombre}" se asignó a los días seleccionados.`);
     });
+
+  // Filtrado inteligente por nombre de rutina o por nombre de ejercicio
+  const rutinasFiltradas = rutinas.filter((r) => {
+    if (!busqueda.trim()) return true;
+    const q = busqueda.toLowerCase().trim();
+    const coincideNombre = r.nombre.toLowerCase().includes(q);
+    const coincideEjercicio = r.ejercicios_rutina?.some((e) => e.nombre.toLowerCase().includes(q));
+    return coincideNombre || coincideEjercicio;
+  });
+
+  // Estadísticas globales del panel
+  const totalEjercicios = rutinas.reduce((acc, r) => acc + (r.ejercicios_rutina?.length || 0), 0);
+  const totalSeries = rutinas.reduce(
+    (acc, r) => acc + (r.ejercicios_rutina?.reduce((sum, e) => sum + (e.series || 1), 0) || 0),
+    0
+  );
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colores.fondo }}>
-      {/* ENCABEZADO ESTANDARIZADO CENTRADO CON DESTELLO ENTERPRISE */}
+      {/* ENCABEZADO ESTANDARIZADO */}
       <EncabezadoSeccion
-        badgeText="PROGRAMAS DETALLADOS"
+        badgeText="PROGRAMAS & ENTRENAMIENTOS"
         titulo="Rutinas"
-        subtitulo="Gestión profesional de ejercicios, series, repeticiones, RIR y peso"
+        subtitulo="Diseña, programa y optimiza tus planes de entrenamiento"
         botonAccion={{
           texto: 'Nueva rutina',
           icono: 'add',
@@ -63,12 +107,96 @@ export default function Rutinas() {
         }}
       />
 
-      {/* Lista de Rutinas (Tarjetas Compactas Ordenadas) */}
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 40, gap: 14 }}
         showsVerticalScrollIndicator={false}
       >
-        {rutinas.length === 0 ? (
+        {/* STATS RÁPIDAS DEL PANEL */}
+        {rutinas.length > 0 && (
+          <View
+            style={{
+              flexDirection: 'row',
+              backgroundColor: colores.tarjeta,
+              borderRadius: 16,
+              padding: 14,
+              borderWidth: 1,
+              borderColor: colores.borde,
+              justifyContent: 'space-around',
+              alignItems: 'center',
+            }}
+          >
+            <View style={{ alignItems: 'center', flex: 1 }}>
+              <Text style={{ fontSize: 18, fontFamily: fuentes.black, color: colores.texto }}>
+                {rutinas.length}
+              </Text>
+              <Text style={{ fontSize: 11, fontFamily: fuentes.bold, color: colores.suave, textTransform: 'uppercase' }}>
+                Rutinas
+              </Text>
+            </View>
+
+            <View style={{ width: 1, height: 26, backgroundColor: colores.borde }} />
+
+            <View style={{ alignItems: 'center', flex: 1 }}>
+              <Text style={{ fontSize: 18, fontFamily: fuentes.black, color: colores.primarioHover }}>
+                {totalEjercicios}
+              </Text>
+              <Text style={{ fontSize: 11, fontFamily: fuentes.bold, color: colores.suave, textTransform: 'uppercase' }}>
+                Ejercicios
+              </Text>
+            </View>
+
+            <View style={{ width: 1, height: 26, backgroundColor: colores.borde }} />
+
+            <View style={{ alignItems: 'center', flex: 1 }}>
+              <Text style={{ fontSize: 18, fontFamily: fuentes.black, color: colores.exito }}>
+                {totalSeries}
+              </Text>
+              <Text style={{ fontSize: 11, fontFamily: fuentes.bold, color: colores.suave, textTransform: 'uppercase' }}>
+                Series
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* BARRA DE BÚSQUEDA INTELIGENTE */}
+        {rutinas.length > 0 && (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: colores.tarjeta,
+              borderRadius: 14,
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              borderWidth: 1,
+              borderColor: colores.borde,
+              gap: 10,
+            }}
+          >
+            <Ionicons name="search" size={18} color={colores.suave} />
+            <TextInput
+              placeholder="Buscar por rutina o ejercicio..."
+              placeholderTextColor={colores.suave}
+              value={busqueda}
+              onChangeText={setBusqueda}
+              style={{
+                flex: 1,
+                color: colores.texto,
+                fontSize: 14,
+                fontFamily: fuentes.regular,
+                padding: 0,
+              }}
+            />
+            {busqueda.length > 0 && (
+              <Pressable onPress={() => setBusqueda('')} hitSlop={8}>
+                <Ionicons name="close-circle" size={18} color={colores.suave} />
+              </Pressable>
+            )}
+          </View>
+        )}
+
+        {/* LISTADO DE RUTINAS */}
+        {rutinasFiltradas.length === 0 ? (
           <View
             style={{
               backgroundColor: colores.tarjeta,
@@ -95,57 +223,64 @@ export default function Rutinas() {
             >
               <Ionicons name="barbell-outline" size={30} color={colores.primarioHover} />
             </View>
-            <Text style={{ color: colores.texto, fontSize: 18, fontFamily: fuentes.black }}>Sin rutinas creadas todavía</Text>
-            <Text style={{ color: colores.suave, textAlign: 'center', fontSize: 13, lineHeight: 19 }}>
-              Toca el botón "+ Nueva rutina" para estructurar tus entrenamientos con ejercicios, series, repeticiones, peso y RIR.
+            <Text style={{ color: colores.texto, fontSize: 18, fontFamily: fuentes.black }}>
+              {busqueda.trim() ? 'No hay coincidencia' : 'Sin rutinas creadas'}
             </Text>
-            <Pressable
-              onPress={abrirCrearRutina}
-              style={{
-                marginTop: 6,
-                backgroundColor: colores.primario,
-                paddingHorizontal: 20,
-                paddingVertical: 12,
-                borderRadius: 12,
-              }}
-            >
-              <Text style={{ color: '#FFF', fontFamily: fuentes.bold, fontSize: 14 }}>+ Crear Primera Rutina</Text>
-            </Pressable>
+            <Text style={{ color: colores.suave, textAlign: 'center', fontSize: 13, lineHeight: 19 }}>
+              {busqueda.trim()
+                ? `No encontramos rutinas o ejercicios que contengan "${busqueda}".`
+                : 'Empieza estructurando tus entrenamientos con ejercicios, series, repeticiones, peso y RIR.'}
+            </Text>
+            {!busqueda.trim() && (
+              <Pressable
+                onPress={abrirCrearRutina}
+                style={{
+                  marginTop: 6,
+                  backgroundColor: colores.primario,
+                  paddingHorizontal: 20,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                }}
+              >
+                <Text style={{ color: '#FFF', fontFamily: fuentes.bold, fontSize: 14 }}>+ Crear Primera Rutina</Text>
+              </Pressable>
+            )}
           </View>
         ) : null}
 
-        {rutinas.map((r, idx) => {
-          const numEjercicios = r.ejercicios_rutina?.length || 0;
-          const totalSeries = r.ejercicios_rutina?.reduce((acc, ej) => acc + (ej.series || 1), 0) || 0;
+        {rutinasFiltradas.map((r, idx) => {
+          const ejs = r.ejercicios_rutina || [];
+          const numEjercicios = ejs.length;
+          const totalSeries = ejs.reduce((acc, ej) => acc + (ej.series || 1), 0);
+          const primerosTres = ejs.slice(0, 3);
+          const restantes = numEjercicios - 3;
 
           return (
-            <Pressable
+            <View
               key={r.id}
-              onPress={() => abrirGestionarRutina(r)}
-              style={({ pressed }) => ({
+              style={{
                 backgroundColor: colores.tarjeta,
                 borderRadius: 18,
                 padding: 18,
                 borderWidth: 1,
                 borderColor: colores.borde,
                 gap: 14,
-                opacity: pressed ? 0.9 : 1,
                 shadowColor: '#000',
                 shadowOffset: { width: 0, height: 4 },
                 shadowOpacity: 0.2,
                 shadowRadius: 8,
                 elevation: 3,
-              })}
+              }}
             >
               {/* Header de la Tarjeta */}
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
-                  {/* Badge numérico de orden visual */}
+                  {/* Badge numérico / Icono */}
                   <View
                     style={{
-                      width: 42,
-                      height: 42,
-                      borderRadius: 12,
+                      width: 44,
+                      height: 44,
+                      borderRadius: 14,
                       backgroundColor: colores.primarioSuave,
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -153,7 +288,7 @@ export default function Rutinas() {
                       borderColor: colores.primarioGlow,
                     }}
                   >
-                    <Ionicons name="barbell-outline" size={20} color={colores.primarioHover} />
+                    <Ionicons name="barbell-outline" size={22} color={colores.primarioHover} />
                   </View>
 
                   <View style={{ flex: 1 }}>
@@ -161,114 +296,147 @@ export default function Rutinas() {
                       {r.nombre}
                     </Text>
                     <Text style={{ fontSize: 12, color: colores.suave, fontFamily: fuentes.bold }}>
-                      Programa #{idx + 1}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Flecha / Indicador de Acción */}
-                <View
-                  style={{
-                    backgroundColor: colores.fondo,
-                    width: 32,
-                    height: 32,
-                    borderRadius: 16,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderWidth: 1,
-                    borderColor: colores.borde,
-                  }}
-                >
-                  <Ionicons name="chevron-forward" size={18} color={colores.suave} />
-                </View>
-              </View>
-
-              {/* Estadísticas Totales (Ejercicios + Series Totales) */}
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                {/* Chip Ejercicios */}
-                <View
-                  style={{
-                    flex: 1,
-                    backgroundColor: colores.fondo,
-                    borderRadius: 12,
-                    paddingVertical: 10,
-                    paddingHorizontal: 12,
-                    borderWidth: 1,
-                    borderColor: colores.borde,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 8,
-                  }}
-                >
-                  <Ionicons name="list-outline" size={16} color={colores.primarioHover} />
-                  <View>
-                    <Text style={{ color: colores.texto, fontFamily: fuentes.black, fontSize: 14 }}>
-                      {numEjercicios}
-                    </Text>
-                    <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold }}>
-                      {numEjercicios === 1 ? 'Ejercicio' : 'Ejercicios'}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Chip Series Totales */}
-                <View
-                  style={{
-                    flex: 1,
-                    backgroundColor: colores.fondo,
-                    borderRadius: 12,
-                    paddingVertical: 10,
-                    paddingHorizontal: 12,
-                    borderWidth: 1,
-                    borderColor: colores.borde,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 8,
-                  }}
-                >
-                  <Ionicons name="repeat-outline" size={16} color={colores.primarioHover} />
-                  <View>
-                    <Text style={{ color: colores.texto, fontFamily: fuentes.black, fontSize: 14 }}>
-                      {totalSeries}
-                    </Text>
-                    <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold }}>
-                      {totalSeries === 1 ? 'Serie Total' : 'Series Totales'}
+                      Programa #{idx + 1} • {numEjercicios} {numEjercicios === 1 ? 'ejercicio' : 'ejercicios'} ({totalSeries} series)
                     </Text>
                   </View>
                 </View>
               </View>
 
-              {/* Footer con Botón Programar en Semana */}
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 2 }}>
-                <Text style={{ color: colores.suave, fontSize: 11, fontFamily: fuentes.bold }}>
-                  Toca para gestionar o editar
-                </Text>
+              {/* Vista Previa de los Primeros Ejercicios */}
+              {numEjercicios > 0 && (
+                <View
+                  style={{
+                    backgroundColor: colores.fondo,
+                    borderRadius: 12,
+                    padding: 12,
+                    gap: 6,
+                    borderWidth: 1,
+                    borderColor: colores.borde,
+                  }}
+                >
+                  {primerosTres.map((ej) => {
+                    const nombreLimpio = ej.nombre.replace(/\s*\(.*\)$/, '').trim();
+                    return (
+                      <View key={ej.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Ionicons name="fitness-outline" size={14} color={colores.primarioHover} />
+                        <Text style={{ fontSize: 13, color: colores.texto, fontFamily: fuentes.medium, flex: 1 }} numberOfLines={1}>
+                          {nombreLimpio}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: colores.suave, fontFamily: fuentes.bold }}>
+                          {ej.series || 1} {ej.series === 1 ? 'serie' : 'series'}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                  {restantes > 0 && (
+                    <Text style={{ fontSize: 11, color: colores.suave, fontFamily: fuentes.bold, marginTop: 2, fontStyle: 'italic' }}>
+                      + {restantes} {restantes === 1 ? 'ejercicio adicional' : 'ejercicios adicionales'}
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {/* BARRA DE ACCIONES BLINDADA Y COMPLETA */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  paddingTop: 4,
+                  borderTopWidth: 1,
+                  borderTopColor: colores.borde,
+                }}
+              >
+                {/* 1. Programar en Semana */}
                 <Pressable
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    setElegidaParaSemana(r);
-                  }}
-                  hitSlop={8}
+                  onPress={() => setElegidaParaSemana(r)}
                   style={({ pressed }) => ({
+                    flex: 1.2,
                     backgroundColor: colores.primarioSuave,
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 8,
+                    paddingVertical: 9,
+                    paddingHorizontal: 10,
+                    borderRadius: 10,
                     borderWidth: 1,
                     borderColor: colores.primarioGlow,
-                    opacity: pressed ? 0.7 : 1,
+                    opacity: pressed ? 0.75 : 1,
                     flexDirection: 'row',
                     alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 5,
+                  })}
+                >
+                  <Ionicons name="calendar-outline" size={15} color={colores.primarioHover} />
+                  <Text style={{ color: colores.primarioHover, fontFamily: fuentes.bold, fontSize: 12 }}>
+                    Programar
+                  </Text>
+                </Pressable>
+
+                {/* 2. Clonar / Duplicar */}
+                <Pressable
+                  onPress={() => clonarRutina(r)}
+                  style={({ pressed }) => ({
+                    backgroundColor: colores.fondo,
+                    paddingVertical: 9,
+                    paddingHorizontal: 12,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: colores.borde,
+                    opacity: pressed ? 0.75 : 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     gap: 4,
                   })}
                 >
-                  <Ionicons name="calendar-outline" size={13} color={colores.primarioHover} />
-                  <Text style={{ color: colores.primarioHover, fontFamily: fuentes.bold, fontSize: 11 }}>
-                    + Programar
+                  <Ionicons name="copy-outline" size={15} color={colores.texto} />
+                  <Text style={{ color: colores.texto, fontFamily: fuentes.medium, fontSize: 12 }}>
+                    Clonar
                   </Text>
                 </Pressable>
+
+                {/* 3. Editar */}
+                <Pressable
+                  onPress={() => abrirGestionarRutina(r)}
+                  style={({ pressed }) => ({
+                    backgroundColor: colores.fondo,
+                    paddingVertical: 9,
+                    paddingHorizontal: 12,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: colores.borde,
+                    opacity: pressed ? 0.75 : 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 4,
+                  })}
+                >
+                  <Ionicons name="create-outline" size={15} color={colores.texto} />
+                  <Text style={{ color: colores.texto, fontFamily: fuentes.medium, fontSize: 12 }}>
+                    Editar
+                  </Text>
+                </Pressable>
+
+                {/* 4. ELIMINAR RUTINA (Directo con Confirmación) */}
+                <Pressable
+                  onPress={() => confirmarEliminarRutina(r)}
+                  hitSlop={6}
+                  style={({ pressed }) => ({
+                    backgroundColor: colores.peligro + '18',
+                    paddingVertical: 9,
+                    paddingHorizontal: 11,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: colores.peligro + '40',
+                    opacity: pressed ? 0.75 : 1,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  })}
+                >
+                  <Ionicons name="trash-outline" size={16} color={colores.peligro} />
+                </Pressable>
               </View>
-            </Pressable>
+            </View>
           );
         })}
       </ScrollView>
@@ -293,7 +461,7 @@ export default function Rutinas() {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <View>
                 <Text style={{ color: colores.primarioHover, fontSize: 11, fontFamily: fuentes.bold, textTransform: 'uppercase', letterSpacing: 1 }}>
-                  PROGRAMAR RUTINA
+                  PROGRAMAR RUTINA EN CALENDARIO
                 </Text>
                 <Text style={{ fontSize: 18, fontFamily: fuentes.black, color: colores.texto }}>
                   "{elegidaParaSemana?.nombre}"
@@ -356,4 +524,5 @@ export default function Rutinas() {
     </SafeAreaView>
   );
 }
+
 

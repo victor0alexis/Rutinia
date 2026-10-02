@@ -74,11 +74,42 @@ export async function crearRutina(nombre: string, ejercicios: EjercicioNuevo[]) 
 }
 
 export async function eliminarRutina(id: string) {
+  // 1. Eliminar primero los ejercicios pertenecientes a la rutina para evitar errores FK
+  try {
+    await supabase.from('ejercicios_rutina').delete().eq('rutina_id', id);
+  } catch (err) {
+    console.warn('Advertencia al borrar ejercicios_rutina:', err);
+  }
+
+  // 2. Desvincular o limpiar registros de rutina si existen
+  try {
+    await supabase.from('registros_rutina').delete().eq('rutina_id', id);
+  } catch (err) {
+    console.warn('Advertencia al desvincular registros_rutina:', err);
+  }
+
+  // 3. Eliminar la rutina principal
   const { error } = await supabase.from('rutinas').delete().eq('id', id);
   if (error) throw error;
-  // Actualizar caché local: remover la rutina eliminada
+
+  // 4. Actualizar el caché local
   const rutinasCache = (await obtenerCacheLocal<Rutina[]>('rutinas')) || [];
   await guardarCacheLocal('rutinas', rutinasCache.filter((r) => r.id !== id));
+}
+
+export async function duplicarRutina(rutina: Rutina) {
+  const nuevosEjercicios: EjercicioNuevo[] = (rutina.ejercicios_rutina || []).map((e) => {
+    // Extraer el nombre base del ejercicio eliminando resumen de series previo si lo tiene
+    const nombreBase = e.nombre.replace(/\s*\(.*\)$/, '').trim();
+    return {
+      nombre: nombreBase || e.nombre,
+      series: e.series,
+      repeticiones: e.repeticiones,
+      peso: e.peso,
+    };
+  });
+
+  await crearRutina(`${rutina.nombre} (Copia)`, nuevosEjercicios);
 }
 
 // Actualizar nombre y ejercicios de una rutina existente sin eliminarla,
