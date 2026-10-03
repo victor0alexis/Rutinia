@@ -10,8 +10,11 @@ import {
   Text,
   TextInput,
   View,
+  StyleSheet,
 } from 'react-native';
 import { colores, fuentes } from '../constants/colores';
+import ScreenBackground from './ScreenBackground';
+import GlowButton from './GlowButton';
 import { NotaEstandar, obtenerNotasEstandar } from '../services/notas';
 import {
   agregarActividad,
@@ -35,13 +38,13 @@ type Props = {
 };
 
 const PALETA_NOTAS = [
-  { border: '#6366F1', bg: 'rgba(99,102,241,0.10)' },
-  { border: '#10B981', bg: 'rgba(16,185,129,0.10)' },
-  { border: '#F59E0B', bg: 'rgba(245,158,11,0.10)' },
-  { border: '#EC4899', bg: 'rgba(236,72,153,0.10)' },
-  { border: '#3B82F6', bg: 'rgba(59,130,246,0.10)' },
-  { border: '#A855F7', bg: 'rgba(168,85,247,0.10)' },
-  { border: '#14B8A6', bg: 'rgba(20,184,166,0.10)' },
+  { border: '#6366F1', bg: 'rgba(99,102,241,0.12)' },
+  { border: '#10B981', bg: 'rgba(16,185,129,0.12)' },
+  { border: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
+  { border: '#EC4899', bg: 'rgba(236,72,153,0.12)' },
+  { border: '#3B82F6', bg: 'rgba(59,130,246,0.12)' },
+  { border: '#A855F7', bg: 'rgba(168,85,247,0.12)' },
+  { border: '#14B8A6', bg: 'rgba(20,184,166,0.12)' },
 ];
 
 const num = (t: string) => (t.trim() ? Number(t) : null);
@@ -70,7 +73,7 @@ export function parsearNotaInteligente(rawText: string) {
 
   // Estilos e Iconos por Categoría
   let colorBadge = colores.hoy;
-  let bgBadge = colores.hoy + '20';
+  let bgBadge = 'rgba(217, 119, 6, 0.20)';
   let iconName: keyof typeof Ionicons.glyphMap = 'document-text-outline';
 
   const catUpper = categoria.toUpperCase();
@@ -213,8 +216,537 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
       Alert.alert('Nota guardada', 'Tu nota ha quedado registrada en la Actividad del Día.');
     });
 
-  const inputStyle = {
-    backgroundColor: colores.fondo,
+  return (
+    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScreenBackground>
+          <View
+            style={{
+              flex: 1,
+              paddingTop: Platform.OS === 'ios' ? 50 : 20,
+              paddingHorizontal: 16,
+              gap: 16,
+            }}
+          >
+            {/* Header Pantalla Completa */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8 }}>
+              <View>
+                <Text style={{ color: colores.primarioHover, textTransform: 'uppercase', fontSize: 11, fontFamily: fuentes.bold, letterSpacing: 1.2 }}>
+                  {esHoy ? '🔥 HOY - DETALLE COMPLETO' : 'FECHA PROGRAMADA'}
+                </Text>
+                <Text style={{ color: colores.texto, fontSize: 26, fontFamily: fuentes.black, textTransform: 'capitalize', marginTop: 2 }}>
+                  {nombreDia(fecha)}
+                </Text>
+              </View>
+              <Pressable onPress={onClose} style={styles.closeButton}>
+                <Ionicons name="close" size={22} color={colores.texto} />
+              </Pressable>
+            </View>
+
+            {/* Tabs Selector con Pill Glow Focus */}
+            <View style={styles.tabsContainer}>
+              {[
+                { id: 'actividad', label: 'Actividad', icon: 'flash-outline' },
+                { id: 'rutina', label: '+ Rutina', icon: 'barbell-outline' },
+                { id: 'notas', label: 'Notas', icon: 'create-outline' },
+              ].map((item) => {
+                const active = tab === item.id;
+                return (
+                  <Pressable
+                    key={item.id}
+                    onPress={() => setTab(item.id as any)}
+                    style={[
+                      styles.tabItemButton,
+                      {
+                        backgroundColor: active ? colores.tarjeta : 'transparent',
+                        borderColor: active ? colores.bordeBrillante : 'transparent',
+                      },
+                    ]}
+                  >
+                    <Ionicons name={item.icon as any} size={16} color={active ? colores.primarioHover : colores.suave} />
+                    <Text style={{ color: active ? colores.texto : colores.suave, fontFamily: active ? fuentes.black : fuentes.bold, fontSize: 11 }}>
+                      {item.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* Contenido Dinámico con Scroll e integración con teclado */}
+            <ScrollView
+              contentContainerStyle={{ gap: 18, paddingBottom: 50 }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {/* PANEL 1: Actividad del Día */}
+              {tab === 'actividad' && (
+                <View style={{ gap: 22 }}>
+                  {/* ────── SECCIÓN: NOTAS DEL DÍA ────── */}
+                  <View style={{ gap: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(16,185,129,0.30)' }} />
+                      <Pressable
+                        onPress={() => setTab('notas')}
+                        style={styles.sectionHeaderBadgeGreen}
+                      >
+                        <Ionicons name="document-text-outline" size={13} color="#10B981" />
+                        <Text style={{ color: '#10B981', fontSize: 11, fontFamily: fuentes.bold, textTransform: 'uppercase', letterSpacing: 1 }}>
+                          Notas{notasDelDia.length > 0 ? `  ·  ${notasDelDia.length}` : ''}
+                        </Text>
+                        <Text style={{ color: 'rgba(16,185,129,0.65)', fontSize: 11, fontFamily: fuentes.bold }}>+ Añadir</Text>
+                      </Pressable>
+                      <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(16,185,129,0.30)' }} />
+                    </View>
+
+                    {notasDelDia.length === 0 ? (
+                      <View style={styles.emptyDashedBox}>
+                        <Text style={{ color: colores.suave, fontStyle: 'italic', fontSize: 13, fontFamily: fuentes.regular }}>Sin notas registradas para este día.</Text>
+                      </View>
+                    ) : (
+                      notasDelDia.map((n, idx) => {
+                        const { categoria, titulo, cuerpo, iconName } = parsearNotaInteligente(n.nombre);
+                        const pal = PALETA_NOTAS[idx % PALETA_NOTAS.length];
+                        return (
+                          <View
+                            key={n.id}
+                            style={[
+                              styles.noteCardBox,
+                              {
+                                backgroundColor: pal.bg,
+                                borderColor: pal.border + '45',
+                                borderLeftColor: pal.border,
+                              },
+                            ]}
+                          >
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, paddingRight: 10 }}>
+                                <View
+                                  style={{
+                                    width: 34,
+                                    height: 34,
+                                    borderRadius: 10,
+                                    backgroundColor: pal.border + '20',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    borderWidth: 1,
+                                    borderColor: pal.border + '40',
+                                  }}
+                                >
+                                  <Ionicons name={iconName} size={16} color={pal.border} />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={{ color: pal.border, fontSize: 10, fontFamily: fuentes.bold, textTransform: 'uppercase', letterSpacing: 1 }}>
+                                    {categoria}
+                                  </Text>
+                                  <Text style={{ color: colores.texto, fontSize: 15, fontFamily: fuentes.black, marginTop: 1 }} numberOfLines={2}>
+                                    {titulo}
+                                  </Text>
+                                </View>
+                              </View>
+                              <Pressable
+                                onPress={() => quitarEjercicioSolo(n)}
+                                hitSlop={12}
+                                style={{ backgroundColor: 'rgba(220,38,38,0.16)', borderRadius: 8, padding: 6 }}
+                              >
+                                <Ionicons name="trash-outline" size={16} color={colores.peligro} />
+                              </Pressable>
+                            </View>
+                            {cuerpo ? (
+                              <Text style={{ color: colores.suave, fontSize: 13, lineHeight: 20, paddingLeft: 44, fontFamily: fuentes.regular }}>
+                                {cuerpo}
+                              </Text>
+                            ) : null}
+                          </View>
+                        );
+                      })
+                    )}
+                  </View>
+
+                  {/* ────── SECCIÓN: ENTRENAMIENTOS DEL DÍA ────── */}
+                  <View style={{ gap: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View style={{ flex: 1, height: 1, backgroundColor: colores.primarioGlow }} />
+                      <Pressable
+                        onPress={() => setTab('rutina')}
+                        style={styles.sectionHeaderBadgeRed}
+                      >
+                        <Ionicons name="barbell-outline" size={13} color={colores.primarioHover} />
+                        <Text style={{ color: colores.primarioHover, fontSize: 11, fontFamily: fuentes.bold, textTransform: 'uppercase', letterSpacing: 1 }}>
+                          Entrenamientos{ejerciciosPure.length > 0 ? `  ·  ${ejerciciosPure.length}` : ''}
+                        </Text>
+                        <Text style={{ color: colores.primarioHover + 'AA', fontSize: 11, fontFamily: fuentes.bold }}>+ Añadir</Text>
+                      </Pressable>
+                      <View style={{ flex: 1, height: 1, backgroundColor: colores.primarioGlow }} />
+                    </View>
+
+                    {registros.length === 0 && ejerciciosPure.length === 0 ? (
+                      <View style={styles.emptyDashedBox}>
+                        <Ionicons name="fitness-outline" size={30} color={colores.suave} />
+                        <Text style={{ color: colores.suave, fontStyle: 'italic', fontSize: 13, fontFamily: fuentes.regular }}>No hay rutinas ni ejercicios asignados a este día.</Text>
+                      </View>
+                    ) : (
+                      registros.map((r) => {
+                        const ejsEntrenamiento = (r.ejercicios_registro || []).filter((e) => !e.nombre.startsWith('📌'));
+                        const tieneRutina = Boolean(r.rutina_id || r.rutinas?.nombre);
+                        if (!tieneRutina && ejsEntrenamiento.length === 0) return null;
+
+                        const nombreMostrar = r.rutinas?.nombre || 'Rutina Vinculada';
+
+                        return (
+                          <View key={r.id} style={styles.workoutContainerCard}>
+                            {tieneRutina ? (
+                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colores.borde, paddingBottom: 10 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                  <View style={styles.workoutIconBox}>
+                                    <Ionicons name="barbell-outline" size={16} color={colores.primarioHover} />
+                                  </View>
+                                  <Text style={{ color: colores.primarioHover, fontFamily: fuentes.black, fontSize: 15 }} numberOfLines={1}>
+                                    {nombreMostrar}
+                                  </Text>
+                                </View>
+                                <Pressable
+                                  onPress={() => desvincularRutinaCompleta(r)}
+                                  style={styles.unlinkButton}
+                                >
+                                  <Ionicons name="trash-outline" size={13} color={colores.peligro} />
+                                  <Text style={{ color: colores.peligro, fontFamily: fuentes.bold, fontSize: 11 }}>Desvincular</Text>
+                                </Pressable>
+                              </View>
+                            ) : null}
+
+                            {ejsEntrenamiento.map((e) => (
+                              <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
+                                <Pressable onPress={() => alternar(e)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                                  <Ionicons
+                                    name={e.completado ? 'checkmark-circle' : 'ellipse-outline'}
+                                    size={24}
+                                    color={e.completado ? colores.exito : colores.suave}
+                                  />
+                                  <View style={{ flex: 1 }}>
+                                    <Text
+                                      style={{
+                                        color: e.completado ? colores.suave : colores.texto,
+                                        fontSize: 15,
+                                        fontFamily: fuentes.bold,
+                                        textDecorationLine: e.completado ? 'line-through' : 'none',
+                                      }}
+                                    >
+                                      {e.nombre}
+                                    </Text>
+                                    {(e.series || e.repeticiones || e.peso) && (
+                                      <Text style={{ color: colores.suave, fontSize: 12, marginTop: 2, fontFamily: fuentes.regular }}>
+                                        {[e.series && e.repeticiones ? `${e.series} series × ${e.repeticiones} reps` : null, e.peso ? `${e.peso} kg` : null]
+                                          .filter(Boolean)
+                                          .join('  •  ')}
+                                      </Text>
+                                    )}
+                                  </View>
+                                </Pressable>
+                                <Pressable onPress={() => quitarEjercicioSolo(e)} hitSlop={10} style={{ padding: 6 }}>
+                                  <Ionicons name="close-circle-outline" size={20} color={colores.suave} />
+                                </Pressable>
+                              </View>
+                            ))}
+                          </View>
+                        );
+                      })
+                    )}
+                  </View>
+                </View>
+              )}
+
+              {/* PANEL 2: + Rutina / Ejercicio */}
+              {tab === 'rutina' && (
+                <View style={{ gap: 16 }}>
+                  <Text style={styles.sectionLabelText}>
+                    Añadir Ejercicio Rápido al Día
+                  </Text>
+                  <View style={styles.quickFormBox}>
+                    <TextInput
+                      placeholder="Nombre del ejercicio (ej. Sentadillas)"
+                      placeholderTextColor={colores.suave}
+                      value={nombreActividad}
+                      onChangeText={setNombreActividad}
+                      style={styles.inputBase}
+                    />
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      <TextInput
+                        placeholder="Series"
+                        placeholderTextColor={colores.suave}
+                        keyboardType="numeric"
+                        value={series}
+                        onChangeText={setSeries}
+                        style={styles.subInputBase}
+                      />
+                      <TextInput
+                        placeholder="Reps"
+                        placeholderTextColor={colores.suave}
+                        keyboardType="numeric"
+                        value={reps}
+                        onChangeText={setReps}
+                        style={styles.subInputBase}
+                      />
+                      <TextInput
+                        placeholder="Kg"
+                        placeholderTextColor={colores.suave}
+                        keyboardType="numeric"
+                        value={peso}
+                        onChangeText={setPeso}
+                        style={styles.subInputBase}
+                      />
+                    </View>
+                    <GlowButton
+                      title="+ Guardar Ejercicio en el Día"
+                      onPress={guardarActividadIndependiente}
+                      variant="primary"
+                      size="md"
+                      shape="rounded"
+                      fullWidth
+                    />
+                  </View>
+
+                  <Text style={[styles.sectionLabelText, { marginTop: 6 }]}>
+                    Vincular Rutinas Preexistentes
+                  </Text>
+
+                  {rutinas.length === 0 ? (
+                    <Text style={{ color: colores.suave, fontStyle: 'italic', fontFamily: fuentes.regular }}>No tienes rutinas creadas aún. Dirígete a la pestaña &apos;Rutinas&apos;.</Text>
+                  ) : (
+                    rutinas.map((rut) => {
+                      const estaExpandida = rutinaExpandida === rut.id;
+                      return (
+                        <View key={rut.id} style={styles.routineAccordionCard}>
+                          <View style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Pressable onPress={() => setRutinaExpandida(estaExpandida ? null : rut.id)} style={{ flex: 1 }}>
+                              <Text style={{ color: colores.texto, fontSize: 17, fontFamily: fuentes.black }}>{rut.nombre}</Text>
+                              <Text style={{ color: colores.suave, fontSize: 12, marginTop: 2, fontFamily: fuentes.regular }}>
+                                {rut.ejercicios_rutina?.length || 0} ejercicios • Toca para desplegar
+                              </Text>
+                            </Pressable>
+                            <GlowButton
+                              title="+ Toda"
+                              onPress={() => vincularRutinaEntera(rut)}
+                              variant="primary"
+                              size="sm"
+                              shape="pill"
+                            />
+                          </View>
+
+                          {estaExpandida && (
+                            <View style={styles.accordionBody}>
+                              <Text style={{ color: colores.suave, fontSize: 11, fontFamily: fuentes.bold, textTransform: 'uppercase' }}>
+                                Seleccionar ejercicio individual:
+                              </Text>
+                              {rut.ejercicios_rutina.map((ej) => (
+                                <View key={ej.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <View style={{ flex: 1 }}>
+                                    <Text style={{ color: colores.texto, fontSize: 14, fontFamily: fuentes.bold }}>{ej.nombre}</Text>
+                                    <Text style={{ color: colores.suave, fontSize: 11, fontFamily: fuentes.regular }}>
+                                      {ej.series && ej.repeticiones ? `${ej.series}×${ej.repeticiones}` : ''} {ej.peso ? `• ${ej.peso}kg` : ''}
+                                    </Text>
+                                  </View>
+                                  <GlowButton
+                                    title="+ Solo este"
+                                    onPress={() => vincularEjercicioIndividual(ej)}
+                                    variant="outline"
+                                    size="sm"
+                                    shape="pill"
+                                  />
+                                </View>
+                              ))}
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })
+                  )}
+                </View>
+              )}
+
+              {/* PANEL 3: Notas */}
+              {tab === 'notas' && (
+                <View style={{ gap: 16 }}>
+                  <Text style={styles.sectionLabelText}>
+                    Elegir de la Biblioteca de Notas
+                  </Text>
+
+                  {notasBiblioteca.length === 0 ? (
+                    <Text style={{ color: colores.suave, fontStyle: 'italic', fontSize: 13, fontFamily: fuentes.regular }}>
+                      No tienes notas estandarizadas. Crea plantillas en la pestaña &apos;Notas&apos;.
+                    </Text>
+                  ) : (
+                    notasBiblioteca.map((n) => (
+                      <View key={n.id} style={styles.libraryNoteCard}>
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <View style={styles.libraryNoteCategoryBadge}>
+                            <Text style={{ color: colores.primarioHover, fontSize: 10, fontFamily: fuentes.bold }}>{n.categoria}</Text>
+                          </View>
+                          <Text style={{ color: colores.texto, fontSize: 15, fontFamily: fuentes.black }}>{n.titulo}</Text>
+                          <Text numberOfLines={2} style={{ color: colores.suave, fontSize: 12, fontFamily: fuentes.regular }}>
+                            {n.contenido}
+                          </Text>
+                        </View>
+
+                        <GlowButton
+                          title="+ Añadir"
+                          onPress={() => vincularNotaEstandar(n)}
+                          variant="primary"
+                          size="sm"
+                          shape="pill"
+                        />
+                      </View>
+                    ))
+                  )}
+
+                  <Text style={[styles.sectionLabelText, { marginTop: 8 }]}>
+                    O redactar Nota Ad-hoc para este día
+                  </Text>
+                  <View style={styles.quickFormBox}>
+                    <TextInput
+                      placeholder="Escribe anotaciones rápidas exclusivas para esta fecha..."
+                      placeholderTextColor={colores.suave}
+                      multiline
+                      numberOfLines={4}
+                      value={nuevaNotaAdHoc}
+                      onChangeText={setNuevaNotaAdHoc}
+                      style={[styles.inputBase, { height: 90, textAlignVertical: 'top' }]}
+                    />
+                    <GlowButton
+                      title="Guardar Nota Ad-hoc"
+                      onPress={guardarNotaSubmit}
+                      variant="primary"
+                      size="md"
+                      shape="rounded"
+                      fullWidth
+                    />
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </ScreenBackground>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  closeButton: {
+    backgroundColor: colores.tarjeta,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colores.borde,
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(10, 12, 18, 0.60)',
+    borderRadius: 14,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: colores.borde,
+  },
+  tabItemButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  sectionHeaderBadgeGreen: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: 'rgba(16,185,129,0.12)',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.35)',
+  },
+  sectionHeaderBadgeRed: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: colores.primarioSuave,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colores.primarioGlow,
+  },
+  emptyDashedBox: {
+    backgroundColor: colores.tarjeta,
+    padding: 18,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    gap: 6,
+  },
+  noteCardBox: {
+    borderRadius: 16,
+    padding: 16,
+    gap: 10,
+    borderWidth: 1,
+    borderLeftWidth: 3,
+  },
+  workoutContainerCard: {
+    backgroundColor: colores.tarjeta,
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: colores.borde,
+  },
+  workoutIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: colores.primarioSuave,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colores.primarioGlow,
+  },
+  unlinkButton: {
+    backgroundColor: 'rgba(220, 38, 38, 0.16)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(220, 38, 38, 0.35)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  sectionLabelText: {
+    color: colores.suave,
+    fontFamily: fuentes.bold,
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  quickFormBox: {
+    backgroundColor: colores.tarjeta,
+    padding: 16,
+    borderRadius: 16,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: colores.borde,
+  },
+  inputBase: {
+    backgroundColor: 'rgba(10, 12, 18, 0.60)',
     borderColor: colores.borde,
     borderWidth: 1,
     borderRadius: 10,
@@ -222,10 +754,10 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
     paddingVertical: 10,
     color: colores.texto,
     fontSize: 15,
-  };
-
-  const subInputStyle = {
-    backgroundColor: colores.fondo,
+    fontFamily: fuentes.regular,
+  },
+  subInputBase: {
+    backgroundColor: 'rgba(10, 12, 18, 0.60)',
     borderColor: colores.borde,
     borderWidth: 1,
     borderRadius: 10,
@@ -233,526 +765,41 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
     paddingVertical: 8,
     color: colores.texto,
     fontSize: 13,
-    textAlign: 'center' as const,
+    textAlign: 'center',
     flex: 1,
     minWidth: 0,
-  };
-
-  return (
-    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, backgroundColor: colores.fondo }}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: colores.fondo,
-            paddingTop: Platform.OS === 'ios' ? 50 : 20,
-            paddingHorizontal: 20,
-            gap: 16,
-          }}
-        >
-          {/* Header Pantalla Completa */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8 }}>
-            <View>
-              <Text style={{ color: colores.primarioHover, textTransform: 'uppercase', fontSize: 11, fontFamily: fuentes?.bold || 'System', letterSpacing: 1.2 }}>
-                {esHoy ? '🔥 HOY - DETALLE COMPLETO' : 'FECHA PROGRAMADA'}
-              </Text>
-              <Text style={{ color: colores.texto, fontSize: 26, fontFamily: fuentes?.black || 'System', textTransform: 'capitalize', marginTop: 2 }}>
-                {nombreDia(fecha)}
-              </Text>
-            </View>
-            <Pressable
-              onPress={onClose}
-              style={{
-                backgroundColor: colores.tarjeta,
-                width: 42,
-                height: 42,
-                borderRadius: 21,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderWidth: 1,
-                borderColor: colores.borde,
-              }}
-            >
-              <Ionicons name="close" size={22} color={colores.texto} />
-            </Pressable>
-          </View>
-
-          {/* Tabs Selector */}
-          <View
-            style={{
-              flexDirection: 'row',
-              backgroundColor: colores.fondo,
-              borderRadius: 14,
-              padding: 4,
-              borderWidth: 1,
-              borderColor: colores.borde,
-            }}
-          >
-            {[
-              { id: 'actividad', label: 'Actividad', icon: 'flash-outline' },
-              { id: 'rutina', label: '+ Rutina', icon: 'barbell-outline' },
-              { id: 'notas', label: 'Notas', icon: 'create-outline' },
-            ].map((item) => {
-              const active = tab === item.id;
-              return (
-                <Pressable
-                  key={item.id}
-                  onPress={() => setTab(item.id as any)}
-                  style={{
-                    flex: 1,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6,
-                    paddingVertical: 10,
-                    borderRadius: 10,
-                    backgroundColor: active ? colores.tarjeta : 'transparent',
-                    borderWidth: active ? 1 : 0,
-                    borderColor: active ? colores.borde : 'transparent',
-                  }}
-                >
-                  <Ionicons name={item.icon as any} size={16} color={active ? colores.primarioHover : colores.suave} />
-                  <Text style={{ color: active ? colores.texto : colores.suave, fontWeight: active ? '800' : '600', fontSize: 11 }}>
-                    {item.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          {/* Contenido Dinámico con Scroll e integración con teclado */}
-          <ScrollView
-            contentContainerStyle={{ gap: 18, paddingBottom: 40 }}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            {/* PANEL 1: Actividad del Día */}
-            {tab === 'actividad' && (
-              <View style={{ gap: 22 }}>
-
-                {/* ────── SECCIÓN: NOTAS DEL DÍA ────── */}
-                <View style={{ gap: 12 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(16,185,129,0.30)' }} />
-                    <Pressable
-                      onPress={() => setTab('notas')}
-                      style={{
-                        flexDirection: 'row', alignItems: 'center', gap: 7,
-                        backgroundColor: 'rgba(16,185,129,0.11)',
-                        paddingHorizontal: 14, paddingVertical: 7,
-                        borderRadius: 20, borderWidth: 1,
-                        borderColor: 'rgba(16,185,129,0.35)',
-                      }}
-                    >
-                      <Ionicons name="document-text-outline" size={13} color="#10B981" />
-                      <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 }}>
-                        Notas{notasDelDia.length > 0 ? `  ·  ${notasDelDia.length}` : ''}
-                      </Text>
-                      <Text style={{ color: 'rgba(16,185,129,0.65)', fontSize: 11, fontWeight: '700' }}>+ Añadir</Text>
-                    </Pressable>
-                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(16,185,129,0.30)' }} />
-                  </View>
-
-                  {notasDelDia.length === 0 ? (
-                    <View style={{ backgroundColor: colores.tarjeta, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: colores.borde, borderStyle: 'dashed', alignItems: 'center' }}>
-                      <Text style={{ color: colores.suave, fontStyle: 'italic', fontSize: 13 }}>Sin notas registradas para este día.</Text>
-                    </View>
-                  ) : (
-                    notasDelDia.map((n, idx) => {
-                      const { categoria, titulo, cuerpo, iconName } = parsearNotaInteligente(n.nombre);
-                      const pal = PALETA_NOTAS[idx % PALETA_NOTAS.length];
-                      return (
-                        <View
-                          key={n.id}
-                          style={{
-                            backgroundColor: pal.bg,
-                            borderRadius: 16,
-                            padding: 16,
-                            gap: 10,
-                            borderWidth: 1,
-                            borderColor: pal.border + '45',
-                            borderLeftWidth: 3,
-                            borderLeftColor: pal.border,
-                          }}
-                        >
-                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, paddingRight: 10 }}>
-                              <View style={{
-                                width: 34, height: 34, borderRadius: 10,
-                                backgroundColor: pal.border + '20',
-                                alignItems: 'center', justifyContent: 'center',
-                                borderWidth: 1, borderColor: pal.border + '40',
-                              }}>
-                                <Ionicons name={iconName} size={16} color={pal.border} />
-                              </View>
-                              <View style={{ flex: 1 }}>
-                                <Text style={{ color: pal.border, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 }}>
-                                  {categoria}
-                                </Text>
-                                <Text style={{ color: colores.texto, fontSize: 15, fontWeight: '800', marginTop: 1 }} numberOfLines={2}>
-                                  {titulo}
-                                </Text>
-                              </View>
-                            </View>
-                            <Pressable
-                              onPress={() => quitarEjercicioSolo(n)}
-                              hitSlop={12}
-                              style={{ backgroundColor: 'rgba(220,38,38,0.12)', borderRadius: 8, padding: 6 }}
-                            >
-                              <Ionicons name="trash-outline" size={16} color={colores.peligro} />
-                            </Pressable>
-                          </View>
-                          {cuerpo ? (
-                            <Text style={{ color: colores.suave, fontSize: 13, lineHeight: 20, paddingLeft: 44 }}>
-                              {cuerpo}
-                            </Text>
-                          ) : null}
-                        </View>
-                      );
-                    })
-                  )}
-                </View>
-
-                {/* ────── SECCIÓN: ENTRENAMIENTOS DEL DÍA ────── */}
-                <View style={{ gap: 12 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <View style={{ flex: 1, height: 1, backgroundColor: colores.primario + '60' }} />
-                    <Pressable
-                      onPress={() => setTab('rutina')}
-                      style={{
-                        flexDirection: 'row', alignItems: 'center', gap: 7,
-                        backgroundColor: colores.primarioSuave,
-                        paddingHorizontal: 14, paddingVertical: 7,
-                        borderRadius: 20, borderWidth: 1,
-                        borderColor: colores.primarioGlow,
-                      }}
-                    >
-                      <Ionicons name="barbell-outline" size={13} color={colores.primarioHover} />
-                      <Text style={{ color: colores.primarioHover, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 }}>
-                        Entrenamientos{ejerciciosPure.length > 0 ? `  ·  ${ejerciciosPure.length}` : ''}
-                      </Text>
-                      <Text style={{ color: colores.primarioHover + 'AA', fontSize: 11, fontWeight: '700' }}>+ Añadir</Text>
-                    </Pressable>
-                    <View style={{ flex: 1, height: 1, backgroundColor: colores.primario + '60' }} />
-                  </View>
-
-                  {registros.length === 0 && ejerciciosPure.length === 0 ? (
-                    <View style={{ backgroundColor: colores.tarjeta, padding: 20, borderRadius: 16, alignItems: 'center', gap: 6, borderWidth: 1, borderColor: colores.borde, borderStyle: 'dashed' }}>
-                      <Ionicons name="fitness-outline" size={30} color={colores.suave} />
-                      <Text style={{ color: colores.suave, fontStyle: 'italic', fontSize: 13 }}>No hay rutinas ni ejercicios asignados a este día.</Text>
-                    </View>
-                  ) : (
-                    registros.map((r) => {
-                      const ejsEntrenamiento = (r.ejercicios_registro || []).filter((e) => !e.nombre.startsWith('📌'));
-                      const tieneRutina = Boolean(r.rutina_id || r.rutinas?.nombre);
-                      if (!tieneRutina && ejsEntrenamiento.length === 0) return null;
-
-                      const nombreMostrar = r.rutinas?.nombre || 'Rutina Vinculada';
-
-                      return (
-                        <View
-                          key={r.id}
-                          style={{
-                            backgroundColor: colores.tarjeta,
-                            borderRadius: 16,
-                            padding: 16,
-                            gap: 12,
-                            borderWidth: 1,
-                            borderColor: colores.borde,
-                          }}
-                        >
-                          {tieneRutina ? (
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colores.borde, paddingBottom: 10 }}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                <View style={{
-                                  width: 34, height: 34, borderRadius: 10,
-                                  backgroundColor: colores.primarioSuave,
-                                  alignItems: 'center', justifyContent: 'center',
-                                  borderWidth: 1, borderColor: colores.primarioGlow,
-                                }}>
-                                  <Ionicons name="barbell-outline" size={16} color={colores.primarioHover} />
-                                </View>
-                                <Text style={{ color: colores.primarioHover, fontWeight: '900', fontSize: 15 }} numberOfLines={1}>
-                                  {nombreMostrar}
-                                </Text>
-                              </View>
-                              <Pressable
-                                onPress={() => desvincularRutinaCompleta(r)}
-                                style={{
-                                  backgroundColor: colores.peligro + '18',
-                                  paddingHorizontal: 10,
-                                  paddingVertical: 6,
-                                  borderRadius: 8,
-                                  borderWidth: 1,
-                                  borderColor: colores.peligro + '35',
-                                  flexDirection: 'row',
-                                  alignItems: 'center',
-                                  gap: 4,
-                                }}
-                              >
-                                <Ionicons name="trash-outline" size={13} color={colores.peligro} />
-                                <Text style={{ color: colores.peligro, fontWeight: '700', fontSize: 11 }}>Desvincular</Text>
-                              </Pressable>
-                            </View>
-                          ) : null}
-
-                          {ejsEntrenamiento.map((e) => (
-                            <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
-                              <Pressable onPress={() => alternar(e)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
-                                <Ionicons
-                                  name={e.completado ? 'checkmark-circle' : 'ellipse-outline'}
-                                  size={24}
-                                  color={e.completado ? colores.exito : colores.suave}
-                                />
-                                <View style={{ flex: 1 }}>
-                                  <Text
-                                    style={{
-                                      color: e.completado ? colores.suave : colores.texto,
-                                      fontSize: 15,
-                                      fontWeight: '700',
-                                      textDecorationLine: e.completado ? 'line-through' : 'none',
-                                    }}
-                                  >
-                                    {e.nombre}
-                                  </Text>
-                                  {(e.series || e.repeticiones || e.peso) && (
-                                    <Text style={{ color: colores.suave, fontSize: 12, marginTop: 2 }}>
-                                      {[e.series && e.repeticiones ? `${e.series} series × ${e.repeticiones} reps` : null, e.peso ? `${e.peso} kg` : null]
-                                        .filter(Boolean)
-                                        .join('  •  ')}
-                                    </Text>
-                                  )}
-                                </View>
-                              </Pressable>
-                              <Pressable onPress={() => quitarEjercicioSolo(e)} hitSlop={10} style={{ padding: 6 }}>
-                                <Ionicons name="close-circle-outline" size={20} color={colores.suave} />
-                              </Pressable>
-                            </View>
-                          ))}
-                        </View>
-                      );
-                    })
-                  )}
-                </View>
-              </View>
-            )}
-
-            {/* PANEL 2: + Rutina / Ejercicio */}
-            {tab === 'rutina' && (
-              <View style={{ gap: 16 }}>
-                <Text style={{ color: colores.suave, fontWeight: '800', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                  Añadir Ejercicio Rápido al Día
-                </Text>
-                <View style={{ backgroundColor: colores.tarjeta, padding: 16, borderRadius: 16, gap: 10, borderWidth: 1, borderColor: colores.borde }}>
-                  <TextInput
-                    placeholder="Nombre del ejercicio (ej. Sentadillas)"
-                    placeholderTextColor={colores.suave}
-                    value={nombreActividad}
-                    onChangeText={setNombreActividad}
-                    style={inputStyle}
-                  />
-                  <View style={{ flexDirection: 'row', gap: 6 }}>
-                    <TextInput
-                      placeholder="Series"
-                      placeholderTextColor={colores.suave}
-                      keyboardType="numeric"
-                      value={series}
-                      onChangeText={setSeries}
-                      style={subInputStyle}
-                    />
-                    <TextInput
-                      placeholder="Reps"
-                      placeholderTextColor={colores.suave}
-                      keyboardType="numeric"
-                      value={reps}
-                      onChangeText={setReps}
-                      style={subInputStyle}
-                    />
-                    <TextInput
-                      placeholder="Kg"
-                      placeholderTextColor={colores.suave}
-                      keyboardType="numeric"
-                      value={peso}
-                      onChangeText={setPeso}
-                      style={subInputStyle}
-                    />
-                  </View>
-                  <Pressable
-                    onPress={guardarActividadIndependiente}
-                    style={{
-                      backgroundColor: colores.primario,
-                      borderRadius: 12,
-                      paddingVertical: 12,
-                      alignItems: 'center',
-                      marginTop: 4,
-                    }}
-                  >
-                    <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 14 }}>+ Guardar Ejercicio en el Día</Text>
-                  </Pressable>
-                </View>
-
-                <Text style={{ color: colores.suave, fontWeight: '800', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 6 }}>
-                  Vincular Rutinas Preexistentes
-                </Text>
-
-                {rutinas.length === 0 ? (
-                  <Text style={{ color: colores.suave, fontStyle: 'italic' }}>No tienes rutinas creadas aún. Dirígete a la pestaña 'Rutinas'.</Text>
-                ) : (
-                  rutinas.map((rut) => {
-                    const estaExpandida = rutinaExpandida === rut.id;
-                    return (
-                      <View
-                        key={rut.id}
-                        style={{
-                          backgroundColor: colores.tarjeta,
-                          borderRadius: 16,
-                          borderWidth: 1,
-                          borderColor: colores.borde,
-                          overflow: 'hidden',
-                        }}
-                      >
-                        <View style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Pressable onPress={() => setRutinaExpandida(estaExpandida ? null : rut.id)} style={{ flex: 1 }}>
-                            <Text style={{ color: colores.texto, fontSize: 17, fontWeight: '800' }}>{rut.nombre}</Text>
-                            <Text style={{ color: colores.suave, fontSize: 12, marginTop: 2 }}>
-                              {rut.ejercicios_rutina?.length || 0} ejercicios • Toca para desplegar
-                            </Text>
-                          </Pressable>
-                          <Pressable
-                            onPress={() => vincularRutinaEntera(rut)}
-                            style={{
-                              backgroundColor: colores.primario,
-                              paddingHorizontal: 14,
-                              paddingVertical: 8,
-                              borderRadius: 10,
-                            }}
-                          >
-                            <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 13 }}>+ Toda la Rutina</Text>
-                          </Pressable>
-                        </View>
-
-                        {estaExpandida && (
-                          <View style={{ borderTopWidth: 1, borderTopColor: colores.borde, backgroundColor: colores.fondo, padding: 14, gap: 10 }}>
-                            <Text style={{ color: colores.suave, fontSize: 11, fontWeight: '800', textTransform: 'uppercase' }}>
-                              Seleccionar ejercicio individual:
-                            </Text>
-                            {rut.ejercicios_rutina.map((ej) => (
-                              <View key={ej.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <View style={{ flex: 1 }}>
-                                  <Text style={{ color: colores.texto, fontSize: 14, fontWeight: '600' }}>{ej.nombre}</Text>
-                                  <Text style={{ color: colores.suave, fontSize: 11 }}>
-                                    {ej.series && ej.repeticiones ? `${ej.series}×${ej.repeticiones}` : ''} {ej.peso ? `• ${ej.peso}kg` : ''}
-                                  </Text>
-                                </View>
-                                <Pressable
-                                  onPress={() => vincularEjercicioIndividual(ej)}
-                                  style={{
-                                    backgroundColor: colores.tarjeta,
-                                    borderWidth: 1,
-                                    borderColor: colores.primarioHover,
-                                    paddingHorizontal: 10,
-                                    paddingVertical: 5,
-                                    borderRadius: 8,
-                                  }}
-                                >
-                                  <Text style={{ color: colores.primarioHover, fontWeight: '700', fontSize: 12 }}>+ Añadir solo este</Text>
-                                </Pressable>
-                              </View>
-                            ))}
-                          </View>
-                        )}
-                      </View>
-                    );
-                  })
-                )}
-              </View>
-            )}
-
-            {/* PANEL 3: Notas */}
-            {tab === 'notas' && (
-              <View style={{ gap: 16 }}>
-                <Text style={{ color: colores.suave, fontWeight: '800', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                  Elegir de la Biblioteca de Notas
-                </Text>
-
-                {notasBiblioteca.length === 0 ? (
-                  <Text style={{ color: colores.suave, fontStyle: 'italic', fontSize: 13 }}>
-                    No tienes notas estandarizadas. Crea plantillas en la pestaña 'Notas'.
-                  </Text>
-                ) : (
-                  notasBiblioteca.map((n) => (
-                    <View
-                      key={n.id}
-                      style={{
-                        backgroundColor: colores.tarjeta,
-                        borderRadius: 14,
-                        padding: 14,
-                        borderWidth: 1,
-                        borderColor: colores.borde,
-                        flexDirection: 'row',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        gap: 10,
-                      }}
-                    >
-                      <View style={{ flex: 1, gap: 2 }}>
-                        <View style={{ backgroundColor: colores.primarioSuave, alignSelf: 'flex-start', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                          <Text style={{ color: colores.primarioHover, fontSize: 10, fontWeight: '800' }}>{n.categoria}</Text>
-                        </View>
-                        <Text style={{ color: colores.texto, fontSize: 15, fontWeight: '800' }}>{n.titulo}</Text>
-                        <Text numberOfLines={2} style={{ color: colores.suave, fontSize: 12 }}>
-                          {n.contenido}
-                        </Text>
-                      </View>
-
-                      <Pressable
-                        onPress={() => vincularNotaEstandar(n)}
-                        style={{
-                          backgroundColor: colores.primario,
-                          paddingHorizontal: 12,
-                          paddingVertical: 8,
-                          borderRadius: 8,
-                        }}
-                      >
-                        <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 12 }}>+ Añadir al Día</Text>
-                      </Pressable>
-                    </View>
-                  ))
-                )}
-
-                <Text style={{ color: colores.suave, fontWeight: '800', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 8 }}>
-                  O redactar Nota Ad-hoc para este día
-                </Text>
-                <View style={{ backgroundColor: colores.tarjeta, padding: 16, borderRadius: 16, gap: 12, borderWidth: 1, borderColor: colores.borde }}>
-                  <TextInput
-                    placeholder="Escribe anotaciones rápidas exclusivas para esta fecha..."
-                    placeholderTextColor={colores.suave}
-                    multiline
-                    numberOfLines={4}
-                    value={nuevaNotaAdHoc}
-                    onChangeText={setNuevaNotaAdHoc}
-                    style={[inputStyle, { height: 90, textAlignVertical: 'top' }]}
-                  />
-                  <Pressable
-                    onPress={guardarNotaSubmit}
-                    style={{
-                      backgroundColor: colores.primarioHover,
-                      borderRadius: 12,
-                      paddingVertical: 12,
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 14 }}>Guardar Nota Ad-hoc</Text>
-                  </Pressable>
-                </View>
-              </View>
-            )}
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-}
+    fontFamily: fuentes.regular,
+  },
+  routineAccordionCard: {
+    backgroundColor: colores.tarjeta,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    overflow: 'hidden',
+  },
+  accordionBody: {
+    borderTopWidth: 1,
+    borderTopColor: colores.borde,
+    backgroundColor: 'rgba(10, 12, 18, 0.60)',
+    padding: 14,
+    gap: 10,
+  },
+  libraryNoteCard: {
+    backgroundColor: colores.tarjeta,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 10,
+  },
+  libraryNoteCategoryBadge: {
+    backgroundColor: colores.primarioSuave,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+});

@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
+import { ScrollView, Text, TextInput, View, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { colores } from '../../constants/colores';
+import { colores, fuentes } from '../../constants/colores';
+import ScreenBackground from '../../components/ScreenBackground';
+import GlowButton from '../../components/GlowButton';
 import { crearRutina } from '../../services/rutinas';
 import { seguro } from '../../utils/errores';
 
@@ -33,40 +34,29 @@ export default function NuevaRutina() {
       router.back();
     });
 
-  const inputStyle = {
-    borderWidth: 1,
-    borderColor: colores.borde,
-    borderRadius: 12,
-    padding: 12,
-    backgroundColor: colores.fondo,
-    color: colores.texto,
-    fontSize: 15,
-  } as const;
-
   return (
-    <>
+    <ScreenBackground>
       <Stack.Screen
         options={{
           headerShown: true,
           title: 'Crear Nueva Rutina',
-          headerStyle: { backgroundColor: colores.tarjeta },
+          headerStyle: { backgroundColor: colores.tarjetaSolida },
           headerTintColor: colores.texto,
-          headerTitleStyle: { fontWeight: '800' },
+          headerTitleStyle: { fontFamily: fuentes.black },
         }}
       />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, backgroundColor: colores.fondo }}
+        style={{ flex: 1 }}
       >
         <ScrollView
-          style={{ backgroundColor: colores.fondo }}
-          contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 50 }}
+          contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 60 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           {/* Nombre de la Rutina */}
           <View style={{ gap: 6 }}>
-            <Text style={{ color: colores.suave, fontWeight: '800', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+            <Text style={styles.sectionLabel}>
               Nombre de la Rutina
             </Text>
             <TextInput
@@ -74,23 +64,27 @@ export default function NuevaRutina() {
               placeholderTextColor={colores.suave}
               value={nombre}
               onChangeText={setNombre}
-              style={[inputStyle, { backgroundColor: colores.tarjeta, fontSize: 16, fontWeight: '700' }]}
+              style={[styles.inputBase, styles.nameInput]}
             />
           </View>
 
           {/* Ejercicios */}
-          <Text style={{ color: colores.suave, fontWeight: '800', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 8 }}>
+          <Text style={[styles.sectionLabel, { marginTop: 8 }]}>
             Ejercicios del Plan
           </Text>
 
           {filas.map((f, i) => (
-            <View key={i} style={{ gap: 10, backgroundColor: colores.tarjeta, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: colores.borde }}>
+            <View key={i} style={styles.exerciseCardBox}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ color: colores.primarioHover, fontWeight: '800', fontSize: 14 }}>Ejercicio #{i + 1}</Text>
+                <Text style={{ color: colores.primarioHover, fontFamily: fuentes.black, fontSize: 14 }}>Ejercicio #{i + 1}</Text>
                 {filas.length > 1 && (
-                  <Pressable onPress={() => setFilas(filas.filter((_, j) => j !== i))} hitSlop={10}>
-                    <Ionicons name="trash-outline" size={18} color={colores.peligro} />
-                  </Pressable>
+                  <GlowButton
+                    icon="trash-outline"
+                    onPress={() => setFilas(filas.filter((_, j) => j !== i))}
+                    variant="danger"
+                    size="sm"
+                    shape="rounded"
+                  />
                 )}
               </View>
 
@@ -99,7 +93,7 @@ export default function NuevaRutina() {
                 placeholderTextColor={colores.suave}
                 value={f.nombre}
                 onChangeText={(t) => cambiar(i, 'nombre', t)}
-                style={inputStyle}
+                style={styles.inputBase}
               />
 
               <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -109,7 +103,7 @@ export default function NuevaRutina() {
                   keyboardType="numeric"
                   value={f.series}
                   onChangeText={(t) => cambiar(i, 'series', t)}
-                  style={[inputStyle, { flex: 1 }]}
+                  style={[styles.inputBase, { flex: 1, textAlign: 'center' }]}
                 />
                 <TextInput
                   placeholder="Reps"
@@ -117,7 +111,7 @@ export default function NuevaRutina() {
                   keyboardType="numeric"
                   value={f.repeticiones}
                   onChangeText={(t) => cambiar(i, 'repeticiones', t)}
-                  style={[inputStyle, { flex: 1 }]}
+                  style={[styles.inputBase, { flex: 1, textAlign: 'center' }]}
                 />
                 <TextInput
                   placeholder="Kg"
@@ -125,53 +119,73 @@ export default function NuevaRutina() {
                   keyboardType="numeric"
                   value={f.peso}
                   onChangeText={(t) => cambiar(i, 'peso', t)}
-                  style={[inputStyle, { flex: 1 }]}
+                  style={[styles.inputBase, { flex: 1, textAlign: 'center' }]}
                 />
               </View>
             </View>
           ))}
 
           {/* Botón Añadir Ejercicio */}
-          <Pressable
+          <GlowButton
+            title="Añadir Otro Ejercicio"
+            icon="add-circle-outline"
             onPress={() => setFilas([...filas, vacia()])}
-            style={({ pressed }) => ({
-              backgroundColor: colores.tarjeta,
-              borderWidth: 1,
-              borderColor: colores.primario,
-              borderRadius: 12,
-              paddingVertical: 14,
-              alignItems: 'center',
-              opacity: pressed ? 0.85 : 1,
-              flexDirection: 'row',
-              justifyContent: 'center',
-              gap: 6,
-            })}
-          >
-            <Ionicons name="add-circle-outline" size={20} color={colores.primarioHover} />
-            <Text style={{ color: colores.primarioHover, fontWeight: '800', fontSize: 14 }}>Añadir Otro Ejercicio</Text>
-          </Pressable>
+            variant="outline"
+            size="md"
+            shape="rounded"
+            fullWidth
+          />
 
           {/* Botón Guardar */}
-          <Pressable
+          <GlowButton
+            title="Guardar Rutina"
             onPress={guardar}
-            style={({ pressed }) => ({
-              backgroundColor: colores.primario,
-              borderRadius: 14,
-              paddingVertical: 16,
-              alignItems: 'center',
-              opacity: pressed ? 0.85 : 1,
-              shadowColor: colores.primario,
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.35,
-              shadowRadius: 8,
-              elevation: 4,
-              marginTop: 10,
-            })}
-          >
-            <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 16 }}>Guardar Rutina</Text>
-          </Pressable>
+            variant="primary"
+            size="lg"
+            shape="rounded"
+            fullWidth
+            style={{ marginTop: 10 }}
+          />
         </ScrollView>
       </KeyboardAvoidingView>
-    </>
+    </ScreenBackground>
   );
 }
+
+const styles = StyleSheet.create({
+  sectionLabel: {
+    color: colores.suave,
+    fontFamily: fuentes.bold,
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  inputBase: {
+    borderWidth: 1,
+    borderColor: colores.borde,
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: 'rgba(10, 12, 18, 0.60)',
+    color: colores.texto,
+    fontSize: 15,
+    fontFamily: fuentes.regular,
+  },
+  nameInput: {
+    backgroundColor: colores.tarjeta,
+    fontSize: 16,
+    fontFamily: fuentes.bold,
+  },
+  exerciseCardBox: {
+    gap: 10,
+    backgroundColor: colores.tarjeta,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+});

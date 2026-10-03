@@ -1,5 +1,3 @@
-import { supabase } from '../lib/supabase';
-import { Registro, EjercicioRegistro } from '../types';
 import { registrosDeRango } from './registros';
 
 export type RecordPersonal = {

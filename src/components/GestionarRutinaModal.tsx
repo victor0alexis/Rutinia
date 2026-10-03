@@ -9,9 +9,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colores, fuentes } from '../constants/colores';
+import GlowButton from './GlowButton';
 import { crearRutina, eliminarRutina, actualizarRutina } from '../services/rutinas';
 import { seguro } from '../utils/errores';
 import { Rutina } from '../types';
@@ -63,12 +65,11 @@ export default function GestionarRutinaModal({
   const [ejercicios, setEjercicios] = useState<EjercicioInput[]>([nuevoEjercicioVacio()]);
 
   useEffect(() => {
-    if (visible) {
+    if (!visible) return;
+    const timer = setTimeout(() => {
       if (rutinaParaEditar) {
         setNombreRutina(rutinaParaEditar.nombre);
-        // Mapear ejercicios existentes
         const ejsMapeados: EjercicioInput[] = (rutinaParaEditar.ejercicios_rutina || []).map((e) => {
-          // Extraer nombre base limpiando resumen previo de series si existe
           const nombreLimpio = e.nombre.replace(/\s*\(.*\)$/, '').trim();
           const numSeries = e.series || 1;
           const seriesArray: SerieInput[] = Array.from({ length: numSeries }, (_, i) => ({
@@ -91,7 +92,8 @@ export default function GestionarRutinaModal({
         setNombreRutina('');
         setEjercicios([nuevoEjercicioVacio()]);
       }
-    }
+    }, 0);
+    return () => clearTimeout(timer);
   }, [visible, rutinaParaEditar]);
 
   // Modificar Ejercicio
@@ -185,10 +187,8 @@ export default function GestionarRutinaModal({
       });
 
       if (rutinaParaEditar?.id) {
-        // ACTUALIZAR: preserva el ID y las vinculaciones de registros_entrenamiento
         await actualizarRutina(rutinaParaEditar.id, nombreRutina.trim(), payloadEjercicios);
       } else {
-        // CREAR: nueva rutina
         await crearRutina(nombreRutina.trim(), payloadEjercicios);
       }
 
@@ -214,62 +214,29 @@ export default function GestionarRutinaModal({
     ]);
   };
 
-  const inputStyle = {
-    backgroundColor: colores.fondo,
-    borderColor: colores.borde,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    color: colores.texto,
-    fontSize: 14,
-  };
-
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' }}
+        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.88)', justifyContent: 'flex-end' }}
       >
-        <View
-          style={{
-            backgroundColor: colores.tarjetaElevada,
-            borderTopLeftRadius: 28,
-            borderTopRightRadius: 28,
-            height: '92%',
-            paddingTop: 16,
-            paddingHorizontal: 20,
-            gap: 14,
-          }}
-        >
+        <View style={styles.sheetContainer}>
           {/* Grabber */}
           <View style={{ alignItems: 'center' }}>
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colores.borde }} />
+            <View style={styles.grabberHandle} />
           </View>
 
           {/* Header del Modal Pantalla Completa */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View style={{ flex: 1, paddingRight: 10 }}>
-              <Text style={{ color: colores.primarioHover, fontSize: 11, fontFamily: fuentes.bold, letterSpacing: 1.2, textTransform: 'uppercase' }}>
+              <Text style={styles.modalBadgeText}>
                 {rutinaParaEditar ? 'GESTIONAR RUTINA' : 'CREAR RUTINA'}
               </Text>
               <Text style={{ color: colores.texto, fontSize: 22, fontFamily: fuentes.black }} numberOfLines={1}>
                 {rutinaParaEditar ? rutinaParaEditar.nombre : 'Nueva Rutina'}
               </Text>
             </View>
-            <Pressable
-              onPress={onClose}
-              style={{
-                backgroundColor: colores.fondo,
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderWidth: 1,
-                borderColor: colores.borde,
-              }}
-            >
+            <Pressable onPress={onClose} style={styles.closeIconButton}>
               <Ionicons name="close" size={20} color={colores.texto} />
             </Pressable>
           </View>
@@ -278,53 +245,36 @@ export default function GestionarRutinaModal({
           {rutinaParaEditar && (
             <View style={{ flexDirection: 'row', gap: 8 }}>
               {onProgramarSemana && (
-                <Pressable
-                  onPress={() => {
-                    onClose();
-                    onProgramarSemana(rutinaParaEditar);
-                  }}
-                  style={{
-                    flex: 1,
-                    backgroundColor: colores.primarioSuave,
-                    borderWidth: 1,
-                    borderColor: colores.primarioGlow,
-                    borderRadius: 12,
-                    paddingVertical: 10,
-                    alignItems: 'center',
-                    flexDirection: 'row',
-                    justifyContent: 'center',
-                    gap: 6,
-                  }}
-                >
-                  <Ionicons name="calendar-outline" size={16} color={colores.primarioHover} />
-                  <Text style={{ color: colores.primarioHover, fontFamily: fuentes.bold, fontSize: 13 }}>
-                    Programar en Semana
-                  </Text>
-                </Pressable>
+                <View style={{ flex: 1 }}>
+                  <GlowButton
+                    title="Programar en Semana"
+                    icon="calendar-outline"
+                    onPress={() => {
+                      onClose();
+                      onProgramarSemana(rutinaParaEditar);
+                    }}
+                    variant="outline"
+                    size="sm"
+                    shape="rounded"
+                    fullWidth
+                  />
+                </View>
               )}
 
-              <Pressable
+              <GlowButton
+                icon="trash-outline"
                 onPress={borrarRutinaCompleta}
-                style={{
-                  backgroundColor: colores.peligro + '20',
-                  borderWidth: 1,
-                  borderColor: colores.peligro + '50',
-                  borderRadius: 12,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Ionicons name="trash-outline" size={18} color={colores.peligro} />
-              </Pressable>
+                variant="danger"
+                size="sm"
+                shape="rounded"
+              />
             </View>
           )}
 
           <ScrollView contentContainerStyle={{ gap: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             {/* Nombre Rutina */}
             <View style={{ gap: 6 }}>
-              <Text style={{ color: colores.suave, fontFamily: fuentes.bold, fontSize: 11, textTransform: 'uppercase' }}>
+              <Text style={styles.inputLabelText}>
                 Nombre de la Rutina
               </Text>
               <TextInput
@@ -332,29 +282,19 @@ export default function GestionarRutinaModal({
                 placeholderTextColor={colores.suave}
                 value={nombreRutina}
                 onChangeText={setNombreRutina}
-                style={[inputStyle, { backgroundColor: colores.tarjeta, fontSize: 15, fontFamily: fuentes.bold }]}
+                style={[styles.inputBase, { fontSize: 15, fontFamily: fuentes.bold }]}
               />
             </View>
 
             {/* Listado de Ejercicios */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={{ color: colores.suave, fontFamily: fuentes.bold, fontSize: 11, textTransform: 'uppercase' }}>
+              <Text style={styles.inputLabelText}>
                 Ejercicios ({ejercicios.length})
               </Text>
             </View>
 
             {ejercicios.map((ej, ejIdx) => (
-              <View
-                key={ej.id}
-                style={{
-                  backgroundColor: colores.tarjeta,
-                  borderRadius: 16,
-                  padding: 16,
-                  gap: 12,
-                  borderWidth: 1,
-                  borderColor: colores.borde,
-                }}
-              >
+              <View key={ej.id} style={styles.exerciseCard}>
                 {/* Header Ejercicio */}
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Text style={{ color: colores.primarioHover, fontFamily: fuentes.black, fontSize: 14 }}>
@@ -373,7 +313,7 @@ export default function GestionarRutinaModal({
                   placeholderTextColor={colores.suave}
                   value={ej.nombre}
                   onChangeText={(val) => cambiarNombreEjercicio(ejIdx, val)}
-                  style={inputStyle}
+                  style={styles.inputBase}
                 />
 
                 {/* Tabla de Series */}
@@ -399,7 +339,7 @@ export default function GestionarRutinaModal({
                         keyboardType="numeric"
                         value={s.peso}
                         onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'peso', val)}
-                        style={[inputStyle, { flex: 1, textAlign: 'center', paddingHorizontal: 4 }]}
+                        style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 4 }]}
                       />
 
                       <TextInput
@@ -408,7 +348,7 @@ export default function GestionarRutinaModal({
                         keyboardType="numeric"
                         value={s.reps}
                         onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'reps', val)}
-                        style={[inputStyle, { flex: 1, textAlign: 'center', paddingHorizontal: 4 }]}
+                        style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 4 }]}
                       />
 
                       <TextInput
@@ -417,7 +357,7 @@ export default function GestionarRutinaModal({
                         keyboardType="numeric"
                         value={s.rir}
                         onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'rir', val)}
-                        style={[inputStyle, { flex: 1, textAlign: 'center', paddingHorizontal: 4 }]}
+                        style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 4 }]}
                       />
 
                       <TextInput
@@ -425,7 +365,7 @@ export default function GestionarRutinaModal({
                         placeholderTextColor={colores.suave}
                         value={s.nota}
                         onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'nota', val)}
-                        style={[inputStyle, { flex: 1.5, paddingHorizontal: 6, fontSize: 12 }]}
+                        style={[styles.inputBase, { flex: 1.5, paddingHorizontal: 6, fontSize: 12 }]}
                       />
 
                       <Pressable
@@ -442,19 +382,10 @@ export default function GestionarRutinaModal({
                 {/* Botón + Añadir Serie */}
                 <Pressable
                   onPress={() => agregarSerieAEjercicio(ejIdx)}
-                  style={({ pressed }) => ({
-                    backgroundColor: colores.fondo,
-                    borderWidth: 1,
-                    borderColor: colores.borde,
-                    borderRadius: 10,
-                    paddingVertical: 8,
-                    alignItems: 'center',
-                    flexDirection: 'row',
-                    justifyContent: 'center',
-                    gap: 6,
-                    opacity: pressed ? 0.8 : 1,
-                    marginTop: 4,
-                  })}
+                  style={({ pressed }) => [
+                    styles.addSerieButton,
+                    pressed && { opacity: 0.8 },
+                  ]}
                 >
                   <Ionicons name="add" size={16} color={colores.primarioHover} />
                   <Text style={{ color: colores.primarioHover, fontFamily: fuentes.bold, fontSize: 12 }}>+ Añadir Serie</Text>
@@ -463,49 +394,103 @@ export default function GestionarRutinaModal({
             ))}
 
             {/* Botón + Añadir Otro Ejercicio */}
-            <Pressable
+            <GlowButton
+              title="+ Añadir Otro Ejercicio"
+              icon="add-circle-outline"
               onPress={agregarEjercicio}
-              style={({ pressed }) => ({
-                backgroundColor: colores.tarjeta,
-                borderWidth: 1,
-                borderColor: colores.primario,
-                borderRadius: 14,
-                paddingVertical: 14,
-                alignItems: 'center',
-                flexDirection: 'row',
-                justifyContent: 'center',
-                gap: 8,
-                opacity: pressed ? 0.85 : 1,
-              })}
-            >
-              <Ionicons name="add-circle-outline" size={20} color={colores.primarioHover} />
-              <Text style={{ color: colores.primarioHover, fontFamily: fuentes.black, fontSize: 14 }}>+ Añadir Otro Ejercicio</Text>
-            </Pressable>
+              variant="outline"
+              size="md"
+              shape="rounded"
+              fullWidth
+            />
 
             {/* Botón Guardar / Actualizar */}
-            <Pressable
+            <GlowButton
+              title={rutinaParaEditar ? 'Guardar Cambios de Rutina' : 'Guardar Rutina Completa'}
               onPress={guardar}
-              style={({ pressed }) => ({
-                backgroundColor: colores.primario,
-                borderRadius: 14,
-                paddingVertical: 16,
-                alignItems: 'center',
-                opacity: pressed ? 0.85 : 1,
-                shadowColor: colores.primario,
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.35,
-                shadowRadius: 8,
-                elevation: 4,
-                marginTop: 6,
-              })}
-            >
-              <Text style={{ color: '#FFF', fontFamily: fuentes.black, fontSize: 16 }}>
-                {rutinaParaEditar ? 'Guardar Cambios de Rutina' : 'Guardar Rutina Completa'}
-              </Text>
-            </Pressable>
+              variant="primary"
+              size="lg"
+              shape="rounded"
+              fullWidth
+              style={{ marginTop: 6 }}
+            />
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  sheetContainer: {
+    backgroundColor: colores.tarjetaElevada,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    height: '92%',
+    paddingTop: 16,
+    paddingHorizontal: 20,
+    gap: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  grabberHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colores.bordeBrillante,
+  },
+  modalBadgeText: {
+    color: colores.primarioHover,
+    fontSize: 11,
+    fontFamily: fuentes.bold,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  closeIconButton: {
+    backgroundColor: 'rgba(10, 12, 18, 0.60)',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colores.borde,
+  },
+  inputLabelText: {
+    color: colores.suave,
+    fontFamily: fuentes.bold,
+    fontSize: 11,
+    textTransform: 'uppercase',
+  },
+  inputBase: {
+    backgroundColor: 'rgba(10, 12, 18, 0.60)',
+    borderColor: colores.borde,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    color: colores.texto,
+    fontSize: 14,
+    fontFamily: fuentes.regular,
+  },
+  exerciseCard: {
+    backgroundColor: colores.tarjeta,
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: colores.borde,
+  },
+  addSerieButton: {
+    backgroundColor: 'rgba(10, 12, 18, 0.60)',
+    borderWidth: 1,
+    borderColor: colores.borde,
+    borderRadius: 10,
+    paddingVertical: 8,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+});
