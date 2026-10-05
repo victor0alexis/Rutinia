@@ -81,11 +81,11 @@ export async function eliminarRutina(id: string) {
     console.warn('Advertencia al borrar ejercicios_rutina:', err);
   }
 
-  // 2. Desvincular o limpiar registros de rutina si existen
+  // 2. Desvincular registros_entrenamiento (nullificar rutina_id para evitar violación FK)
   try {
-    await supabase.from('registros_rutina').delete().eq('rutina_id', id);
+    await supabase.from('registros_entrenamiento').update({ rutina_id: null }).eq('rutina_id', id);
   } catch (err) {
-    console.warn('Advertencia al desvincular registros_rutina:', err);
+    console.warn('Advertencia al desvincular registros_entrenamiento:', err);
   }
 
   // 3. Eliminar la rutina principal
