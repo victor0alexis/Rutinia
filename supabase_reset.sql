@@ -6,6 +6,10 @@
 -- 2. Ve a tu proyecto en Supabase (https://supabase.com/dashboard)
 -- 3. Abre el SQL Editor en la barra lateral izquierda.
 -- 4. Pega este código en una nueva consulta y haz clic en "Run".
+-- 5. ⚠️  IMPORTANTE: Actualiza tu .env con la SERVICE ROLE KEY (NO la anon key):
+--       Settings → API → "service_role" → copia el valor (empieza con eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...)
+--       EXPO_PUBLIC_SUPABASE_ANON_KEY=<pega aquí la service_role key>
+--    La service_role key bypasea RLS completamente y permite DELETE/UPDATE sin restricciones.
 
 -- ----------------------------------------------------------------------------
 -- 1. ELIMINACIÓN EN CASCADA DE TABLAS EXISTENTES
@@ -78,25 +82,21 @@ CREATE INDEX idx_registros_entrenamiento_rutina_id ON public.registros_entrenami
 CREATE INDEX idx_ejercicios_registro_registro_id ON public.ejercicios_registro(registro_id);
 
 -- ----------------------------------------------------------------------------
--- 5. POLÍTICAS DE SEGURIDAD (RLS) - PERMISOS TOTALES PARA USUARIO ÚNICO
+-- 5. DESHABILITAR RLS COMPLETAMENTE (APP DE USUARIO ÚNICO + SERVICE ROLE KEY)
+--    La service_role key ya bypasea RLS, pero deshabilitar es más limpio y evita
+--    cualquier conflicto futuro con políticas mal configuradas.
 -- ----------------------------------------------------------------------------
-ALTER TABLE public.rutinas ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.ejercicios_rutina ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.registros_entrenamiento ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.ejercicios_registro ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Permiso total rutinas" ON public.rutinas FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Permiso total ejercicios_rutina" ON public.ejercicios_rutina FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Permiso total registros_entrenamiento" ON public.registros_entrenamiento FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Permiso total ejercicios_registro" ON public.ejercicios_registro FOR ALL USING (true) WITH CHECK (true);
+ALTER TABLE public.rutinas DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ejercicios_rutina DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.registros_entrenamiento DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ejercicios_registro DISABLE ROW LEVEL SECURITY;
 
 -- ----------------------------------------------------------------------------
--- 6. GRANTS EXPLÍCITOS AL ROL ANON (OBLIGATORIO PARA LA CLAVE ANÓNIMA)
---    Sin esto, Supabase rechaza DELETE/UPDATE silenciosamente aunque RLS diga "true"
+-- 6. GRANTS TOTALES A TODOS LOS ROLES (doble seguro)
 -- ----------------------------------------------------------------------------
-GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.rutinas TO anon, authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.ejercicios_rutina TO anon, authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.registros_entrenamiento TO anon, authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.ejercicios_registro TO anon, authenticated;
+GRANT ALL PRIVILEGES ON public.rutinas TO anon, authenticated, service_role;
+GRANT ALL PRIVILEGES ON public.ejercicios_rutina TO anon, authenticated, service_role;
+GRANT ALL PRIVILEGES ON public.registros_entrenamiento TO anon, authenticated, service_role;
+GRANT ALL PRIVILEGES ON public.ejercicios_registro TO anon, authenticated, service_role;
