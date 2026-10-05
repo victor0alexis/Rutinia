@@ -72,13 +72,37 @@ export default function GestionarRutinaModal({
         const ejsMapeados: EjercicioInput[] = (rutinaParaEditar.ejercicios_rutina || []).map((e) => {
           const nombreLimpio = e.nombre.replace(/\s*\(.*\)$/, '').trim();
           const numSeries = e.series || 1;
-          const seriesArray: SerieInput[] = Array.from({ length: numSeries }, (_, i) => ({
-            id: i.toString() + Math.random().toString(),
-            peso: e.peso ? e.peso.toString() : '',
-            reps: e.repeticiones ? e.repeticiones.toString() : '',
-            rir: '',
-            nota: '',
-          }));
+
+          const matchResumen = e.nombre.match(/\((.*?)\)/);
+          const resumenText = matchResumen ? matchResumen[1] : '';
+          const seriesItems = resumenText.split('•').map((s) => s.trim());
+
+          const seriesArray: SerieInput[] = Array.from({ length: numSeries }, (_, i) => {
+            let pesoStr = e.peso ? e.peso.toString() : '';
+            let repsStr = e.repeticiones ? e.repeticiones.toString() : '';
+            let rirStr = '';
+            let notaStr = '';
+
+            if (seriesItems[i]) {
+              const item = seriesItems[i];
+              const matchK = item.match(/(\d+(\.\d+)?)k/);
+              if (matchK) pesoStr = matchK[1];
+              const matchR = item.match(/(\d+)r/);
+              if (matchR) repsStr = matchR[1];
+              const matchRIR = item.match(/RIR\s*(\d+)/i);
+              if (matchRIR) rirStr = matchRIR[1];
+              const matchNota = item.match(/\[(.*?)\]/);
+              if (matchNota) notaStr = matchNota[1];
+            }
+
+            return {
+              id: i.toString() + Math.random().toString(),
+              peso: pesoStr,
+              reps: repsStr,
+              rir: rirStr,
+              nota: notaStr,
+            };
+          });
 
           return {
             id: e.id,

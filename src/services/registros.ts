@@ -26,7 +26,7 @@ export async function registrosDeRango(desde: string, hasta: string): Promise<Re
 
     await guardarCacheLocal(`registros_${desde}_${hasta}`, res);
     return res;
-  } catch (err) {
+  } catch {
     console.warn('Sin conexión, cargando registros locales...');
     const cache = await obtenerCacheLocal<Registro[]>(`registros_${desde}_${hasta}`);
     return cache || [];
@@ -40,7 +40,10 @@ export async function agregarRutinaAFechas(rutina: Rutina, fechas: string[]) {
 
   for (const fecha of fechas) {
     try {
-      const regData: any = { fecha, rutina_id: rutina.id };
+      const regData: any = { fecha };
+      if (rutina.id && !rutina.id.startsWith('local_')) {
+        regData.rutina_id = rutina.id;
+      }
       if (usuarioId) regData.usuario_id = usuarioId;
 
       const { data: reg, error } = await supabase
@@ -64,21 +67,23 @@ export async function agregarRutinaAFechas(rutina: Rutina, fechas: string[]) {
           if (usuarioId) fila.usuario_id = usuarioId;
           return fila;
         });
-        await supabase.from('ejercicios_registro').insert(filas);
+        const { error: errEjs } = await supabase.from('ejercicios_registro').insert(filas);
+        if (errEjs) throw errEjs;
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Error vinculando rutina a fecha en Supabase:', err);
+      throw new Error(`No se pudo vincular la rutina a la fecha ${fecha}: ${err?.message ?? err}`);
     }
   }
 }
 
 // Desvincula/elimina un registro completo de rutina o actividad del día
 export async function eliminarRegistroRutina(registroId: string) {
-  // Paso 1: limpiar ejercicios_registro hijos (ignorar error si CASCADE lo maneja)
+  // Paso 1: limpiar ejercicios_registro hijos (por si la FK no tiene CASCADE)
   try {
     await supabase.from('ejercicios_registro').delete().eq('registro_id', registroId);
-  } catch (_) {
-    // CASCADE puede manejarlo automáticamente
+  } catch {
+    // Si la FK CASCADE ya lo limpió o no existe, continuar
   }
 
   // Paso 2: eliminar el registro de entrenamiento

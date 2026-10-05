@@ -33,9 +33,17 @@ export async function listarRutinas(): Promise<Rutina[]> {
       ejercicios_rutina: [...(r.ejercicios_rutina || [])].sort((a: any, b: any) => a.orden - b.orden),
     }));
 
-    await guardarCacheLocal('rutinas', res);
-    return res;
-  } catch (err) {
+    // Preservar cualquier rutina local creada offline para que no desaparezca
+    const cacheLocal = (await obtenerCacheLocal<Rutina[]>('rutinas')) || [];
+    const rutinasLocales = cacheLocal.filter((r) => r.id.startsWith('local_'));
+
+    const map = new Map<string, Rutina>();
+    [...rutinasLocales, ...res].forEach((r) => map.set(r.id, r));
+    const combinadas = Array.from(map.values());
+
+    await guardarCacheLocal('rutinas', combinadas);
+    return combinadas;
+  } catch {
     console.warn('Sin conexión a Supabase, cargando caché local de rutinas...');
     const cache = await obtenerCacheLocal<Rutina[]>('rutinas');
     return cache || [];
@@ -46,7 +54,6 @@ export async function crearRutina(nombre: string, ejercicios: EjercicioNuevo[]):
   try {
     const usuarioId = await getUsuarioId();
 
-    // Construir payload — usuario_id es opcional (puede ser null si RLS está desactivado)
     const insertData: any = { nombre };
     if (usuarioId) insertData.usuario_id = usuarioId;
 
@@ -56,21 +63,34 @@ export async function crearRutina(nombre: string, ejercicios: EjercicioNuevo[]):
       .select()
       .single();
 
-    if (error) throw error;
-    if (!rutina) throw new Error('No se recibió respuesta de Supabase.');
+    if (error) {
+      throw new Error(`Error Supabase al crear rutina: ${error.message} (Código: ${error.code})`);
+    }
+    if (!rutina) throw new Error('No se recibió respuesta de Supabase al crear la rutina.');
 
     let ejerciciosCreados: any[] = [];
     if (ejercicios.length > 0) {
       const filas = ejercicios.map((e, i) => {
-        const fila: any = { ...e, rutina_id: rutina.id, orden: i };
+        const fila: any = {
+          nombre: e.nombre,
+          series: e.series,
+          repeticiones: e.repeticiones,
+          peso: e.peso,
+          rutina_id: rutina.id,
+          orden: i,
+        };
         if (usuarioId) fila.usuario_id = usuarioId;
         return fila;
       });
+
       const { data: ejsData, error: ejsError } = await supabase
         .from('ejercicios_rutina')
         .insert(filas)
         .select();
-      if (ejsError) throw ejsError;
+
+      if (ejsError) {
+        throw new Error(`Error Supabase al insertar ejercicios: ${ejsError.message} (Código: ${ejsError.code})`);
+      }
       ejerciciosCreados = ejsData ?? [];
     }
 
@@ -84,9 +104,13 @@ export async function crearRutina(nombre: string, ejercicios: EjercicioNuevo[]):
 
     return rutinaCompleta;
   } catch (err: any) {
-    console.warn('Error creando rutina en Supabase:', err?.message ?? err);
+    console.warn('Error creando rutina:', err?.message ?? err);
+    // Si la excepción proviene de una respuesta de error de Supabase, re-lanzar para informar al usuario
+    if (err?.message?.includes('Supabase') || err?.message?.includes('Código')) {
+      throw err;
+    }
 
-    // Fallback offline con prefijo local_ para distinguirlos de UUIDs reales
+    // Fallback offline solo para fallos de red sin conexión
     const rutinaId = `local_${Date.now()}`;
     const nuevaRutinaLocal: Rutina = {
       id: rutinaId,
@@ -116,30 +140,64 @@ export async function eliminarRutina(id: string): Promise<void> {
     return;
   }
 
-  // Preparar: desvincular registros_entrenamiento antes de borrar la rutina
-  // (si la FK es SET NULL, esto es redundante pero no hace daño)
-  await supabase
+  // 1. Verificar que la rutina existe antes de borrar
+  const { data: existe, error: errCheck } = await supabase
+    .from('rutinas')
+    .select('id')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (errCheck) {
+    throw new Error(`Error verificando rutina: ${errCheck.message} (Código: ${errCheck.code})`);
+  }
+  if (!existe) {
+    // Ya no existe en Supabase, limpiar caché local y salir
+    const cache = (await obtenerCacheLocal<Rutina[]>('rutinas')) || [];
+    await guardarCacheLocal('rutinas', cache.filter((r) => r.id !== id));
+    return;
+  }
+
+  // 2. Desvincular registros_entrenamiento (ON DELETE SET NULL lo hace automáticamente si el script SQL se corrió)
+  const { error: errUpdate } = await supabase
     .from('registros_entrenamiento')
     .update({ rutina_id: null })
     .eq('rutina_id', id);
 
-  // Borrar ejercicios_rutina manualmente (por si la FK no tiene CASCADE)
-  await supabase.from('ejercicios_rutina').delete().eq('rutina_id', id);
+  if (errUpdate) {
+    throw new Error(`Error desvinculando registros del día: ${errUpdate.message} (Código: ${errUpdate.code})`);
+  }
 
-  // Borrar la rutina — con FK CASCADE esto limpia todo lo demás automáticamente
-  const { error, status, statusText } = await supabase
+  // 3. Borrar ejercicios_rutina (ON DELETE CASCADE lo hace automáticamente si el script SQL se corrió)
+  const { error: errDelEjs } = await supabase
+    .from('ejercicios_rutina')
+    .delete()
+    .eq('rutina_id', id);
+
+  if (errDelEjs) {
+    throw new Error(`Error eliminando ejercicios de rutina: ${errDelEjs.message} (Código: ${errDelEjs.code})`);
+  }
+
+  // 4. Borrar la rutina — con RETURNING verifica que realmente se eliminó
+  const { data: eliminada, error } = await supabase
     .from('rutinas')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .select('id')
+    .maybeSingle();
 
   if (error) {
-    // Mostrar detalles completos para diagnóstico
     throw new Error(
-      `Supabase error ${status} (${statusText}): ${error.message}\nCode: ${error.code}\nDetails: ${error.details ?? 'N/A'}\nHint: ${error.hint ?? 'N/A'}`
+      `No se pudo eliminar la rutina de Supabase: ${error.message} (Código: ${error.code})`
     );
   }
 
-  // Limpiar caché local
+  if (!eliminada) {
+    throw new Error(
+      `La rutina no fue eliminada. Verifica los permisos RLS y GRANT en Supabase (id: ${id})`
+    );
+  }
+
+  // 5. Limpiar caché local
   const cache = (await obtenerCacheLocal<Rutina[]>('rutinas')) || [];
   await guardarCacheLocal('rutinas', cache.filter((r) => r.id !== id));
 }
@@ -203,17 +261,21 @@ export async function actualizarRutina(rutinaId: string, nombre: string, ejercic
 
   // 3. Insertar nuevos ejercicios
   if (ejercicios.length > 0) {
-    const filas = ejercicios.map((e, i) => ({
-      ...e,
-      rutina_id: rutinaId,
-      usuario_id: usuarioId,
-      orden: i,
-    }));
+    const filas = ejercicios.map((e, i) => {
+      const fila: any = {
+        ...e,
+        rutina_id: rutinaId,
+        orden: i,
+      };
+      if (usuarioId) fila.usuario_id = usuarioId;
+      return fila;
+    });
+
     const { error: errIns } = await supabase.from('ejercicios_rutina').insert(filas);
     if (errIns) throw new Error(`Error insertando ejercicios: ${errIns.message}`);
   }
 
-  // 4. Actualizar caché
+  // 4. Actualizar caché local
   const existentes = (await obtenerCacheLocal<Rutina[]>('rutinas')) || [];
   await guardarCacheLocal(
     'rutinas',

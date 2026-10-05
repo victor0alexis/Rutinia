@@ -42,8 +42,8 @@ export default function ProgresoScreen() {
       const res = await obtenerMetricasProgreso(desdeISO, hastaISO);
       setMetricas(res);
 
-      if (res.recordsPersonales.length > 0 && !ejercicioSeleccionado) {
-        setEjercicioSeleccionado(res.recordsPersonales[0].nombreEjercicio);
+      if (res.recordsPersonales.length > 0) {
+        setEjercicioSeleccionado((prev) => prev || res.recordsPersonales[0].nombreEjercicio);
       }
     });
   }, [periodo]);
