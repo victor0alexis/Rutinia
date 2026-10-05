@@ -55,6 +55,7 @@ export default function Rutinas() {
           onPress: () =>
             seguro(async () => {
               await eliminarRutina(r.id);
+              // Recargar lista desde Supabase después de eliminar
               await cargar();
               Alert.alert('Eliminada', `La rutina "${r.nombre}" ha sido eliminada.`);
             }),
@@ -65,9 +66,14 @@ export default function Rutinas() {
 
   const clonarRutina = (r: Rutina) =>
     seguro(async () => {
-      await duplicarRutina(r);
+      const copia = await duplicarRutina(r);
+      // Recargar siempre desde Supabase para obtener el UUID real
       await cargar();
-      Alert.alert('Rutina Clonada', `Se ha creado una copia de "${r.nombre}".`);
+      if (copia) {
+        Alert.alert('Rutina Clonada', `Se ha creado una copia de "${r.nombre}".`);
+      } else {
+        Alert.alert('Aviso', `Se intentó clonar "${r.nombre}" pero hubo un problema de conexión. La copia quedó guardada localmente.`);
+      }
     });
 
   const confirmarAsignacionSemana = () =>

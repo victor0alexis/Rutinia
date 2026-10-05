@@ -58,20 +58,24 @@ export async function agregarRutinaAFechas(rutina: Rutina, fechas: string[]) {
 }
 
 // Desvincula/elimina un registro completo de rutina o actividad del día
-// El paso 1 es tolerante a fallos de FK/RLS — siempre intenta el paso 2
 export async function eliminarRegistroRutina(registroId: string) {
-  // Paso 1: intentar limpiar ejercicios_registro hijos (sin lanzar error si hay CASCADE o RLS)
-  await supabase
-    .from('ejercicios_registro')
-    .delete()
-    .eq('registro_id', registroId);
+  // Paso 1: intentar limpiar ejercicios_registro hijos
+  // (ignorar error — puede haber CASCADE en Supabase o RLS que lo maneje automáticamente)
+  try {
+    await supabase
+      .from('ejercicios_registro')
+      .delete()
+      .eq('registro_id', registroId);
+  } catch (_) {
+    // Ignorar — el CASCADE puede manejarlo
+  }
 
-  // Paso 2: eliminar el registro de entrenamiento en sí (sí lanza error si falla)
+  // Paso 2: eliminar el registro de entrenamiento en sí
   const { error } = await supabase
     .from('registros_entrenamiento')
     .delete()
     .eq('id', registroId);
-  if (error) throw error;
+  if (error) throw new Error(`No se pudo desvincular la rutina del día: ${error.message}`);
 }
 
 // Actividad suelta
