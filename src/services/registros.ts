@@ -2,6 +2,18 @@ import { supabase } from '../lib/supabase';
 import { Registro, Rutina } from '../types';
 import { guardarCacheLocal, obtenerCacheLocal } from '../utils/offline';
 
+/**
+ * Obtiene el usuario_id del usuario autenticado actualmente.
+ * Lanza error si no hay sesión activa.
+ */
+async function getUsuarioId(): Promise<string> {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user?.id) {
+    throw new Error('No hay sesión activa. Por favor inicia sesión nuevamente.');
+  }
+  return user.id;
+}
+
 export async function registrosDeRango(desde: string, hasta: string): Promise<Registro[]> {
   try {
     const { data, error } = await supabase
@@ -14,7 +26,6 @@ export async function registrosDeRango(desde: string, hasta: string): Promise<Re
     if (error) throw error;
     const res = (data ?? []) as Registro[];
 
-    // Guardar en caché local
     await guardarCacheLocal(`registros_${desde}_${hasta}`, res);
     return res;
   } catch (err) {
@@ -24,16 +35,16 @@ export async function registrosDeRango(desde: string, hasta: string): Promise<Re
   }
 }
 
-const DEFAULT_USUARIO_ID = '65b515cd-790c-46da-b933-5a86bad00263';
-
 // Copia los ejercicios de la rutina a cada fecha elegida
 export async function agregarRutinaAFechas(rutina: Rutina, fechas: string[]) {
+  const usuarioId = await getUsuarioId();
   const ejercicios = rutina.ejercicios_rutina || [];
+
   for (const fecha of fechas) {
     try {
       const { data: reg, error } = await supabase
         .from('registros_entrenamiento')
-        .insert({ fecha, rutina_id: rutina.id, usuario_id: DEFAULT_USUARIO_ID })
+        .insert({ fecha, rutina_id: rutina.id, usuario_id: usuarioId })
         .select()
         .single();
 
@@ -42,7 +53,7 @@ export async function agregarRutinaAFechas(rutina: Rutina, fechas: string[]) {
       if (ejercicios.length > 0 && reg) {
         const filas = ejercicios.map((e) => ({
           registro_id: reg.id,
-          usuario_id: DEFAULT_USUARIO_ID,
+          usuario_id: usuarioId,
           nombre: e.nombre,
           series: e.series,
           repeticiones: e.repeticiones,
@@ -59,18 +70,14 @@ export async function agregarRutinaAFechas(rutina: Rutina, fechas: string[]) {
 
 // Desvincula/elimina un registro completo de rutina o actividad del día
 export async function eliminarRegistroRutina(registroId: string) {
-  // Paso 1: intentar limpiar ejercicios_registro hijos
-  // (ignorar error — puede haber CASCADE en Supabase o RLS que lo maneje automáticamente)
+  // Paso 1: limpiar ejercicios_registro hijos (ignorar error si CASCADE lo maneja)
   try {
-    await supabase
-      .from('ejercicios_registro')
-      .delete()
-      .eq('registro_id', registroId);
+    await supabase.from('ejercicios_registro').delete().eq('registro_id', registroId);
   } catch (_) {
-    // Ignorar — el CASCADE puede manejarlo
+    // CASCADE puede manejarlo automáticamente
   }
 
-  // Paso 2: eliminar el registro de entrenamiento en sí
+  // Paso 2: eliminar el registro de entrenamiento
   const { error } = await supabase
     .from('registros_entrenamiento')
     .delete()
@@ -86,6 +93,8 @@ export async function agregarActividad(
   repeticiones: number | null,
   peso: number | null = null
 ) {
+  const usuarioId = await getUsuarioId();
+
   const { data: existente } = await supabase
     .from('registros_entrenamiento')
     .select('id')
@@ -98,19 +107,20 @@ export async function agregarActividad(
   if (!registroId) {
     const { data, error } = await supabase
       .from('registros_entrenamiento')
-      .insert({ fecha, usuario_id: DEFAULT_USUARIO_ID })
+      .insert({ fecha, usuario_id: usuarioId })
       .select()
       .single();
     if (error) throw error;
     registroId = data.id;
   }
+
   const { error } = await supabase
     .from('ejercicios_registro')
-    .insert({ registro_id: registroId, usuario_id: DEFAULT_USUARIO_ID, nombre, series, repeticiones, peso });
+    .insert({ registro_id: registroId, usuario_id: usuarioId, nombre, series, repeticiones, peso });
   if (error) throw error;
 }
 
-// Guardar nota del día en la tabla existente ejercicios_registro marcándola con [NOTA]
+// Guardar nota del día
 export async function guardarNotaDelDia(fecha: string, textoNota: string) {
   await agregarActividad(fecha, `📌 ${textoNota}`, null, null, null);
 }
@@ -133,7 +143,6 @@ export async function actualizarEstadoRegistro(
   datos: { completado?: boolean; notas?: string | null },
   fecha?: string
 ) {
-  // Solo actualizar 'completado' en registros_entrenamiento (evita error de columna inexistente 'notas')
   if (datos.completado !== undefined) {
     const { error } = await supabase
       .from('registros_entrenamiento')
@@ -142,7 +151,6 @@ export async function actualizarEstadoRegistro(
     if (error) throw error;
   }
 
-  // Si se ingresaron observaciones del día, guardarlas como nota en ejercicios_registro
   if (datos.notas && datos.notas.trim()) {
     const { error: errorNota } = await supabase.from('ejercicios_registro').insert({
       registro_id: registroId,
@@ -159,4 +167,3 @@ export async function eliminarEjercicio(id: string) {
   const { error } = await supabase.from('ejercicios_registro').delete().eq('id', id);
   if (error) throw error;
 }
-
