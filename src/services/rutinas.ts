@@ -116,39 +116,34 @@ export async function eliminarRutina(id: string): Promise<void> {
     return;
   }
 
-  // 1. Eliminar ejercicios hijos (ignorar error si ya fue en cascade)
-  await supabase.from('ejercicios_rutina').delete().eq('rutina_id', id);
-
-  // 2. Desvincular registros sin eliminarlos (preserva historial)
+  // Preparar: desvincular registros_entrenamiento antes de borrar la rutina
+  // (si la FK es SET NULL, esto es redundante pero no hace daño)
   await supabase
     .from('registros_entrenamiento')
     .update({ rutina_id: null })
     .eq('rutina_id', id);
 
-  // 3. Eliminar la rutina principal
-  const { error: errDel } = await supabase.from('rutinas').delete().eq('id', id);
-  if (errDel) {
-    throw new Error(`Error al eliminar la rutina: ${errDel.message}`);
-  }
+  // Borrar ejercicios_rutina manualmente (por si la FK no tiene CASCADE)
+  await supabase.from('ejercicios_rutina').delete().eq('rutina_id', id);
 
-  // 4. Verificar que la fila desapareció (detecta bloqueo RLS silencioso)
-  const { data: aun_existe } = await supabase
+  // Borrar la rutina — con FK CASCADE esto limpia todo lo demás automáticamente
+  const { error, status, statusText } = await supabase
     .from('rutinas')
-    .select('id')
-    .eq('id', id)
-    .maybeSingle();
+    .delete()
+    .eq('id', id);
 
-  if (aun_existe) {
+  if (error) {
+    // Mostrar detalles completos para diagnóstico
     throw new Error(
-      'La rutina no se pudo eliminar. Esto puede ser un problema de permisos (RLS) en Supabase. ' +
-      'Asegúrate de que el usuario tenga permiso de DELETE sobre su propia rutina.'
+      `Supabase error ${status} (${statusText}): ${error.message}\nCode: ${error.code}\nDetails: ${error.details ?? 'N/A'}\nHint: ${error.hint ?? 'N/A'}`
     );
   }
 
-  // 5. Limpiar caché local
+  // Limpiar caché local
   const cache = (await obtenerCacheLocal<Rutina[]>('rutinas')) || [];
   await guardarCacheLocal('rutinas', cache.filter((r) => r.id !== id));
 }
+
 
 export async function duplicarRutina(rutina: Rutina): Promise<Rutina | null> {
   const nuevosEjercicios: EjercicioNuevo[] = (rutina.ejercicios_rutina || []).map((e) => {
