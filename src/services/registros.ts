@@ -2,16 +2,14 @@ import { supabase } from '../lib/supabase';
 import { Registro, Rutina } from '../types';
 import { guardarCacheLocal, obtenerCacheLocal } from '../utils/offline';
 
-/**
- * Obtiene el usuario_id del usuario autenticado actualmente.
- * Lanza error si no hay sesión activa.
- */
-async function getUsuarioId(): Promise<string> {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user?.id) {
-    throw new Error('No hay sesión activa. Por favor inicia sesión nuevamente.');
+/** Obtiene el usuario_id del usuario autenticado, o null si no hay sesión. */
+async function getUsuarioId(): Promise<string | null> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    return user?.id ?? null;
+  } catch {
+    return null;
   }
-  return user.id;
 }
 
 export async function registrosDeRango(desde: string, hasta: string): Promise<Registro[]> {
@@ -42,24 +40,30 @@ export async function agregarRutinaAFechas(rutina: Rutina, fechas: string[]) {
 
   for (const fecha of fechas) {
     try {
+      const regData: any = { fecha, rutina_id: rutina.id };
+      if (usuarioId) regData.usuario_id = usuarioId;
+
       const { data: reg, error } = await supabase
         .from('registros_entrenamiento')
-        .insert({ fecha, rutina_id: rutina.id, usuario_id: usuarioId })
+        .insert(regData)
         .select()
         .single();
 
       if (error) throw error;
 
       if (ejercicios.length > 0 && reg) {
-        const filas = ejercicios.map((e) => ({
-          registro_id: reg.id,
-          usuario_id: usuarioId,
-          nombre: e.nombre,
-          series: e.series,
-          repeticiones: e.repeticiones,
-          peso: e.peso,
-          completado: false,
-        }));
+        const filas = ejercicios.map((e) => {
+          const fila: any = {
+            registro_id: reg.id,
+            nombre: e.nombre,
+            series: e.series,
+            repeticiones: e.repeticiones,
+            peso: e.peso,
+            completado: false,
+          };
+          if (usuarioId) fila.usuario_id = usuarioId;
+          return fila;
+        });
         await supabase.from('ejercicios_registro').insert(filas);
       }
     } catch (err) {
@@ -105,18 +109,22 @@ export async function agregarActividad(
 
   let registroId = existente?.id as string | undefined;
   if (!registroId) {
+    const regData: any = { fecha };
+    if (usuarioId) regData.usuario_id = usuarioId;
+
     const { data, error } = await supabase
       .from('registros_entrenamiento')
-      .insert({ fecha, usuario_id: usuarioId })
+      .insert(regData)
       .select()
       .single();
     if (error) throw error;
     registroId = data.id;
   }
 
-  const { error } = await supabase
-    .from('ejercicios_registro')
-    .insert({ registro_id: registroId, usuario_id: usuarioId, nombre, series, repeticiones, peso });
+  const ejData: any = { registro_id: registroId, nombre, series, repeticiones, peso };
+  if (usuarioId) ejData.usuario_id = usuarioId;
+
+  const { error } = await supabase.from('ejercicios_registro').insert(ejData);
   if (error) throw error;
 }
 

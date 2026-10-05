@@ -9,16 +9,14 @@ export type EjercicioNuevo = {
   peso: number | null;
 };
 
-/**
- * Obtiene el usuario_id del usuario autenticado actualmente.
- * Lanza error si no hay sesión activa.
- */
-async function getUsuarioId(): Promise<string> {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user?.id) {
-    throw new Error('No hay sesión activa. Por favor inicia sesión nuevamente.');
+/** Obtiene el usuario_id del usuario autenticado, o null si no hay sesión. */
+async function getUsuarioId(): Promise<string | null> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    return user?.id ?? null;
+  } catch {
+    return null;
   }
-  return user.id;
 }
 
 export async function listarRutinas(): Promise<Rutina[]> {
@@ -48,9 +46,13 @@ export async function crearRutina(nombre: string, ejercicios: EjercicioNuevo[]):
   try {
     const usuarioId = await getUsuarioId();
 
+    // Construir payload — usuario_id es opcional (puede ser null si RLS está desactivado)
+    const insertData: any = { nombre };
+    if (usuarioId) insertData.usuario_id = usuarioId;
+
     const { data: rutina, error } = await supabase
       .from('rutinas')
-      .insert({ nombre, usuario_id: usuarioId })
+      .insert(insertData)
       .select()
       .single();
 
@@ -59,12 +61,11 @@ export async function crearRutina(nombre: string, ejercicios: EjercicioNuevo[]):
 
     let ejerciciosCreados: any[] = [];
     if (ejercicios.length > 0) {
-      const filas = ejercicios.map((e, i) => ({
-        ...e,
-        rutina_id: rutina.id,
-        usuario_id: usuarioId,
-        orden: i,
-      }));
+      const filas = ejercicios.map((e, i) => {
+        const fila: any = { ...e, rutina_id: rutina.id, orden: i };
+        if (usuarioId) fila.usuario_id = usuarioId;
+        return fila;
+      });
       const { data: ejsData, error: ejsError } = await supabase
         .from('ejercicios_rutina')
         .insert(filas)
