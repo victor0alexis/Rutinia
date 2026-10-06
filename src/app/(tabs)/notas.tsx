@@ -21,7 +21,7 @@ import GlowButton from '../../components/GlowButton';
 import { CategoriaNota, eliminarNotaEstandar, guardarNotaEstandar, NotaEstandar, obtenerNotasEstandar } from '../../services/notas';
 import { agregarActividad } from '../../services/registros';
 import { aISO, diasDeSemana, nombreDia } from '../../utils/fechas';
-import { seguro, confirmarAccion, mostrarMensaje } from '../../utils/errores';
+import { seguro, confirmarAccion } from '../../utils/errores';
 
 const CATEGORIAS: CategoriaNota[] = ['General', 'Nutrición', 'Entrenamiento', 'Suplementos', 'Recuperación'];
 

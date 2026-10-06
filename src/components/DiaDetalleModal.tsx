@@ -26,7 +26,7 @@ import {
 } from '../services/registros';
 import { listarRutinas } from '../services/rutinas';
 import { EjercicioRegistro, EjercicioRutina, Registro, Rutina } from '../types';
-import { seguro, confirmarAccion, mostrarMensaje } from '../utils/errores';
+import { seguro, confirmarAccion } from '../utils/errores';
 import { aISO, nombreDia } from '../utils/fechas';
 
 type Props = {
