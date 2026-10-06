@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colores, fuentes } from '../constants/colores';
 import { aISO, nombreDia } from '../utils/fechas';
 import { EjercicioRegistro, Registro } from '../types';
+import { parsearEjercicioInfo } from '../utils/ejercicios';
 
 type Props = {
   fecha: Date;
@@ -119,33 +120,53 @@ export default function DiaCard({ fecha, registros, onPress }: Props) {
                     • {r.rutinas.nombre}
                   </Text>
                 )}
-                {r.ejercicios_registro.slice(0, 3).map((e) => (
-                  <View
-                    key={e.id}
-                    style={[
-                      styles.exerciseRow,
-                      { paddingLeft: r.rutinas?.nombre ? 12 : 0 },
-                    ]}
-                  >
-                    <Ionicons
-                      name={e.completado ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={15}
-                      color={e.completado ? colores.exito : colores.suave}
-                    />
-                    <Text
-                      numberOfLines={1}
+                {r.ejercicios_registro.slice(0, 3).map((e) => {
+                  const parsed = parsearEjercicioInfo(e);
+                  return (
+                    <View
+                      key={e.id}
                       style={[
-                        styles.exerciseText,
-                        {
-                          color: e.completado ? colores.suave : colores.texto,
-                          textDecorationLine: e.completado ? 'line-through' : 'none',
-                        },
+                        styles.exerciseRow,
+                        { paddingLeft: r.rutinas?.nombre ? 12 : 0 },
                       ]}
                     >
-                      {e.nombre}
-                    </Text>
-                  </View>
-                ))}
+                      <Ionicons
+                        name={e.completado ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={15}
+                        color={e.completado ? colores.exito : colores.suave}
+                      />
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.exerciseText,
+                          {
+                            color: e.completado ? colores.texto : colores.texto,
+                            opacity: e.completado ? 0.75 : 1,
+                          },
+                        ]}
+                      >
+                        {parsed.nombreLimpio}
+                      </Text>
+                      {parsed.resumenVisual && (
+                        <View
+                          style={[
+                            styles.setTagBadge,
+                            e.completado && styles.setTagBadgeCompleted,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.setTagText,
+                              e.completado && styles.setTagTextCompleted,
+                            ]}
+                          >
+                            {parsed.resumenVisual}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
                 {r.ejercicios_registro.length > 3 && (
                   <Text style={styles.moreExercisesText}>
                     + {r.ejercicios_registro.length - 3} ejercicios más...
@@ -239,5 +260,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fuentes.regular,
     fontStyle: 'italic',
+  },
+  setTagBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  setTagBadgeCompleted: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  setTagText: {
+    color: colores.suave,
+    fontSize: 10,
+    fontFamily: fuentes.medium,
+  },
+  setTagTextCompleted: {
+    color: colores.exito,
+    fontFamily: fuentes.bold,
   },
 });

@@ -15,6 +15,7 @@ import {
 import { colores, fuentes } from '../constants/colores';
 import ScreenBackground from './ScreenBackground';
 import GlowButton from './GlowButton';
+import { parsearEjercicioInfo } from '../utils/ejercicios';
 import { NotaEstandar, obtenerNotasEstandar } from '../services/notas';
 import {
   agregarActividad,
@@ -410,39 +411,59 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
                               </View>
                             ) : null}
 
-                            {ejsEntrenamiento.map((e) => (
-                              <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
-                                <Pressable onPress={() => alternar(e)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
-                                  <Ionicons
-                                    name={e.completado ? 'checkmark-circle' : 'ellipse-outline'}
-                                    size={24}
-                                    color={e.completado ? colores.exito : colores.suave}
-                                  />
-                                  <View style={{ flex: 1 }}>
-                                    <Text
-                                      style={{
-                                        color: e.completado ? colores.suave : colores.texto,
-                                        fontSize: 15,
-                                        fontFamily: fuentes.bold,
-                                        textDecorationLine: e.completado ? 'line-through' : 'none',
-                                      }}
-                                    >
-                                      {e.nombre}
-                                    </Text>
-                                    {(e.series || e.repeticiones || e.peso) && (
-                                      <Text style={{ color: colores.suave, fontSize: 12, marginTop: 2, fontFamily: fuentes.regular }}>
-                                        {[e.series && e.repeticiones ? `${e.series} series × ${e.repeticiones} reps` : null, e.peso ? `${e.peso} kg` : null]
-                                          .filter(Boolean)
-                                          .join('  •  ')}
-                                      </Text>
-                                    )}
-                                  </View>
-                                </Pressable>
-                                <Pressable onPress={() => quitarEjercicioSolo(e)} hitSlop={10} style={{ padding: 6 }}>
-                                  <Ionicons name="close-circle-outline" size={20} color={colores.suave} />
-                                </Pressable>
-                              </View>
-                            ))}
+                            {ejsEntrenamiento.map((e) => {
+                              const parsed = parsearEjercicioInfo(e);
+                              return (
+                                <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6 }}>
+                                  <Pressable onPress={() => alternar(e)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                                    <Ionicons
+                                      name={e.completado ? 'checkmark-circle' : 'ellipse-outline'}
+                                      size={22}
+                                      color={e.completado ? colores.exito : colores.suave}
+                                    />
+                                    <View style={{ flex: 1 }}>
+                                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                        <Text
+                                          style={{
+                                            color: e.completado ? colores.texto : colores.texto,
+                                            fontSize: 15,
+                                            fontFamily: fuentes.bold,
+                                            opacity: e.completado ? 0.75 : 1,
+                                          }}
+                                        >
+                                          {parsed.nombreLimpio}
+                                        </Text>
+                                        {parsed.resumenVisual && (
+                                          <View
+                                            style={{
+                                              backgroundColor: e.completado ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                                              paddingHorizontal: 8,
+                                              paddingVertical: 2,
+                                              borderRadius: 6,
+                                              borderWidth: 1,
+                                              borderColor: e.completado ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255, 255, 255, 0.12)',
+                                            }}
+                                          >
+                                            <Text
+                                              style={{
+                                                color: e.completado ? colores.exito : colores.suave,
+                                                fontSize: 11,
+                                                fontFamily: fuentes.bold,
+                                              }}
+                                            >
+                                              {parsed.resumenVisual}
+                                            </Text>
+                                          </View>
+                                        )}
+                                      </View>
+                                    </View>
+                                  </Pressable>
+                                  <Pressable onPress={() => quitarEjercicioSolo(e)} hitSlop={10} style={{ padding: 6 }}>
+                                    <Ionicons name="close-circle-outline" size={20} color={colores.suave} />
+                                  </Pressable>
+                                </View>
+                              );
+                            })}
                           </View>
                         );
                       })

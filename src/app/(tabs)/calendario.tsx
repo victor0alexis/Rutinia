@@ -14,6 +14,7 @@ import EjecutarEntrenamientoModal from '../../components/EjecutarEntrenamientoMo
 import { registrosDeRango } from '../../services/registros';
 import { aISO, nombreDia } from '../../utils/fechas';
 import { seguro } from '../../utils/errores';
+import { parsearEjercicioInfo } from '../../utils/ejercicios';
 import { EjercicioRegistro, Registro } from '../../types';
 
 // Configuración de idioma Español para el Calendario
@@ -275,11 +276,21 @@ export default function CalendarioScreen() {
                       </View>
                     </View>
 
-                    {(r.ejercicios_registro || []).filter((e) => !e.nombre.startsWith('📌')).map((e) => (
-                      <Text key={e.id} style={{ color: colores.texto, fontSize: 12, fontFamily: fuentes.regular, paddingLeft: 4 }} numberOfLines={1}>
-                        • {e.nombre}
-                      </Text>
-                    ))}
+                    {(r.ejercicios_registro || []).filter((e) => !e.nombre.startsWith('📌')).map((e) => {
+                      const parsed = parsearEjercicioInfo(e);
+                      return (
+                        <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 4, paddingVertical: 1 }}>
+                          <Text style={{ color: colores.texto, fontSize: 12, fontFamily: fuentes.regular, flex: 1 }} numberOfLines={1}>
+                            • {parsed.nombreLimpio}
+                          </Text>
+                          {parsed.resumenVisual && (
+                            <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold }}>
+                              {parsed.resumenVisual}
+                            </Text>
+                          )}
+                        </View>
+                      );
+                    })}
                   </Pressable>
                 ))}
 

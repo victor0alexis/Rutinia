@@ -14,6 +14,7 @@ import GlowButton from '../../components/GlowButton';
 import { registrosDeRango } from '../../services/registros';
 import { aISO, diasDeSemana, nombreDia, rangoSemana } from '../../utils/fechas';
 import { seguro } from '../../utils/errores';
+import { parsearEjercicioInfo } from '../../utils/ejercicios';
 import { EjercicioRegistro, Registro } from '../../types';
 
 export default function Semana() {
@@ -323,36 +324,48 @@ export default function Semana() {
                           </View>
                         </View>
 
-                        {ejsRutina.map((e) => (
-                          <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 2 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                              <Ionicons
-                                name={e.completado ? 'checkmark-circle' : 'ellipse-outline'}
-                                size={18}
-                                color={e.completado ? colores.exito : colores.suave}
-                              />
-                              <View style={{ flex: 1 }}>
-                                <Text
-                                  style={{
-                                    color: e.completado ? colores.suave : colores.texto,
-                                    fontSize: 14,
-                                    fontFamily: fuentes.bold,
-                                    textDecorationLine: e.completado ? 'line-through' : 'none',
-                                  }}
-                                >
-                                  {e.nombre}
-                                </Text>
-                                {(e.series || e.repeticiones || e.peso) && (
-                                  <Text style={{ color: colores.suave, fontSize: 11, marginTop: 1, fontFamily: fuentes.regular }}>
-                                    {[e.series && e.repeticiones ? `${e.series}×${e.repeticiones}` : null, e.peso ? `${e.peso} kg` : null]
-                                      .filter(Boolean)
-                                      .join('  •  ')}
+                        {ejsRutina.map((e) => {
+                          const parsed = parsearEjercicioInfo(e);
+                          return (
+                            <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                                <Ionicons
+                                  name={e.completado ? 'checkmark-circle' : 'ellipse-outline'}
+                                  size={18}
+                                  color={e.completado ? colores.exito : colores.suave}
+                                />
+                                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                  <Text
+                                    style={{
+                                      color: e.completado ? colores.texto : colores.texto,
+                                      fontSize: 14,
+                                      fontFamily: fuentes.bold,
+                                      opacity: e.completado ? 0.75 : 1,
+                                    }}
+                                  >
+                                    {parsed.nombreLimpio}
                                   </Text>
-                                )}
+                                  {parsed.resumenVisual && (
+                                    <View
+                                      style={{
+                                        backgroundColor: e.completado ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                                        paddingHorizontal: 7,
+                                        paddingVertical: 1,
+                                        borderRadius: 6,
+                                        borderWidth: 1,
+                                        borderColor: e.completado ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+                                      }}
+                                    >
+                                      <Text style={{ color: e.completado ? colores.exito : colores.suave, fontSize: 10, fontFamily: fuentes.bold }}>
+                                        {parsed.resumenVisual}
+                                      </Text>
+                                    </View>
+                                  )}
+                                </View>
                               </View>
                             </View>
-                          </View>
-                        ))}
+                          );
+                        })}
                       </Pressable>
                     );
                   })}
@@ -365,36 +378,48 @@ export default function Semana() {
                         <Text style={{ color: colores.exito, fontFamily: fuentes.black, fontSize: 14 }}>Ejercicios Extras</Text>
                       </View>
 
-                      {ejerciciosExtras.map((e) => (
-                        <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 2 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                            <Ionicons
-                              name={e.completado ? 'checkmark-circle' : 'ellipse-outline'}
-                              size={18}
-                              color={e.completado ? colores.exito : colores.suave}
-                            />
-                            <View style={{ flex: 1 }}>
-                              <Text
-                                style={{
-                                  color: e.completado ? colores.suave : colores.texto,
-                                  fontSize: 14,
-                                  fontFamily: fuentes.bold,
-                                  textDecorationLine: e.completado ? 'line-through' : 'none',
-                                }}
-                              >
-                                {e.nombre}
-                              </Text>
-                              {(e.series || e.repeticiones || e.peso) && (
-                                <Text style={{ color: colores.suave, fontSize: 11, marginTop: 1, fontFamily: fuentes.regular }}>
-                                  {[e.series && e.repeticiones ? `${e.series}×${e.repeticiones}` : null, e.peso ? `${e.peso} kg` : null]
-                                    .filter(Boolean)
-                                    .join('  •  ')}
+                      {ejerciciosExtras.map((e) => {
+                        const parsed = parsearEjercicioInfo(e);
+                        return (
+                          <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                              <Ionicons
+                                name={e.completado ? 'checkmark-circle' : 'ellipse-outline'}
+                                size={18}
+                                color={e.completado ? colores.exito : colores.suave}
+                              />
+                              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                <Text
+                                  style={{
+                                    color: e.completado ? colores.texto : colores.texto,
+                                    fontSize: 14,
+                                    fontFamily: fuentes.bold,
+                                    opacity: e.completado ? 0.75 : 1,
+                                  }}
+                                >
+                                  {parsed.nombreLimpio}
                                 </Text>
-                              )}
+                                {parsed.resumenVisual && (
+                                  <View
+                                    style={{
+                                      backgroundColor: e.completado ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                                      paddingHorizontal: 7,
+                                      paddingVertical: 1,
+                                      borderRadius: 6,
+                                      borderWidth: 1,
+                                      borderColor: e.completado ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+                                    }}
+                                  >
+                                    <Text style={{ color: e.completado ? colores.exito : colores.suave, fontSize: 10, fontFamily: fuentes.bold }}>
+                                      {parsed.resumenVisual}
+                                    </Text>
+                                  </View>
+                                )}
+                              </View>
                             </View>
                           </View>
-                        </View>
-                      ))}
+                        );
+                      })}
                     </View>
                   )}
                 </>

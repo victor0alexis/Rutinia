@@ -191,18 +191,23 @@ export default function GestionarRutinaModal({
         const repsPrimera = primeraSerie?.reps ? Number(primeraSerie.reps) : null;
         const pesoPrimero = primeraSerie?.peso ? Number(primeraSerie.peso) : null;
 
-        const resumenSeries = ej.series
-          .map((s, idx) => {
-            const p = s.peso ? `${s.peso}k` : '';
-            const r = s.reps ? `${s.reps}r` : '';
-            const rir = s.rir ? `RIR ${s.rir}` : '';
-            const n = s.nota ? `[${s.nota}]` : '';
-            return `${idx + 1}ª: ${[p, r, rir, n].filter(Boolean).join(' ')}`;
-          })
-          .join(' • ');
+        const tieneDatos = ej.series.some((s) => Boolean(s.peso || s.reps || s.rir || s.nota));
+        const resumenSeries = tieneDatos
+          ? ej.series
+              .map((s, idx) => {
+                const p = s.peso ? `${s.peso}k` : '';
+                const r = s.reps ? `${s.reps}r` : '';
+                const rir = s.rir ? `RIR ${s.rir}` : '';
+                const n = s.nota ? `[${s.nota}]` : '';
+                return `${idx + 1}ª: ${[p, r, rir, n].filter(Boolean).join(' ')}`;
+              })
+              .join(' • ')
+          : '';
+
+        const nombreFinal = resumenSeries ? `${ej.nombre.trim()} (${resumenSeries})` : ej.nombre.trim();
 
         return {
-          nombre: `${ej.nombre.trim()} (${resumenSeries})`,
+          nombre: nombreFinal,
           series: numSeriesTotal,
           repeticiones: repsPrimera,
           peso: pesoPrimero,

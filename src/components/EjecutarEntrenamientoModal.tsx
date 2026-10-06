@@ -277,18 +277,21 @@ export default function EjecutarEntrenamientoModal({
           const pesoPrimero = primeraSerie?.peso ? Number(primeraSerie.peso) : null;
           const todasCompletadas = ej.series.every((s) => s.completado);
 
-          const resumenSeries = ej.series
-            .map((s, idx) => {
-              const p = s.peso ? `${s.peso}k` : '';
-              const r = s.reps ? `${s.reps}r` : '';
-              const rir = s.rir ? `RIR ${s.rir}` : '';
-              const n = s.nota ? `[${s.nota}]` : '';
-              const c = s.completado ? '✓' : '';
-              return `${idx + 1}ª: ${[p, r, rir, n, c].filter(Boolean).join(' ')}`;
-            })
-            .join(' • ');
+          const tieneDatos = ej.series.some((s) => Boolean(s.peso || s.reps || s.rir || s.nota || s.completado));
+          const resumenSeries = tieneDatos
+            ? ej.series
+                .map((s, idx) => {
+                  const p = s.peso ? `${s.peso}k` : '';
+                  const r = s.reps ? `${s.reps}r` : '';
+                  const rir = s.rir ? `RIR ${s.rir}` : '';
+                  const n = s.nota ? `[${s.nota}]` : '';
+                  const c = s.completado ? '✓' : '';
+                  return `${idx + 1}ª: ${[p, r, rir, n, c].filter(Boolean).join(' ')}`;
+                })
+                .join(' • ')
+            : '';
 
-          const nombreConDetalle = `${ej.nombre.trim()} (${resumenSeries})`;
+          const nombreConDetalle = resumenSeries ? `${ej.nombre.trim()} (${resumenSeries})` : ej.nombre.trim();
 
           await actualizarEjecucionEjercicio(ej.id, {
             nombre: nombreConDetalle,
