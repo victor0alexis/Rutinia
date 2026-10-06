@@ -14,6 +14,8 @@ import { ActivityIndicator, View, Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { colores } from '../constants/colores';
 
+import ConfirmModalGlobal from '../components/ConfirmModalGlobal';
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
@@ -67,13 +69,16 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen
-        name="rutina/nueva"
-        options={{ headerShown: true, title: 'Nueva rutina', presentation: 'modal' }}
-      />
-    </Stack>
+    <View style={{ flex: 1 }}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen
+          name="rutina/nueva"
+          options={{ headerShown: true, title: 'Nueva rutina', presentation: 'modal' }}
+        />
+      </Stack>
+      <ConfirmModalGlobal />
+    </View>
   );
 }
 

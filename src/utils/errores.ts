@@ -1,15 +1,38 @@
-import { Alert, Platform } from 'react-native';
+export type ModalConfig = {
+  visible: boolean;
+  tipo: 'confirm' | 'alert';
+  titulo: string;
+  mensaje: string;
+  textoConfirmar?: string;
+  textoCancelar?: string;
+  esPeligro?: boolean;
+  onConfirmar?: () => Promise<void> | void;
+};
+
+type Listener = (config: ModalConfig) => void;
+const listeners = new Set<Listener>();
+
+export function suscribirModalConfirmacion(listener: Listener) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+export function abrirModalGlobal(config: Omit<ModalConfig, 'visible'>) {
+  listeners.forEach((l) => l({ ...config, visible: true }));
+}
+
+export function cerrarModalGlobal() {
+  listeners.forEach((l) => l({ visible: false, tipo: 'alert', titulo: '', mensaje: '' }));
+}
 
 export async function seguro(fn: () => Promise<void>) {
   try {
     await fn();
   } catch (e: any) {
     const msg = e?.message ?? String(e);
-    if (Platform.OS === 'web') {
-      window.alert(`Error: ${msg}`);
-    } else {
-      Alert.alert('Error', msg);
-    }
+    mostrarMensaje('Atención', msg);
   }
 }
 
@@ -19,32 +42,27 @@ export function confirmarAccion(
   onConfirmar: () => Promise<void> | void,
   textoConfirmar = 'Eliminar'
 ) {
-  if (Platform.OS === 'web') {
-    const ok = window.confirm(`${titulo}\n\n${mensaje}`);
-    if (ok) {
-      seguro(async () => {
-        await onConfirmar();
-      });
-    }
-  } else {
-    Alert.alert(titulo, mensaje, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: textoConfirmar,
-        style: 'destructive',
-        onPress: () =>
-          seguro(async () => {
-            await onConfirmar();
-          }),
-      },
-    ]);
-  }
+  const esPeligro =
+    textoConfirmar.toLowerCase().includes('eliminar') ||
+    textoConfirmar.toLowerCase().includes('desvincular') ||
+    titulo.toLowerCase().includes('eliminar') ||
+    titulo.toLowerCase().includes('desvincular');
+
+  abrirModalGlobal({
+    tipo: 'confirm',
+    titulo,
+    mensaje,
+    textoConfirmar,
+    esPeligro,
+    onConfirmar,
+  });
 }
 
 export function mostrarMensaje(titulo: string, mensaje?: string) {
-  if (Platform.OS === 'web') {
-    window.alert(mensaje ? `${titulo}\n\n${mensaje}` : titulo);
-  } else {
-    Alert.alert(titulo, mensaje);
-  }
+  abrirModalGlobal({
+    tipo: 'alert',
+    titulo,
+    mensaje: mensaje || '',
+    textoConfirmar: 'Entendido',
+  });
 }
