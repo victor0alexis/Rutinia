@@ -72,10 +72,6 @@ export default function RootLayout() {
     <View style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen
-          name="rutina/nueva"
-          options={{ headerShown: true, title: 'Nueva rutina', presentation: 'modal' }}
-        />
       </Stack>
       <ConfirmModalGlobal />
     </View>
