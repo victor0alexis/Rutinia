@@ -32,9 +32,9 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Tabla de Notas Estandarizadas
 CREATE TABLE public.notas (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    titulo TEXT NOT NULL,
-    categoria TEXT NOT NULL,
-    contenido TEXT NOT NULL,
+    titulo TEXT NOT NULL DEFAULT '',
+    categoria TEXT NOT NULL DEFAULT 'General',
+    contenido TEXT NOT NULL DEFAULT '',
     creado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
     usuario_id UUID NULL
 );
