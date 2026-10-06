@@ -14,6 +14,7 @@
 -- ----------------------------------------------------------------------------
 -- 1. ELIMINACIÓN EN CASCADA DE TABLAS EXISTENTES
 -- ----------------------------------------------------------------------------
+DROP TABLE IF EXISTS public.notas CASCADE;
 DROP TABLE IF EXISTS public.ejercicios_registro CASCADE;
 DROP TABLE IF EXISTS public.registros_entrenamiento CASCADE;
 DROP TABLE IF EXISTS public.ejercicios_rutina CASCADE;
@@ -27,6 +28,16 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ----------------------------------------------------------------------------
 -- 3. CREACIÓN DE TABLAS CON RELACIONES CASCADE / SET NULL
 -- ----------------------------------------------------------------------------
+
+-- Tabla de Notas Estandarizadas
+CREATE TABLE public.notas (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    titulo TEXT NOT NULL,
+    categoria TEXT NOT NULL,
+    contenido TEXT NOT NULL,
+    creado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
+    usuario_id UUID NULL
+);
 
 -- Tabla principal de Rutinas
 CREATE TABLE public.rutinas (
@@ -76,6 +87,7 @@ CREATE TABLE public.ejercicios_registro (
 -- ----------------------------------------------------------------------------
 -- 4. ÍNDICES DE RENDIMIENTO PARA CONSULTAS RÁPIDAS
 -- ----------------------------------------------------------------------------
+CREATE INDEX idx_notas_creado_en ON public.notas(creado_en);
 CREATE INDEX idx_ejercicios_rutina_rutina_id ON public.ejercicios_rutina(rutina_id);
 CREATE INDEX idx_registros_entrenamiento_fecha ON public.registros_entrenamiento(fecha);
 CREATE INDEX idx_registros_entrenamiento_rutina_id ON public.registros_entrenamiento(rutina_id);
@@ -83,9 +95,8 @@ CREATE INDEX idx_ejercicios_registro_registro_id ON public.ejercicios_registro(r
 
 -- ----------------------------------------------------------------------------
 -- 5. DESHABILITAR RLS COMPLETAMENTE (APP DE USUARIO ÚNICO + SERVICE ROLE KEY)
---    La service_role key ya bypasea RLS, pero deshabilitar es más limpio y evita
---    cualquier conflicto futuro con políticas mal configuradas.
 -- ----------------------------------------------------------------------------
+ALTER TABLE public.notas DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rutinas DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ejercicios_rutina DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.registros_entrenamiento DISABLE ROW LEVEL SECURITY;
@@ -96,6 +107,7 @@ ALTER TABLE public.ejercicios_registro DISABLE ROW LEVEL SECURITY;
 -- ----------------------------------------------------------------------------
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 
+GRANT ALL PRIVILEGES ON public.notas TO anon, authenticated, service_role;
 GRANT ALL PRIVILEGES ON public.rutinas TO anon, authenticated, service_role;
 GRANT ALL PRIVILEGES ON public.ejercicios_rutina TO anon, authenticated, service_role;
 GRANT ALL PRIVILEGES ON public.registros_entrenamiento TO anon, authenticated, service_role;
