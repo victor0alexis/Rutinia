@@ -21,7 +21,7 @@ import GlowButton from '../../components/GlowButton';
 import { CategoriaNota, eliminarNotaEstandar, guardarNotaEstandar, NotaEstandar, obtenerNotasEstandar } from '../../services/notas';
 import { agregarActividad } from '../../services/registros';
 import { aISO, diasDeSemana, nombreDia } from '../../utils/fechas';
-import { seguro, confirmarAccion } from '../../utils/errores';
+import { seguro, confirmarAccion, mostrarMensaje } from '../../utils/errores';
 
 const CATEGORIAS: CategoriaNota[] = ['General', 'Nutrición', 'Entrenamiento', 'Suplementos', 'Recuperación'];
 
@@ -93,7 +93,8 @@ export default function Notas() {
         contenido: contenidoInput.trim(),
       });
       setModalEditarVisible(false);
-      cargarNotas();
+      await cargarNotas();
+      mostrarMensaje('¡Éxito!', notaEditando ? 'Nota actualizada correctamente.' : 'Nota guardada correctamente.');
     });
 
   const borrar = (n: NotaEstandar) => {

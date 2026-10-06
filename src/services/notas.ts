@@ -168,44 +168,29 @@ export async function guardarNotaEstandar(
   };
   if (usuarioId) insertData.usuario_id = usuarioId;
 
-  try {
-    const { data: nuevaDb, error } = await supabase
-      .from('notas')
-      .insert(insertData)
-      .select()
-      .single();
+  const { data: nuevaDb, error } = await supabase
+    .from('notas')
+    .insert(insertData)
+    .select()
+    .single();
 
-    if (error) {
-      throw new Error(`Error creando nota en Supabase: ${error.message} (Código: ${error.code})`);
-    }
+  if (error) {
+    throw new Error(`Error Supabase al guardar nota: ${error.message} (Código: ${error.code})`);
+  }
 
-    if (nuevaDb) {
-      const nuevaNotaObj: NotaEstandar = {
-        id: nuevaDb.id,
-        titulo: nuevaDb.titulo,
-        categoria: nuevaDb.categoria as CategoriaNota,
-        contenido: nuevaDb.contenido,
-        fechaCreacion: nuevaDb.creado_en || new Date().toISOString(),
-        usuario_id: nuevaDb.usuario_id,
-      };
-
-      const existentes = (await obtenerCacheLocal<NotaEstandar[]>(STORAGE_KEY)) || [];
-      const filtradas = nota.id ? existentes.filter((n) => n.id !== nota.id) : existentes;
-      await guardarCacheLocal(STORAGE_KEY, [nuevaNotaObj, ...filtradas]);
-    }
-  } catch (err: any) {
-    console.warn('Fallback offline creando nota:', err?.message ?? err);
-    // Fallback si no hay conexión
-    const localId = `local_${Date.now()}`;
-    const nuevaNotaLocal: NotaEstandar = {
-      id: localId,
-      titulo: nota.titulo,
-      categoria: nota.categoria,
-      contenido: nota.contenido,
-      fechaCreacion: new Date().toISOString(),
+  if (nuevaDb) {
+    const nuevaNotaObj: NotaEstandar = {
+      id: nuevaDb.id,
+      titulo: nuevaDb.titulo,
+      categoria: nuevaDb.categoria as CategoriaNota,
+      contenido: nuevaDb.contenido,
+      fechaCreacion: nuevaDb.creado_en || new Date().toISOString(),
+      usuario_id: nuevaDb.usuario_id,
     };
+
     const existentes = (await obtenerCacheLocal<NotaEstandar[]>(STORAGE_KEY)) || [];
-    await guardarCacheLocal(STORAGE_KEY, [nuevaNotaLocal, ...existentes]);
+    const filtradas = nota.id ? existentes.filter((n) => n.id !== nota.id) : existentes;
+    await guardarCacheLocal(STORAGE_KEY, [nuevaNotaObj, ...filtradas]);
   }
 }
 
