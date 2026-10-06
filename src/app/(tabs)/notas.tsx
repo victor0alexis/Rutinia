@@ -21,7 +21,7 @@ import GlowButton from '../../components/GlowButton';
 import { CategoriaNota, eliminarNotaEstandar, guardarNotaEstandar, NotaEstandar, obtenerNotasEstandar } from '../../services/notas';
 import { agregarActividad } from '../../services/registros';
 import { aISO, diasDeSemana, nombreDia } from '../../utils/fechas';
-import { seguro } from '../../utils/errores';
+import { seguro, confirmarAccion, mostrarMensaje } from '../../utils/errores';
 
 const CATEGORIAS: CategoriaNota[] = ['General', 'Nutrición', 'Entrenamiento', 'Suplementos', 'Recuperación'];
 
@@ -97,18 +97,14 @@ export default function Notas() {
     });
 
   const borrar = (n: NotaEstandar) => {
-    Alert.alert('Eliminar Nota', `¿Deseas eliminar "${n.titulo}" de tu biblioteca?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: () =>
-          seguro(async () => {
-            await eliminarNotaEstandar(n.id);
-            cargarNotas();
-          }),
-      },
-    ]);
+    confirmarAccion(
+      'Eliminar Nota',
+      `¿Deseas eliminar "${n.titulo}" de tu biblioteca?`,
+      async () => {
+        await eliminarNotaEstandar(n.id);
+        cargarNotas();
+      }
+    );
   };
 
   const asignarADia = (d: Date) =>

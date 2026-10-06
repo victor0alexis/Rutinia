@@ -11,7 +11,7 @@ import GestionarRutinaModal from '../../components/GestionarRutinaModal';
 import { listarRutinas, eliminarRutina, duplicarRutina } from '../../services/rutinas';
 import { agregarRutinaAFechas } from '../../services/registros';
 import { aISO, diasDeSemana, nombreDia } from '../../utils/fechas';
-import { seguro } from '../../utils/errores';
+import { seguro, confirmarAccion, mostrarMensaje } from '../../utils/errores';
 import { Rutina } from '../../types';
 
 export default function Rutinas() {
@@ -44,23 +44,14 @@ export default function Rutinas() {
   };
 
   const confirmarEliminarRutina = (r: Rutina) => {
-    Alert.alert(
+    confirmarAccion(
       'Eliminar Rutina',
       `¿Deseas eliminar permanentemente la rutina "${r.nombre}" y sus ejercicios asociados?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: () =>
-            seguro(async () => {
-              await eliminarRutina(r.id);
-              // Recargar lista desde Supabase después de eliminar
-              await cargar();
-              Alert.alert('Eliminada', `La rutina "${r.nombre}" ha sido eliminada.`);
-            }),
-        },
-      ]
+      async () => {
+        await eliminarRutina(r.id);
+        await cargar();
+        mostrarMensaje('Eliminada', `La rutina "${r.nombre}" ha sido eliminada.`);
+      }
     );
   };
 

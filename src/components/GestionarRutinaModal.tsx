@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colores, fuentes } from '../constants/colores';
 import GlowButton from './GlowButton';
 import { crearRutina, eliminarRutina, actualizarRutina } from '../services/rutinas';
-import { seguro } from '../utils/errores';
+import { seguro, confirmarAccion, mostrarMensaje } from '../utils/errores';
 import { Rutina } from '../types';
 
 type SerieInput = {
@@ -218,24 +218,20 @@ export default function GestionarRutinaModal({
 
       onGuardado();
       onClose();
-      Alert.alert('Éxito', rutinaParaEditar ? 'Rutina actualizada correctamente.' : 'Rutina guardada correctamente.');
+      mostrarMensaje('Éxito', rutinaParaEditar ? 'Rutina actualizada correctamente.' : 'Rutina guardada correctamente.');
     });
 
   const borrarRutinaCompleta = () => {
     if (!rutinaParaEditar) return;
-    Alert.alert('Eliminar Rutina', `¿Deseas eliminar la rutina "${rutinaParaEditar.nombre}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: () =>
-          seguro(async () => {
-            await eliminarRutina(rutinaParaEditar.id);
-            onGuardado();
-            onClose();
-          }),
-      },
-    ]);
+    confirmarAccion(
+      'Eliminar Rutina',
+      `¿Deseas eliminar la rutina "${rutinaParaEditar.nombre}"?`,
+      async () => {
+        await eliminarRutina(rutinaParaEditar.id);
+        onGuardado();
+        onClose();
+      }
+    );
   };
 
   return (

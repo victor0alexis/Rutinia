@@ -26,7 +26,7 @@ import {
 } from '../services/registros';
 import { listarRutinas } from '../services/rutinas';
 import { EjercicioRegistro, EjercicioRutina, Registro, Rutina } from '../types';
-import { seguro } from '../utils/errores';
+import { seguro, confirmarAccion, mostrarMensaje } from '../utils/errores';
 import { aISO, nombreDia } from '../utils/fechas';
 
 type Props = {
@@ -163,21 +163,14 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
     });
 
   const desvincularRutinaCompleta = (r: Registro) => {
-    Alert.alert(
+    confirmarAccion(
       'Desvincular Rutina',
       `¿Deseas desvincular la rutina "${r.rutinas?.nombre || 'de este día'}" del ${nombreDia(fecha)}?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Desvincular',
-          style: 'destructive',
-          onPress: () =>
-            seguro(async () => {
-              await eliminarRegistroRutina(r.id);
-              alCambiar();
-            }),
-        },
-      ]
+      async () => {
+        await eliminarRegistroRutina(r.id);
+        alCambiar();
+      },
+      'Desvincular'
     );
   };
 
