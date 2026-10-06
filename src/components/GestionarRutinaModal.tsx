@@ -15,12 +15,15 @@ import { colores, fuentes } from '../constants/colores';
 import GlowButton from './GlowButton';
 import { crearRutina, eliminarRutina, actualizarRutina } from '../services/rutinas';
 import { seguro, confirmarAccion, mostrarMensaje } from '../utils/errores';
+import { parsearEjercicioInfo } from '../utils/ejercicios';
 import { Rutina } from '../types';
 
 type SerieInput = {
   id: string;
   peso: string;
   reps: string;
+  pesoI?: string;
+  repsI?: string;
   rir: string;
   nota: string;
 };
@@ -28,6 +31,7 @@ type SerieInput = {
 type EjercicioInput = {
   id: string;
   nombre: string;
+  esUnilateral: boolean;
   series: SerieInput[];
 };
 
@@ -43,6 +47,8 @@ const nuevaSerieVacia = (): SerieInput => ({
   id: Date.now().toString() + Math.random().toString(),
   peso: '',
   reps: '',
+  pesoI: '',
+  repsI: '',
   rir: '',
   nota: '',
 });
@@ -50,6 +56,7 @@ const nuevaSerieVacia = (): SerieInput => ({
 const nuevoEjercicioVacio = (): EjercicioInput => ({
   id: Date.now().toString() + Math.random().toString(),
   nombre: '',
+  esUnilateral: false,
   series: [nuevaSerieVacia()],
 });
 
@@ -69,35 +76,31 @@ export default function GestionarRutinaModal({
       if (rutinaParaEditar) {
         setNombreRutina(rutinaParaEditar.nombre);
         const ejsMapeados: EjercicioInput[] = (rutinaParaEditar.ejercicios_rutina || []).map((e) => {
-          const nombreLimpio = e.nombre.replace(/\s*\(.*\)$/, '').trim();
-          const numSeries = e.series || 1;
-
-          const matchResumen = e.nombre.match(/\((.*?)\)/);
-          const resumenText = matchResumen ? matchResumen[1] : '';
-          const seriesItems = resumenText.split('•').map((s) => s.trim());
+          const parsed = parsearEjercicioInfo(e);
+          const numSeries = e.series || parsed.detallesSets.length || 1;
 
           const seriesArray: SerieInput[] = Array.from({ length: numSeries }, (_, i) => {
-            let pesoStr = e.peso ? e.peso.toString() : '';
-            let repsStr = e.repeticiones ? e.repeticiones.toString() : '';
-            let rirStr = '';
-            let notaStr = '';
+            const sDetail = parsed.detallesSets[i];
+            let pesoStr = sDetail?.pesoD || (e.peso ? e.peso.toString() : '');
+            let repsStr = sDetail?.repsD || (e.repeticiones ? e.repeticiones.toString() : '');
+            let pesoIStr = sDetail?.pesoI || '';
+            let repsIStr = sDetail?.repsI || '';
+            let rirStr = sDetail?.rir || '';
+            let notaStr = sDetail?.nota || '';
 
-            if (seriesItems[i]) {
-              const item = seriesItems[i];
-              const matchK = item.match(/(\d+(\.\d+)?)k/);
+            if (!sDetail?.pesoD && sDetail?.resumen) {
+              const matchK = sDetail.resumen.match(/(\d+(\.\d+)?)k/);
               if (matchK) pesoStr = matchK[1];
-              const matchR = item.match(/(\d+)r/);
+              const matchR = sDetail.resumen.match(/(\d+)r/);
               if (matchR) repsStr = matchR[1];
-              const matchRIR = item.match(/RIR\s*(\d+)/i);
-              if (matchRIR) rirStr = matchRIR[1];
-              const matchNota = item.match(/\[(.*?)\]/);
-              if (matchNota) notaStr = matchNota[1];
             }
 
             return {
               id: i.toString() + Math.random().toString(),
               peso: pesoStr,
               reps: repsStr,
+              pesoI: pesoIStr,
+              repsI: repsIStr,
               rir: rirStr,
               nota: notaStr,
             };
@@ -105,7 +108,8 @@ export default function GestionarRutinaModal({
 
           return {
             id: e.id,
-            nombre: nombreLimpio,
+            nombre: parsed.nombreLimpio,
+            esUnilateral: parsed.esUnilateral,
             series: seriesArray,
           };
         });
@@ -178,6 +182,12 @@ export default function GestionarRutinaModal({
     );
   };
 
+  const alternarUnilateral = (ejIndex: number) => {
+    setEjercicios(
+      ejercicios.map((ej, i) => (i === ejIndex ? { ...ej, esUnilateral: !ej.esUnilateral } : ej))
+    );
+  };
+
   const guardar = () =>
     seguro(async () => {
       if (!nombreRutina.trim()) throw new Error('Ingresa un nombre para la rutina.');
@@ -191,20 +201,41 @@ export default function GestionarRutinaModal({
         const repsPrimera = primeraSerie?.reps ? Number(primeraSerie.reps) : null;
         const pesoPrimero = primeraSerie?.peso ? Number(primeraSerie.peso) : null;
 
-        const tieneDatos = ej.series.some((s) => Boolean(s.peso || s.reps || s.rir || s.nota));
+        const tieneDatos = ej.series.some((s) => Boolean(s.peso || s.reps || s.pesoI || s.repsI || s.rir || s.nota));
         const resumenSeries = tieneDatos
           ? ej.series
               .map((s, idx) => {
-                const p = s.peso ? `${s.peso}k` : '';
-                const r = s.reps ? `${s.reps}r` : '';
-                const rir = s.rir ? `RIR ${s.rir}` : '';
-                const n = s.nota ? `[${s.nota}]` : '';
-                return `${idx + 1}ª: ${[p, r, rir, n].filter(Boolean).join(' ')}`;
+                if (ej.esUnilateral) {
+                  const pD = s.peso ? `${s.peso}k` : '';
+                  const rD = s.reps ? `${s.reps}r` : '';
+                  const strD = [pD, rD].filter(Boolean).join(' ');
+
+                  const pesoIVal = s.pesoI !== undefined && s.pesoI !== '' ? s.pesoI : s.peso;
+                  const repsIVal = s.repsI !== undefined && s.repsI !== '' ? s.repsI : s.reps;
+                  const pI = pesoIVal ? `${pesoIVal}k` : '';
+                  const rI = repsIVal ? `${repsIVal}r` : '';
+                  const strI = [pI, rI].filter(Boolean).join(' ');
+
+                  const rir = s.rir ? `RIR ${s.rir}` : '';
+                  const n = s.nota ? `[${s.nota}]` : '';
+
+                  const resumenBrazo = `D ${strD} | I ${strI}`.trim();
+                  return `${idx + 1}ª: ${[resumenBrazo, rir, n].filter(Boolean).join(' ')}`;
+                } else {
+                  const p = s.peso ? `${s.peso}k` : '';
+                  const r = s.reps ? `${s.reps}r` : '';
+                  const rir = s.rir ? `RIR ${s.rir}` : '';
+                  const n = s.nota ? `[${s.nota}]` : '';
+                  return `${idx + 1}ª: ${[p, r, rir, n].filter(Boolean).join(' ')}`;
+                }
               })
               .join(' • ')
           : '';
 
-        const nombreFinal = resumenSeries ? `${ej.nombre.trim()} (${resumenSeries})` : ej.nombre.trim();
+        const tagU = ej.esUnilateral ? '[U] ' : '';
+        const nombreLimpio = ej.nombre.trim().replace(/^\[U(NILATERAL)?\]\s*/i, '');
+        const nombreBase = tagU + nombreLimpio;
+        const nombreFinal = resumenSeries ? `${nombreBase} (${resumenSeries})` : nombreBase;
 
         return {
           nombre: nombreFinal,
@@ -319,89 +350,198 @@ export default function GestionarRutinaModal({
 
             {ejercicios.map((ej, ejIdx) => (
               <View key={ej.id} style={styles.exerciseCard}>
-                {/* Header Ejercicio */}
+                {/* Header Ejercicio con Toggle Unilateral */}
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Text style={{ color: colores.primarioHover, fontFamily: fuentes.black, fontSize: 14 }}>
                     Ejercicio #{ejIdx + 1}
                   </Text>
-                  {ejercicios.length > 1 && (
-                    <Pressable onPress={() => quitarEjercicio(ejIdx)} hitSlop={10}>
-                      <Ionicons name="trash-outline" size={18} color={colores.peligro} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Pressable
+                      onPress={() => alternarUnilateral(ejIdx)}
+                      style={{
+                        backgroundColor: ej.esUnilateral ? 'rgba(16, 185, 129, 0.16)' : 'rgba(255, 255, 255, 0.06)',
+                        borderWidth: 1,
+                        borderColor: ej.esUnilateral ? 'rgba(16, 185, 129, 0.35)' : 'rgba(255, 255, 255, 0.12)',
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        borderRadius: 8,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                    >
+                      <Ionicons
+                        name={ej.esUnilateral ? 'hand-left-outline' : 'body-outline'}
+                        size={12}
+                        color={ej.esUnilateral ? colores.exito : colores.suave}
+                      />
+                      <Text
+                        style={{
+                          color: ej.esUnilateral ? colores.exito : colores.suave,
+                          fontSize: 10,
+                          fontFamily: fuentes.bold,
+                        }}
+                      >
+                        {ej.esUnilateral ? 'Unilateral (D/I)' : 'Bilateral'}
+                      </Text>
                     </Pressable>
-                  )}
+
+                    {ejercicios.length > 1 && (
+                      <Pressable onPress={() => quitarEjercicio(ejIdx)} hitSlop={10}>
+                        <Ionicons name="trash-outline" size={18} color={colores.peligro} />
+                      </Pressable>
+                    )}
+                  </View>
                 </View>
 
                 {/* Nombre del Ejercicio */}
                 <TextInput
-                  placeholder="Nombre del Ejercicio (ej. Press Inclinado, Dominadas)"
+                  placeholder="Nombre del Ejercicio (ej. Remo Unilateral, Press Mancuerna)"
                   placeholderTextColor={colores.suave}
                   value={ej.nombre}
                   onChangeText={(val) => cambiarNombreEjercicio(ejIdx, val)}
                   style={styles.inputBase}
                 />
 
-                {/* Tabla de Series */}
-                <View style={{ gap: 8 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4 }}>
-                    <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, width: 34 }}>SERIE</Text>
-                    <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1, textAlign: 'center' }}>KG (PESO)</Text>
-                    <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1, textAlign: 'center' }}>REPS</Text>
-                    <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1, textAlign: 'center' }}>RIR</Text>
-                    <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1.5, textAlign: 'center' }}>NOTAS</Text>
-                    <View style={{ width: 24 }} />
-                  </View>
-
-                  {ej.series.map((s, sIdx) => (
-                    <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <View style={{ width: 34, alignItems: 'center' }}>
-                        <Text style={{ color: colores.texto, fontFamily: fuentes.bold, fontSize: 13 }}>#{sIdx + 1}</Text>
-                      </View>
-
-                      <TextInput
-                        placeholder="100"
-                        placeholderTextColor={colores.suave}
-                        keyboardType="numeric"
-                        value={s.peso}
-                        onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'peso', val)}
-                        style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 4 }]}
-                      />
-
-                      <TextInput
-                        placeholder="10"
-                        placeholderTextColor={colores.suave}
-                        keyboardType="numeric"
-                        value={s.reps}
-                        onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'reps', val)}
-                        style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 4 }]}
-                      />
-
-                      <TextInput
-                        placeholder="2"
-                        placeholderTextColor={colores.suave}
-                        keyboardType="numeric"
-                        value={s.rir}
-                        onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'rir', val)}
-                        style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 4 }]}
-                      />
-
-                      <TextInput
-                        placeholder="Fallo/Técnica"
-                        placeholderTextColor={colores.suave}
-                        value={s.nota}
-                        onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'nota', val)}
-                        style={[styles.inputBase, { flex: 1.5, paddingHorizontal: 6, fontSize: 12 }]}
-                      />
-
-                      <Pressable
-                        onPress={() => quitarSerieDeEjercicio(ejIdx, sIdx)}
-                        disabled={ej.series.length === 1}
-                        style={{ opacity: ej.series.length === 1 ? 0.3 : 1 }}
-                      >
-                        <Ionicons name="close-circle-outline" size={20} color={colores.suave} />
-                      </Pressable>
+                {/* Tabla de Series (Bilateral vs Unilateral D/I) */}
+                {ej.esUnilateral ? (
+                  <View style={{ gap: 8 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4 }}>
+                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, width: 26 }}>ST</Text>
+                      <Text style={{ color: colores.exito, fontSize: 10, fontFamily: fuentes.bold, flex: 2, textAlign: 'center' }}>💪 DERECHO (D)</Text>
+                      <Text style={{ color: colores.hoy, fontSize: 10, fontFamily: fuentes.bold, flex: 2, textAlign: 'center' }}>💪 IZQUIERDO (I)</Text>
+                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1, textAlign: 'center' }}>RIR</Text>
+                      <View style={{ width: 22 }} />
                     </View>
-                  ))}
-                </View>
+
+                    {ej.series.map((s, sIdx) => (
+                      <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <View style={{ width: 26, alignItems: 'center' }}>
+                          <Text style={{ color: colores.texto, fontFamily: fuentes.bold, fontSize: 12 }}>#{sIdx + 1}</Text>
+                        </View>
+
+                        {/* DERECHO (D) */}
+                        <View style={{ flex: 2, flexDirection: 'row', gap: 2 }}>
+                          <TextInput
+                            placeholder="KG D"
+                            placeholderTextColor={colores.suave}
+                            keyboardType="numeric"
+                            value={s.peso}
+                            onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'peso', val)}
+                            style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 2, fontSize: 11 }]}
+                          />
+                          <TextInput
+                            placeholder="REPS D"
+                            placeholderTextColor={colores.suave}
+                            keyboardType="numeric"
+                            value={s.reps}
+                            onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'reps', val)}
+                            style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 2, fontSize: 11 }]}
+                          />
+                        </View>
+
+                        {/* IZQUIERDO (I) */}
+                        <View style={{ flex: 2, flexDirection: 'row', gap: 2 }}>
+                          <TextInput
+                            placeholder="KG I"
+                            placeholderTextColor={colores.suave}
+                            keyboardType="numeric"
+                            value={s.pesoI !== undefined ? s.pesoI : s.peso}
+                            onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'pesoI', val)}
+                            style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 2, fontSize: 11 }]}
+                          />
+                          <TextInput
+                            placeholder="REPS I"
+                            placeholderTextColor={colores.suave}
+                            keyboardType="numeric"
+                            value={s.repsI !== undefined ? s.repsI : s.reps}
+                            onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'repsI', val)}
+                            style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 2, fontSize: 11 }]}
+                          />
+                        </View>
+
+                        <TextInput
+                          placeholder="RIR"
+                          placeholderTextColor={colores.suave}
+                          keyboardType="numeric"
+                          value={s.rir}
+                          onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'rir', val)}
+                          style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 2, fontSize: 11 }]}
+                        />
+
+                        <Pressable
+                          onPress={() => quitarSerieDeEjercicio(ejIdx, sIdx)}
+                          disabled={ej.series.length === 1}
+                          style={{ opacity: ej.series.length === 1 ? 0.3 : 1 }}
+                        >
+                          <Ionicons name="close-circle-outline" size={18} color={colores.suave} />
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={{ gap: 8 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4 }}>
+                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, width: 34 }}>SERIE</Text>
+                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1, textAlign: 'center' }}>KG (PESO)</Text>
+                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1, textAlign: 'center' }}>REPS</Text>
+                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1, textAlign: 'center' }}>RIR</Text>
+                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1.5, textAlign: 'center' }}>NOTAS</Text>
+                      <View style={{ width: 24 }} />
+                    </View>
+
+                    {ej.series.map((s, sIdx) => (
+                      <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <View style={{ width: 34, alignItems: 'center' }}>
+                          <Text style={{ color: colores.texto, fontFamily: fuentes.bold, fontSize: 13 }}>#{sIdx + 1}</Text>
+                        </View>
+
+                        <TextInput
+                          placeholder="100"
+                          placeholderTextColor={colores.suave}
+                          keyboardType="numeric"
+                          value={s.peso}
+                          onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'peso', val)}
+                          style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 4 }]}
+                        />
+
+                        <TextInput
+                          placeholder="10"
+                          placeholderTextColor={colores.suave}
+                          keyboardType="numeric"
+                          value={s.reps}
+                          onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'reps', val)}
+                          style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 4 }]}
+                        />
+
+                        <TextInput
+                          placeholder="2"
+                          placeholderTextColor={colores.suave}
+                          keyboardType="numeric"
+                          value={s.rir}
+                          onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'rir', val)}
+                          style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 4 }]}
+                        />
+
+                        <TextInput
+                          placeholder="Fallo/Técnica"
+                          placeholderTextColor={colores.suave}
+                          value={s.nota}
+                          onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'nota', val)}
+                          style={[styles.inputBase, { flex: 1.5, paddingHorizontal: 6, fontSize: 12 }]}
+                        />
+
+                        <Pressable
+                          onPress={() => quitarSerieDeEjercicio(ejIdx, sIdx)}
+                          disabled={ej.series.length === 1}
+                          style={{ opacity: ej.series.length === 1 ? 0.3 : 1 }}
+                        >
+                          <Ionicons name="close-circle-outline" size={20} color={colores.suave} />
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                )}
 
                 {/* Botón + Añadir Serie */}
                 <Pressable

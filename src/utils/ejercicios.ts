@@ -1,20 +1,33 @@
 /**
  * Utilidades para parsear y formatear ejercicios y series de Rutinia
- * Evita la visualización de texto sin formato como "(1ª: • 2ª: )" o tachados antiestéticos.
+ * Soporta ejercicios Estándar (bilaterales) y Unilaterales (Brazo/Pierna Derecho D vs Izquierdo I).
  */
+
+export interface SetDetalleParsed {
+  setNum: number;
+  resumen: string;
+  completado: boolean;
+  pesoD?: string;
+  repsD?: string;
+  pesoI?: string;
+  repsI?: string;
+  rir?: string;
+  nota?: string;
+}
 
 export interface InfoEjercicioParsed {
   nombreLimpio: string;
+  esUnilateral: boolean;
   resumenVisual: string | null;
   totalSeries: number;
   seriesCompletadas: number;
   tieneDatosReales: boolean;
-  detallesSets: { setNum: number; resumen: string; completado: boolean }[];
+  detallesSets: SetDetalleParsed[];
 }
 
 /**
- * Parsea un objeto de ejercicio de registro o rutina para extraer el nombre limpio
- * y badges de información estructurada.
+ * Parsea un objeto de ejercicio de registro o rutina para extraer el nombre limpio,
+ * su modalidad (Estándar o Unilateral D/I) y badges de información estructurada.
  */
 export function parsearEjercicioInfo(e: {
   nombre: string;
@@ -25,16 +38,21 @@ export function parsearEjercicioInfo(e: {
 }): InfoEjercicioParsed {
   const nombreRaw = (e.nombre || '').trim();
 
-  // 1. Extraer el nombre base removiendo cualquier bloque (...) al final
-  const nombreLimpio = nombreRaw.replace(/\s*\((.*?)\)$/, '').trim() || 'Ejercicio';
+  // 1. Detectar si es unilateral por etiqueta [U] o "D ... | I ..." en el resumen
+  const tieneTagUnilateral = /^\[U(NILATERAL)?\]/i.test(nombreRaw) || nombreRaw.includes('[U]');
 
-  // 2. Intentar extraer el contenido entre paréntesis si existe
+  // Extraer el nombre base removiendo prefijo [U] y cualquier bloque (...) al final
+  const nombreSinTag = nombreRaw.replace(/^\[U(NILATERAL)?\]\s*/i, '').trim();
+  const nombreLimpio = nombreSinTag.replace(/\s*\((.*?)\)$/, '').trim() || 'Ejercicio';
+
+  // 2. Extraer el contenido entre paréntesis si existe
   const matchResumen = nombreRaw.match(/\((.*?)\)$/);
 
-  let detallesSets: { setNum: number; resumen: string; completado: boolean }[] = [];
+  let detallesSets: SetDetalleParsed[] = [];
   let totalSeries = Number(e.series) || 0;
   let seriesCompletadas = 0;
   let tieneDatosReales = false;
+  let detectadoUnilateralEnSets = false;
   const partesDatos: string[] = [];
 
   if (matchResumen && matchResumen[1]) {
@@ -45,11 +63,38 @@ export function parsearEjercicioInfo(e: {
       const isComplete = setStr.includes('✓') || Boolean(e.completado);
       if (setStr.includes('✓')) seriesCompletadas++;
 
-      // Limpiar prefijo "1ª:", "✓", y espacios
       const datosStr = setStr
         .replace(/^\d+ª:\s*/, '')
         .replace(/✓/g, '')
         .trim();
+
+      let pesoD: string | undefined;
+      let repsD: string | undefined;
+      let pesoI: string | undefined;
+      let repsI: string | undefined;
+      let rir: string | undefined;
+      let nota: string | undefined;
+
+      if (datosStr.includes('|') || datosStr.includes('D ') || datosStr.includes('I ')) {
+        detectadoUnilateralEnSets = true;
+        const matchD = datosStr.match(/D\s*(?:(\d+(?:\.\d+)?)k)?\s*(?:(\d+)r)?/i);
+        if (matchD) {
+          if (matchD[1]) pesoD = matchD[1];
+          if (matchD[2]) repsD = matchD[2];
+        }
+
+        const matchI = datosStr.match(/I\s*(?:(\d+(?:\.\d+)?)k)?\s*(?:(\d+)r)?/i);
+        if (matchI) {
+          if (matchI[1]) pesoI = matchI[1];
+          if (matchI[2]) repsI = matchI[2];
+        }
+      }
+
+      const matchRIR = datosStr.match(/RIR\s*(\d+)/i);
+      if (matchRIR) rir = matchRIR[1];
+
+      const matchNota = datosStr.match(/\[(.*?)\]/);
+      if (matchNota) nota = matchNota[1];
 
       if (datosStr.length > 0) {
         tieneDatosReales = true;
@@ -60,6 +105,12 @@ export function parsearEjercicioInfo(e: {
         setNum: idx + 1,
         resumen: datosStr,
         completado: isComplete,
+        pesoD,
+        repsD,
+        pesoI,
+        repsI,
+        rir,
+        nota,
       });
     });
 
@@ -67,7 +118,6 @@ export function parsearEjercicioInfo(e: {
       seriesCompletadas = totalSeries;
     }
   } else {
-    // Si no hay paréntesis en el nombre, usar las props directas
     if (e.peso || e.repeticiones) {
       tieneDatosReales = true;
       const p = e.peso ? `${e.peso} kg` : '';
@@ -79,6 +129,8 @@ export function parsearEjercicioInfo(e: {
     }
   }
 
+  const esUnilateral = tieneTagUnilateral || detectadoUnilateralEnSets;
+
   // 3. Formatear resumen visual estilizado para chips/badges
   let resumenVisual: string | null = null;
 
@@ -89,11 +141,12 @@ export function parsearEjercicioInfo(e: {
       resumenVisual = `${partesDatos[0]} · ${partesDatos.length} series`;
     }
   } else if (totalSeries > 0) {
-    resumenVisual = `${totalSeries} series`;
+    resumenVisual = esUnilateral ? `${totalSeries} series (D/I)` : `${totalSeries} series`;
   }
 
   return {
     nombreLimpio,
+    esUnilateral,
     resumenVisual,
     totalSeries,
     seriesCompletadas,
