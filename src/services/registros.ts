@@ -180,3 +180,33 @@ export async function eliminarEjercicio(id: string) {
   const { error } = await supabase.from('ejercicios_registro').delete().eq('id', id);
   if (error) throw error;
 }
+
+// Obtener la sesión anterior más reciente de una rutina para referencia de pesos/reps
+export async function obtenerHistorialPrevioRutina(
+  rutinaId?: string | null,
+  fechaActual?: string
+): Promise<Registro | null> {
+  if (!rutinaId || rutinaId.startsWith('local_')) return null;
+
+  try {
+    let query = supabase
+      .from('registros_entrenamiento')
+      .select('*, rutinas(nombre), ejercicios_registro(*)')
+      .eq('rutina_id', rutinaId)
+      .order('fecha', { ascending: false })
+      .limit(3);
+
+    if (fechaActual) {
+      query = query.lt('fecha', fechaActual);
+    }
+
+    const { data, error } = await query;
+    if (error || !data || data.length === 0) return null;
+
+    // Retorna la sesión anterior más reciente
+    return data[0] as Registro;
+  } catch (err) {
+    console.warn('Error obteniendo historial previo de rutina:', err);
+    return null;
+  }
+}

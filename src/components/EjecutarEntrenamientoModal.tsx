@@ -8,15 +8,14 @@ import {
   View,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colores, fuentes } from '../constants/colores';
 import ScreenBackground from './ScreenBackground';
 import GlowButton from './GlowButton';
-import { actualizarEjecucionEjercicio, actualizarEstadoRegistro } from '../services/registros';
-import { seguro } from '../utils/errores';
+import { actualizarEjecucionEjercicio, actualizarEstadoRegistro, obtenerHistorialPrevioRutina } from '../services/registros';
+import { seguro, mostrarMensaje } from '../utils/errores';
 import { nombreDia } from '../utils/fechas';
 import { Registro } from '../types';
 
@@ -43,6 +42,20 @@ type EjercicioState = {
   series: SerieEjecucion[];
 };
 
+type SerieHistorica = {
+  peso: string;
+  reps: string;
+  rir: string;
+  nota: string;
+};
+
+type HistoricoEjercicio = {
+  fechaFormateada: string;
+  series: SerieHistorica[];
+};
+
+type HistoricoMap = Record<string, HistoricoEjercicio>;
+
 export default function EjecutarEntrenamientoModal({
   visible,
   registro,
@@ -53,10 +66,13 @@ export default function EjecutarEntrenamientoModal({
   const [ejerciciosState, setEjerciciosState] = useState<EjercicioState[]>([]);
   const [notasSesion, setNotasSesion] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const [historialMap, setHistorialMap] = useState<HistoricoMap>({});
 
   useEffect(() => {
     if (!visible || !registro) return;
-    const timer = setTimeout(() => {
+    let cancelado = false;
+
+    const timer = setTimeout(async () => {
       const obsExistente = (registro.ejercicios_registro || []).find((e) => e.nombre.includes('📌 [OBSERVACIONES]'));
       const textoObs = obsExistente ? obsExistente.nombre.replace('📌 [OBSERVACIONES] ', '').trim() : '';
       setNotasSesion(textoObs);
@@ -109,8 +125,58 @@ export default function EjecutarEntrenamientoModal({
       });
 
       setEjerciciosState(parsedEjercicios);
+
+      // Cargar historial previo de la misma rutina
+      if (registro.rutina_id) {
+        const sesionPrevia = await obtenerHistorialPrevioRutina(registro.rutina_id, registro.fecha);
+        if (!cancelado && sesionPrevia) {
+          const map: HistoricoMap = {};
+          const dObj = new Date(sesionPrevia.fecha + 'T12:00:00');
+          const fechaPrevStr = `${nombreDia(dObj)} ${dObj.getDate()}`;
+
+          for (const ePrev of sesionPrevia.ejercicios_registro || []) {
+            if (ePrev.nombre.startsWith('📌')) continue;
+            const nLimpio = ePrev.nombre.replace(/\s*\(.*\)$/, '').trim();
+            const mResumen = ePrev.nombre.match(/\((.*?)\)/);
+            const rText = mResumen ? mResumen[1] : '';
+            const sItems = rText.split('•').map((s) => s.trim());
+            const nSeries = ePrev.series || sItems.length || 1;
+
+            const sPrevArray: SerieHistorica[] = Array.from({ length: nSeries }, (_, i) => {
+              let pStr = ePrev.peso ? ePrev.peso.toString() : '';
+              let rStr = ePrev.repeticiones ? ePrev.repeticiones.toString() : '';
+              let rirS = '';
+              let nS = '';
+
+              if (sItems[i]) {
+                const item = sItems[i];
+                const matchK = item.match(/(\d+(\.\d+)?)k/);
+                if (matchK) pStr = matchK[1];
+                const matchR = item.match(/(\d+)r/);
+                if (matchR) rStr = matchR[1];
+                const matchRIR = item.match(/RIR\s*(\d+)/i);
+                if (matchRIR) rirS = matchRIR[1];
+                const matchNota = item.match(/\[(.*?)\]/);
+                if (matchNota) nS = matchNota[1];
+              }
+
+              return { peso: pStr, reps: rStr, rir: rirS, nota: nS };
+            });
+
+            map[nLimpio] = {
+              fechaFormateada: fechaPrevStr,
+              series: sPrevArray,
+            };
+          }
+          setHistorialMap(map);
+        }
+      }
     }, 0);
-    return () => clearTimeout(timer);
+
+    return () => {
+      cancelado = true;
+      clearTimeout(timer);
+    };
   }, [visible, registro]);
 
   if (!fecha || !registro) return null;
@@ -175,6 +241,31 @@ export default function EjecutarEntrenamientoModal({
     );
   };
 
+  const copiarSeriesHistorial = (ejIndex: number) => {
+    const ej = ejerciciosState[ejIndex];
+    if (!ej) return;
+    const hist = historialMap[ej.nombre];
+    if (!hist || !hist.series.length) return;
+
+    setEjerciciosState((prev) =>
+      prev.map((e, i) => {
+        if (i !== ejIndex) return e;
+        return {
+          ...e,
+          series: e.series.map((s, sIdx) => {
+            const hPrev = hist.series[sIdx] || hist.series[hist.series.length - 1];
+            return {
+              ...s,
+              peso: hPrev?.peso ? hPrev.peso : s.peso,
+              reps: hPrev?.reps ? hPrev.reps : s.reps,
+              rir: hPrev?.rir ? hPrev.rir : s.rir,
+            };
+          }),
+        };
+      })
+    );
+  };
+
   const guardarSesion = () =>
     seguro(async () => {
       setGuardando(true);
@@ -216,7 +307,7 @@ export default function EjecutarEntrenamientoModal({
 
         onGuardado();
         onClose();
-        Alert.alert('¡Entrenamiento Guardado!', `Se registró el progreso del día ${nombreDia(fecha)}.`);
+        mostrarMensaje('¡Entrenamiento Guardado!', `Se registró el progreso del día ${nombreDia(fecha)}.`);
       } finally {
         setGuardando(false);
       }
@@ -282,114 +373,176 @@ export default function EjecutarEntrenamientoModal({
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              {ejerciciosState.map((ej, ejIdx) => (
-                <View key={ej.id} style={styles.exerciseCard}>
-                  {/* Header del Ejercicio */}
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={{ color: colores.texto, fontFamily: fuentes.black, fontSize: 16 }}>
-                      {ejIdx + 1}. {ej.nombre}
-                    </Text>
-                    <View style={styles.seriesCountBadge}>
-                      <Text style={{ color: colores.primarioHover, fontSize: 11, fontFamily: fuentes.bold }}>
-                        {ej.series.length} {ej.series.length === 1 ? 'Serie' : 'Series'}
+              {ejerciciosState.map((ej, ejIdx) => {
+                const histEj = historialMap[ej.nombre];
+
+                return (
+                  <View key={ej.id} style={styles.exerciseCard}>
+                    {/* Header del Ejercicio */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ color: colores.texto, fontFamily: fuentes.black, fontSize: 16 }}>
+                        {ejIdx + 1}. {ej.nombre}
                       </Text>
-                    </View>
-                  </View>
-
-                  {/* Tabla de Series */}
-                  <View style={{ gap: 8 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 2 }}>
-                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, width: 28 }}>ST</Text>
-                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1, textAlign: 'center' }}>KG</Text>
-                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1, textAlign: 'center' }}>REPS</Text>
-                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1, textAlign: 'center' }}>RIR</Text>
-                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1.4, textAlign: 'center' }}>NOTA</Text>
-                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, width: 34, textAlign: 'center' }}>OK</Text>
+                      <View style={styles.seriesCountBadge}>
+                        <Text style={{ color: colores.primarioHover, fontSize: 11, fontFamily: fuentes.bold }}>
+                          {ej.series.length} {ej.series.length === 1 ? 'Serie' : 'Series'}
+                        </Text>
+                      </View>
                     </View>
 
-                    {ej.series.map((s, sIdx) => (
-                      <View
-                        key={s.id}
-                        style={[
-                          styles.serieRow,
-                          {
-                            backgroundColor: s.completado ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
-                          },
-                        ]}
-                      >
-                        <View style={{ width: 28, alignItems: 'center' }}>
-                          <Text style={{ color: s.completado ? colores.exito : colores.texto, fontFamily: fuentes.bold, fontSize: 12 }}>
-                            #{sIdx + 1}
-                          </Text>
+                    {/* Banner de Referencia Histórica (Última Sesión) */}
+                    {histEj && histEj.series.length > 0 ? (
+                      <View style={styles.historyBoxContainer}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Ionicons name="time-outline" size={13} color={colores.hoy} />
+                            <Text style={{ fontSize: 11, fontFamily: fuentes.bold, color: colores.hoy }}>
+                              SESIÓN ANTERIOR • {histEj.fechaFormateada}
+                            </Text>
+                          </View>
+                          <Pressable
+                            onPress={() => copiarSeriesHistorial(ejIdx)}
+                            hitSlop={6}
+                            style={({ pressed }) => [
+                              styles.copyMarksBtn,
+                              pressed && { opacity: 0.7 },
+                            ]}
+                          >
+                            <Ionicons name="duplicate-outline" size={12} color={colores.primarioHover} />
+                            <Text style={{ fontSize: 11, fontFamily: fuentes.bold, color: colores.primarioHover }}>
+                              Copiar marcas
+                            </Text>
+                          </Pressable>
                         </View>
 
-                        {/* KG */}
-                        <TextInput
-                          placeholder="0"
-                          placeholderTextColor={colores.suave}
-                          keyboardType="numeric"
-                          value={s.peso}
-                          onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'peso', val)}
-                          style={[styles.inputBase, { flex: 1, textAlign: 'center' }]}
-                        />
-
-                        {/* REPS */}
-                        <TextInput
-                          placeholder="0"
-                          placeholderTextColor={colores.suave}
-                          keyboardType="numeric"
-                          value={s.reps}
-                          onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'reps', val)}
-                          style={[styles.inputBase, { flex: 1, textAlign: 'center' }]}
-                        />
-
-                        {/* RIR */}
-                        <TextInput
-                          placeholder="RIR"
-                          placeholderTextColor={colores.suave}
-                          keyboardType="numeric"
-                          value={s.rir}
-                          onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'rir', val)}
-                          style={[styles.inputBase, { flex: 1, textAlign: 'center' }]}
-                        />
-
-                        {/* NOTA */}
-                        <TextInput
-                          placeholder="Sensación"
-                          placeholderTextColor={colores.suave}
-                          value={s.nota}
-                          onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'nota', val)}
-                          style={[styles.inputBase, { flex: 1.4, fontSize: 11 }]}
-                        />
-
-                        {/* Checkbox OK */}
-                        <Pressable
-                          onPress={() => cambiarCampoSerie(ejIdx, sIdx, 'completado', !s.completado)}
-                          style={{
-                            width: 34,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            paddingVertical: 4,
-                          }}
-                        >
-                          <Ionicons
-                            name={s.completado ? 'checkmark-circle' : 'ellipse-outline'}
-                            size={24}
-                            color={s.completado ? colores.exito : colores.suave}
-                          />
-                        </Pressable>
-
-                        {/* Eliminar Serie */}
-                        <Pressable
-                          onPress={() => quitarSerieDeEjercicio(ejIdx, sIdx)}
-                          disabled={ej.series.length === 1}
-                          style={{ opacity: ej.series.length === 1 ? 0.2 : 0.7, padding: 2 }}
-                        >
-                          <Ionicons name="close" size={16} color={colores.suave} />
-                        </Pressable>
+                        {/* Marcas de la sesión previa por cada serie */}
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                          {histEj.series.map((sPrev, sIdx) => (
+                            <View key={sIdx} style={styles.historyChip}>
+                              <Text style={{ fontSize: 11, fontFamily: fuentes.medium, color: colores.texto }}>
+                                #{sIdx + 1}: <Text style={{ fontFamily: fuentes.bold, color: colores.hoy }}>{sPrev.peso ? `${sPrev.peso}kg` : '-'}</Text> ×{' '}
+                                <Text style={{ fontFamily: fuentes.bold, color: colores.texto }}>{sPrev.reps ? `${sPrev.reps}r` : '-'}</Text>
+                                {sPrev.rir ? ` (RIR ${sPrev.rir})` : ''}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
                       </View>
-                    ))}
-                  </View>
+                    ) : (
+                      <View style={styles.noHistoryBox}>
+                        <Ionicons name="sparkles-outline" size={13} color={colores.suave} />
+                        <Text style={{ fontSize: 11, fontFamily: fuentes.medium, color: colores.suave, fontStyle: 'italic' }}>
+                          Sin registros previos para este ejercicio • Esta será tu marca base
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Tabla de Series */}
+                    <View style={{ gap: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 2 }}>
+                        <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, width: 28 }}>ST</Text>
+                        <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1, textAlign: 'center' }}>KG</Text>
+                        <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1, textAlign: 'center' }}>REPS</Text>
+                        <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1, textAlign: 'center' }}>RIR</Text>
+                        <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1.4, textAlign: 'center' }}>NOTA</Text>
+                        <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, width: 34, textAlign: 'center' }}>OK</Text>
+                      </View>
+
+                      {ej.series.map((s, sIdx) => {
+                        const sPrev = histEj?.series[sIdx];
+                        const diffPeso = s.peso && sPrev?.peso ? Number(s.peso) - Number(sPrev.peso) : 0;
+
+                        return (
+                          <View
+                            key={s.id}
+                            style={[
+                              styles.serieRow,
+                              {
+                                backgroundColor: s.completado ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
+                              },
+                            ]}
+                          >
+                            <View style={{ width: 28, alignItems: 'center' }}>
+                              <Text style={{ color: s.completado ? colores.exito : colores.texto, fontFamily: fuentes.bold, fontSize: 12 }}>
+                                #{sIdx + 1}
+                              </Text>
+                            </View>
+
+                            {/* KG */}
+                            <View style={{ flex: 1 }}>
+                              <TextInput
+                                placeholder={sPrev?.peso ? sPrev.peso : '0'}
+                                placeholderTextColor={colores.suave}
+                                keyboardType="numeric"
+                                value={s.peso}
+                                onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'peso', val)}
+                                style={[styles.inputBase, { textAlign: 'center' }]}
+                              />
+                              {diffPeso > 0 && (
+                                <Text style={styles.overloadBadge}>
+                                  🔥 +{diffPeso}k
+                                </Text>
+                              )}
+                            </View>
+
+                            {/* REPS */}
+                            <TextInput
+                              placeholder={sPrev?.reps ? sPrev.reps : '0'}
+                              placeholderTextColor={colores.suave}
+                              keyboardType="numeric"
+                              value={s.reps}
+                              onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'reps', val)}
+                              style={[styles.inputBase, { flex: 1, textAlign: 'center' }]}
+                            />
+
+                            {/* RIR */}
+                            <TextInput
+                              placeholder={sPrev?.rir ? `RIR ${sPrev.rir}` : 'RIR'}
+                              placeholderTextColor={colores.suave}
+                              keyboardType="numeric"
+                              value={s.rir}
+                              onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'rir', val)}
+                              style={[styles.inputBase, { flex: 1, textAlign: 'center' }]}
+                            />
+
+                            {/* NOTA */}
+                            <TextInput
+                              placeholder="Sensación"
+                              placeholderTextColor={colores.suave}
+                              value={s.nota}
+                              onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'nota', val)}
+                              style={[styles.inputBase, { flex: 1.4, fontSize: 11 }]}
+                            />
+
+                            {/* Checkbox OK */}
+                            <Pressable
+                              onPress={() => cambiarCampoSerie(ejIdx, sIdx, 'completado', !s.completado)}
+                              style={{
+                                width: 34,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                paddingVertical: 4,
+                              }}
+                            >
+                              <Ionicons
+                                name={s.completado ? 'checkmark-circle' : 'ellipse-outline'}
+                                size={24}
+                                color={s.completado ? colores.exito : colores.suave}
+                              />
+                            </Pressable>
+
+                            {/* Eliminar Serie */}
+                            <Pressable
+                              onPress={() => quitarSerieDeEjercicio(ejIdx, sIdx)}
+                              disabled={ej.series.length === 1}
+                              style={{ opacity: ej.series.length === 1 ? 0.2 : 0.7, padding: 2 }}
+                            >
+                              <Ionicons name="close" size={16} color={colores.suave} />
+                            </Pressable>
+                          </View>
+                        );
+                      })}
+                    </View>
 
                   {/* Botón + Serie */}
                   <Pressable
@@ -403,7 +556,8 @@ export default function EjecutarEntrenamientoModal({
                     <Text style={{ color: colores.primarioHover, fontFamily: fuentes.bold, fontSize: 12 }}>+ Añadir Serie</Text>
                   </Pressable>
                 </View>
-              ))}
+              );
+            })}
 
               {/* Observaciones Generales del Día */}
               <View style={{ gap: 6 }}>
@@ -527,5 +681,52 @@ const styles = StyleSheet.create({
     fontFamily: fuentes.bold,
     fontSize: 11,
     textTransform: 'uppercase',
+  },
+  historyBoxContainer: {
+    backgroundColor: 'rgba(217, 119, 6, 0.08)',
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(217, 119, 6, 0.28)',
+    gap: 4,
+    marginTop: 4,
+  },
+  noHistoryBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(10, 12, 18, 0.40)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    marginTop: 4,
+  },
+  copyMarksBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colores.primarioSuave,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colores.primarioGlow,
+  },
+  historyChip: {
+    backgroundColor: 'rgba(10, 12, 18, 0.75)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  overloadBadge: {
+    color: '#F59E0B',
+    fontSize: 9,
+    fontFamily: fuentes.bold,
+    textAlign: 'center',
+    marginTop: 2,
   },
 });
