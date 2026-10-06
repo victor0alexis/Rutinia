@@ -16,8 +16,8 @@
     "web": {
       "output": "single",
       "favicon": "./assets/images/favicon.png",
-      "themeColor": "#9B1B30",
-      "backgroundColor": "#0B0D12"
+      "themeColor": "#050608",
+      "backgroundColor": "#050608"
     },
     "plugins": [
       "expo-router",
