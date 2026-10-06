@@ -22,6 +22,8 @@ export default function ProgresoScreen() {
     rachaDias: 0,
     recordsPersonales: [],
     ejerciciosStats: [],
+    rutinasStats: [],
+    habitosStats: [],
   });
   const [ejercicioSeleccionado, setEjercicioSeleccionado] = useState<string | null>(null);
 
@@ -61,13 +63,13 @@ export default function ProgresoScreen() {
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         {/* ENCABEZADO ESTANDARIZADO CENTRADO */}
         <EncabezadoSeccion
-          badgeText="MÉTRICAS & RENDIMIENTO"
+          badgeText="MÉTRICAS & NUTRICIÓN"
           titulo="Mi Progreso"
-          subtitulo="Estadísticas de tonelaje, sobrecarga progresiva y récords"
+          subtitulo="Rendimiento de rutinas, récords de peso y hábitos saludables"
         />
 
         <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 80, gap: 16 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 90, gap: 18 }}
           showsVerticalScrollIndicator={false}
         >
           {/* SELECTOR DE PERÍODO CON PILL LUMINOSO */}
@@ -104,16 +106,14 @@ export default function ProgresoScreen() {
             })}
           </View>
 
-          {/* TARJETAS KPI DE ALTO NIVEL CON BORDE TECNOLÓGICO */}
+          {/* TARJETAS KPI DE ALTO NIVEL */}
           <View style={{ gap: 10 }}>
             <View style={{ flexDirection: 'row', gap: 10 }}>
               {/* Card 1: Tonelaje Total */}
               <View style={styles.kpiCard}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Ionicons name="barbell" size={16} color={colores.primarioHover} />
-                  <Text style={styles.kpiLabelText}>
-                    Volumen Total
-                  </Text>
+                  <Text style={styles.kpiLabelText}>Volumen Total</Text>
                 </View>
                 <Text style={styles.kpiValueText}>
                   {metricas.volumenTotalKg.toLocaleString()}{' '}
@@ -121,13 +121,11 @@ export default function ProgresoScreen() {
                 </Text>
               </View>
 
-              {/* Card 2: Días Entrenados */}
+              {/* Card 2: Días Cumplidos */}
               <View style={styles.kpiCard}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Ionicons name="calendar" size={16} color={colores.exito} />
-                  <Text style={styles.kpiLabelText}>
-                    Días Cumplidos
-                  </Text>
+                  <Text style={styles.kpiLabelText}>Días Cumplidos</Text>
                 </View>
                 <Text style={styles.kpiValueText}>
                   {metricas.diasCompletados}{' '}
@@ -141,9 +139,7 @@ export default function ProgresoScreen() {
               <View style={styles.kpiCard}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Ionicons name="repeat" size={16} color="#A855F7" />
-                  <Text style={styles.kpiLabelText}>
-                    Series Totales
-                  </Text>
+                  <Text style={styles.kpiLabelText}>Series Totales</Text>
                 </View>
                 <Text style={styles.kpiValueText}>
                   {metricas.seriesTotales}{' '}
@@ -155,9 +151,7 @@ export default function ProgresoScreen() {
               <View style={styles.kpiCard}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Ionicons name="flame" size={16} color={colores.hoy} />
-                  <Text style={styles.kpiLabelText}>
-                    Racha Activa
-                  </Text>
+                  <Text style={styles.kpiLabelText}>Racha Activa</Text>
                 </View>
                 <Text style={styles.kpiValueText}>
                   {metricas.rachaDias}{' '}
@@ -167,17 +161,156 @@ export default function ProgresoScreen() {
             </View>
           </View>
 
-          {/* SECCIÓN 2: SALÓN DE RÉCORDS PERSONALES (PRs) */}
+          {/* SECCIÓN 1: PROGRESO DE RUTINAS ESPECÍFICAS (CREADAS) */}
+          <View style={styles.sectionCardContainer}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="barbell-outline" size={20} color={colores.primarioHover} />
+              <Text style={{ color: colores.texto, fontSize: 18, fontFamily: fuentes.black }}>
+                Progreso por Rutina
+              </Text>
+            </View>
+
+            {metricas.rutinasStats.length === 0 ? (
+              <View style={styles.emptyDashedBox}>
+                <Ionicons name="fitness-outline" size={24} color={colores.suave} />
+                <Text style={{ color: colores.suave, fontSize: 13, fontStyle: 'italic', fontFamily: fuentes.regular }}>
+                  Crea y completa rutinas para ver su desglose individual.
+                </Text>
+              </View>
+            ) : (
+              <View style={{ gap: 12 }}>
+                {metricas.rutinasStats.map((r) => (
+                  <View key={r.id} style={styles.routineStatCard}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <View style={styles.routineIconBadge}>
+                          <Ionicons name="fitness" size={14} color={colores.primarioHover} />
+                        </View>
+                        <Text style={{ color: colores.texto, fontSize: 16, fontFamily: fuentes.black }}>
+                          {r.nombre}
+                        </Text>
+                      </View>
+                      <View style={styles.executionBadge}>
+                        <Text style={styles.executionBadgeText}>
+                          {r.vecesEjecutada} {r.vecesEjecutada === 1 ? 'ejecución' : 'ejecuciones'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={{ flexDirection: 'row', gap: 16, marginTop: 4 }}>
+                      <View>
+                        <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, textTransform: 'uppercase' }}>Volumen Acumulado</Text>
+                        <Text style={{ color: colores.texto, fontSize: 15, fontFamily: fuentes.bold }}>
+                          {r.volumenTotalKg.toLocaleString()} kg
+                        </Text>
+                      </View>
+
+                      <View>
+                        <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, textTransform: 'uppercase' }}>Series Totales</Text>
+                        <Text style={{ color: colores.texto, fontSize: 15, fontFamily: fuentes.bold }}>
+                          {r.seriesTotales} series
+                        </Text>
+                      </View>
+                    </View>
+
+                    {r.ejerciciosStats.length > 0 && (
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                        {r.ejerciciosStats.slice(0, 4).map((ej) => (
+                          <View key={ej.nombre} style={styles.exerciseChip}>
+                            <Text style={{ color: colores.suave, fontSize: 11, fontFamily: fuentes.medium }}>
+                              {ej.nombre}: <Text style={{ color: colores.texto, fontFamily: fuentes.bold }}>{ej.maxPeso > 0 ? `${ej.maxPeso}kg` : `${ej.series}s`}</Text>
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* SECCIÓN 2: SEGUIMIENTO DE HÁBITOS, NUTRICIÓN & SUPLEMENTOS (Creatina, Proteína, etc.) */}
+          <View style={styles.sectionCardContainer}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="sparkles" size={20} color={colores.hoy} />
+                <Text style={{ color: colores.texto, fontSize: 18, fontFamily: fuentes.black }}>
+                  Nutrición & Suplementos
+                </Text>
+              </View>
+              <View style={styles.habitBadgeLabel}>
+                <Text style={{ color: colores.hoy, fontSize: 10, fontFamily: fuentes.bold }}>TRACKER</Text>
+              </View>
+            </View>
+
+            {metricas.habitosStats.length === 0 ? (
+              <View style={styles.emptyDashedBox}>
+                <Ionicons name="leaf-outline" size={24} color={colores.suave} />
+                <Text style={{ color: colores.suave, fontSize: 13, fontStyle: 'italic', fontFamily: fuentes.regular }}>
+                  Añade notas en tus días como &quot;📌 [NUTRICIÓN] Toma de Creatina&quot; para rastrear tu constancia.
+                </Text>
+              </View>
+            ) : (
+              <View style={{ gap: 12 }}>
+                {metricas.habitosStats.map((h) => {
+                  const porcHabito = Math.min(100, Math.round((h.totalDias / (periodo === 'mes' ? 30 : 30)) * 100));
+                  return (
+                    <View key={h.id} style={styles.habitCardContainer}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <View style={[styles.habitIconBox, { backgroundColor: h.bgBadge }]}>
+                            <Ionicons name={h.icono as any} size={16} color={h.colorBadge} />
+                          </View>
+                          <View>
+                            <Text style={{ color: colores.texto, fontSize: 15, fontFamily: fuentes.bold }}>
+                              {h.titulo}
+                            </Text>
+                            <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, textTransform: 'uppercase' }}>
+                              {h.categoria}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text style={{ color: h.colorBadge, fontSize: 16, fontFamily: fuentes.black }}>
+                            {h.totalDias} {h.totalDias === 1 ? 'día' : 'días'}
+                          </Text>
+                          {h.rachaActual > 0 && (
+                            <Text style={{ color: colores.hoy, fontSize: 11, fontFamily: fuentes.bold }}>
+                              ⚡ Racha {h.rachaActual}d
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+
+                      {/* Bar de Progreso */}
+                      <View style={styles.progressBarTrack}>
+                        <View
+                          style={[
+                            styles.progressBarFill,
+                            { width: `${Math.max(5, porcHabito)}%`, backgroundColor: h.colorBadge },
+                          ]}
+                        />
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+
+          {/* SECCIÓN 3: SALÓN DE RÉCORDS PERSONALES (PRs) */}
           <View style={styles.sectionCardContainer}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Ionicons name="trophy" size={20} color={colores.hoy} />
               <Text style={{ color: colores.texto, fontSize: 18, fontFamily: fuentes.black }}>
-                Salón de Récords Personales (PRs)
+                Récords Personales (PRs)
               </Text>
             </View>
 
             {metricas.recordsPersonales.length === 0 ? (
-              <View style={styles.emptyPRBox}>
+              <View style={styles.emptyDashedBox}>
                 <Ionicons name="trophy-outline" size={26} color={colores.suave} />
                 <Text style={{ color: colores.suave, fontSize: 13, fontStyle: 'italic', fontFamily: fuentes.regular }}>
                   Registra tus entrenamientos para generar tus primeros récords personales.
@@ -199,9 +332,16 @@ export default function ProgresoScreen() {
                         },
                       ]}
                     >
-                      <View style={styles.prBadgeBox}>
-                        <Ionicons name="ribbon-outline" size={12} color={colores.hoy} />
-                        <Text style={styles.prBadgeText}>RÉCORD</Text>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View style={styles.prBadgeBox}>
+                          <Ionicons name="ribbon-outline" size={12} color={colores.hoy} />
+                          <Text style={styles.prBadgeText}>RÉCORD</Text>
+                        </View>
+                        {pr.esUnilateral && (
+                          <View style={styles.unilateralBadge}>
+                            <Text style={styles.unilateralBadgeText}>D/I</Text>
+                          </View>
+                        )}
                       </View>
 
                       <Text style={{ color: colores.texto, fontSize: 15, fontFamily: fuentes.black }} numberOfLines={1}>
@@ -222,7 +362,7 @@ export default function ProgresoScreen() {
             )}
           </View>
 
-          {/* SECCIÓN 3: DETECTOR DE SOBRECARGA PROGRESIVA DEL EJERCICIO SELECCIONADO */}
+          {/* SECCIÓN 4: DETECTOR DE SOBRECARGA PROGRESIVA DEL EJERCICIO SELECCIONADO */}
           {prDestacado && (
             <View style={styles.sectionCardContainer}>
               <Text style={{ color: colores.primarioHover, fontSize: 11, fontFamily: fuentes.bold, textTransform: 'uppercase', letterSpacing: 1 }}>
@@ -251,12 +391,12 @@ export default function ProgresoScreen() {
             </View>
           )}
 
-          {/* SECCIÓN 4: DISTRIBUCIÓN DEL VOLUMEN POR EJERCICIO */}
+          {/* SECCIÓN 5: DISTRIBUCIÓN DEL VOLUMEN POR EJERCICIO */}
           <View style={styles.sectionCardContainer}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Ionicons name="pie-chart" size={18} color={colores.primarioHover} />
               <Text style={{ color: colores.texto, fontSize: 18, fontFamily: fuentes.black }}>
-                Distribución de Volumen por Ejercicio
+                Distribución de Series por Ejercicio
               </Text>
             </View>
 
@@ -264,7 +404,7 @@ export default function ProgresoScreen() {
               <Text style={{ color: colores.suave, fontSize: 13, fontStyle: 'italic', fontFamily: fuentes.regular }}>Sin estadísticas registradas.</Text>
             ) : (
               <View style={{ gap: 12 }}>
-                {metricas.ejerciciosStats.slice(0, 5).map((ej) => (
+                {metricas.ejerciciosStats.slice(0, 6).map((ej) => (
                   <View key={ej.nombre} style={{ gap: 4 }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Text style={{ color: colores.texto, fontSize: 14, fontFamily: fuentes.bold }} numberOfLines={1}>
@@ -353,8 +493,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  emptyPRBox: {
-    paddingVertical: 20,
+  emptyDashedBox: {
+    paddingVertical: 18,
+    paddingHorizontal: 14,
     alignItems: 'center',
     gap: 6,
     backgroundColor: 'rgba(10, 12, 18, 0.60)',
@@ -362,6 +503,62 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colores.borde,
     borderStyle: 'dashed',
+  },
+  routineStatCard: {
+    backgroundColor: 'rgba(10, 12, 18, 0.60)',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    gap: 8,
+  },
+  routineIconBadge: {
+    backgroundColor: colores.primarioSuave,
+    padding: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colores.primarioGlow,
+  },
+  executionBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.16)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.30)',
+  },
+  executionBadgeText: {
+    color: colores.exito,
+    fontSize: 11,
+    fontFamily: fuentes.bold,
+  },
+  exerciseChip: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  habitBadgeLabel: {
+    backgroundColor: 'rgba(217, 119, 6, 0.16)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(217, 119, 6, 0.35)',
+  },
+  habitCardContainer: {
+    backgroundColor: 'rgba(10, 12, 18, 0.60)',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    gap: 10,
+  },
+  habitIconBox: {
+    padding: 8,
+    borderRadius: 10,
   },
   prItemCard: {
     borderRadius: 16,
@@ -387,6 +584,19 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: fuentes.bold,
     textTransform: 'uppercase',
+  },
+  unilateralBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.18)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.30)',
+  },
+  unilateralBadgeText: {
+    color: colores.exito,
+    fontSize: 9,
+    fontFamily: fuentes.black,
   },
   analysisInnerBox: {
     backgroundColor: 'rgba(10, 12, 18, 0.60)',
