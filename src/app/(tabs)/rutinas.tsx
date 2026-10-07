@@ -7,6 +7,7 @@ import { colores, fuentes } from '../../constants/colores';
 import EncabezadoSeccion from '../../components/EncabezadoSeccion';
 import ScreenBackground from '../../components/ScreenBackground';
 import GlowButton from '../../components/GlowButton';
+import BotonRutinia from '../../components/BotonRutinia';
 import GestionarRutinaModal from '../../components/GestionarRutinaModal';
 import { listarRutinas, eliminarRutina, duplicarRutina } from '../../services/rutinas';
 import { agregarRutinaAFechas } from '../../services/registros';
@@ -255,19 +256,12 @@ export default function Rutinas() {
 
                 {/* BARRA DE ACCIONES CON BOTONES GLOW */}
                 <View style={styles.cardActionsRow}>
-                  {/* 1. Programar en Semana */}
-                  <Pressable
+                  {/* 1. Agregar a la semana */}
+                  <BotonRutinia
+                    titulo="Agregar a la semana"
+                    tamano="compacto"
                     onPress={() => setElegidaParaSemana(r)}
-                    style={({ pressed }) => [
-                      styles.actionButtonProgramar,
-                      pressed && { opacity: 0.8 },
-                    ]}
-                  >
-                    <Ionicons name="calendar-outline" size={15} color={colores.primarioHover} />
-                    <Text style={{ color: colores.primarioHover, fontFamily: fuentes.bold, fontSize: 12 }}>
-                      Programar
-                    </Text>
-                  </Pressable>
+                  />
 
                   {/* 2. Clonar / Duplicar */}
                   <Pressable
@@ -371,14 +365,11 @@ export default function Rutinas() {
               </View>
 
               <View style={{ marginTop: 6 }}>
-                <GlowButton
-                  title="Asignar a Días Seleccionados"
+                <BotonRutinia
+                  titulo="Agregar a la semana"
                   onPress={confirmarAsignacionSemana}
                   disabled={!dias.length}
-                  variant="primary"
-                  size="md"
-                  shape="rounded"
-                  fullWidth
+                  style={{ alignSelf: 'stretch' }}
                 />
               </View>
 

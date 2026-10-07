@@ -13,6 +13,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { colores, fuentes } from '../constants/colores';
+import BotonRutinia from './BotonRutinia';
 import ScreenBackground from './ScreenBackground';
 import GlowButton from './GlowButton';
 import { parsearEjercicioInfo } from '../utils/ejercicios';
@@ -512,13 +513,11 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
                         style={styles.subInputBase}
                       />
                     </View>
-                    <GlowButton
-                      title="+ Guardar Ejercicio en el Día"
+                    <BotonRutinia
+                      titulo="Guardar actividad"
+                      tamano="compacto"
                       onPress={guardarActividadIndependiente}
-                      variant="primary"
-                      size="md"
-                      shape="rounded"
-                      fullWidth
+                      style={{ alignSelf: 'stretch' }}
                     />
                   </View>
 

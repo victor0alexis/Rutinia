@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colores, fuentes } from '../constants/colores';
 import GlowButton from './GlowButton';
+import BotonRutinia from './BotonRutinia';
 import { crearRutina, eliminarRutina, actualizarRutina } from '../services/rutinas';
 import { seguro, confirmarAccion, mostrarMensaje } from '../utils/errores';
 import { parsearEjercicioInfo } from '../utils/ejercicios';
@@ -569,14 +570,10 @@ export default function GestionarRutinaModal({
             />
 
             {/* Botón Guardar / Actualizar */}
-            <GlowButton
-              title={rutinaParaEditar ? 'Guardar Cambios de Rutina' : 'Guardar Rutina Completa'}
+            <BotonRutinia
+              titulo={rutinaParaEditar ? 'Guardar Cambios' : 'Guardar rutina'}
               onPress={guardar}
-              variant="primary"
-              size="lg"
-              shape="rounded"
-              fullWidth
-              style={{ marginTop: 6 }}
+              style={{ alignSelf: 'stretch', marginTop: 6 }}
             />
           </ScrollView>
         </View>
