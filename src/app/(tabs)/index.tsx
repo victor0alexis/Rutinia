@@ -3,11 +3,12 @@ import { Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { addDays, addWeeks, isSameDay, isSameWeek } from 'date-fns';
+import { addDays, addWeeks, isSameDay, isSameWeek, parseISO } from 'date-fns';
 import { colores, fuentes } from '../../constants/colores';
 import { supabase } from '../../lib/supabase';
 import DiaDetalleModal, { parsearNotaInteligente } from '../../components/DiaDetalleModal';
 import EjecutarEntrenamientoModal from '../../components/EjecutarEntrenamientoModal';
+import ModalPartidaEnCurso from '../../components/ModalPartidaEnCurso';
 import EncabezadoSeccion from '../../components/EncabezadoSeccion';
 import ScreenBackground from '../../components/ScreenBackground';
 import BotonRutinia from '../../components/BotonRutinia';
@@ -17,6 +18,7 @@ import { aISO, diasDeSemana, nombreDia, rangoSemana } from '../../utils/fechas';
 import { seguro } from '../../utils/errores';
 import { parsearEjercicioInfo } from '../../utils/ejercicios';
 import { EjercicioRegistro, Registro } from '../../types';
+import { SesionActivaInfo, obtenerSesionActivaInfo } from '../../utils/sesionActiva';
 
 export default function Semana() {
   const [ref, setRef] = useState(new Date());
@@ -27,6 +29,10 @@ export default function Semana() {
   // Modal para ejecutar / registrar entrenamiento del día
   const [registroEjecutar, setRegistroEjecutar] = useState<Registro | null>(null);
   const [modalEjecutarVisible, setModalEjecutarVisible] = useState(false);
+
+  // Partida en curso / Entrenamiento activo
+  const [sesionActivaInfo, setSesionActivaInfo] = useState<SesionActivaInfo | null>(null);
+  const [modalPartidaVisible, setModalPartidaVisible] = useState(false);
 
   const dias = diasDeSemana(ref);
   const esSemanaActual = isSameWeek(ref, new Date(), { weekStartsOn: 1 });
@@ -39,8 +45,34 @@ export default function Semana() {
   useFocusEffect(
     useCallback(() => {
       cargar();
-    }, [cargar])
+      seguro(async () => {
+        const active = await obtenerSesionActivaInfo();
+        if (active && !modalEjecutarVisible) {
+          setSesionActivaInfo(active);
+          setModalPartidaVisible(true);
+        }
+      });
+    }, [cargar, modalEjecutarVisible])
   );
+
+  const reanudarPartidaEnCurso = async () => {
+    if (!sesionActivaInfo) return;
+    setModalPartidaVisible(false);
+
+    const fechaObj = parseISO(sesionActivaInfo.fechaISO);
+    setDiaActivo(fechaObj);
+
+    let reg: Registro | null = registros.find((r) => r.id === sesionActivaInfo.registroId) || null;
+    if (!reg) {
+      const regs = await registrosDeRango(sesionActivaInfo.fechaISO, sesionActivaInfo.fechaISO);
+      reg = regs.find((r) => r.id === sesionActivaInfo.registroId) || null;
+    }
+
+    if (reg) {
+      setRegistroEjecutar(reg);
+      setModalEjecutarVisible(true);
+    }
+  };
 
   const esDiaHoy = (d: Date) => isSameDay(d, new Date());
   const esDiaSeleccionado = (d: Date) => isSameDay(d, diaActivo);
@@ -484,6 +516,17 @@ export default function Semana() {
           fecha={diaActivo}
           onClose={() => setModalEjecutarVisible(false)}
           onGuardado={() => {
+            cargar();
+          }}
+        />
+
+        {/* Modal de Partida en Curso (Borrador Activo) */}
+        <ModalPartidaEnCurso
+          visible={modalPartidaVisible}
+          sesionInfo={sesionActivaInfo}
+          onReanudar={reanudarPartidaEnCurso}
+          onDescartar={() => {
+            setModalPartidaVisible(false);
             cargar();
           }}
         />

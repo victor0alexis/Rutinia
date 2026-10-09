@@ -28,10 +28,14 @@ import {
   EstadoTimer,
   obtenerOIniciarTimer,
   alternarPausaTimer,
-  limpiarTimerSesion,
   calcularSegundosTranscurridos,
   formatearTiempo,
 } from '../utils/timer';
+import {
+  guardarBorradorSesion,
+  obtenerBorradorSesion,
+  limpiarSesionActiva,
+} from '../utils/sesionActiva';
 
 type Props = {
   visible: boolean;
@@ -102,59 +106,77 @@ export default function EjecutarEntrenamientoModal({
     let cancelado = false;
 
     const timer = setTimeout(async () => {
-      const obsExistente = (registro.ejercicios_registro || []).find((e) =>
-        e.nombre.includes('📌 [OBSERVACIONES]')
-      );
-      const textoObs = obsExistente
-        ? obsExistente.nombre.replace('📌 [OBSERVACIONES] ', '').trim()
-        : '';
-      setNotasSesion(textoObs);
+      const borradorPrevio = await obtenerBorradorSesion(registro.id);
+      let parsedEjercicios: EjercicioState[] = [];
+      let notasTexto = '';
 
-      const ejsPure = (registro.ejercicios_registro || []).filter(
-        (e) => !e.nombre.startsWith('📌')
-      );
+      if (borradorPrevio && borradorPrevio.ejerciciosState && borradorPrevio.ejerciciosState.length > 0) {
+        parsedEjercicios = borradorPrevio.ejerciciosState;
+        notasTexto = borradorPrevio.notasSesion || '';
+      } else {
+        const obsExistente = (registro.ejercicios_registro || []).find((e) =>
+          e.nombre.includes('📌 [OBSERVACIONES]')
+        );
+        notasTexto = obsExistente
+          ? obsExistente.nombre.replace('📌 [OBSERVACIONES] ', '').trim()
+          : '';
 
-      const parsedEjercicios: EjercicioState[] = ejsPure.map((e) => {
-        const parsed = parsearEjercicioInfo(e);
-        const numSeries = e.series || parsed.detallesSets.length || 1;
+        const ejsPure = (registro.ejercicios_registro || []).filter(
+          (e) => !e.nombre.startsWith('📌')
+        );
 
-        const seriesArray: SerieEjecucion[] = Array.from({ length: numSeries }, (_, i) => {
-          const sDetail = parsed.detallesSets[i];
-          let pesoStr = sDetail?.pesoD || (e.peso ? e.peso.toString() : '');
-          let repsStr = sDetail?.repsD || (e.repeticiones ? e.repeticiones.toString() : '');
-          let pesoIStr = sDetail?.pesoI || '';
-          let repsIStr = sDetail?.repsI || '';
-          let rirStr = sDetail?.rir || '';
-          let notaStr = sDetail?.nota || '';
+        parsedEjercicios = ejsPure.map((e) => {
+          const parsed = parsearEjercicioInfo(e);
+          const numSeries = e.series || parsed.detallesSets.length || 1;
 
-          if (!sDetail?.pesoD && sDetail?.resumen) {
-            const matchK = sDetail.resumen.match(/(\d+(\.\d+)?)k/);
-            if (matchK) pesoStr = matchK[1];
-            const matchR = sDetail.resumen.match(/(\d+)r/);
-            if (matchR) repsStr = matchR[1];
-          }
+          const seriesArray: SerieEjecucion[] = Array.from({ length: numSeries }, (_, i) => {
+            const sDetail = parsed.detallesSets[i];
+            let pesoStr = sDetail?.pesoD || (e.peso ? e.peso.toString() : '');
+            let repsStr = sDetail?.repsD || (e.repeticiones ? e.repeticiones.toString() : '');
+            let pesoIStr = sDetail?.pesoI || '';
+            let repsIStr = sDetail?.repsI || '';
+            let rirStr = sDetail?.rir || '';
+            let notaStr = sDetail?.nota || '';
+
+            if (!sDetail?.pesoD && sDetail?.resumen) {
+              const matchK = sDetail.resumen.match(/(\d+(\.\d+)?)k/);
+              if (matchK) pesoStr = matchK[1];
+              const matchR = sDetail.resumen.match(/(\d+)r/);
+              if (matchR) repsStr = matchR[1];
+            }
+
+            return {
+              id: i.toString() + Math.random().toString(),
+              peso: pesoStr,
+              reps: repsStr,
+              pesoI: pesoIStr,
+              repsI: repsIStr,
+              rir: rirStr,
+              nota: notaStr,
+              completado: sDetail ? sDetail.completado : Boolean(e.completado),
+            };
+          });
 
           return {
-            id: i.toString() + Math.random().toString(),
-            peso: pesoStr,
-            reps: repsStr,
-            pesoI: pesoIStr,
-            repsI: repsIStr,
-            rir: rirStr,
-            nota: notaStr,
-            completado: sDetail ? sDetail.completado : Boolean(e.completado),
+            id: e.id,
+            nombre: parsed.nombreLimpio,
+            esUnilateral: parsed.esUnilateral,
+            series: seriesArray,
           };
         });
+      }
 
-        return {
-          id: e.id,
-          nombre: parsed.nombreLimpio,
-          esUnilateral: parsed.esUnilateral,
-          series: seriesArray,
-        };
-      });
-
+      setNotasSesion(notasTexto);
       setEjerciciosState(parsedEjercicios);
+
+      // Guardar borrador inicial
+      const nombreRutina = registro.rutinas?.nombre || 'Entrenamiento';
+      await guardarBorradorSesion(registro.id, {
+        nombreRutina,
+        fechaISO: registro.fecha,
+        notasSesion: notasTexto,
+        ejerciciosState: parsedEjercicios,
+      });
 
       // Cargar historial previo
       if (registro.rutina_id) {
@@ -270,6 +292,17 @@ export default function EjecutarEntrenamientoModal({
     setEstadoTimer(nuevoSt);
   };
 
+  const guardarDraftAuto = (nextState: EjercicioState[], nTexto: string = notasSesion) => {
+    if (!registro) return;
+    const nombreRutina = registro.rutinas?.nombre || 'Entrenamiento';
+    guardarBorradorSesion(registro.id, {
+      nombreRutina,
+      fechaISO: registro.fecha,
+      notasSesion: nTexto,
+      ejerciciosState: nextState,
+    });
+  };
+
   // Cambiar un campo de una serie
   const cambiarCampoSerie = (
     ejIndex: number,
@@ -277,20 +310,22 @@ export default function EjecutarEntrenamientoModal({
     campo: keyof SerieEjecucion,
     val: any
   ) => {
-    setEjerciciosState((prev) =>
-      prev.map((ej, i) => {
+    setEjerciciosState((prev) => {
+      const next = prev.map((ej, i) => {
         if (i !== ejIndex) return ej;
         return {
           ...ej,
           series: ej.series.map((s, sj) => (sj === sIndex ? { ...s, [campo]: val } : s)),
         };
-      })
-    );
+      });
+      guardarDraftAuto(next);
+      return next;
+    });
   };
 
   const agregarSerieAEjercicio = (ejIndex: number) => {
-    setEjerciciosState((prev) =>
-      prev.map((ej, i) => {
+    setEjerciciosState((prev) => {
+      const next = prev.map((ej, i) => {
         if (i !== ejIndex) return ej;
         const ultimaSerie = ej.series[ej.series.length - 1];
         return {
@@ -307,21 +342,25 @@ export default function EjecutarEntrenamientoModal({
             },
           ],
         };
-      })
-    );
+      });
+      guardarDraftAuto(next);
+      return next;
+    });
   };
 
   const quitarSerieDeEjercicio = (ejIndex: number, sIndex: number) => {
-    setEjerciciosState((prev) =>
-      prev.map((ej, i) => {
+    setEjerciciosState((prev) => {
+      const next = prev.map((ej, i) => {
         if (i !== ejIndex) return ej;
         if (ej.series.length === 1) return ej;
         return {
           ...ej,
           series: ej.series.filter((_, sj) => sj !== sIndex),
         };
-      })
-    );
+      });
+      guardarDraftAuto(next);
+      return next;
+    });
   };
 
   const copiarSeriesHistorial = (ejIndex: number) => {
@@ -330,8 +369,8 @@ export default function EjecutarEntrenamientoModal({
     const hist = historialMap[ej.nombre];
     if (!hist || !hist.series.length) return;
 
-    setEjerciciosState((prev) =>
-      prev.map((e, i) => {
+    setEjerciciosState((prev) => {
+      const next = prev.map((e, i) => {
         if (i !== ejIndex) return e;
         return {
           ...e,
@@ -345,8 +384,10 @@ export default function EjecutarEntrenamientoModal({
             };
           }),
         };
-      })
-    );
+      });
+      guardarDraftAuto(next);
+      return next;
+    });
   };
 
   // Cálculo de Métricas Inteligentes para el Modal de Resumen
@@ -469,8 +510,8 @@ export default function EjecutarEntrenamientoModal({
           notas: notasSesion.trim() || null,
         });
 
-        // Limpiar el timer en AsyncStorage
-        await limpiarTimerSesion(registro.id);
+        // Limpiar el borrador y timer en AsyncStorage
+        await limpiarSesionActiva(registro.id);
 
         setResumenVisible(false);
         onGuardado();
@@ -485,7 +526,7 @@ export default function EjecutarEntrenamientoModal({
   const descartarSesion = () =>
     seguro(async () => {
       if (registro) {
-        await limpiarTimerSesion(registro.id);
+        await limpiarSesionActiva(registro.id);
       }
       setResumenVisible(false);
       onClose();
