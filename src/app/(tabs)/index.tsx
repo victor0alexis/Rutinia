@@ -33,6 +33,7 @@ export default function Semana() {
   // Partida en curso / Entrenamiento activo
   const [sesionActivaInfo, setSesionActivaInfo] = useState<SesionActivaInfo | null>(null);
   const [modalPartidaVisible, setModalPartidaVisible] = useState(false);
+  const [modoReanudar, setModoReanudar] = useState(false);
   const atendidoPartidaRef = useRef(false);
 
   const dias = diasDeSemana(ref);
@@ -62,13 +63,16 @@ export default function Semana() {
     atendidoPartidaRef.current = true;
     const targetSesion = sesionActivaInfo;
 
-    // 1. Cerrar primero el modal de partida en curso
+    // 1. Cerrar el modal de partida en curso
     setModalPartidaVisible(false);
+    setModoReanudar(true);
 
     // 2. Esperar al desmonte del modal antes de abrir el de ejecución
     setTimeout(async () => {
       const fechaObj = parseISO(targetSesion.fechaISO);
       setDiaActivo(fechaObj);
+      // Navegar a la semana correcta si la sesión es de otra semana
+      setRef(fechaObj);
 
       let reg: Registro | null = registros.find((r) => r.id === targetSesion.registroId) || null;
       if (!reg) {
@@ -79,8 +83,14 @@ export default function Semana() {
       if (reg) {
         setRegistroEjecutar(reg);
         setModalEjecutarVisible(true);
+      } else {
+        // No se encontró el registro — resetear estado para no dejar pantalla bloqueada
+        console.warn('[Rutinia] No se encontró el registro para reanudar:', targetSesion.registroId);
+        atendidoPartidaRef.current = false;
+        setModoReanudar(false);
+        setSesionActivaInfo(null);
       }
-    }, 200);
+    }, 250);
   };
 
   const esDiaHoy = (d: Date) => isSameDay(d, new Date());
@@ -523,12 +533,15 @@ export default function Semana() {
           visible={modalEjecutarVisible}
           registro={registroEjecutar}
           fecha={diaActivo}
+          modoReanudar={modoReanudar}
           onClose={() => {
             setModalEjecutarVisible(false);
+            setModoReanudar(false);
             atendidoPartidaRef.current = false;
           }}
           onGuardado={() => {
             setModalEjecutarVisible(false);
+            setModoReanudar(false);
             atendidoPartidaRef.current = false;
             cargar();
           }}

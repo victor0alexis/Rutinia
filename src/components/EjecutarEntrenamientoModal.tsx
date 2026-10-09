@@ -43,6 +43,8 @@ type Props = {
   fecha: Date | null;
   onClose: () => void;
   onGuardado: () => void;
+  /** Si true, salta el lobby directamente al workout (usado al reanudar sesión guardada) */
+  modoReanudar?: boolean;
 };
 
 type SerieEjecucion = {
@@ -83,6 +85,7 @@ export default function EjecutarEntrenamientoModal({
   fecha,
   onClose,
   onGuardado,
+  modoReanudar = false,
 }: Props) {
   const [ejerciciosState, setEjerciciosState] = useState<EjercicioState[]>([]);
   const [notasSesion, setNotasSesion] = useState('');
@@ -231,9 +234,10 @@ export default function EjecutarEntrenamientoModal({
         const segs = calcularSegundosTranscurridos(timerState);
         setSegundosTranscurridos(segs);
 
-        // Si ya han pasado más de 5 segundos o la sesión ya tenía progreso, entra directo al workout
+        // Si ya han pasado más de 5 segundos, había progreso guardado, o se viene de reanudar → salta lobby
         const algunaCompletada = parsedEjercicios.some((ej) => ej.series.some((s) => s.completado));
-        if (segs > 5 || algunaCompletada) {
+        const tieneBorrador = Boolean(borradorPrevio && borradorPrevio.ejerciciosState && borradorPrevio.ejerciciosState.length > 0);
+        if (modoReanudar || segs > 5 || algunaCompletada || tieneBorrador) {
           setEnLobby(false);
         } else {
           setEnLobby(true);
@@ -245,7 +249,7 @@ export default function EjecutarEntrenamientoModal({
       cancelado = true;
       clearTimeout(timer);
     };
-  }, [visible, registro]);
+  }, [visible, registro, modoReanudar]);
 
   // Manejador del Interval del Timer (se actualiza cada 1 seg de manera eficiente)
   useEffect(() => {
