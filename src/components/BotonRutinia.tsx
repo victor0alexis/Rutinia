@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { LayoutChangeEvent, Pressable, StyleProp, Text, ViewStyle } from 'react-native';
+import { LayoutChangeEvent, Platform, Pressable, StyleProp, Text, ViewStyle } from 'react-native';
 import {
   BlurMask,
   Canvas,
@@ -9,6 +9,12 @@ import {
   SweepGradient,
   vec,
 } from '@shopify/react-native-skia';
+import Svg, {
+  Defs,
+  LinearGradient as SvgLinearGradient,
+  Stop,
+  Rect as SvgRect,
+} from 'react-native-svg';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -77,16 +83,14 @@ export default function BotonRutinia({
       return;
     }
 
-    // Fade-in inicial de opacidad de las capas 2 y 3 en 350 ms
     fadeIn.value = withTiming(1, { duration: 350 });
 
     if (reducir) {
       cancelAnimation(progreso);
-      progreso.value = 0.5; // Anillo estático detenido en la parte baja
+      progreso.value = 0.5;
       return;
     }
 
-    // Iniciar el giro continuo 0 a 1 con withRepeat en Hilo de UI
     progreso.value = 0;
     progreso.value = withRepeat(
       withTiming(1, {
@@ -173,8 +177,80 @@ export default function BotonRutinia({
           borderColor: esPeligro ? 'rgba(240, 86, 110, 0.45)' : undefined,
         }}
       >
-        {/* SKIA CANVAS PARA VARIANTE PRINCIPAL */}
-        {esPrincipal && ancho > 0 && (
+        {/* RENDERIZADO WEB COMPATIBLE (SVG) */}
+        {Platform.OS === 'web' && esPrincipal && ancho > 0 && (
+          <Svg
+            pointerEvents="none"
+            width={ancho + PAD * 2}
+            height={alto + PAD * 2}
+            style={{ position: 'absolute', left: -PAD, top: -PAD }}
+          >
+            <Defs>
+              <SvgLinearGradient id="tornasolWebGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <Stop offset="0%" stopColor="#7CF3FF" />
+                <Stop offset="30%" stopColor="#A78BFA" />
+                <Stop offset="60%" stopColor="#FF8AD8" />
+                <Stop offset="85%" stopColor="#FFE3C2" />
+                <Stop offset="100%" stopColor="#FFFFFF" />
+              </SvgLinearGradient>
+            </Defs>
+            <SvgRect
+              x={PAD}
+              y={PAD}
+              width={ancho}
+              height={alto}
+              rx={alto / 2}
+              ry={alto / 2}
+              fill="none"
+              stroke="rgba(167, 139, 250, 0.28)"
+              strokeWidth={1.5}
+            />
+            {!disabled && (
+              <SvgRect
+                x={PAD}
+                y={PAD}
+                width={ancho}
+                height={alto}
+                rx={alto / 2}
+                ry={alto / 2}
+                fill="none"
+                stroke="url(#tornasolWebGrad)"
+                strokeWidth={2}
+              />
+            )}
+          </Svg>
+        )}
+
+        {Platform.OS === 'web' && esSecundario && ancho > 0 && (
+          <Svg
+            pointerEvents="none"
+            width={ancho}
+            height={alto}
+            style={{ position: 'absolute', left: 0, top: 0 }}
+          >
+            <Defs>
+              <SvgLinearGradient id="secundarioWebGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <Stop offset="0%" stopColor="rgba(34, 213, 238, 0.5)" />
+                <Stop offset="50%" stopColor="rgba(139, 92, 246, 0.5)" />
+                <Stop offset="100%" stopColor="rgba(255, 138, 216, 0.5)" />
+              </SvgLinearGradient>
+            </Defs>
+            <SvgRect
+              x={0}
+              y={0}
+              width={ancho}
+              height={alto}
+              rx={alto / 2}
+              ry={alto / 2}
+              fill="none"
+              stroke="url(#secundarioWebGrad)"
+              strokeWidth={1.5}
+            />
+          </Svg>
+        )}
+
+        {/* RENDERIZADO GPU SKIA PARA NATIVO (iOS / Android / Expo Go) */}
+        {Platform.OS !== 'web' && esPrincipal && ancho > 0 && (
           <Canvas
             pointerEvents="none"
             style={{
@@ -243,8 +319,7 @@ export default function BotonRutinia({
           </Canvas>
         )}
 
-        {/* SKIA CANVAS PARA VARIANTE SECUNDARIO (Píldora con borde degradado lineal estático) */}
-        {esSecundario && ancho > 0 && (
+        {Platform.OS !== 'web' && esSecundario && ancho > 0 && (
           <Canvas
             pointerEvents="none"
             style={{

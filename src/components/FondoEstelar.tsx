@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AppState, AppStateStatus, Dimensions, StyleProp, ViewStyle } from 'react-native';
+import { AppState, AppStateStatus, Dimensions, Platform, StyleProp, StyleSheet, ViewStyle } from 'react-native';
 import {
   Canvas,
   Circle,
@@ -9,6 +9,14 @@ import {
   Rect,
   vec,
 } from '@shopify/react-native-skia';
+import Svg, {
+  Defs,
+  RadialGradient as SvgRadialGradient,
+  Stop,
+  Rect as SvgRect,
+  Circle as SvgCircle,
+  Path as SvgPath,
+} from 'react-native-svg';
 import Animated, {
   Easing,
   SharedValue,
@@ -211,43 +219,26 @@ export default function FondoEstelar({ acento = 'vacio', style, children }: Prop
     };
   }, [animar, deriva1, deriva2, deriva3, respiro, parpadeo]);
 
-  // Transformaciones derivadas
-  const trans1 = useDerivedValue(() => {
-    const dx = deriva1.value * 60;
-    const dy = deriva1.value * 50;
-    const s = 0.9 + deriva1.value * 0.3;
-    return [
-      { translateX: 0 + dx },
-      { translateY: 140 + dy },
-      { scale: s },
-    ];
-  });
+  // Transformaciones derivadas para Native
+  const trans1 = useDerivedValue(() => [
+    { translateX: deriva1.value * 60 },
+    { translateY: 140 + deriva1.value * 50 },
+    { scale: 0.9 + deriva1.value * 0.3 },
+  ]);
 
-  const trans2 = useDerivedValue(() => {
-    const dx = -deriva2.value * 60;
-    const dy = deriva2.value * 50;
-    const s = 0.9 + deriva2.value * 0.3;
-    return [
-      { translateX: 370 + dx },
-      { translateY: 480 + dy },
-      { scale: s },
-    ];
-  });
+  const trans2 = useDerivedValue(() => [
+    { translateX: 370 - deriva2.value * 60 },
+    { translateY: 480 + deriva2.value * 50 },
+    { scale: 0.9 + deriva2.value * 0.3 },
+  ]);
 
-  const trans3 = useDerivedValue(() => {
-    const dx = deriva3.value * 60;
-    const dy = -deriva3.value * 50;
-    const s = 0.9 + deriva3.value * 0.3;
-    return [
-      { translateX: 60 + dx },
-      { translateY: 750 + dy },
-      { scale: s },
-    ];
-  });
+  const trans3 = useDerivedValue(() => [
+    { translateX: 60 + deriva3.value * 60 },
+    { translateY: 750 - deriva3.value * 50 },
+    { scale: 0.9 + deriva3.value * 0.3 },
+  ]);
 
-  const nucleoOpacity = useDerivedValue(() => {
-    return 0.5 + respiro.value * 0.5;
-  });
+  const nucleoOpacity = useDerivedValue(() => 0.5 + respiro.value * 0.5);
 
   const destello1Transform = useDerivedValue(() => [
     { translateX: 320 },
@@ -270,6 +261,60 @@ export default function FondoEstelar({ acento = 'vacio', style, children }: Prop
     { rotate: respiro.value * Math.PI * 0.4 },
   ]);
 
+  // Si estamos en WEB, renderizar versión SVG compatible 100% universal
+  if (Platform.OS === 'web') {
+    return (
+      <Animated.View style={[{ flex: 1, backgroundColor: tema.fondo.base }, style]}>
+        <Svg pointerEvents="none" width="100%" height="100%" style={StyleSheet.absoluteFill}>
+          <Defs>
+            <SvgRadialGradient id="auroraV" cx="0%" cy="15%" r="60%">
+              <Stop offset="0%" stopColor="rgba(124, 92, 255, 0.55)" />
+              <Stop offset="100%" stopColor="rgba(124, 92, 255, 0)" />
+            </SvgRadialGradient>
+
+            <SvgRadialGradient id="auroraA" cx="90%" cy="50%" r="55%">
+              <Stop offset="0%" stopColor={COLO_MAP[acento]} stopOpacity="0.35" />
+              <Stop offset="100%" stopColor={COLO_MAP[acento]} stopOpacity="0" />
+            </SvgRadialGradient>
+
+            <SvgRadialGradient id="auroraC" cx="15%" cy="85%" r="55%">
+              <Stop offset="0%" stopColor="rgba(224, 51, 79, 0.32)" />
+              <Stop offset="100%" stopColor="rgba(224, 51, 79, 0)" />
+            </SvgRadialGradient>
+
+            <SvgRadialGradient id="nucleoG" cx="50%" cy="50%" r="50%">
+              <Stop offset="0%" stopColor="rgba(232, 228, 255, 0.65)" />
+              <Stop offset="100%" stopColor="rgba(232, 228, 255, 0)" />
+            </SvgRadialGradient>
+          </Defs>
+
+          {/* Base */}
+          <SvgRect width="100%" height="100%" fill={tema.fondo.base} />
+
+          {/* Auroras */}
+          <SvgCircle cx="0" cy="140" r="300" fill="url(#auroraV)" />
+          <SvgCircle cx="370" cy="480" r="260" fill="url(#auroraA)" />
+          <SvgCircle cx="60" cy="750" r="280" fill="url(#auroraC)" />
+
+          {/* Núcleo Estelar */}
+          <SvgCircle cx="320" cy="130" r={110} fill="url(#nucleoG)" opacity={0.8} />
+
+          {/* Destellos */}
+          <SvgPath d={PATH_DESTELLO} fill={tema.fondo.nucleo} transform="translate(320, 130) scale(1)" />
+          <SvgPath d={PATH_DESTELLO} fill={tema.fondo.nucleo} transform="translate(100, 380) scale(0.7)" />
+          <SvgPath d={PATH_DESTELLO} fill={tema.fondo.nucleo} transform="translate(280, 680) scale(0.8)" />
+
+          {/* Estrellas */}
+          {ESTRELLAS.map((star, idx) => (
+            <SvgCircle key={idx} cx={star.x} cy={star.y} r={star.r} fill={tema.fondo.nucleo} opacity={0.65} />
+          ))}
+        </Svg>
+        {children}
+      </Animated.View>
+    );
+  }
+
+  // Renderizado GPU Skia para NATIVO (iOS / Android / Expo Go)
   return (
     <Animated.View style={[{ flex: 1, backgroundColor: tema.fondo.base }, style]}>
       <Canvas
@@ -286,7 +331,6 @@ export default function FondoEstelar({ acento = 'vacio', style, children }: Prop
         <Rect x={0} y={0} width={SCREEN_W} height={SCREEN_H} color={tema.fondo.base} />
 
         {/* 2. Auroras */}
-        {/* Violeta alfa 0.55 */}
         <Group transform={trans1}>
           <Circle cx={0} cy={0} r={260}>
             <RadialGradient
@@ -298,7 +342,6 @@ export default function FondoEstelar({ acento = 'vacio', style, children }: Prop
           </Circle>
         </Group>
 
-        {/* Cian/Acento alfa 0.28 (con color dinámico acentoColorsAnim) */}
         <Group transform={trans2}>
           <Circle cx={0} cy={0} r={220}>
             <RadialGradient
@@ -310,7 +353,6 @@ export default function FondoEstelar({ acento = 'vacio', style, children }: Prop
           </Circle>
         </Group>
 
-        {/* Carmesí alfa 0.32 */}
         <Group transform={trans3}>
           <Circle cx={0} cy={0} r={230}>
             <RadialGradient
