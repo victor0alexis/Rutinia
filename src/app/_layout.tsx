@@ -9,6 +9,7 @@ import {
   Outfit_800ExtraBold,
   Outfit_900Black,
 } from '@expo-google-fonts/outfit';
+import { DMSans_400Regular } from '@expo-google-fonts/dm-sans';
 import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, View, Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
@@ -24,6 +25,7 @@ export default function RootLayout() {
     Outfit_700Bold,
     Outfit_800ExtraBold,
     Outfit_900Black,
+    DMSans_400Regular,
     ...Ionicons.font,
   });
 

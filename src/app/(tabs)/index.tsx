@@ -10,7 +10,8 @@ import DiaDetalleModal, { parsearNotaInteligente } from '../../components/DiaDet
 import EjecutarEntrenamientoModal from '../../components/EjecutarEntrenamientoModal';
 import EncabezadoSeccion from '../../components/EncabezadoSeccion';
 import ScreenBackground from '../../components/ScreenBackground';
-import GlowButton from '../../components/GlowButton';
+import BotonRutinia from '../../components/BotonRutinia';
+import DockPrincipal from '../../components/DockPrincipal';
 import { registrosDeRango } from '../../services/registros';
 import { aISO, diasDeSemana, nombreDia, rangoSemana } from '../../utils/fechas';
 import { seguro } from '../../utils/errores';
@@ -72,8 +73,18 @@ export default function Semana() {
     setModalEjecutarVisible(true);
   };
 
+  // Determinar acento según las actividades del día seleccionado (vacio, pendiente, completado)
+  let acento: 'vacio' | 'pendiente' | 'completado' = 'vacio';
+  if (registrosDelDia.length > 0) {
+    const hayEjercicios = todosEjercicios.length > 0;
+    const todosCompletados =
+      registrosDelDia.every((r) => r.completado) &&
+      (!hayEjercicios || todosEjercicios.every((e) => e.completado));
+    acento = todosCompletados ? 'completado' : 'pendiente';
+  }
+
   return (
-    <ScreenBackground>
+    <ScreenBackground acento={acento}>
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         {/* ENCABEZADO ESTANDARIZADO CENTRADO CON DESTELLO ANIMADO */}
         <EncabezadoSeccion
@@ -244,7 +255,7 @@ export default function Semana() {
             </View>
 
             {/* LISTA SCROLLABLE DE NOTAS, RUTINAS Y EJERCICIOS EXTRAS */}
-            <ScrollView contentContainerStyle={{ gap: 12, paddingVertical: 2 }} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 144 }} showsVerticalScrollIndicator={false}>
               {notasDelDia.length === 0 && registrosConRutina.length === 0 && ejerciciosExtras.length === 0 ? (
                 <View style={styles.emptyDayContainer}>
                   <View style={styles.emptyDayIconBox}>
@@ -316,9 +327,26 @@ export default function Semana() {
                             </Text>
                           </View>
 
-                          <View style={styles.fillRegistroBadge}>
-                            <Ionicons name={r.completado ? 'checkmark-circle' : 'create-outline'} size={12} color={colores.primarioHover} />
-                            <Text style={styles.fillRegistroBadgeText}>
+                          <View
+                            style={[
+                              styles.fillRegistroBadge,
+                              r.completado && {
+                                backgroundColor: 'rgba(43, 213, 152, 0.12)',
+                                borderColor: 'rgba(43, 213, 152, 0.35)',
+                              },
+                            ]}
+                          >
+                            <Ionicons
+                              name={r.completado ? 'checkmark-circle' : 'create-outline'}
+                              size={12}
+                              color={r.completado ? colores.exito : colores.primarioHover}
+                            />
+                            <Text
+                              style={[
+                                styles.fillRegistroBadgeText,
+                                r.completado && { color: colores.exito },
+                              ]}
+                            >
                               {r.completado ? 'Completado' : 'Llenar Registro'}
                             </Text>
                           </View>
@@ -425,19 +453,18 @@ export default function Semana() {
                 </>
               )}
             </ScrollView>
-
-            {/* Botón de Acción Principal usando GlowButton */}
-            <GlowButton
-              title="+ Administrar / Gestionar Día"
-              icon="create-outline"
-              onPress={() => setModalVisible(true)}
-              variant="primary"
-              size="md"
-              shape="rounded"
-              fullWidth
-            />
           </View>
         </View>
+
+        {/* Dock del Botón Principal anclado sobre la barra de pestañas */}
+        <DockPrincipal>
+          <BotonRutinia
+            titulo="+ Administrar / Gestionar Día"
+            variante="principal"
+            onPress={() => setModalVisible(true)}
+            style={{ alignSelf: 'stretch' }}
+          />
+        </DockPrincipal>
 
         {/* Modal Detalle del Día (Pantalla Completa) */}
         <DiaDetalleModal

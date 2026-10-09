@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colores, fuentes } from '../../constants/colores';
+import { tema } from '../../constants/tema';
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
@@ -14,11 +15,11 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colores.texto,
-        tabBarInactiveTintColor: colores.suave,
+        tabBarActiveTintColor: tema.colores.carmesi,
+        tabBarInactiveTintColor: tema.colores.textoSuave,
         tabBarStyle: {
-          backgroundColor: 'rgba(10, 12, 18, 0.92)', // Obscure glass translucent
-          borderTopColor: 'rgba(255, 255, 255, 0.08)',
+          backgroundColor: 'rgba(8, 10, 20, 0.94)',
+          borderTopColor: tema.fondo.bordeVidrio,
           borderTopWidth: 1,
           height: barHeight,
           paddingBottom: bottomPadding - 2,

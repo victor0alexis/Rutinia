@@ -8,6 +8,7 @@ import EncabezadoSeccion from '../../components/EncabezadoSeccion';
 import ScreenBackground from '../../components/ScreenBackground';
 import GlowButton from '../../components/GlowButton';
 import BotonRutinia from '../../components/BotonRutinia';
+import DockPrincipal from '../../components/DockPrincipal';
 import GestionarRutinaModal from '../../components/GestionarRutinaModal';
 import { listarRutinas, eliminarRutina, duplicarRutina } from '../../services/rutinas';
 import { agregarRutinaAFechas } from '../../services/registros';
@@ -101,15 +102,10 @@ export default function Rutinas() {
           badgeText="PROGRAMAS & ENTRENAMIENTOS"
           titulo="Rutinas"
           subtitulo="Diseña, programa y optimiza tus planes de entrenamiento"
-          botonAccion={{
-            texto: 'Nueva rutina',
-            icono: 'add',
-            onPress: abrirCrearRutina,
-          }}
         />
 
         <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 80, gap: 14 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 144, gap: 14 }}
           showsVerticalScrollIndicator={false}
         >
           {/* STATS RÁPIDAS DEL PANEL */}
@@ -260,6 +256,7 @@ export default function Rutinas() {
                   <BotonRutinia
                     titulo="Agregar a la semana"
                     tamano="compacto"
+                    variante="secundario"
                     onPress={() => setElegidaParaSemana(r)}
                   />
 
@@ -307,6 +304,16 @@ export default function Rutinas() {
             );
           })}
         </ScrollView>
+
+        {/* Dock del Botón Principal anclado sobre la barra de pestañas */}
+        <DockPrincipal>
+          <BotonRutinia
+            titulo="+ Nueva rutina"
+            variante="principal"
+            onPress={abrirCrearRutina}
+            style={{ alignSelf: 'stretch' }}
+          />
+        </DockPrincipal>
 
         {/* MODAL GESTIONAR / CREAR RUTINA EN PANTALLA COMPLETA */}
         <GestionarRutinaModal
