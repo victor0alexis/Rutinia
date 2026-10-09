@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -33,6 +33,7 @@ export default function Semana() {
   // Partida en curso / Entrenamiento activo
   const [sesionActivaInfo, setSesionActivaInfo] = useState<SesionActivaInfo | null>(null);
   const [modalPartidaVisible, setModalPartidaVisible] = useState(false);
+  const atendidoPartidaRef = useRef(false);
 
   const dias = diasDeSemana(ref);
   const esSemanaActual = isSameWeek(ref, new Date(), { weekStartsOn: 1 });
@@ -45,9 +46,10 @@ export default function Semana() {
   useFocusEffect(
     useCallback(() => {
       cargar();
+      if (modalEjecutarVisible || atendidoPartidaRef.current) return;
       seguro(async () => {
         const active = await obtenerSesionActivaInfo();
-        if (active && !modalEjecutarVisible) {
+        if (active && !modalEjecutarVisible && !atendidoPartidaRef.current) {
           setSesionActivaInfo(active);
           setModalPartidaVisible(true);
         }
@@ -55,23 +57,30 @@ export default function Semana() {
     }, [cargar, modalEjecutarVisible])
   );
 
-  const reanudarPartidaEnCurso = async () => {
+  const reanudarPartidaEnCurso = () => {
     if (!sesionActivaInfo) return;
+    atendidoPartidaRef.current = true;
+    const targetSesion = sesionActivaInfo;
+
+    // 1. Cerrar primero el modal de partida en curso
     setModalPartidaVisible(false);
 
-    const fechaObj = parseISO(sesionActivaInfo.fechaISO);
-    setDiaActivo(fechaObj);
+    // 2. Esperar al desmonte del modal antes de abrir el de ejecución
+    setTimeout(async () => {
+      const fechaObj = parseISO(targetSesion.fechaISO);
+      setDiaActivo(fechaObj);
 
-    let reg: Registro | null = registros.find((r) => r.id === sesionActivaInfo.registroId) || null;
-    if (!reg) {
-      const regs = await registrosDeRango(sesionActivaInfo.fechaISO, sesionActivaInfo.fechaISO);
-      reg = regs.find((r) => r.id === sesionActivaInfo.registroId) || null;
-    }
+      let reg: Registro | null = registros.find((r) => r.id === targetSesion.registroId) || null;
+      if (!reg) {
+        const regs = await registrosDeRango(targetSesion.fechaISO, targetSesion.fechaISO);
+        reg = regs.find((r) => r.id === targetSesion.registroId) || null;
+      }
 
-    if (reg) {
-      setRegistroEjecutar(reg);
-      setModalEjecutarVisible(true);
-    }
+      if (reg) {
+        setRegistroEjecutar(reg);
+        setModalEjecutarVisible(true);
+      }
+    }, 200);
   };
 
   const esDiaHoy = (d: Date) => isSameDay(d, new Date());
@@ -514,8 +523,13 @@ export default function Semana() {
           visible={modalEjecutarVisible}
           registro={registroEjecutar}
           fecha={diaActivo}
-          onClose={() => setModalEjecutarVisible(false)}
+          onClose={() => {
+            setModalEjecutarVisible(false);
+            atendidoPartidaRef.current = false;
+          }}
           onGuardado={() => {
+            setModalEjecutarVisible(false);
+            atendidoPartidaRef.current = false;
             cargar();
           }}
         />
@@ -527,6 +541,7 @@ export default function Semana() {
           onReanudar={reanudarPartidaEnCurso}
           onDescartar={() => {
             setModalPartidaVisible(false);
+            atendidoPartidaRef.current = false;
             cargar();
           }}
         />
