@@ -64,6 +64,78 @@ export default function ConfirmModalGlobal() {
     }
   };
 
+  const content = (
+    <View style={styles.overlay}>
+      <View style={styles.modalCard}>
+        {/* Badge Icono Central */}
+        <View
+          style={[
+            styles.iconBadge,
+            esEliminar ? styles.iconBadgeDanger : styles.iconBadgeInfo,
+          ]}
+        >
+          <Ionicons
+            name={
+              config.tipo === 'alert'
+                ? 'checkmark-circle-outline'
+                : esEliminar
+                ? 'trash-outline'
+                : 'alert-circle-outline'
+            }
+            size={28}
+            color={esEliminar ? colores.peligro : colores.primarioHover}
+          />
+        </View>
+
+        {/* Título & Mensaje */}
+        <Text style={styles.titulo}>{config.titulo}</Text>
+        {config.mensaje ? <Text style={styles.mensaje}>{config.mensaje}</Text> : null}
+
+        {/* Acciones */}
+        <View style={styles.botonesRow}>
+          {config.tipo === 'confirm' && (
+            <Pressable
+              onPress={manejarCancelar}
+              disabled={cargando}
+              style={({ pressed }) => [
+                styles.btnCancelar,
+                pressed && { opacity: 0.75 },
+                cargando && { opacity: 0.5 },
+              ]}
+            >
+              <Text style={styles.btnCancelarTexto}>
+                {config.textoCancelar || 'Cancelar'}
+              </Text>
+            </Pressable>
+          )}
+
+          <Pressable
+            onPress={manejarConfirmar}
+            disabled={cargando}
+            style={({ pressed }) => [
+              styles.btnConfirmar,
+              esEliminar ? styles.btnConfirmarDanger : styles.btnConfirmarPrimary,
+              pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+              cargando && { opacity: 0.6 },
+            ]}
+          >
+            {cargando ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.btnConfirmarTexto}>
+                {config.textoConfirmar || (config.tipo === 'alert' ? 'Entendido' : 'Confirmar')}
+              </Text>
+            )}
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+
+  if (Platform.OS === 'web') {
+    return <View style={styles.webWrapper}>{content}</View>;
+  }
+
   return (
     <Modal
       visible={config.visible}
@@ -71,83 +143,30 @@ export default function ConfirmModalGlobal() {
       animationType="fade"
       onRequestClose={manejarCancelar}
     >
-      <View style={styles.overlay}>
-        <View style={styles.modalCard}>
-          {/* Badge Icono Central */}
-          <View
-            style={[
-              styles.iconBadge,
-              esEliminar ? styles.iconBadgeDanger : styles.iconBadgeInfo,
-            ]}
-          >
-            <Ionicons
-              name={
-                config.tipo === 'alert'
-                  ? 'checkmark-circle-outline'
-                  : esEliminar
-                  ? 'trash-outline'
-                  : 'alert-circle-outline'
-              }
-              size={28}
-              color={esEliminar ? colores.peligro : colores.primarioHover}
-            />
-          </View>
-
-          {/* Título & Mensaje */}
-          <Text style={styles.titulo}>{config.titulo}</Text>
-          {config.mensaje ? <Text style={styles.mensaje}>{config.mensaje}</Text> : null}
-
-          {/* Acciones */}
-          <View style={styles.botonesRow}>
-            {config.tipo === 'confirm' && (
-              <Pressable
-                onPress={manejarCancelar}
-                disabled={cargando}
-                style={({ pressed }) => [
-                  styles.btnCancelar,
-                  pressed && { opacity: 0.75 },
-                  cargando && { opacity: 0.5 },
-                ]}
-              >
-                <Text style={styles.btnCancelarTexto}>
-                  {config.textoCancelar || 'Cancelar'}
-                </Text>
-              </Pressable>
-            )}
-
-            <Pressable
-              onPress={manejarConfirmar}
-              disabled={cargando}
-              style={({ pressed }) => [
-                styles.btnConfirmar,
-                esEliminar ? styles.btnConfirmarDanger : styles.btnConfirmarPrimary,
-                pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-                cargando && { opacity: 0.6 },
-              ]}
-            >
-              {cargando ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Text style={styles.btnConfirmarTexto}>
-                  {config.textoConfirmar || (config.tipo === 'alert' ? 'Entendido' : 'Confirmar')}
-                </Text>
-              )}
-            </Pressable>
-          </View>
-        </View>
-      </View>
+      {content}
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  webWrapper: {
+    position: (Platform.OS === 'web' ? 'fixed' : 'absolute') as any,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    zIndex: 10000,
+    elevation: 10000,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(3, 4, 7, 0.84)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(8px)', zIndex: 10000 } : {}),
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(8px)', width: '100%', height: '100%' } : {}),
   },
   modalCard: {
     width: '100%',

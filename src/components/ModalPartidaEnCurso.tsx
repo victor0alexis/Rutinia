@@ -130,14 +130,16 @@ export default function ModalPartidaEnCurso({
 }
 
 const styles = StyleSheet.create({
-  // Overlay para web: posición absoluta con zIndex alto, permite que
-  // ConfirmModalGlobal (zIndex 10000) quede por encima y reciba eventos
+  // Overlay para web: posición fija con zIndex alto, cubre la ventana completa
+  // y permite que ConfirmModalGlobal (zIndex 10000) quede por encima
   webOverlay: {
-    position: 'absolute',
+    position: (Platform.OS === 'web' ? 'fixed' : 'absolute') as any,
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
+    width: '100%',
+    height: '100%',
     zIndex: 9000,
     elevation: 9000,
   },

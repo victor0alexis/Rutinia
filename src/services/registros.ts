@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { Registro, Rutina } from '../types';
 import { guardarCacheLocal, obtenerCacheLocal } from '../utils/offline';
@@ -29,6 +30,24 @@ export async function registrosDeRango(desde: string, hasta: string): Promise<Re
   } catch {
     console.warn('Sin conexión, cargando registros locales...');
     const cache = await obtenerCacheLocal<Registro[]>(`registros_${desde}_${hasta}`);
+    if (cache && cache.length > 0) return cache;
+
+    // Fallback inteligente: buscar en cualquier rango cacheado en almacenamiento local
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const regKeys = keys.filter((k) => k.startsWith('rutinia_registros_'));
+      for (const k of regKeys) {
+        const raw = await AsyncStorage.getItem(k);
+        if (raw) {
+          const arr = JSON.parse(raw) as Registro[];
+          const filtrados = arr.filter((r) => r.fecha >= desde && r.fecha <= hasta);
+          if (filtrados.length > 0) return filtrados;
+        }
+      }
+    } catch {
+      // Ignorar fallback
+    }
+
     return cache || [];
   }
 }

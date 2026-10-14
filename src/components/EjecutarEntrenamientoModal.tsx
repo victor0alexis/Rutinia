@@ -540,7 +540,7 @@ export default function EjecutarEntrenamientoModal({
   const { volumenTotalKg, ejerciciosResumen } = calcularMetricasResumen();
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" transparent={Platform.OS === 'web' ? true : false} onRequestClose={onClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}

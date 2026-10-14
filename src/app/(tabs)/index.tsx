@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -18,7 +18,7 @@ import { aISO, diasDeSemana, nombreDia, rangoSemana } from '../../utils/fechas';
 import { seguro } from '../../utils/errores';
 import { parsearEjercicioInfo } from '../../utils/ejercicios';
 import { EjercicioRegistro, Registro } from '../../types';
-import { SesionActivaInfo, obtenerSesionActivaInfo } from '../../utils/sesionActiva';
+import { SesionActivaInfo, obtenerSesionActivaInfo, obtenerBorradorSesion } from '../../utils/sesionActiva';
 
 export default function Semana() {
   const [ref, setRef] = useState(new Date());
@@ -36,26 +36,30 @@ export default function Semana() {
   const [modoReanudar, setModoReanudar] = useState(false);
   const atendidoPartidaRef = useRef(false);
 
-  const dias = diasDeSemana(ref);
-  const esSemanaActual = isSameWeek(ref, new Date(), { weekStartsOn: 1 });
+  const dias = useMemo(() => diasDeSemana(ref), [ref]);
+  const inicioSemanaISO = useMemo(() => aISO(dias[0]), [dias]);
+  const finSemanaISO = useMemo(() => aISO(dias[6]), [dias]);
+  const esSemanaActual = useMemo(() => isSameWeek(ref, new Date(), { weekStartsOn: 1 }), [ref]);
 
-  const cargar = useCallback(
-    () => seguro(async () => setRegistros(await registrosDeRango(aISO(dias[0]), aISO(dias[6])))),
-    [dias]
-  );
+  const cargar = useCallback(() => {
+    return seguro(async () => {
+      const datos = await registrosDeRango(inicioSemanaISO, finSemanaISO);
+      setRegistros(datos);
+    });
+  }, [inicioSemanaISO, finSemanaISO]);
 
   useFocusEffect(
     useCallback(() => {
       cargar();
-      if (modalEjecutarVisible || atendidoPartidaRef.current) return;
+      if (atendidoPartidaRef.current) return;
       seguro(async () => {
         const active = await obtenerSesionActivaInfo();
-        if (active && !modalEjecutarVisible && !atendidoPartidaRef.current) {
+        if (active && !atendidoPartidaRef.current) {
           setSesionActivaInfo(active);
           setModalPartidaVisible(true);
         }
       });
-    }, [cargar, modalEjecutarVisible])
+    }, [cargar])
   );
 
   const reanudarPartidaEnCurso = () => {
@@ -67,22 +71,49 @@ export default function Semana() {
     setModalPartidaVisible(false);
     setModoReanudar(true);
 
-    // 2. Esperar al desmonte del modal y luego buscar el registro directo desde BD
-    //    (no depender de `registros` local que puede estar desactualizado si se cambió de semana)
+    // 2. Esperar al desmonte del modal y luego buscar el registro
     setTimeout(async () => {
       try {
         const regs = await registrosDeRango(targetSesion.fechaISO, targetSesion.fechaISO);
-        const reg = regs.find((r) => r.id === targetSesion.registroId) || null;
+        let reg = regs.find((r) => r.id === targetSesion.registroId) || null;
+
+        // Fallback 1: Buscar en los registros ya cargados en memoria
+        if (!reg) {
+          reg = registros.find((r) => r.id === targetSesion.registroId) || null;
+        }
+
+        // Fallback 2: Reconstruir registro a partir del borrador persistente en almacenamiento
+        if (!reg) {
+          const borrador = await obtenerBorradorSesion(targetSesion.registroId);
+          if (borrador) {
+            reg = {
+              id: targetSesion.registroId,
+              fecha: targetSesion.fechaISO,
+              rutina_id: null,
+              completado: false,
+              notas: borrador.notasSesion || null,
+              rutinas: { nombre: targetSesion.nombreRutina },
+              ejercicios_registro: (borrador.ejerciciosState || []).map((ej) => ({
+                id: ej.id,
+                registro_id: targetSesion.registroId,
+                nombre: ej.nombre,
+                series: ej.series.length,
+                repeticiones: null,
+                peso: null,
+                completado: ej.series.every((s) => s.completado),
+              })),
+            };
+          }
+        }
 
         if (reg) {
-          // Ahora sí navegamos a la semana/día correcto y abrimos el modal de ejecución
+          // Navegamos al día correcto y abrimos el modal de ejecución
           const fechaObj = parseISO(targetSesion.fechaISO);
           setDiaActivo(fechaObj);
           setRef(fechaObj);
           setRegistroEjecutar(reg);
           setModalEjecutarVisible(true);
         } else {
-          // No se encontró el registro — resetear estado para no dejar pantalla bloqueada
           console.warn('[Rutinia] No se encontró el registro para reanudar:', targetSesion.registroId);
           atendidoPartidaRef.current = false;
           setModoReanudar(false);
@@ -94,7 +125,7 @@ export default function Semana() {
         setModoReanudar(false);
         setSesionActivaInfo(null);
       }
-    }, 300);
+    }, 150);
   };
 
   const esDiaHoy = (d: Date) => isSameDay(d, new Date());
@@ -558,7 +589,8 @@ export default function Semana() {
           onReanudar={reanudarPartidaEnCurso}
           onDescartar={() => {
             setModalPartidaVisible(false);
-            atendidoPartidaRef.current = false;
+            setSesionActivaInfo(null);
+            atendidoPartidaRef.current = true;
             cargar();
           }}
         />
