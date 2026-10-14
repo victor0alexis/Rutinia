@@ -67,30 +67,34 @@ export default function Semana() {
     setModalPartidaVisible(false);
     setModoReanudar(true);
 
-    // 2. Esperar al desmonte del modal antes de abrir el de ejecución
+    // 2. Esperar al desmonte del modal y luego buscar el registro directo desde BD
+    //    (no depender de `registros` local que puede estar desactualizado si se cambió de semana)
     setTimeout(async () => {
-      const fechaObj = parseISO(targetSesion.fechaISO);
-      setDiaActivo(fechaObj);
-      // Navegar a la semana correcta si la sesión es de otra semana
-      setRef(fechaObj);
-
-      let reg: Registro | null = registros.find((r) => r.id === targetSesion.registroId) || null;
-      if (!reg) {
+      try {
         const regs = await registrosDeRango(targetSesion.fechaISO, targetSesion.fechaISO);
-        reg = regs.find((r) => r.id === targetSesion.registroId) || null;
-      }
+        const reg = regs.find((r) => r.id === targetSesion.registroId) || null;
 
-      if (reg) {
-        setRegistroEjecutar(reg);
-        setModalEjecutarVisible(true);
-      } else {
-        // No se encontró el registro — resetear estado para no dejar pantalla bloqueada
-        console.warn('[Rutinia] No se encontró el registro para reanudar:', targetSesion.registroId);
+        if (reg) {
+          // Ahora sí navegamos a la semana/día correcto y abrimos el modal de ejecución
+          const fechaObj = parseISO(targetSesion.fechaISO);
+          setDiaActivo(fechaObj);
+          setRef(fechaObj);
+          setRegistroEjecutar(reg);
+          setModalEjecutarVisible(true);
+        } else {
+          // No se encontró el registro — resetear estado para no dejar pantalla bloqueada
+          console.warn('[Rutinia] No se encontró el registro para reanudar:', targetSesion.registroId);
+          atendidoPartidaRef.current = false;
+          setModoReanudar(false);
+          setSesionActivaInfo(null);
+        }
+      } catch (err) {
+        console.warn('[Rutinia] Error al reanudar entrenamiento:', err);
         atendidoPartidaRef.current = false;
         setModoReanudar(false);
         setSesionActivaInfo(null);
       }
-    }, 250);
+    }, 300);
   };
 
   const esDiaHoy = (d: Date) => isSameDay(d, new Date());

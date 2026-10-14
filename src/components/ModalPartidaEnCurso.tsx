@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colores, fuentes } from '../constants/colores';
 import { tema } from '../constants/tema';
 import BotonRutinia from './BotonRutinia';
 import { formatearTiempo } from '../utils/timer';
 import { SesionActivaInfo, limpiarSesionActiva } from '../utils/sesionActiva';
-import { confirmarAccion } from '../utils/errores';
 
 type Props = {
   visible: boolean;
@@ -41,13 +40,21 @@ export default function ModalPartidaEnCurso({
   const segs = sesionInfo.segsTranscurridos + extraSegs;
 
   const handleDescartarConfirm = () => {
-    confirmarAccion(
+    Alert.alert(
       'Descartar Entrenamiento',
       '¿Estás seguro de que deseas cancelar la sesión en curso? Se perderán los datos no guardados.',
-      async () => {
-        await limpiarSesionActiva(sesionInfo.registroId);
-        onDescartar();
-      }
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Descartar',
+          style: 'destructive',
+          onPress: async () => {
+            await limpiarSesionActiva(sesionInfo.registroId);
+            onDescartar();
+          },
+        },
+      ],
+      { cancelable: true }
     );
   };
 
