@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colores, fuentes } from '../constants/colores';
 import { tema } from '../constants/tema';
 import BotonRutinia from './BotonRutinia';
 import { formatearTiempo } from '../utils/timer';
 import { SesionActivaInfo, limpiarSesionActiva } from '../utils/sesionActiva';
+import { confirmarAccion } from '../utils/errores';
 
 type Props = {
   visible: boolean;
@@ -40,23 +41,80 @@ export default function ModalPartidaEnCurso({
   const segs = sesionInfo.segsTranscurridos + extraSegs;
 
   const handleDescartarConfirm = () => {
-    Alert.alert(
+    confirmarAccion(
       'Descartar Entrenamiento',
       '¿Estás seguro de que deseas cancelar la sesión en curso? Se perderán los datos no guardados.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Descartar',
-          style: 'destructive',
-          onPress: async () => {
-            await limpiarSesionActiva(sesionInfo.registroId);
-            onDescartar();
-          },
-        },
-      ],
-      { cancelable: true }
+      async () => {
+        await limpiarSesionActiva(sesionInfo.registroId);
+        onDescartar();
+      },
+      'Descartar'
     );
   };
+
+
+  // En web el Modal de React Native puede bloquear los eventos de toque de
+  // los modales superpuestos (como ConfirmModalGlobal), congelando la UI.
+  // Usamos un overlay posicionado absolutamente con zIndex alto en su lugar.
+  const inner = (
+    <View style={styles.backdrop}>
+      <View style={styles.cardContainer}>
+        {/* Badge superior de Estado En Vivo */}
+        <View style={styles.badgeRow}>
+          <View style={styles.pulsingDot} />
+          <Text style={styles.badgeText}>ENTRENAMIENTO EN CURSO</Text>
+        </View>
+
+        {/* Título de la Rutina */}
+        <View style={styles.headerInfo}>
+          <Text style={styles.routineTitle} numberOfLines={2}>
+            {sesionInfo.nombreRutina}
+          </Text>
+
+          {/* Tiempo Transcurrido */}
+          <View style={styles.timerBox}>
+            <Ionicons name="stopwatch-outline" size={20} color={tema.acentoEstado.pendiente} />
+            <Text style={styles.timerText}>{formatearTiempo(segs)}</Text>
+          </View>
+
+          {/* Avance de Series */}
+          {sesionInfo.totalSeries > 0 && (
+            <View style={styles.progressRow}>
+              <Ionicons name="checkmark-circle-outline" size={16} color={colores.exito} />
+              <Text style={styles.progressText}>
+                {sesionInfo.seriesCompletadas} de {sesionInfo.totalSeries} series completadas
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <Text style={styles.descriptionText}>
+          Tienes una sesión de entrenamiento iniciada. ¿Deseas volver a ella y continuar donde lo dejaste?
+        </Text>
+
+        {/* Acciones */}
+        <View style={styles.actionsRow}>
+          <BotonRutinia
+            titulo="Reanudar Entrenamiento"
+            variante="principal"
+            onPress={onReanudar}
+            style={{ width: '100%' }}
+          />
+          <Pressable
+            onPress={handleDescartarConfirm}
+            style={({ pressed }) => [styles.cancelButton, pressed && { opacity: 0.7 }]}
+          >
+            <Ionicons name="trash-outline" size={16} color="#F58A9B" />
+            <Text style={styles.cancelButtonText}>Descartar Entrenamiento</Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+
+  if (Platform.OS === 'web') {
+    return <View style={styles.webOverlay}>{inner}</View>;
+  }
 
   return (
     <Modal
@@ -66,65 +124,23 @@ export default function ModalPartidaEnCurso({
       hardwareAccelerated
       onRequestClose={() => {}}
     >
-      {/* Fondo borroso / Frosted glass overlay */}
-      <View style={styles.backdrop}>
-        <View style={styles.cardContainer}>
-          {/* Badge superior de Estado En Vivo */}
-          <View style={styles.badgeRow}>
-            <View style={styles.pulsingDot} />
-            <Text style={styles.badgeText}>ENTRENAMIENTO EN CURSO</Text>
-          </View>
-
-          {/* Título de la Rutina */}
-          <View style={styles.headerInfo}>
-            <Text style={styles.routineTitle} numberOfLines={2}>
-              {sesionInfo.nombreRutina}
-            </Text>
-
-            {/* Tiempo Transcurrido */}
-            <View style={styles.timerBox}>
-              <Ionicons name="stopwatch-outline" size={20} color={tema.acentoEstado.pendiente} />
-              <Text style={styles.timerText}>{formatearTiempo(segs)}</Text>
-            </View>
-
-            {/* Avance de Series */}
-            {sesionInfo.totalSeries > 0 && (
-              <View style={styles.progressRow}>
-                <Ionicons name="checkmark-circle-outline" size={16} color={colores.exito} />
-                <Text style={styles.progressText}>
-                  {sesionInfo.seriesCompletadas} de {sesionInfo.totalSeries} series completadas
-                </Text>
-              </View>
-            )}
-          </View>
-
-          <Text style={styles.descriptionText}>
-            Tienes una sesión de entrenamiento iniciada. ¿Deseas volver a ella y continuar donde lo dejaste?
-          </Text>
-
-          {/* Acciones */}
-          <View style={styles.actionsRow}>
-            <BotonRutinia
-              titulo="Reanudar Entrenamiento"
-              variante="principal"
-              onPress={onReanudar}
-              style={{ width: '100%' }}
-            />
-            <Pressable
-              onPress={handleDescartarConfirm}
-              style={({ pressed }) => [styles.cancelButton, pressed && { opacity: 0.7 }]}
-            >
-              <Ionicons name="trash-outline" size={16} color="#F58A9B" />
-              <Text style={styles.cancelButtonText}>Descartar Entrenamiento</Text>
-            </Pressable>
-          </View>
-        </View>
-      </View>
+      {inner}
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  // Overlay para web: posición absoluta con zIndex alto, permite que
+  // ConfirmModalGlobal (zIndex 10000) quede por encima y reciba eventos
+  webOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 9000,
+    elevation: 9000,
+  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(5, 7, 15, 0.88)',

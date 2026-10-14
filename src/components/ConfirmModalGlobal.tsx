@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(8px)' } : {}),
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(8px)', zIndex: 10000 } : {}),
   },
   modalCard: {
     width: '100%',
