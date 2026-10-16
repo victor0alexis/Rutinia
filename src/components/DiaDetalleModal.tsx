@@ -27,10 +27,13 @@ import {
   guardarNotaDelDia,
 } from '../services/registros';
 import { listarRutinas } from '../services/rutinas';
-import { EjercicioRegistro, EjercicioRutina, Registro, Rutina } from '../types';
+import { EjercicioRegistro, EjercicioRutina, PlanEntrenamiento, Registro, Rutina } from '../types';
+
 import { seguro, confirmarAccion } from '../utils/errores';
 import { aISO, nombreDia } from '../utils/fechas';
 import { useLayout } from '../hooks/useLayout';
+import SelectorPlanRutina from './SelectorPlanRutina';
+
 
 type Props = {
   fecha: Date | null;
@@ -178,13 +181,21 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
     );
   };
 
-  const vincularRutinaEntera = (rutina: Rutina) =>
+  const [selectorPlanRutinaVisible, setSelectorPlanRutinaVisible] = useState(false);
+
+  const vincularRutinaEntera = (rutina: Rutina, plan?: PlanEntrenamiento | null) =>
     seguro(async () => {
-      await agregarRutinaAFechas(rutina, [aISO(fecha)]);
+      await agregarRutinaAFechas(rutina, [aISO(fecha)], {
+        planId: plan?.id ?? rutina.plan_id ?? null,
+        planNombre: plan?.nombre ?? rutina.planes_entrenamiento?.nombre ?? null,
+        rutinaNombre: rutina.nombre,
+      });
       alCambiar();
+      setSelectorPlanRutinaVisible(false);
       setTab('actividad');
       Alert.alert('Éxito', `Rutina "${rutina.nombre}" agregada a tu día.`);
     });
+
 
   const vincularEjercicioIndividual = (ejercicio: EjercicioRutina) =>
     seguro(async () => {
@@ -532,9 +543,19 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
                     Vincular Rutinas Preexistentes
                   </Text>
 
+                  {/* Selector por Plan Jerárquico */}
+                  <View style={{ gap: 8, marginBottom: 6 }}>
+                    <BotonRutinia
+                      titulo="Explorar planes y rutinas"
+                      variante="principal"
+                      onPress={() => setSelectorPlanRutinaVisible(true)}
+                    />
+                  </View>
+
                   {rutinas.length === 0 ? (
                     <Text style={{ color: colores.suave, fontStyle: 'italic', fontFamily: fuentes.regular }}>No tienes rutinas creadas aún. Dirígete a la pestaña &apos;Rutinas&apos;.</Text>
                   ) : (
+
                     rutinas.map((rut) => {
                       const estaExpandida = rutinaExpandida === rut.id;
                       return (
@@ -649,9 +670,19 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
           </View>
         </ScreenBackground>
       </KeyboardAvoidingView>
+
+      {/* Selector jerárquico de Plan y Rutina */}
+      <SelectorPlanRutina
+        visible={selectorPlanRutinaVisible}
+        fecha={fecha}
+        onClose={() => setSelectorPlanRutinaVisible(false)}
+        onSeleccionarRutina={(rut, plan) => vincularRutinaEntera(rut, plan)}
+        onSeleccionarEjercicioIndividual={(ej) => vincularEjercicioIndividual(ej)}
+      />
     </Modal>
   );
 }
+
 
 const styles = StyleSheet.create({
   closeButton: {
