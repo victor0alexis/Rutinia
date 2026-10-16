@@ -14,10 +14,11 @@ import ScreenBackground from '../../components/ScreenBackground';
 import BotonRutinia from '../../components/BotonRutinia';
 import DockPrincipal from '../../components/DockPrincipal';
 import { registrosDeRango } from '../../services/registros';
+import { listarPlanes } from '../../services/planes';
 import { aISO, diasDeSemana, nombreDia, rangoSemana } from '../../utils/fechas';
 import { seguro } from '../../utils/errores';
 import { parsearEjercicioInfo } from '../../utils/ejercicios';
-import { EjercicioRegistro, Registro } from '../../types';
+import { EjercicioRegistro, PlanEntrenamiento, Registro } from '../../types';
 import { SesionActivaInfo, obtenerSesionActivaInfo, obtenerBorradorSesion } from '../../utils/sesionActiva';
 import { useLayout } from '../../hooks/useLayout';
 
@@ -26,7 +27,9 @@ export default function Semana() {
   const [ref, setRef] = useState(new Date());
   const [diaActivo, setDiaActivo] = useState(new Date());
   const [registros, setRegistros] = useState<Registro[]>([]);
+  const [planActivo, setPlanActivo] = useState<PlanEntrenamiento | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+
 
   // Modal para ejecutar / registrar entrenamiento del día
   const [registroEjecutar, setRegistroEjecutar] = useState<Registro | null>(null);
@@ -53,6 +56,9 @@ export default function Semana() {
   useFocusEffect(
     useCallback(() => {
       cargar();
+      listarPlanes({ incluirArchivados: false })
+        .then((pls) => setPlanActivo(pls.find((p) => p.activo) || null))
+        .catch(() => {});
       if (atendidoPartidaRef.current) return;
       seguro(async () => {
         const active = await obtenerSesionActivaInfo();
@@ -63,6 +69,7 @@ export default function Semana() {
       });
     }, [cargar])
   );
+
 
   const reanudarPartidaEnCurso = () => {
     if (!sesionActivaInfo) return;
@@ -194,8 +201,31 @@ export default function Semana() {
             gap: isLandscape ? 6 : 10,
           }}
         >
+          {/* CHIP DE PLAN ACTIVO EN CABECERA */}
+          {planActivo && (
+            <View
+              style={[
+                styles.headerPlanChip,
+                {
+                  borderColor: planActivo.color + '60',
+                  backgroundColor: planActivo.color + '15',
+                },
+              ]}
+            >
+              <Ionicons
+                name={(planActivo.icono as any) || 'barbell-outline'}
+                size={14}
+                color={planActivo.color}
+              />
+              <Text style={[styles.headerPlanChipText, { color: planActivo.color }]}>
+                PLAN ACTIVO · {planActivo.nombre.toUpperCase()}
+              </Text>
+            </View>
+          )}
+
           {/* NAVEGADOR ENTRE SEMANAS */}
           <View style={[styles.weekNavigatorCard, isLandscape && { paddingVertical: 6 }]}>
+
             <Pressable
               onPress={() => {
                 const prev = addWeeks(ref, -1);
@@ -412,6 +442,10 @@ export default function Semana() {
                   {/* 2. SECCIÓN RUTINAS DEL DÍA */}
                   {registrosConRutina.map((r) => {
                     const ejsRutina = (r.ejercicios_registro || []).filter((e) => !e.nombre.startsWith('📌'));
+                    const planColor = r.planes_entrenamiento?.color || colores.primarioHover;
+                    const nombrePlan = r.plan_nombre || r.planes_entrenamiento?.nombre;
+                    const nombreRutina = r.rutina_nombre || r.rutinas?.nombre || 'Rutina Vinculada';
+
                     return (
                       <Pressable
                         key={r.id}
@@ -420,18 +454,40 @@ export default function Semana() {
                           styles.routineBox,
                           {
                             borderColor: r.completado ? colores.exito : colores.borde,
-                            borderLeftColor: r.completado ? colores.exito : colores.primarioHover,
+                            borderLeftColor: r.completado ? colores.exito : planColor,
+                            borderLeftWidth: 4,
                             opacity: pressed ? 0.9 : 1,
                           },
                         ]}
                       >
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <Ionicons name="fitness" size={18} color={r.completado ? colores.exito : colores.primarioHover} />
-                            <Text style={[styles.routineBoxTitle, { color: r.completado ? colores.exito : colores.primarioHover }]}>
-                              {r.rutinas?.nombre || 'Rutina Vinculada'}
-                            </Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, paddingRight: 6 }}>
+                            <Ionicons name="fitness" size={18} color={r.completado ? colores.exito : planColor} />
+                            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              {nombrePlan ? (
+                                <View
+                                  style={[
+                                    styles.planTagChip,
+                                    { backgroundColor: planColor + '20', borderColor: planColor + '40' },
+                                  ]}
+                                >
+                                  <Text style={[styles.planTagChipText, { color: planColor }]}>
+                                    {nombrePlan}
+                                  </Text>
+                                </View>
+                              ) : null}
+                              <Text
+                                style={[
+                                  styles.routineBoxTitle,
+                                  { color: r.completado ? colores.exito : colores.texto },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {nombreRutina}
+                              </Text>
+                            </View>
                           </View>
+
 
                           <View
                             style={[
@@ -829,4 +885,31 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: colores.exito,
   },
+  headerPlanChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignSelf: 'center',
+  },
+  headerPlanChipText: {
+    fontSize: 11,
+    fontFamily: fuentes.black,
+    letterSpacing: 0.8,
+  },
+  planTagChip: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  planTagChipText: {
+    fontSize: 10,
+    fontFamily: fuentes.bold,
+    textTransform: 'uppercase',
+  },
 });
+

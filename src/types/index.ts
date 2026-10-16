@@ -75,7 +75,7 @@ export type Registro = {
   rutina_nombre?: string | null;
   completado: boolean;
   notas?: string | null;
-  rutinas: { nombre: string } | null;
+  rutinas: { nombre: string; plan_id?: string | null; dia_sugerido?: number | null } | null;
   planes_entrenamiento?: PlanEntrenamiento | null;
   ejercicios_registro: EjercicioRegistro[];
 };

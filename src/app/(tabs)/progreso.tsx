@@ -8,6 +8,8 @@ import { colores, fuentes } from '../../constants/colores';
 import EncabezadoSeccion from '../../components/EncabezadoSeccion';
 import ScreenBackground from '../../components/ScreenBackground';
 import { MetricasProgreso, obtenerMetricasProgreso } from '../../services/progreso';
+import { listarPlanes } from '../../services/planes';
+import { PlanEntrenamiento } from '../../types';
 import { aISO } from '../../utils/fechas';
 import { seguro } from '../../utils/errores';
 import { useLayout } from '../../hooks/useLayout';
@@ -17,6 +19,8 @@ type PeriodoFiltro = 'mes' | '30dias' | 'anio';
 export default function ProgresoScreen() {
   const { gutter, contentMaxWidth, isCompact } = useLayout();
   const [periodo, setPeriodo] = useState<PeriodoFiltro>('mes');
+  const [planes, setPlanes] = useState<PlanEntrenamiento[]>([]);
+  const [planSeleccionado, setPlanSeleccionado] = useState<string>('TODOS');
   const [metricas, setMetricas] = useState<MetricasProgreso>({
     volumenTotalKg: 0,
     diasCompletados: 0,
@@ -55,10 +59,16 @@ export default function ProgresoScreen() {
   useFocusEffect(
     useCallback(() => {
       cargarMetricas();
+      listarPlanes({ incluirArchivados: true })
+        .then(setPlanes)
+        .catch(() => {});
     }, [cargarMetricas])
   );
 
   const prDestacado = metricas.recordsPersonales.find((r) => r.nombreEjercicio === ejercicioSeleccionado) || metricas.recordsPersonales[0];
+  const rutinasFiltradas = planSeleccionado === 'TODOS'
+    ? metricas.rutinasStats
+    : metricas.rutinasStats.filter((r) => r.planId === planSeleccionado);
 
   return (
     <ScreenBackground>
@@ -175,69 +185,152 @@ export default function ProgresoScreen() {
 
           {/* SECCIÓN 1: PROGRESO DE RUTINAS ESPECÍFICAS (CREADAS) */}
           <View style={styles.sectionCardContainer}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="barbell-outline" size={20} color={colores.primarioHover} />
-              <Text style={{ color: colores.texto, fontSize: 18, fontFamily: fuentes.black }}>
-                Progreso por Rutina
-              </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="barbell-outline" size={20} color={colores.primarioHover} />
+                <Text style={{ color: colores.texto, fontSize: 18, fontFamily: fuentes.black }}>
+                  Progreso por Rutina
+                </Text>
+              </View>
+              {metricas.rutinasStats.length > 0 && (
+                <View style={styles.executionBadge}>
+                  <Text style={styles.executionBadgeText}>
+                    {rutinasFiltradas.length} {rutinasFiltradas.length === 1 ? 'rutina' : 'rutinas'}
+                  </Text>
+                </View>
+              )}
             </View>
 
-            {metricas.rutinasStats.length === 0 ? (
+            {/* FILTRO HORIZONTAL DE PLANES */}
+            {planes.length > 0 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8, paddingVertical: 2 }}
+              >
+                <Pressable
+                  onPress={() => setPlanSeleccionado('TODOS')}
+                  style={[
+                    styles.planFilterPill,
+                    planSeleccionado === 'TODOS' && styles.planFilterPillActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.planFilterPillText,
+                      planSeleccionado === 'TODOS' && styles.planFilterPillTextActive,
+                    ]}
+                  >
+                    Todos los planes
+                  </Text>
+                </Pressable>
+                {planes.map((p) => {
+                  const isAct = planSeleccionado === p.id;
+                  return (
+                    <Pressable
+                      key={p.id}
+                      onPress={() => setPlanSeleccionado(p.id)}
+                      style={[
+                        styles.planFilterPill,
+                        isAct && { borderColor: p.color, backgroundColor: p.color + '25' },
+                      ]}
+                    >
+                      <View style={[styles.miniDot, { backgroundColor: p.color }]} />
+                      <Text
+                        style={[
+                          styles.planFilterPillText,
+                          isAct && { color: '#FFF', fontFamily: fuentes.bold },
+                        ]}
+                      >
+                        {p.nombre}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            {rutinasFiltradas.length === 0 ? (
               <View style={styles.emptyDashedBox}>
                 <Ionicons name="fitness-outline" size={24} color={colores.suave} />
                 <Text style={{ color: colores.suave, fontSize: 13, fontStyle: 'italic', fontFamily: fuentes.regular }}>
-                  Crea y completa rutinas para ver su desglose individual.
+                  {metricas.rutinasStats.length === 0
+                    ? 'Crea y completa rutinas para ver su desglose individual.'
+                    : 'No hay rutinas con actividad en el plan seleccionado.'}
                 </Text>
               </View>
             ) : (
               <View style={{ gap: 12 }}>
-                {metricas.rutinasStats.map((r) => (
-                  <View key={r.id} style={styles.routineStatCard}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <View style={styles.routineIconBadge}>
-                          <Ionicons name="fitness" size={14} color={colores.primarioHover} />
-                        </View>
-                        <Text style={{ color: colores.texto, fontSize: 16, fontFamily: fuentes.black }}>
-                          {r.nombre}
-                        </Text>
-                      </View>
-                      <View style={styles.executionBadge}>
-                        <Text style={styles.executionBadgeText}>
-                          {r.vecesEjecutada} {r.vecesEjecutada === 1 ? 'ejecución' : 'ejecuciones'}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={{ flexDirection: 'row', gap: 16, marginTop: 4 }}>
-                      <View>
-                        <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, textTransform: 'uppercase' }}>Volumen Acumulado</Text>
-                        <Text style={{ color: colores.texto, fontSize: 15, fontFamily: fuentes.bold }}>
-                          {r.volumenTotalKg.toLocaleString()} kg
-                        </Text>
-                      </View>
-
-                      <View>
-                        <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, textTransform: 'uppercase' }}>Series Totales</Text>
-                        <Text style={{ color: colores.texto, fontSize: 15, fontFamily: fuentes.bold }}>
-                          {r.seriesTotales} series
-                        </Text>
-                      </View>
-                    </View>
-
-                    {r.ejerciciosStats.length > 0 && (
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-                        {r.ejerciciosStats.slice(0, 4).map((ej) => (
-                          <View key={ej.nombre} style={styles.exerciseChip}>
-                            <Text style={{ color: colores.suave, fontSize: 11, fontFamily: fuentes.medium }}>
-                              {ej.nombre}: <Text style={{ color: colores.texto, fontFamily: fuentes.bold }}>{ej.maxPeso > 0 ? `${ej.maxPeso}kg` : `${ej.series}s`}</Text>
+                {rutinasFiltradas.map((r) => {
+                  const cardPlanColor = r.planColor || colores.primarioHover;
+                  return (
+                    <View
+                      key={r.id}
+                      style={[
+                        styles.routineStatCard,
+                        { borderLeftColor: cardPlanColor, borderLeftWidth: 3 },
+                      ]}
+                    >
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, paddingRight: 6 }}>
+                          <View style={[styles.routineIconBadge, { backgroundColor: cardPlanColor + '20' }]}>
+                            <Ionicons name="fitness" size={14} color={cardPlanColor} />
+                          </View>
+                          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            {r.planNombre ? (
+                              <View
+                                style={[
+                                  styles.planTagChip,
+                                  { backgroundColor: cardPlanColor + '20', borderColor: cardPlanColor + '40' },
+                                ]}
+                              >
+                                <Text style={[styles.planTagChipText, { color: cardPlanColor }]}>
+                                  {r.planNombre}
+                                </Text>
+                              </View>
+                            ) : null}
+                            <Text style={{ color: colores.texto, fontSize: 15, fontFamily: fuentes.black }}>
+                              {r.nombre}
                             </Text>
                           </View>
-                        ))}
+                        </View>
+                        <View style={styles.executionBadge}>
+                          <Text style={styles.executionBadgeText}>
+                            {r.vecesEjecutada} {r.vecesEjecutada === 1 ? 'ejecución' : 'ejecuciones'}
+                          </Text>
+                        </View>
                       </View>
-                    )}
-                  </View>
-                ))}
+
+                      <View style={{ flexDirection: 'row', gap: 16, marginTop: 4 }}>
+                        <View>
+                          <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, textTransform: 'uppercase' }}>Volumen Acumulado</Text>
+                          <Text style={{ color: colores.texto, fontSize: 15, fontFamily: fuentes.bold }}>
+                            {r.volumenTotalKg.toLocaleString()} kg
+                          </Text>
+                        </View>
+
+                        <View>
+                          <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, textTransform: 'uppercase' }}>Series Totales</Text>
+                          <Text style={{ color: colores.texto, fontSize: 15, fontFamily: fuentes.bold }}>
+                            {r.seriesTotales} series
+                          </Text>
+                        </View>
+                      </View>
+
+                      {r.ejerciciosStats.length > 0 && (
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                          {r.ejerciciosStats.slice(0, 4).map((ej) => (
+                            <View key={ej.nombre} style={styles.exerciseChip}>
+                              <Text style={{ color: colores.suave, fontSize: 11, fontFamily: fuentes.medium }}>
+                                {ej.nombre}: <Text style={{ color: colores.texto, fontFamily: fuentes.bold }}>{ej.maxPeso > 0 ? `${ej.maxPeso}kg` : `${ej.series}s`}</Text>
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
               </View>
             )}
           </View>
@@ -628,5 +721,45 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: colores.primarioHover,
     borderRadius: 3,
+  },
+  planFilterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    backgroundColor: 'rgba(10, 12, 18, 0.60)',
+  },
+  planFilterPillActive: {
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  planFilterPillText: {
+    color: colores.suave,
+    fontSize: 12,
+    fontFamily: fuentes.medium,
+  },
+  planFilterPillTextActive: {
+    color: '#FFF',
+    fontFamily: fuentes.bold,
+  },
+  miniDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  planTagChip: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  planTagChipText: {
+    fontSize: 10,
+    fontFamily: fuentes.bold,
+    textTransform: 'uppercase',
   },
 });

@@ -12,10 +12,11 @@ import GlowButton from '../../components/GlowButton';
 import DiaDetalleModal, { parsearNotaInteligente } from '../../components/DiaDetalleModal';
 import EjecutarEntrenamientoModal from '../../components/EjecutarEntrenamientoModal';
 import { registrosDeRango } from '../../services/registros';
+import { listarPlanes } from '../../services/planes';
 import { aISO, nombreDia } from '../../utils/fechas';
 import { seguro } from '../../utils/errores';
 import { parsearEjercicioInfo } from '../../utils/ejercicios';
-import { EjercicioRegistro, Registro } from '../../types';
+import { EjercicioRegistro, PlanEntrenamiento, Registro } from '../../types';
 import { useLayout } from '../../hooks/useLayout';
 
 // Configuración de idioma Español para el Calendario
@@ -36,6 +37,8 @@ export default function CalendarioScreen() {
   const [fechaReferencia, setFechaReferencia] = useState(new Date());
   const [fechaSeleccionadaISO, setFechaSeleccionadaISO] = useState(aISO(new Date()));
   const [registrosMes, setRegistrosMes] = useState<Registro[]>([]);
+  const [planes, setPlanes] = useState<PlanEntrenamiento[]>([]);
+  const [filtroPlanId, setFiltroPlanId] = useState<string | null>(null);
   
   // Modales
   const [modalDetalleVisible, setModalDetalleVisible] = useState(false);
@@ -46,8 +49,12 @@ export default function CalendarioScreen() {
     seguro(async () => {
       const inicio = aISO(startOfMonth(fechaReferencia));
       const fin = aISO(endOfMonth(fechaReferencia));
-      const datos = await registrosDeRango(inicio, fin);
+      const [datos, listaPlanes] = await Promise.all([
+        registrosDeRango(inicio, fin),
+        listarPlanes({ incluirArchivados: false }),
+      ]);
       setRegistrosMes(datos);
+      setPlanes(listaPlanes);
     });
   }, [fechaReferencia]);
 
@@ -57,10 +64,15 @@ export default function CalendarioScreen() {
     }, [cargarDatosMes])
   );
 
+  // Filtrar registros según el filtro de plan seleccionado si aplica
+  const registrosFiltrados = filtroPlanId
+    ? registrosMes.filter((r) => r.plan_id === filtroPlanId)
+    : registrosMes;
+
   // Construir mapa de markedDates para react-native-calendars
   const markedDatesMap: Record<string, any> = {};
 
-  registrosMes.forEach((r) => {
+  registrosFiltrados.forEach((r) => {
     const fecha = r.fecha;
     if (!markedDatesMap[fecha]) {
       markedDatesMap[fecha] = { dots: [] };
@@ -69,16 +81,27 @@ export default function CalendarioScreen() {
     const ejs = r.ejercicios_registro || [];
     const tieneNotas = ejs.some((e) => e.nombre.startsWith('📌'));
     const ejsPuros = ejs.filter((e) => !e.nombre.startsWith('📌'));
-    const esRutina = !!r.rutinas?.nombre;
+    const esRutina = Boolean(r.rutina_id || r.rutina_nombre || r.rutinas?.nombre);
     const esCompletado = r.completado || (ejsPuros.length > 0 && ejsPuros.every((e) => e.completado));
+
+    // Color del dot según el color del plan
+    const colorDelPlan = r.planes_entrenamiento?.color || colores.primarioHover;
 
     if (esCompletado) {
       if (!markedDatesMap[fecha].dots.some((d: any) => d.key === 'completado')) {
-        markedDatesMap[fecha].dots.push({ key: 'completado', color: colores.exito, selectedDotColor: '#FFF' });
+        markedDatesMap[fecha].dots.push({
+          key: `completado_${r.id}`,
+          color: colorDelPlan,
+          selectedDotColor: '#FFF',
+        });
       }
     } else if (esRutina || ejsPuros.length > 0) {
       if (!markedDatesMap[fecha].dots.some((d: any) => d.key === 'pendiente')) {
-        markedDatesMap[fecha].dots.push({ key: 'pendiente', color: colores.primarioHover, selectedDotColor: '#FFF' });
+        markedDatesMap[fecha].dots.push({
+          key: `pendiente_${r.id}`,
+          color: colorDelPlan,
+          selectedDotColor: '#FFF',
+        });
       }
     }
 
@@ -88,6 +111,7 @@ export default function CalendarioScreen() {
       }
     }
   });
+
 
   // Resaltar el día seleccionado
   markedDatesMap[fechaSeleccionadaISO] = {
@@ -169,8 +193,64 @@ export default function CalendarioScreen() {
             </View>
           </View>
 
-          {/* CALENDARIO INTERACTIVO ENTERPRISE CON ESTÉTICT TRASLÚCIDA */}
+          {/* FILTRO POR PLAN */}
+          {planes.length > 0 && (
+            <View style={{ gap: 6 }}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8, paddingVertical: 2 }}
+              >
+                <Pressable
+                  onPress={() => setFiltroPlanId(null)}
+                  style={[
+                    styles.planFilterPill,
+                    filtroPlanId === null && styles.planFilterPillActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.planFilterPillText,
+                      filtroPlanId === null && styles.planFilterPillTextActive,
+                    ]}
+                  >
+                    Todos los planes
+                  </Text>
+                </Pressable>
+
+                {planes.map((p) => {
+                  const sel = filtroPlanId === p.id;
+                  return (
+                    <Pressable
+                      key={p.id}
+                      onPress={() => setFiltroPlanId(sel ? null : p.id)}
+                      style={[
+                        styles.planFilterPill,
+                        sel && {
+                          borderColor: p.color,
+                          backgroundColor: p.color + '22',
+                        },
+                      ]}
+                    >
+                      <View style={[styles.miniDot, { backgroundColor: p.color }]} />
+                      <Text
+                        style={[
+                          styles.planFilterPillText,
+                          sel && { color: p.color, fontFamily: fuentes.bold },
+                        ]}
+                      >
+                        {p.nombre}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* CALENDARIO INTERACTIVO ENTERPRISE CON ESTÉTICA TRASLÚCIDA */}
           <View style={styles.calendarContainerCard}>
+
             <Calendar
               key={fechaReferencia.toISOString()}
               current={aISO(fechaReferencia)}
@@ -255,36 +335,52 @@ export default function CalendarioScreen() {
             ) : (
               <View style={{ gap: 10 }}>
                 {/* Rutinas */}
-                {rutinasDiaSel.map((r) => (
-                  <Pressable
-                    key={r.id}
-                    onPress={() => {
-                      setRegistroEjecutar(r);
-                      setModalEjecutarVisible(true);
-                    }}
-                    style={({ pressed }) => [
-                      styles.routineItemRow,
-                      {
-                        borderColor: r.completado ? colores.exito : colores.borde,
-                        borderLeftColor: r.completado ? colores.exito : colores.primarioHover,
-                        opacity: pressed ? 0.9 : 1,
-                      },
-                    ]}
-                  >
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, paddingRight: 6 }}>
-                        <Ionicons name="fitness" size={16} color={r.completado ? colores.exito : colores.primarioHover} />
-                        <Text style={{ color: r.completado ? colores.exito : colores.primarioHover, fontFamily: fuentes.black, fontSize: 14, flex: 1 }} numberOfLines={1}>
-                          {r.rutinas?.nombre}
-                        </Text>
+                {rutinasDiaSel.map((r) => {
+                  const planColor = r.planes_entrenamiento?.color || colores.primarioHover;
+                  const nombrePlan = r.plan_nombre || r.planes_entrenamiento?.nombre;
+                  const nombreRutina = r.rutina_nombre || r.rutinas?.nombre || 'Rutina';
+
+                  return (
+                    <Pressable
+                      key={r.id}
+                      onPress={() => {
+                        setRegistroEjecutar(r);
+                        setModalEjecutarVisible(true);
+                      }}
+                      style={({ pressed }) => [
+                        styles.routineItemRow,
+                        {
+                          borderColor: r.completado ? colores.exito : colores.borde,
+                          borderLeftColor: r.completado ? colores.exito : planColor,
+                          borderLeftWidth: 4,
+                          opacity: pressed ? 0.9 : 1,
+                        },
+                      ]}
+                    >
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, paddingRight: 6 }}>
+                          <Ionicons name="fitness" size={16} color={r.completado ? colores.exito : planColor} />
+                          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            {nombrePlan ? (
+                              <View style={[styles.planTagChip, { backgroundColor: planColor + '20', borderColor: planColor + '40' }]}>
+                                <Text style={[styles.planTagChipText, { color: planColor }]}>
+                                  {nombrePlan}
+                                </Text>
+                              </View>
+                            ) : null}
+                            <Text style={{ color: r.completado ? colores.exito : colores.texto, fontFamily: fuentes.black, fontSize: 14 }} numberOfLines={1}>
+                              {nombreRutina}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.fillBadge}>
+                          <Text style={styles.fillBadgeText}>
+                            {r.completado ? 'Completado' : 'Toca para Llenar'}
+                          </Text>
+                        </View>
                       </View>
 
-                      <View style={styles.fillBadge}>
-                        <Text style={styles.fillBadgeText}>
-                          {r.completado ? 'Completado' : 'Toca para Llenar'}
-                        </Text>
-                      </View>
-                    </View>
 
                     {(r.ejercicios_registro || []).filter((e) => !e.nombre.startsWith('📌')).map((e) => {
                       const parsed = parsearEjercicioInfo(e);
@@ -302,7 +398,8 @@ export default function CalendarioScreen() {
                       );
                     })}
                   </Pressable>
-                ))}
+                );
+              })}
 
                 {/* Notas */}
                 {notasDiaSel.map((n) => {
@@ -478,4 +575,45 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 6,
   },
+  planFilterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    backgroundColor: 'rgba(10, 12, 18, 0.60)',
+  },
+  planFilterPillActive: {
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  planFilterPillText: {
+    color: colores.suave,
+    fontSize: 12,
+    fontFamily: fuentes.medium,
+  },
+  planFilterPillTextActive: {
+    color: '#FFF',
+    fontFamily: fuentes.bold,
+  },
+  miniDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  planTagChip: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  planTagChipText: {
+    fontSize: 10,
+    fontFamily: fuentes.bold,
+    textTransform: 'uppercase',
+  },
 });
+

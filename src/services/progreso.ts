@@ -14,6 +14,9 @@ export type RecordPersonal = {
 export type EstadisticaRutina = {
   id: string;
   nombre: string;
+  planId?: string | null;
+  planNombre?: string | null;
+  planColor?: string | null;
   vecesEjecutada: number;
   volumenTotalKg: number;
   seriesTotales: number;
@@ -54,7 +57,21 @@ export async function obtenerMetricasProgreso(desde: string, hasta: string): Pro
   let seriesTotales = 0;
   const diasUnicos = new Set<string>();
   const mapEjercicios: Record<string, { series: number; maxPeso: number; maxReps: number; fechaMax: string; esUnilateral: boolean }> = {};
-  const mapRutinas: Record<string, { id: string; nombre: string; veces: number; volumen: number; series: number; ultimaFecha: string | null; ejercicios: Record<string, { maxPeso: number; series: number }> }> = {};
+  const mapRutinas: Record<
+    string,
+    {
+      id: string;
+      nombre: string;
+      planId?: string | null;
+      planNombre?: string | null;
+      planColor?: string | null;
+      veces: number;
+      volumen: number;
+      series: number;
+      ultimaFecha: string | null;
+      ejercicios: Record<string, { maxPeso: number; series: number }>;
+    }
+  > = {};
   const mapHabitos: Record<string, { titulo: string; categoria: string; fechas: Set<string> }> = {};
 
   // Inicializar rutinas creadas en el mapa de rutinas
@@ -62,6 +79,9 @@ export async function obtenerMetricasProgreso(desde: string, hasta: string): Pro
     mapRutinas[r.nombre] = {
       id: r.id,
       nombre: r.nombre,
+      planId: r.plan_id || null,
+      planNombre: (r as any).planes_entrenamiento?.nombre || null,
+      planColor: (r as any).planes_entrenamiento?.color || null,
       veces: 0,
       volumen: 0,
       series: 0,
@@ -80,18 +100,35 @@ export async function obtenerMetricasProgreso(desde: string, hasta: string): Pro
     }
 
     // 1. Procesar rutina asociada a este registro
-    const nombreRutina = r.rutinas?.nombre;
+    const nombreRutina = r.rutina_nombre || r.rutinas?.nombre;
+    const planNombreReg = r.plan_nombre || r.planes_entrenamiento?.nombre || null;
+    const planColorReg = r.planes_entrenamiento?.color || null;
+    const planIdReg = r.plan_id || r.rutinas?.plan_id || null;
+
     if (nombreRutina) {
       if (!mapRutinas[nombreRutina]) {
         mapRutinas[nombreRutina] = {
           id: r.rutina_id || nombreRutina,
           nombre: nombreRutina,
+          planId: planIdReg,
+          planNombre: planNombreReg,
+          planColor: planColorReg,
           veces: 0,
           volumen: 0,
           series: 0,
           ultimaFecha: null,
           ejercicios: {},
         };
+      } else {
+        if (!mapRutinas[nombreRutina].planNombre && planNombreReg) {
+          mapRutinas[nombreRutina].planNombre = planNombreReg;
+        }
+        if (!mapRutinas[nombreRutina].planColor && planColorReg) {
+          mapRutinas[nombreRutina].planColor = planColorReg;
+        }
+        if (!mapRutinas[nombreRutina].planId && planIdReg) {
+          mapRutinas[nombreRutina].planId = planIdReg;
+        }
       }
       if (esCompletado) {
         mapRutinas[nombreRutina].veces++;
@@ -203,6 +240,9 @@ export async function obtenerMetricasProgreso(desde: string, hasta: string): Pro
     .map((r) => ({
       id: r.id,
       nombre: r.nombre,
+      planId: r.planId,
+      planNombre: r.planNombre,
+      planColor: r.planColor,
       vecesEjecutada: r.veces,
       volumenTotalKg: Math.round(r.volumen),
       seriesTotales: r.series,
