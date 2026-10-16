@@ -1,15 +1,15 @@
-import { View, Text, Platform, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colores, fuentes } from '../../constants/colores';
 import { tema } from '../../constants/tema';
+import { useLayout } from '../../hooks/useLayout';
 
 export default function TabsLayout() {
-  const insets = useSafeAreaInsets();
-  const bottomPadding = insets.bottom > 0 ? insets.bottom : Platform.OS === 'ios' ? 22 : 10;
-  const barHeight = 62 + bottomPadding;
+  const { isLandscape, bottomInset, safeBottom, leftInset, rightInset } = useLayout();
+  const bottomPadding = isLandscape ? Math.max(bottomInset, 4) : safeBottom;
+  const barHeight = isLandscape ? 48 + bottomPadding : 60 + bottomPadding;
 
   return (
     <Tabs
@@ -17,13 +17,16 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: tema.colores.carmesi,
         tabBarInactiveTintColor: tema.colores.textoSuave,
+        tabBarShowLabel: !isLandscape,
         tabBarStyle: {
           backgroundColor: 'rgba(8, 10, 20, 0.94)',
           borderTopColor: tema.fondo.bordeVidrio,
           borderTopWidth: 1,
           height: barHeight,
-          paddingBottom: bottomPadding - 2,
-          paddingTop: 8,
+          paddingBottom: isLandscape ? bottomPadding : bottomPadding - 2,
+          paddingTop: isLandscape ? 4 : 8,
+          paddingLeft: leftInset,
+          paddingRight: rightInset,
           elevation: 20,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -6 },
@@ -35,10 +38,10 @@ export default function TabsLayout() {
           right: 0,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontFamily: fuentes.bold,
-          letterSpacing: 0.3,
-          marginTop: 4,
+          letterSpacing: 0.2,
+          marginTop: 2,
         },
       }}
     >
@@ -108,7 +111,7 @@ export default function TabsLayout() {
         options={{
           title: 'Semana',
           tabBarIcon: ({ focused }) => (
-            <View style={styles.centralButtonWrapper}>
+            <View style={[styles.centralButtonWrapper, isLandscape && { top: -4 }]}>
               <LinearGradient
                 colors={
                   focused
@@ -117,7 +120,7 @@ export default function TabsLayout() {
                 }
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.centralGlowBorder}
+                style={[styles.centralGlowBorder, isLandscape && { borderRadius: 19 }]}
               >
                 <LinearGradient
                   colors={
@@ -125,9 +128,9 @@ export default function TabsLayout() {
                       ? [colores.primarioHover, colores.primario]
                       : ['rgba(22, 26, 38, 0.95)', 'rgba(14, 16, 24, 0.95)']
                   }
-                  style={styles.centralInner}
+                  style={[styles.centralInner, isLandscape && { width: 36, height: 36, borderRadius: 18 }]}
                 >
-                  <Ionicons name="calendar" size={22} color="#FFF" />
+                  <Ionicons name="calendar" size={isLandscape ? 18 : 22} color="#FFF" />
                 </LinearGradient>
               </LinearGradient>
             </View>

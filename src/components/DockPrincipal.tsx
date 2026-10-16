@@ -1,30 +1,45 @@
 import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { tema } from '../constants/tema';
+import { useLayout } from '../hooks/useLayout';
 
 type Props = {
   children: React.ReactNode;
 };
 
 export default function DockPrincipal({ children }: Props) {
-  const insets = useSafeAreaInsets();
-  const bottomPadding = insets.bottom > 0 ? insets.bottom : Platform.OS === 'ios' ? 22 : 10;
-  const tabBarHeight = 62 + bottomPadding;
+  const { isLandscape, bottomInset, safeBottom, gutter, contentMaxWidth, isKeyboardVisible } = useLayout();
 
-  // bottom = alturaBarra + 12 (lo que sobresale el círculo central) + 20 (aire libre)
-  const bottomPosition = tabBarHeight + 12 + 20;
+  // If the keyboard is actively open on mobile web/native, hide the dock to not obstruct inputs
+  if (isKeyboardVisible) return null;
+
+  const tabBarHeight = isLandscape
+    ? 48 + Math.max(bottomInset, 4)
+    : 60 + safeBottom;
+
+  const protrusion = isLandscape ? 4 : 12;
+  const air = isLandscape ? 8 : 16;
+  const bottomPosition = tabBarHeight + protrusion + air;
 
   return (
     <View pointerEvents="box-none" style={[styles.dockWrapper, { bottom: bottomPosition }]}>
-      {/* Degradado de salida de 134 px (de transparente a #0B0D14) */}
+      {/* Degradado de salida */}
       <LinearGradient
         pointerEvents="none"
         colors={['transparent', 'rgba(11, 13, 20, 0.75)', tema.colores.fondo]}
-        style={styles.degradadoSalida}
+        style={[styles.degradadoSalida, { height: isLandscape ? 80 : 120 }]}
       />
-      <View pointerEvents="box-none" style={styles.buttonContainer}>
+      <View
+        pointerEvents="box-none"
+        style={[
+          styles.buttonContainer,
+          {
+            maxWidth: contentMaxWidth,
+            paddingHorizontal: gutter,
+          },
+        ]}
+      >
         {children}
       </View>
     </View>
@@ -45,10 +60,8 @@ const styles = StyleSheet.create({
     bottom: -20,
     left: 0,
     right: 0,
-    height: 134,
   },
   buttonContainer: {
-    paddingHorizontal: tema.medidas.margenLateral,
     width: '100%',
     alignItems: 'center',
   },

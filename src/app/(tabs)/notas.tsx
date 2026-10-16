@@ -22,6 +22,7 @@ import { CategoriaNota, eliminarNotaEstandar, guardarNotaEstandar, NotaEstandar,
 import { agregarActividad } from '../../services/registros';
 import { aISO, diasDeSemana, nombreDia } from '../../utils/fechas';
 import { seguro, confirmarAccion, mostrarMensaje } from '../../utils/errores';
+import { useLayout } from '../../hooks/useLayout';
 
 const CATEGORIAS: CategoriaNota[] = ['General', 'Nutrición', 'Entrenamiento', 'Suplementos', 'Recuperación'];
 
@@ -39,6 +40,7 @@ const CONFIG_CATEGORIAS: Record<
 };
 
 export default function Notas() {
+  const { gutter, contentMaxWidth, bottomInset } = useLayout();
   const [notas, setNotas] = useState<NotaEstandar[]>([]);
   const [categoriaFiltro, setCategoriaFiltro] = useState<string>('Todas');
 
@@ -139,7 +141,16 @@ export default function Notas() {
         />
 
         {/* SECTOR DE FILTROS DE CATEGORÍAS JERÁRQUICO Y CENTRADO CON ICONOS Y BADGES */}
-        <View style={{ paddingHorizontal: 16, paddingBottom: 14, gap: 10 }}>
+        <View
+          style={{
+            width: '100%',
+            maxWidth: contentMaxWidth,
+            alignSelf: 'center',
+            paddingHorizontal: gutter,
+            paddingBottom: 14,
+            gap: 10,
+          }}
+        >
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -201,7 +212,15 @@ export default function Notas() {
 
         {/* Lista de Notas */}
         <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 80, gap: 14 }}
+          contentContainerStyle={{
+            width: '100%',
+            maxWidth: contentMaxWidth,
+            alignSelf: 'center',
+            paddingHorizontal: gutter,
+            paddingTop: 4,
+            paddingBottom: 90,
+            gap: 14,
+          }}
           showsVerticalScrollIndicator={false}
         >
           {notasFiltradas.length === 0 ? (
@@ -283,7 +302,18 @@ export default function Notas() {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.85)' }}
           >
-            <View style={styles.modalSheetContainer}>
+            <View
+              style={[
+                styles.modalSheetContainer,
+                {
+                  width: '100%',
+                  maxWidth: contentMaxWidth,
+                  alignSelf: 'center',
+                  paddingHorizontal: gutter,
+                  paddingBottom: Math.max(22, bottomInset + 12),
+                },
+              ]}
+            >
               <View style={{ alignItems: 'center' }}>
                 <View style={styles.modalGrabber} />
               </View>
@@ -370,7 +400,18 @@ export default function Notas() {
         {/* MODAL ASIGNAR A DÍA */}
         <Modal visible={modalAsignarVisible} animationType="slide" transparent onRequestClose={() => setModalAsignarVisible(false)}>
           <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.85)' }}>
-            <View style={styles.modalSheetContainer}>
+            <View
+              style={[
+                styles.modalSheetContainer,
+                {
+                  width: '100%',
+                  maxWidth: contentMaxWidth,
+                  alignSelf: 'center',
+                  paddingHorizontal: gutter,
+                  paddingBottom: Math.max(22, bottomInset + 12),
+                },
+              ]}
+            >
               <Text style={{ fontSize: 19, fontFamily: fuentes.black, color: colores.texto }}>
                 ¿A qué día asignamos &quot;{notaParaAsignar?.titulo}&quot;?
               </Text>

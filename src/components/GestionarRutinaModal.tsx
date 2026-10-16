@@ -18,6 +18,7 @@ import { crearRutina, eliminarRutina, actualizarRutina } from '../services/rutin
 import { seguro, confirmarAccion, mostrarMensaje } from '../utils/errores';
 import { parsearEjercicioInfo } from '../utils/ejercicios';
 import { Rutina } from '../types';
+import { useLayout } from '../hooks/useLayout';
 
 type SerieInput = {
   id: string;
@@ -68,8 +69,14 @@ export default function GestionarRutinaModal({
   onGuardado,
   onProgramarSemana,
 }: Props) {
+  const { isLandscape, isTablet, gutter, contentMaxWidth, bottomInset } = useLayout();
   const [nombreRutina, setNombreRutina] = useState('');
   const [ejercicios, setEjercicios] = useState<EjercicioInput[]>([nuevoEjercicioVacio()]);
+  const [notasExpandidas, setNotasExpandidas] = useState<Record<string, boolean>>({});
+
+  const alternarNotaSerie = (sId: string) => {
+    setNotasExpandidas((prev) => ({ ...prev, [sId]: !prev[sId] }));
+  };
 
   useEffect(() => {
     if (!visible) return;
@@ -276,7 +283,19 @@ export default function GestionarRutinaModal({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.88)', justifyContent: 'flex-end' }}
       >
-        <View style={styles.sheetContainer}>
+        <View
+          style={[
+            styles.sheetContainer,
+            {
+              maxWidth: contentMaxWidth,
+              width: '100%',
+              alignSelf: 'center',
+              paddingHorizontal: gutter,
+              paddingBottom: Math.max(20, bottomInset + 10),
+              height: isLandscape ? '98%' : '92%',
+            },
+          ]}
+        >
           {/* Grabber */}
           <View style={{ alignItems: 'center' }}>
             <View style={styles.grabberHandle} />
@@ -407,73 +426,79 @@ export default function GestionarRutinaModal({
                 {/* Tabla de Series (Bilateral vs Unilateral D/I) */}
                 {ej.esUnilateral ? (
                   <View style={{ gap: 8 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4 }}>
-                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, width: 26 }}>ST</Text>
-                      <Text style={{ color: colores.exito, fontSize: 10, fontFamily: fuentes.bold, flex: 2, textAlign: 'center' }}>💪 DERECHO (D)</Text>
-                      <Text style={{ color: colores.hoy, fontSize: 10, fontFamily: fuentes.bold, flex: 2, textAlign: 'center' }}>💪 IZQUIERDO (I)</Text>
-                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1, textAlign: 'center' }}>RIR</Text>
-                      <View style={{ width: 22 }} />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 2 }}>
+                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, width: 24, textAlign: 'center' }}>ST</Text>
+                      <Text style={{ color: colores.exito, fontSize: 10, fontFamily: fuentes.bold, flex: 2, minWidth: 0, textAlign: 'center' }}>DERECHO (D)</Text>
+                      <Text style={{ color: colores.hoy, fontSize: 10, fontFamily: fuentes.bold, flex: 2, minWidth: 0, textAlign: 'center' }}>IZQUIERDO (I)</Text>
+                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1, minWidth: 0, textAlign: 'center' }}>RIR</Text>
+                      <View style={{ width: 24 }} />
                     </View>
 
                     {ej.series.map((s, sIdx) => (
                       <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <View style={{ width: 26, alignItems: 'center' }}>
-                          <Text style={{ color: colores.texto, fontFamily: fuentes.bold, fontSize: 12 }}>#{sIdx + 1}</Text>
+                        <View style={{ width: 24, alignItems: 'center' }}>
+                          <Text style={{ color: colores.texto, fontFamily: fuentes.bold, fontSize: 11 }}>#{sIdx + 1}</Text>
                         </View>
 
                         {/* DERECHO (D) */}
-                        <View style={{ flex: 2, flexDirection: 'row', gap: 2 }}>
+                        <View style={{ flex: 2, minWidth: 0, flexDirection: 'row', gap: 2 }}>
                           <TextInput
                             placeholder="KG D"
                             placeholderTextColor={colores.suave}
-                            keyboardType="numeric"
+                            keyboardType="decimal-pad"
+                            inputMode="decimal"
                             value={s.peso}
                             onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'peso', val)}
-                            style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 2, fontSize: 11 }]}
+                            style={[styles.inputBase, styles.colInput, { flex: 1, paddingHorizontal: 2, fontSize: 11 }]}
                           />
                           <TextInput
                             placeholder="REPS D"
                             placeholderTextColor={colores.suave}
-                            keyboardType="numeric"
+                            keyboardType="number-pad"
+                            inputMode="numeric"
                             value={s.reps}
                             onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'reps', val)}
-                            style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 2, fontSize: 11 }]}
+                            style={[styles.inputBase, styles.colInput, { flex: 1, paddingHorizontal: 2, fontSize: 11 }]}
                           />
                         </View>
 
                         {/* IZQUIERDO (I) */}
-                        <View style={{ flex: 2, flexDirection: 'row', gap: 2 }}>
+                        <View style={{ flex: 2, minWidth: 0, flexDirection: 'row', gap: 2 }}>
                           <TextInput
                             placeholder="KG I"
                             placeholderTextColor={colores.suave}
-                            keyboardType="numeric"
+                            keyboardType="decimal-pad"
+                            inputMode="decimal"
                             value={s.pesoI !== undefined ? s.pesoI : s.peso}
                             onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'pesoI', val)}
-                            style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 2, fontSize: 11 }]}
+                            style={[styles.inputBase, styles.colInput, { flex: 1, paddingHorizontal: 2, fontSize: 11 }]}
                           />
                           <TextInput
                             placeholder="REPS I"
                             placeholderTextColor={colores.suave}
-                            keyboardType="numeric"
+                            keyboardType="number-pad"
+                            inputMode="numeric"
                             value={s.repsI !== undefined ? s.repsI : s.reps}
                             onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'repsI', val)}
-                            style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 2, fontSize: 11 }]}
+                            style={[styles.inputBase, styles.colInput, { flex: 1, paddingHorizontal: 2, fontSize: 11 }]}
                           />
                         </View>
 
                         <TextInput
                           placeholder="RIR"
                           placeholderTextColor={colores.suave}
-                          keyboardType="numeric"
+                          keyboardType="number-pad"
+                          inputMode="numeric"
                           value={s.rir}
                           onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'rir', val)}
-                          style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 2, fontSize: 11 }]}
+                          style={[styles.inputBase, styles.colInput, { flex: 1, paddingHorizontal: 2, fontSize: 11 }]}
                         />
 
                         <Pressable
                           onPress={() => quitarSerieDeEjercicio(ejIdx, sIdx)}
                           disabled={ej.series.length === 1}
-                          style={{ opacity: ej.series.length === 1 ? 0.3 : 1 }}
+                          style={{ width: 24, alignItems: 'center', opacity: ej.series.length === 1 ? 0.3 : 1 }}
+                          hitSlop={6}
                         >
                           <Ionicons name="close-circle-outline" size={18} color={colores.suave} />
                         </Pressable>
@@ -482,65 +507,124 @@ export default function GestionarRutinaModal({
                   </View>
                 ) : (
                   <View style={{ gap: 8 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4 }}>
-                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, width: 34 }}>SERIE</Text>
-                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1, textAlign: 'center' }}>KG (PESO)</Text>
-                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1, textAlign: 'center' }}>REPS</Text>
-                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1, textAlign: 'center' }}>RIR</Text>
-                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1.5, textAlign: 'center' }}>NOTAS</Text>
-                      <View style={{ width: 24 }} />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 2 }}>
+                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, width: 28, textAlign: 'center' }}>ST</Text>
+                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1.2, minWidth: 0, textAlign: 'center' }}>KG</Text>
+                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1.2, minWidth: 0, textAlign: 'center' }}>REPS</Text>
+                      <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1, minWidth: 0, textAlign: 'center' }}>RIR</Text>
+                      {isLandscape || isTablet ? (
+                        <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, flex: 1.5, minWidth: 0, textAlign: 'center' }}>NOTAS</Text>
+                      ) : (
+                        <View style={{ width: 34 }} />
+                      )}
+                      <View style={{ width: 26 }} />
                     </View>
 
-                    {ej.series.map((s, sIdx) => (
-                      <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <View style={{ width: 34, alignItems: 'center' }}>
-                          <Text style={{ color: colores.texto, fontFamily: fuentes.bold, fontSize: 13 }}>#{sIdx + 1}</Text>
+                    {ej.series.map((s, sIdx) => {
+                      const tieneNota = Boolean(s.nota && s.nota.trim());
+                      const notaAbierta = Boolean(notasExpandidas[s.id] || tieneNota);
+
+                      return (
+                        <View key={s.id} style={{ gap: 6 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <View style={{ width: 28, alignItems: 'center' }}>
+                              <Text style={{ color: colores.texto, fontFamily: fuentes.bold, fontSize: 12 }}>#{sIdx + 1}</Text>
+                            </View>
+
+                            <TextInput
+                              placeholder="100"
+                              placeholderTextColor={colores.suave}
+                              keyboardType="decimal-pad"
+                              inputMode="decimal"
+                              value={s.peso}
+                              onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'peso', val)}
+                              style={[styles.inputBase, styles.colInput, { flex: 1.2 }]}
+                            />
+
+                            <TextInput
+                              placeholder="10"
+                              placeholderTextColor={colores.suave}
+                              keyboardType="number-pad"
+                              inputMode="numeric"
+                              value={s.reps}
+                              onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'reps', val)}
+                              style={[styles.inputBase, styles.colInput, { flex: 1.2 }]}
+                            />
+
+                            <TextInput
+                              placeholder="2"
+                              placeholderTextColor={colores.suave}
+                              keyboardType="number-pad"
+                              inputMode="numeric"
+                              value={s.rir}
+                              onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'rir', val)}
+                              style={[styles.inputBase, styles.colInput, { flex: 1 }]}
+                            />
+
+                            {isLandscape || isTablet ? (
+                              <TextInput
+                                placeholder="Fallo/Técnica"
+                                placeholderTextColor={colores.suave}
+                                value={s.nota}
+                                onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'nota', val)}
+                                style={[styles.inputBase, styles.colInput, { flex: 1.5, textAlign: 'left', paddingHorizontal: 8, fontSize: 12 }]}
+                              />
+                            ) : (
+                              <Pressable
+                                onPress={() => alternarNotaSerie(s.id)}
+                                hitSlop={6}
+                                style={{
+                                  width: 34,
+                                  height: 40,
+                                  borderRadius: 8,
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  backgroundColor: tieneNota ? 'rgba(217, 119, 6, 0.20)' : 'rgba(255, 255, 255, 0.05)',
+                                  borderWidth: 1,
+                                  borderColor: tieneNota ? colores.hoy : 'rgba(255, 255, 255, 0.1)',
+                                }}
+                              >
+                                <Ionicons
+                                  name={tieneNota ? 'document-text' : 'document-text-outline'}
+                                  size={16}
+                                  color={tieneNota ? colores.hoy : colores.suave}
+                                />
+                              </Pressable>
+                            )}
+
+                            <Pressable
+                              onPress={() => quitarSerieDeEjercicio(ejIdx, sIdx)}
+                              disabled={ej.series.length === 1}
+                              style={{ width: 26, alignItems: 'center', opacity: ej.series.length === 1 ? 0.3 : 1 }}
+                              hitSlop={6}
+                            >
+                              <Ionicons name="close-circle-outline" size={20} color={colores.suave} />
+                            </Pressable>
+                          </View>
+
+                          {/* Sub-fila de nota expandible en Portrait */}
+                          {!isLandscape && !isTablet && notaAbierta && (
+                            <View style={{ paddingLeft: 34, paddingRight: 32 }}>
+                              <TextInput
+                                placeholder="Nota de la serie (ej. Fallo -2, drop set, técnica...)"
+                                placeholderTextColor={colores.suave}
+                                value={s.nota}
+                                onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'nota', val)}
+                                style={[
+                                  styles.inputBase,
+                                  {
+                                    fontSize: 12,
+                                    minHeight: 36,
+                                    paddingHorizontal: 8,
+                                    borderColor: tieneNota ? 'rgba(217, 119, 6, 0.4)' : colores.borde,
+                                  },
+                                ]}
+                              />
+                            </View>
+                          )}
                         </View>
-
-                        <TextInput
-                          placeholder="100"
-                          placeholderTextColor={colores.suave}
-                          keyboardType="numeric"
-                          value={s.peso}
-                          onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'peso', val)}
-                          style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 4 }]}
-                        />
-
-                        <TextInput
-                          placeholder="10"
-                          placeholderTextColor={colores.suave}
-                          keyboardType="numeric"
-                          value={s.reps}
-                          onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'reps', val)}
-                          style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 4 }]}
-                        />
-
-                        <TextInput
-                          placeholder="2"
-                          placeholderTextColor={colores.suave}
-                          keyboardType="numeric"
-                          value={s.rir}
-                          onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'rir', val)}
-                          style={[styles.inputBase, { flex: 1, textAlign: 'center', paddingHorizontal: 4 }]}
-                        />
-
-                        <TextInput
-                          placeholder="Fallo/Técnica"
-                          placeholderTextColor={colores.suave}
-                          value={s.nota}
-                          onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'nota', val)}
-                          style={[styles.inputBase, { flex: 1.5, paddingHorizontal: 6, fontSize: 12 }]}
-                        />
-
-                        <Pressable
-                          onPress={() => quitarSerieDeEjercicio(ejIdx, sIdx)}
-                          disabled={ej.series.length === 1}
-                          style={{ opacity: ej.series.length === 1 ? 0.3 : 1 }}
-                        >
-                          <Ionicons name="close-circle-outline" size={20} color={colores.suave} />
-                        </Pressable>
-                      </View>
-                    ))}
+                      );
+                    })}
                   </View>
                 )}
 
@@ -633,6 +717,12 @@ const styles = StyleSheet.create({
     color: colores.texto,
     fontSize: 14,
     fontFamily: fuentes.regular,
+  },
+  colInput: {
+    minWidth: 0,
+    minHeight: 40,
+    textAlign: 'center',
+    paddingHorizontal: 4,
   },
   exerciseCard: {
     backgroundColor: colores.tarjeta,

@@ -14,6 +14,7 @@ import { colores, fuentes } from '../constants/colores';
 import GlowButton from './GlowButton';
 import ScreenBackground from './ScreenBackground';
 import { formatearTiempoTexto } from '../utils/timer';
+import { useLayout } from '../hooks/useLayout';
 
 export type EjercicioResumen = {
   id: string;
@@ -59,6 +60,7 @@ export default function ResumenEntrenamientoModal({
   onConfirmarGuardar,
   onDescartarSesion,
 }: Props) {
+  const { topInset, bottomInset, leftInset, rightInset, gutter, contentMaxWidth } = useLayout();
   if (!visible) return null;
 
   const porcentajeProgreso =
@@ -86,7 +88,20 @@ export default function ResumenEntrenamientoModal({
   return (
     <View style={styles.overlayContainer}>
       <ScreenBackground>
-        <View style={styles.container}>
+        <View
+          style={[
+            styles.container,
+            {
+              width: '100%',
+              maxWidth: contentMaxWidth,
+              alignSelf: 'center',
+              paddingTop: Math.max(12, topInset),
+              paddingBottom: Math.max(12, bottomInset),
+              paddingLeft: Math.max(gutter, leftInset),
+              paddingRight: Math.max(gutter, rightInset),
+            },
+          ]}
+        >
           {/* Header del Modal */}
           <View style={styles.header}>
             <View style={{ flex: 1, paddingRight: 12 }}>
@@ -334,13 +349,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   metricCard: {
-    width: '48%',
     backgroundColor: colores.tarjeta,
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
     borderColor: colores.borde,
     gap: 4,
+    flexBasis: '47%',
+    flexGrow: 1,
   },
   metricValue: {
     color: colores.texto,

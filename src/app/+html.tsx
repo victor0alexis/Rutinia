@@ -82,17 +82,43 @@ export default function Root({ children }: PropsWithChildren) {
             -moz-osx-font-smoothing: grayscale;
           }
 
-          html, body, #root {
+          html {
             width: 100%;
             height: 100%;
+            height: -webkit-fill-available;
+            height: 100dvh;
             margin: 0;
             padding: 0;
             overflow-x: hidden;
           }
 
+          body, #root {
+            width: 100%;
+            min-height: 100%;
+            min-height: -webkit-fill-available;
+            min-height: 100dvh;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            overflow-y: auto;
+            touch-action: manipulation;
+            -webkit-overflow-scrolling: touch;
+          }
+
           /* Aplicar Outfit por defecto a todo texto en la web salvo Ionicons */
-          div, span, p, label, input, button, select, textarea {
+          div, span, p, label, select, textarea {
             font-family: 'Outfit', 'Outfit_400Regular', -apple-system, BlinkMacSystemFont, sans-serif;
+          }
+
+          /* Prevent iOS Safari auto-zoom on focus: must be at least 16px */
+          input, textarea, select, button {
+            font-family: 'Outfit', 'Outfit_400Regular', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 16px !important;
+          }
+
+          /* Garantizar que no haya scroll horizontal accidental */
+          * {
+            max-width: 100%;
           }
         ` }} />
 

@@ -19,8 +19,10 @@ import { seguro } from '../../utils/errores';
 import { parsearEjercicioInfo } from '../../utils/ejercicios';
 import { EjercicioRegistro, Registro } from '../../types';
 import { SesionActivaInfo, obtenerSesionActivaInfo, obtenerBorradorSesion } from '../../utils/sesionActiva';
+import { useLayout } from '../../hooks/useLayout';
 
 export default function Semana() {
+  const { gutter, contentMaxWidth, isLandscape, isCompact } = useLayout();
   const [ref, setRef] = useState(new Date());
   const [diaActivo, setDiaActivo] = useState(new Date());
   const [registros, setRegistros] = useState<Registro[]>([]);
@@ -181,9 +183,19 @@ export default function Semana() {
         />
 
         {/* CONTENIDO PRINCIPAL */}
-        <View style={{ flex: 1, paddingHorizontal: 16, paddingBottom: 70, gap: 10 }}>
+        <View
+          style={{
+            flex: 1,
+            width: '100%',
+            maxWidth: contentMaxWidth,
+            alignSelf: 'center',
+            paddingHorizontal: gutter,
+            paddingBottom: 70,
+            gap: isLandscape ? 6 : 10,
+          }}
+        >
           {/* NAVEGADOR ENTRE SEMANAS */}
-          <View style={styles.weekNavigatorCard}>
+          <View style={[styles.weekNavigatorCard, isLandscape && { paddingVertical: 6 }]}>
             <Pressable
               onPress={() => {
                 const prev = addWeeks(ref, -1);
@@ -240,7 +252,7 @@ export default function Semana() {
           </View>
 
           {/* 7 DÍAS EN FILA HORIZONTAL FIJA CON BOTONES DE IMPACTO */}
-          <View style={{ flexDirection: 'row', gap: 6, justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', gap: isCompact ? 3 : 6, justifyContent: 'space-between' }}>
             {dias.map((d) => {
               const esHoy = esDiaHoy(d);
               const esSel = esDiaSeleccionado(d);
@@ -257,6 +269,8 @@ export default function Semana() {
                   style={({ pressed }) => [
                     styles.dayPillButton,
                     {
+                      paddingVertical: isCompact ? 6 : 9,
+                      paddingHorizontal: 2,
                       backgroundColor: esSel
                         ? colores.primarioHover
                         : esHoy
@@ -274,7 +288,10 @@ export default function Semana() {
                   <Text
                     style={[
                       styles.dayNameShort,
-                      { color: esSel ? '#FFF' : esHoy ? colores.hoy : colores.suave },
+                      {
+                        fontSize: isCompact ? 8.5 : 10,
+                        color: esSel ? '#FFF' : esHoy ? colores.hoy : colores.suave,
+                      },
                     ]}
                   >
                     {nombreDia(d).substring(0, 3)}
@@ -283,7 +300,10 @@ export default function Semana() {
                   <Text
                     style={[
                       styles.dayNumberText,
-                      { color: esSel ? '#FFF' : colores.texto },
+                      {
+                        fontSize: isCompact ? 13 : 15,
+                        color: esSel ? '#FFF' : colores.texto,
+                      },
                     ]}
                   >
                     {d.getDate()}

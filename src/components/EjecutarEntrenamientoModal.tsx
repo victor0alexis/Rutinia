@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colores, fuentes } from '../constants/colores';
+import { useLayout } from '../hooks/useLayout';
 import ScreenBackground from './ScreenBackground';
 import GlowButton from './GlowButton';
 import ResumenEntrenamientoModal, { EjercicioResumen } from './ResumenEntrenamientoModal';
@@ -87,6 +88,42 @@ export default function EjecutarEntrenamientoModal({
   onGuardado,
   modoReanudar = false,
 }: Props) {
+  // ── Responsive layout centralizado con useLayout ───────────────────────────
+  const {
+    width,
+    isLandscape,
+    isCompact,
+    isTablet,
+    gutter,
+    contentMaxWidth,
+    topInset,
+    bottomInset,
+    isKeyboardVisible,
+  } = useLayout();
+
+  const [dockHeight, setDockHeight] = useState(isLandscape ? 52 : 72);
+  const scrollBottomPad = (isKeyboardVisible ? 16 : dockHeight) + bottomInset + 20;
+
+  // Mapa de notas colapsadas/expandidas en vista vertical portrait
+  const [notasAbiertas, setNotasAbiertas] = useState<Record<string, boolean>>({});
+
+  const toggleNotaAbierta = (serieId: string) => {
+    setNotasAbiertas((prev) => ({
+      ...prev,
+      [serieId]: !prev[serieId],
+    }));
+  };
+
+  const handleInputFocus = (e: any) => {
+    if (Platform.OS === 'web' && e?.target?.scrollIntoView) {
+      try {
+        e.target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      } catch {
+        // Ignorar si no está soportado en este entorno
+      }
+    }
+  };
+
   const [ejerciciosState, setEjerciciosState] = useState<EjercicioState[]>([]);
   const [notasSesion, setNotasSesion] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -95,7 +132,7 @@ export default function EjecutarEntrenamientoModal({
   // ESTADO DE LOBBY / PRE-PARTIDA
   const [enLobby, setEnLobby] = useState(true);
 
-  // TIMER PERSISTENTE
+  // TIMER PERSISTENTE (Único cronómetro de la sesión)
   const [estadoTimer, setEstadoTimer] = useState<EstadoTimer | null>(null);
   const [segundosTranscurridos, setSegundosTranscurridos] = useState(0);
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -542,14 +579,15 @@ export default function EjecutarEntrenamientoModal({
   return (
     <Modal visible={visible} animationType="slide" transparent={Platform.OS === 'web' ? true : false} onRequestClose={onClose}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
         style={{ flex: 1 }}
+        keyboardVerticalOffset={0}
       >
         <ScreenBackground>
-          <View style={{ flex: 1, paddingTop: Platform.OS === 'ios' ? 50 : 20 }}>
+          <View style={{ flex: 1, paddingTop: isLandscape ? Math.max(topInset, 6) : Math.max(topInset, Platform.OS === 'ios' ? 44 : 16) }}>
             {/* LOBBY PRE-PARTIDA */}
             {enLobby ? (
-              <View style={styles.lobbyContainer}>
+              <View style={[styles.lobbyContainer, { maxWidth: contentMaxWidth, alignSelf: 'center', width: '100%', paddingHorizontal: gutter }]}>
                 {/* Header Lobby */}
                 <View style={styles.lobbyHeaderRow}>
                   <Text style={styles.modalBadgeText}>PRE-ENTRENAMIENTO • {nombreDia(fecha)}</Text>
@@ -617,7 +655,7 @@ export default function EjecutarEntrenamientoModal({
                 </View>
 
                 {/* Botón de Inicio de Impacto */}
-                <View style={{ paddingBottom: 30, paddingTop: 10 }}>
+                <View style={{ paddingBottom: Math.max(bottomInset, 16), paddingTop: 10 }}>
                   <GlowButton
                     title="🔥 ¡INICIAR ENTRENAMIENTO!"
                     onPress={iniciarEntrenamiento}
@@ -630,75 +668,111 @@ export default function EjecutarEntrenamientoModal({
               </View>
             ) : (
               /* PANTALLA PRINCIPAL DE SIMULACIÓN / ENTRENAMIENTO EN VIVO */
-              <View style={{ flex: 1, paddingHorizontal: 16 }}>
+              <View style={{ flex: 1, paddingHorizontal: gutter, width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center' }}>
                 {/* Header de la Sesión en Vivo con Timer Persistente */}
-                <View style={styles.liveHeader}>
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <View style={styles.liveDotPulse} />
-                      <Text style={styles.modalBadgeText}>EN VIVO • {nombreDia(fecha)}</Text>
+                <View
+                  style={{ width: '100%' }}
+                  onLayout={(e) => {
+                    setHeaderHeight(e.nativeEvent.layout.height);
+                  }}
+                >
+                  <View style={[styles.liveHeader, isLandscape && { paddingVertical: 2, paddingBottom: 4 }]}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <View style={styles.liveDotPulse} />
+                        <Text style={styles.modalBadgeText}>EN VIVO • {nombreDia(fecha)}</Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.liveTitleText,
+                          isCompact && { fontSize: 17 },
+                          isLandscape && { fontSize: 16 },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {registro.rutinas?.nombre || 'Entrenamiento del Día'}
+                      </Text>
                     </View>
-                    <Text style={{ color: colores.texto, fontSize: 20, fontFamily: fuentes.black }} numberOfLines={1}>
-                      {registro.rutinas?.nombre || 'Entrenamiento del Día'}
-                    </Text>
-                  </View>
 
-                  {/* Widget Timer Interactivo */}
-                  <Pressable
-                    onPress={togglePausaTimer}
-                    style={({ pressed }) => [
-                      styles.timerWidget,
-                      estadoTimer?.pausado && styles.timerWidgetPausado,
-                      pressed && { opacity: 0.8 },
-                    ]}
-                  >
-                    <Ionicons
-                      name={estadoTimer?.pausado ? 'play' : 'time'}
-                      size={15}
-                      color={estadoTimer?.pausado ? '#F59E0B' : colores.hoy}
-                    />
-                    <Text style={styles.timerWidgetText}>
-                      {formatearTiempo(segundosTranscurridos)}
-                    </Text>
-                  </Pressable>
-
-                  <Pressable onPress={onClose} style={styles.closeIconButton}>
-                    <Ionicons name="close" size={20} color={colores.texto} />
-                  </Pressable>
-                </View>
-
-                {/* Barra de Progreso de Sesión */}
-                <View style={styles.progressCardBox}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={{ color: colores.texto, fontFamily: fuentes.bold, fontSize: 12 }}>
-                      Series completadas: {totalSeriesCompletadas} / {totalSeriesEnSesion}
-                    </Text>
-                    <Text style={{ color: colores.primarioHover, fontFamily: fuentes.black, fontSize: 13 }}>
-                      {porcentajeProgreso}%
-                    </Text>
-                  </View>
-
-                  <View style={styles.progressBarTrack}>
-                    <View
-                      style={[
-                        styles.progressBarFill,
-                        {
-                          width: `${porcentajeProgreso}%`,
-                          backgroundColor: porcentajeProgreso === 100 ? colores.exito : colores.primarioHover,
-                        },
+                    {/* Widget Timer Interactivo (ÚNICO TIMER DE LA SESIÓN) */}
+                    <Pressable
+                      onPress={togglePausaTimer}
+                      style={({ pressed }) => [
+                        styles.timerWidget,
+                        estadoTimer?.pausado && styles.timerWidgetPausado,
+                        pressed && { opacity: 0.8 },
                       ]}
-                    />
+                      hitSlop={6}
+                    >
+                      <Ionicons
+                        name={estadoTimer?.pausado ? 'play' : 'time'}
+                        size={14}
+                        color={estadoTimer?.pausado ? '#F59E0B' : colores.hoy}
+                      />
+                      <Text style={styles.timerWidgetText}>
+                        {formatearTiempo(segundosTranscurridos)}
+                      </Text>
+                    </Pressable>
+
+                    <Pressable onPress={onClose} style={styles.closeIconButton} hitSlop={8}>
+                      <Ionicons name="close" size={20} color={colores.texto} />
+                    </Pressable>
                   </View>
+
+                  {/* Barra de Progreso de Sesión: ultra-compacta en horizontal */}
+                  {isLandscape ? (
+                    <View style={styles.progressLandscapeRow}>
+                      <Text style={styles.progressLandscapeText}>
+                        Series: {totalSeriesCompletadas}/{totalSeriesEnSesion} ({porcentajeProgreso}%)
+                      </Text>
+                      <View style={styles.progressBarTrackLandscape}>
+                        <View
+                          style={[
+                            styles.progressBarFill,
+                            {
+                              width: `${porcentajeProgreso}%`,
+                              backgroundColor: porcentajeProgreso === 100 ? colores.exito : colores.primarioHover,
+                            },
+                          ]}
+                        />
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.progressCardBox}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={{ color: colores.texto, fontFamily: fuentes.bold, fontSize: 12 }}>
+                          Series completadas: {totalSeriesCompletadas} / {totalSeriesEnSesion}
+                        </Text>
+                        <Text style={{ color: colores.primarioHover, fontFamily: fuentes.black, fontSize: 13 }}>
+                          {porcentajeProgreso}%
+                        </Text>
+                      </View>
+
+                      <View style={styles.progressBarTrack}>
+                        <View
+                          style={[
+                            styles.progressBarFill,
+                            {
+                              width: `${porcentajeProgreso}%`,
+                              backgroundColor: porcentajeProgreso === 100 ? colores.exito : colores.primarioHover,
+                            },
+                          ]}
+                        />
+                      </View>
+                    </View>
+                  )}
                 </View>
 
                 {/* Formulario Scrollable de Ejercicios y Series */}
                 <ScrollView
-                  contentContainerStyle={{ gap: 16, paddingTop: 12, paddingBottom: 110 }}
+                  contentContainerStyle={{ gap: 14, paddingTop: 10, paddingBottom: scrollBottomPad, width: '100%' }}
                   keyboardShouldPersistTaps="handled"
+                  keyboardDismissMode="on-drag"
                   showsVerticalScrollIndicator={false}
                 >
                   {ejerciciosState.map((ej, ejIdx) => {
                     const histEj = historialMap[ej.nombre];
+                    const mostrarNotaColumna = isLandscape || isTablet;
 
                     return (
                       <View key={ej.id} style={styles.exerciseCard}>
@@ -760,106 +834,206 @@ export default function EjecutarEntrenamientoModal({
                           </View>
                         )}
 
-                        {/* Tabla de Series (Bilateral vs Unilateral D/I) adaptada para móvil */}
+                        {/* Tabla de Series (Bilateral vs Unilateral D/I) */}
                         {ej.esUnilateral ? (
-                          <View style={{ gap: 6 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 2 }}>
-                              <Text style={{ color: colores.suave, fontSize: 9, fontFamily: fuentes.bold, width: 22 }}>ST</Text>
-                              <Text style={{ color: colores.exito, fontSize: 9, fontFamily: fuentes.bold, flex: 2, textAlign: 'center' }}>DERECHO (D)</Text>
-                              <Text style={{ color: colores.hoy, fontSize: 9, fontFamily: fuentes.bold, flex: 2, textAlign: 'center' }}>IZQUIERDO (I)</Text>
-                              <Text style={{ color: colores.suave, fontSize: 9, fontFamily: fuentes.bold, flex: 1, textAlign: 'center' }}>RIR</Text>
-                              <Text style={{ color: colores.suave, fontSize: 9, fontFamily: fuentes.bold, width: 28, textAlign: 'center' }}>OK</Text>
+                          <View style={{ gap: 4 }}>
+                            {/* Encabezado Unilateral — IDÉNTICO a la fila */}
+                            <View style={styles.serieRow}>
+                              <View style={styles.colUniST}>
+                                <Text style={styles.serieHeaderText}>ST</Text>
+                              </View>
+                              <View style={[styles.colUniBox, { justifyContent: 'center' }]}>
+                                <Text style={[styles.serieHeaderText, { color: colores.exito }]}>D (KG × R)</Text>
+                              </View>
+                              <View style={[styles.colUniBox, { justifyContent: 'center' }]}>
+                                <Text style={[styles.serieHeaderText, { color: colores.hoy }]}>I (KG × R)</Text>
+                              </View>
+                              <View style={[styles.colUniRIR, { alignItems: 'center' }]}>
+                                <Text style={styles.serieHeaderText}>RIR</Text>
+                              </View>
+                              {!mostrarNotaColumna && (
+                                <View style={styles.colNotaBtn}>
+                                  <Text style={styles.serieHeaderText}>NOTA</Text>
+                                </View>
+                              )}
+                              <View style={[styles.colUniOK, { alignItems: 'center' }]}>
+                                <Text style={styles.serieHeaderText}>OK</Text>
+                              </View>
+                              <View style={styles.colDel} />
                             </View>
 
                             {ej.series.map((s, sIdx) => (
-                              <View
-                                key={s.id}
-                                style={[
-                                  styles.serieRow,
-                                  { backgroundColor: s.completado ? 'rgba(16, 185, 129, 0.12)' : 'transparent' },
-                                ]}
-                              >
-                                <View style={{ width: 22, alignItems: 'center' }}>
-                                  <Text style={{ color: s.completado ? colores.exito : colores.texto, fontFamily: fuentes.bold, fontSize: 11 }}>
-                                    #{sIdx + 1}
-                                  </Text>
-                                </View>
-
-                                {/* DERECHO */}
-                                <View style={{ flex: 2, flexDirection: 'row', gap: 2 }}>
-                                  <TextInput
-                                    placeholder="KG D"
-                                    placeholderTextColor={colores.suave}
-                                    keyboardType="numeric"
-                                    value={s.peso}
-                                    onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'peso', val)}
-                                    style={[styles.inputBase, { flex: 1, textAlign: 'center', fontSize: 11, paddingHorizontal: 2 }]}
-                                  />
-                                  <TextInput
-                                    placeholder="REPS D"
-                                    placeholderTextColor={colores.suave}
-                                    keyboardType="numeric"
-                                    value={s.reps}
-                                    onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'reps', val)}
-                                    style={[styles.inputBase, { flex: 1, textAlign: 'center', fontSize: 11, paddingHorizontal: 2 }]}
-                                  />
-                                </View>
-
-                                {/* IZQUIERDO */}
-                                <View style={{ flex: 2, flexDirection: 'row', gap: 2 }}>
-                                  <TextInput
-                                    placeholder="KG I"
-                                    placeholderTextColor={colores.suave}
-                                    keyboardType="numeric"
-                                    value={s.pesoI !== undefined ? s.pesoI : s.peso}
-                                    onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'pesoI', val)}
-                                    style={[styles.inputBase, { flex: 1, textAlign: 'center', fontSize: 11, paddingHorizontal: 2 }]}
-                                  />
-                                  <TextInput
-                                    placeholder="REPS I"
-                                    placeholderTextColor={colores.suave}
-                                    keyboardType="numeric"
-                                    value={s.repsI !== undefined ? s.repsI : s.reps}
-                                    onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'repsI', val)}
-                                    style={[styles.inputBase, { flex: 1, textAlign: 'center', fontSize: 11, paddingHorizontal: 2 }]}
-                                  />
-                                </View>
-
-                                {/* RIR */}
-                                <TextInput
-                                  placeholder="RIR"
-                                  placeholderTextColor={colores.suave}
-                                  keyboardType="numeric"
-                                  value={s.rir}
-                                  onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'rir', val)}
-                                  style={[styles.inputBase, { flex: 1, textAlign: 'center', fontSize: 11, paddingHorizontal: 2 }]}
-                                />
-
-                                {/* Checkbox OK */}
-                                <Pressable
-                                  onPress={() => cambiarCampoSerie(ejIdx, sIdx, 'completado', !s.completado)}
-                                  style={{ width: 28, alignItems: 'center', justifyContent: 'center' }}
-                                  hitSlop={6}
+                              <View key={s.id}>
+                                <View
+                                  style={[
+                                    styles.serieRow,
+                                    { backgroundColor: s.completado ? 'rgba(16, 185, 129, 0.12)' : 'transparent', borderRadius: 8 },
+                                  ]}
                                 >
-                                  <Ionicons
-                                    name={s.completado ? 'checkmark-circle' : 'ellipse-outline'}
-                                    size={20}
-                                    color={s.completado ? colores.exito : colores.suave}
-                                  />
-                                </Pressable>
+                                  <View style={styles.colUniST}>
+                                    <Text style={{ color: s.completado ? colores.exito : colores.texto, fontFamily: fuentes.bold, fontSize: 11 }}>
+                                      #{sIdx + 1}
+                                    </Text>
+                                  </View>
+
+                                  {/* DERECHO */}
+                                  <View style={styles.colUniBox}>
+                                    <TextInput
+                                      placeholder="KG D"
+                                      placeholderTextColor={colores.suave}
+                                      keyboardType="decimal-pad"
+                                      inputMode="decimal"
+                                      value={s.peso}
+                                      onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'peso', val)}
+                                      onFocus={handleInputFocus}
+                                      style={styles.inputCell}
+                                    />
+                                    <TextInput
+                                      placeholder="REPS D"
+                                      placeholderTextColor={colores.suave}
+                                      keyboardType="number-pad"
+                                      inputMode="numeric"
+                                      value={s.reps}
+                                      onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'reps', val)}
+                                      onFocus={handleInputFocus}
+                                      style={styles.inputCell}
+                                    />
+                                  </View>
+
+                                  {/* IZQUIERDO */}
+                                  <View style={styles.colUniBox}>
+                                    <TextInput
+                                      placeholder="KG I"
+                                      placeholderTextColor={colores.suave}
+                                      keyboardType="decimal-pad"
+                                      inputMode="decimal"
+                                      value={s.pesoI !== undefined ? s.pesoI : s.peso}
+                                      onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'pesoI', val)}
+                                      onFocus={handleInputFocus}
+                                      style={styles.inputCell}
+                                    />
+                                    <TextInput
+                                      placeholder="REPS I"
+                                      placeholderTextColor={colores.suave}
+                                      keyboardType="number-pad"
+                                      inputMode="numeric"
+                                      value={s.repsI !== undefined ? s.repsI : s.reps}
+                                      onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'repsI', val)}
+                                      onFocus={handleInputFocus}
+                                      style={styles.inputCell}
+                                    />
+                                  </View>
+
+                                  {/* RIR */}
+                                  <View style={styles.colUniRIR}>
+                                    <TextInput
+                                      placeholder="RIR"
+                                      placeholderTextColor={colores.suave}
+                                      keyboardType="number-pad"
+                                      inputMode="numeric"
+                                      value={s.rir}
+                                      onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'rir', val)}
+                                      onFocus={handleInputFocus}
+                                      style={styles.inputCell}
+                                    />
+                                  </View>
+
+                                  {/* NOTA BUTTON (solo portrait) */}
+                                  {!mostrarNotaColumna && (
+                                    <View style={styles.colNotaBtn}>
+                                      <Pressable
+                                        onPress={() => toggleNotaAbierta(s.id)}
+                                        style={({ pressed }) => [
+                                          styles.notaToggleBtn,
+                                          Boolean(s.nota) && styles.notaToggleBtnActiva,
+                                          pressed && { opacity: 0.7 },
+                                        ]}
+                                        hitSlop={4}
+                                      >
+                                        <Ionicons
+                                          name={Boolean(s.nota) ? 'document-text' : 'document-text-outline'}
+                                          size={16}
+                                          color={Boolean(s.nota) ? colores.hoy : colores.suave}
+                                        />
+                                      </Pressable>
+                                    </View>
+                                  )}
+
+                                  {/* OK checkbox */}
+                                  <View style={styles.colUniOK}>
+                                    <Pressable
+                                      onPress={() => cambiarCampoSerie(ejIdx, sIdx, 'completado', !s.completado)}
+                                      style={{ width: 40, height: 44, alignItems: 'center', justifyContent: 'center' }}
+                                      hitSlop={4}
+                                    >
+                                      <Ionicons
+                                        name={s.completado ? 'checkmark-circle' : 'ellipse-outline'}
+                                        size={22}
+                                        color={s.completado ? colores.exito : colores.suave}
+                                      />
+                                    </Pressable>
+                                  </View>
+
+                                  {/* Eliminar Serie */}
+                                  <View style={styles.colDel}>
+                                    <Pressable
+                                      onPress={() => quitarSerieDeEjercicio(ejIdx, sIdx)}
+                                      disabled={ej.series.length === 1}
+                                      style={{ opacity: ej.series.length === 1 ? 0.2 : 0.7, padding: 4 }}
+                                      hitSlop={6}
+                                    >
+                                      <Ionicons name="close" size={14} color={colores.suave} />
+                                    </Pressable>
+                                  </View>
+                                </View>
+
+                                {/* Sub-fila de nota en unilateral (portrait) */}
+                                {!mostrarNotaColumna && (notasAbiertas[s.id] || Boolean(s.nota)) && (
+                                  <View style={styles.subNotaContainer}>
+                                    <Ionicons name="create-outline" size={14} color={colores.primarioHover} />
+                                    <TextInput
+                                      placeholder="Nota de la serie (ej. Técnica, sensaciones)..."
+                                      placeholderTextColor={colores.suave}
+                                      value={s.nota}
+                                      onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'nota', val)}
+                                      onFocus={handleInputFocus}
+                                      style={styles.subNotaInput}
+                                    />
+                                  </View>
+                                )}
                               </View>
                             ))}
                           </View>
                         ) : (
                           /* BILATERAL */
-                          <View style={{ gap: 6 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 2 }}>
-                              <Text style={{ color: colores.suave, fontSize: 9, fontFamily: fuentes.bold, width: 24 }}>ST</Text>
-                              <Text style={{ color: colores.suave, fontSize: 9, fontFamily: fuentes.bold, flex: 1, textAlign: 'center' }}>KG</Text>
-                              <Text style={{ color: colores.suave, fontSize: 9, fontFamily: fuentes.bold, flex: 1, textAlign: 'center' }}>REPS</Text>
-                              <Text style={{ color: colores.suave, fontSize: 9, fontFamily: fuentes.bold, flex: 1, textAlign: 'center' }}>RIR</Text>
-                              <Text style={{ color: colores.suave, fontSize: 9, fontFamily: fuentes.bold, flex: 1.3, textAlign: 'center' }}>NOTA</Text>
-                              <Text style={{ color: colores.suave, fontSize: 9, fontFamily: fuentes.bold, width: 28, textAlign: 'center' }}>OK</Text>
+                          <View style={{ gap: 4 }}>
+                            {/* Encabezados — estructura IDÉNTICA a las filas */}
+                            <View style={styles.serieRow}>
+                              <View style={styles.colST}>
+                                <Text style={styles.serieHeaderText}>ST</Text>
+                              </View>
+                              <View style={[styles.colKG, { alignItems: 'center' }]}>
+                                <Text style={styles.serieHeaderText}>KG</Text>
+                              </View>
+                              <View style={[styles.colREPS, { alignItems: 'center' }]}>
+                                <Text style={styles.serieHeaderText}>REPS</Text>
+                              </View>
+                              <View style={[styles.colRIR, { alignItems: 'center' }]}>
+                                <Text style={styles.serieHeaderText}>RIR</Text>
+                              </View>
+                              {mostrarNotaColumna ? (
+                                <View style={[styles.colNOTA, { alignItems: 'center' }]}>
+                                  <Text style={styles.serieHeaderText}>NOTA</Text>
+                                </View>
+                              ) : (
+                                <View style={styles.colNotaBtn}>
+                                  <Text style={styles.serieHeaderText}>NOTA</Text>
+                                </View>
+                              )}
+                              <View style={[styles.colOK, { alignItems: 'center' }]}>
+                                <Text style={styles.serieHeaderText}>OK</Text>
+                              </View>
+                              <View style={styles.colDel} />
                             </View>
 
                             {ej.series.map((s, sIdx) => {
@@ -867,85 +1041,140 @@ export default function EjecutarEntrenamientoModal({
                               const diffPeso = s.peso && sPrev?.peso ? Number(s.peso) - Number(sPrev.peso) : 0;
 
                               return (
-                                <View
-                                  key={s.id}
-                                  style={[
-                                    styles.serieRow,
-                                    { backgroundColor: s.completado ? 'rgba(16, 185, 129, 0.12)' : 'transparent' },
-                                  ]}
-                                >
-                                  <View style={{ width: 24, alignItems: 'center' }}>
-                                    <Text style={{ color: s.completado ? colores.exito : colores.texto, fontFamily: fuentes.bold, fontSize: 11 }}>
-                                      #{sIdx + 1}
-                                    </Text>
-                                  </View>
+                                <View key={s.id}>
+                                  {/* Fila principal */}
+                                  <View
+                                    style={[
+                                      styles.serieRow,
+                                      { backgroundColor: s.completado ? 'rgba(16, 185, 129, 0.12)' : 'transparent', borderRadius: 8 },
+                                    ]}
+                                  >
+                                    {/* ST — número de serie */}
+                                    <View style={styles.colST}>
+                                      <Text style={{ color: s.completado ? colores.exito : colores.texto, fontFamily: fuentes.bold, fontSize: 11 }}>
+                                        #{sIdx + 1}
+                                      </Text>
+                                    </View>
 
-                                  {/* KG */}
-                                  <View style={{ flex: 1 }}>
-                                    <TextInput
-                                      placeholder={sPrev?.peso ? sPrev.peso : '0'}
-                                      placeholderTextColor={colores.suave}
-                                      keyboardType="numeric"
-                                      value={s.peso}
-                                      onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'peso', val)}
-                                      style={[styles.inputBase, { textAlign: 'center' }]}
-                                    />
-                                    {diffPeso > 0 && (
-                                      <Text style={styles.overloadBadge}>🔥 +{diffPeso}k</Text>
+                                    {/* KG */}
+                                    <View style={styles.colKG}>
+                                      <TextInput
+                                        placeholder={sPrev?.peso ?? '0'}
+                                        placeholderTextColor={colores.suave}
+                                        keyboardType="decimal-pad"
+                                        inputMode="decimal"
+                                        value={s.peso}
+                                        onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'peso', val)}
+                                        onFocus={handleInputFocus}
+                                        style={styles.inputCell}
+                                      />
+                                      {diffPeso > 0 && (
+                                        <Text style={styles.overloadBadge}>🔥+{diffPeso}k</Text>
+                                      )}
+                                    </View>
+
+                                    {/* REPS */}
+                                    <View style={styles.colREPS}>
+                                      <TextInput
+                                        placeholder={sPrev?.reps ?? '0'}
+                                        placeholderTextColor={colores.suave}
+                                        keyboardType="number-pad"
+                                        inputMode="numeric"
+                                        value={s.reps}
+                                        onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'reps', val)}
+                                        onFocus={handleInputFocus}
+                                        style={styles.inputCell}
+                                      />
+                                    </View>
+
+                                    {/* RIR */}
+                                    <View style={styles.colRIR}>
+                                      <TextInput
+                                        placeholder={sPrev?.rir ? sPrev.rir : '—'}
+                                        placeholderTextColor={colores.suave}
+                                        keyboardType="number-pad"
+                                        inputMode="numeric"
+                                        value={s.rir}
+                                        onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'rir', val)}
+                                        onFocus={handleInputFocus}
+                                        style={styles.inputCell}
+                                      />
+                                    </View>
+
+                                    {/* NOTA (en fila para landscape / tablet) */}
+                                    {mostrarNotaColumna ? (
+                                      <View style={styles.colNOTA}>
+                                        <TextInput
+                                          placeholder="Nota"
+                                          placeholderTextColor={colores.suave}
+                                          value={s.nota}
+                                          onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'nota', val)}
+                                          onFocus={handleInputFocus}
+                                          style={[styles.inputCell, { fontSize: Platform.OS === 'web' ? 16 : 11 }]}
+                                        />
+                                      </View>
+                                    ) : (
+                                      <View style={styles.colNotaBtn}>
+                                        <Pressable
+                                          onPress={() => toggleNotaAbierta(s.id)}
+                                          style={({ pressed }) => [
+                                            styles.notaToggleBtn,
+                                            Boolean(s.nota) && styles.notaToggleBtnActiva,
+                                            pressed && { opacity: 0.7 },
+                                          ]}
+                                          hitSlop={4}
+                                        >
+                                          <Ionicons
+                                            name={Boolean(s.nota) ? 'document-text' : 'document-text-outline'}
+                                            size={16}
+                                            color={Boolean(s.nota) ? colores.hoy : colores.suave}
+                                          />
+                                        </Pressable>
+                                      </View>
                                     )}
+
+                                    {/* OK checkbox */}
+                                    <View style={styles.colOK}>
+                                      <Pressable
+                                        onPress={() => cambiarCampoSerie(ejIdx, sIdx, 'completado', !s.completado)}
+                                        style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+                                        hitSlop={4}
+                                      >
+                                        <Ionicons
+                                          name={s.completado ? 'checkmark-circle' : 'ellipse-outline'}
+                                          size={22}
+                                          color={s.completado ? colores.exito : colores.suave}
+                                        />
+                                      </Pressable>
+                                    </View>
+
+                                    {/* Eliminar Serie */}
+                                    <View style={styles.colDel}>
+                                      <Pressable
+                                        onPress={() => quitarSerieDeEjercicio(ejIdx, sIdx)}
+                                        disabled={ej.series.length === 1}
+                                        style={{ opacity: ej.series.length === 1 ? 0.2 : 0.7, padding: 4 }}
+                                        hitSlop={6}
+                                      >
+                                        <Ionicons name="close" size={14} color={colores.suave} />
+                                      </Pressable>
+                                    </View>
                                   </View>
 
-                                  {/* REPS */}
-                                  <TextInput
-                                    placeholder={sPrev?.reps ? sPrev.reps : '0'}
-                                    placeholderTextColor={colores.suave}
-                                    keyboardType="numeric"
-                                    value={s.reps}
-                                    onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'reps', val)}
-                                    style={[styles.inputBase, { flex: 1, textAlign: 'center' }]}
-                                  />
-
-                                  {/* RIR */}
-                                  <TextInput
-                                    placeholder={sPrev?.rir ? `RIR ${sPrev.rir}` : 'RIR'}
-                                    placeholderTextColor={colores.suave}
-                                    keyboardType="numeric"
-                                    value={s.rir}
-                                    onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'rir', val)}
-                                    style={[styles.inputBase, { flex: 1, textAlign: 'center' }]}
-                                  />
-
-                                  {/* NOTA */}
-                                  <TextInput
-                                    placeholder="Sensación"
-                                    placeholderTextColor={colores.suave}
-                                    value={s.nota}
-                                    onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'nota', val)}
-                                    style={[styles.inputBase, { flex: 1.3, fontSize: 10 }]}
-                                  />
-
-                                  {/* Checkbox OK */}
-                                  <Pressable
-                                    onPress={() => cambiarCampoSerie(ejIdx, sIdx, 'completado', !s.completado)}
-                                    style={{ width: 28, alignItems: 'center', justifyContent: 'center' }}
-                                    hitSlop={6}
-                                  >
-                                    <Ionicons
-                                      name={s.completado ? 'checkmark-circle' : 'ellipse-outline'}
-                                      size={22}
-                                      color={s.completado ? colores.exito : colores.suave}
-                                    />
-                                  </Pressable>
-
-                                  {/* Eliminar Serie */}
-                                  <Pressable
-                                    onPress={() => quitarSerieDeEjercicio(ejIdx, sIdx)}
-                                    disabled={ej.series.length === 1}
-                                    style={{ opacity: ej.series.length === 1 ? 0.2 : 0.7, padding: 2 }}
-                                    hitSlop={6}
-                                  >
-                                    <Ionicons name="close" size={14} color={colores.suave} />
-                                  </Pressable>
+                                  {/* NOTA — segunda línea colapsable/expandible, en vertical portrait */}
+                                  {!mostrarNotaColumna && (notasAbiertas[s.id] || Boolean(s.nota)) && (
+                                    <View style={styles.subNotaContainer}>
+                                      <Ionicons name="create-outline" size={14} color={colores.primarioHover} />
+                                      <TextInput
+                                        placeholder="Nota de la serie (ej. Buena técnica, fallo en 8ª)..."
+                                        placeholderTextColor={colores.suave}
+                                        value={s.nota}
+                                        onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'nota', val)}
+                                        onFocus={handleInputFocus}
+                                        style={styles.subNotaInput}
+                                      />
+                                    </View>
+                                  )}
                                 </View>
                               );
                             })}
@@ -979,31 +1208,40 @@ export default function EjecutarEntrenamientoModal({
                       numberOfLines={3}
                       value={notasSesion}
                       onChangeText={setNotasSesion}
+                      onFocus={handleInputFocus}
                       style={[styles.inputBase, { height: 65, textAlignVertical: 'top' }]}
                     />
                   </View>
                 </ScrollView>
 
-                {/* BOTÓN FLOTANTE / ADHERIDO PERMANENTEMENTE AL INFERIOR DE PANTALLA (STICKY ACTION BAR) */}
-                <View style={styles.stickyBottomBar}>
-                  <View style={styles.stickyTimerBadge}>
-                    <Ionicons name="time-outline" size={16} color={colores.hoy} />
-                    <Text style={{ color: colores.texto, fontFamily: fuentes.bold, fontSize: 13 }}>
-                      {formatearTiempo(segundosTranscurridos)}
-                    </Text>
+                {/* DOCK INFERIOR — altura y posición responsive con safe areas, sin timer duplicado */}
+                {!isKeyboardVisible && (
+                  <View
+                    style={[
+                      styles.stickyBottomBar,
+                      {
+                        bottom: bottomInset + (isLandscape ? 4 : 8),
+                        left: isLandscape || isTablet ? 'auto' : gutter,
+                        right: isLandscape || isTablet ? 'auto' : gutter,
+                        width: isLandscape || isTablet ? Math.min(width - gutter * 2, 720) : undefined,
+                        alignSelf: 'center',
+                        paddingVertical: isLandscape ? 6 : 10,
+                      },
+                    ]}
+                    onLayout={(e) => setDockHeight(e.nativeEvent.layout.height)}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <GlowButton
+                        title="Guardar Entrenamiento"
+                        onPress={abrirResumenConfirmacion}
+                        variant="primary"
+                        size={isLandscape ? "sm" : "md"}
+                        shape="rounded"
+                        fullWidth
+                      />
+                    </View>
                   </View>
-
-                  <View style={{ flex: 1 }}>
-                    <GlowButton
-                      title="Guardar Entrenamiento"
-                      onPress={abrirResumenConfirmacion}
-                      variant="primary"
-                      size="md"
-                      shape="rounded"
-                      fullWidth
-                    />
-                  </View>
-                </View>
+                )}
               </View>
             )}
           </View>
@@ -1149,6 +1387,36 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colores.borde,
   },
+  liveTitleText: {
+    color: colores.texto,
+    fontSize: 19,
+    fontFamily: fuentes.black,
+  },
+  progressLandscapeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(10, 12, 18, 0.60)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    marginBottom: 4,
+  },
+  progressLandscapeText: {
+    color: colores.texto,
+    fontFamily: fuentes.bold,
+    fontSize: 11,
+    flexShrink: 0,
+  },
+  progressBarTrackLandscape: {
+    flex: 1,
+    height: 6,
+    backgroundColor: 'rgba(10, 12, 18, 0.80)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
   progressCardBox: {
     backgroundColor: colores.tarjeta,
     borderRadius: 14,
@@ -1170,7 +1438,7 @@ const styles = StyleSheet.create({
   exerciseCard: {
     backgroundColor: colores.tarjeta,
     borderRadius: 16,
-    padding: 14,
+    padding: 12,
     gap: 10,
     borderWidth: 1,
     borderColor: colores.borde,
@@ -1189,29 +1457,154 @@ const styles = StyleSheet.create({
     gap: 4,
     borderRadius: 8,
     paddingVertical: 2,
+    overflow: 'hidden',
+  },
+  // ── Columnas de la tabla de series BILATERAL ───────────────────────────────
+  colST: {
+    width: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  colKG: {
+    flex: 1.2,
+    minWidth: 0,
+  },
+  colREPS: {
+    flex: 1.2,
+    minWidth: 0,
+  },
+  colRIR: {
+    flex: 1.0,
+    minWidth: 0,
+  },
+  colNOTA: {
+    flex: 1.5,
+    minWidth: 0,
+  },
+  colNotaBtn: {
+    width: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  colOK: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  colDel: {
+    width: 28,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  // ── Columnas UNILATERAL ────────────────────────────────────────────────────
+  colUniST: {
+    width: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  colUniBox: {
+    flex: 2,
+    flexDirection: 'row',
+    gap: 2,
+    minWidth: 0,
+  },
+  colUniRIR: {
+    flex: 0.9,
+    minWidth: 0,
+  },
+  colUniOK: {
+    width: 40,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  // ── Sub-fila de nota colapsable en vertical portrait ───────────────────────
+  subNotaContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(10, 12, 18, 0.70)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  subNotaInput: {
+    flex: 1,
+    color: colores.texto,
+    fontSize: Platform.OS === 'web' ? 16 : 12,
+    fontFamily: fuentes.regular,
+    paddingVertical: 4,
+    minHeight: 36,
+  },
+  notaToggleBtn: {
+    width: 30,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 6,
+  },
+  notaToggleBtnActiva: {
+    backgroundColor: 'rgba(217, 119, 6, 0.15)',
+  },
+  serieHeaderText: {
+    color: colores.suave,
+    fontSize: 9,
+    fontFamily: fuentes.bold,
+    textTransform: 'uppercase',
+  },
+  // inputCell: celda de input uniforme, minHeight 44, fontSize >= 16 en web
+  inputCell: {
+    backgroundColor: 'rgba(10, 12, 18, 0.60)',
+    borderColor: colores.borde,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 2,
+    paddingVertical: Platform.OS === 'web' ? 8 : 6,
+    color: colores.texto,
+    fontSize: Platform.OS === 'web' ? 16 : 13,
+    fontFamily: fuentes.bold,
+    textAlign: 'center',
+    minWidth: 0,
+    minHeight: 44,
+    width: '100%',
   },
   inputBase: {
     backgroundColor: 'rgba(10, 12, 18, 0.60)',
     borderColor: colores.borde,
     borderWidth: 1,
     borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 5,
+    paddingHorizontal: 8,
+    paddingVertical: Platform.OS === 'web' ? 8 : 6,
     color: colores.texto,
-    fontSize: 12,
+    fontSize: Platform.OS === 'web' ? 16 : 13,
     fontFamily: fuentes.regular,
+    minWidth: 0,
+    minHeight: 44,
   },
   addSerieBtn: {
     backgroundColor: 'rgba(10, 12, 18, 0.60)',
     borderWidth: 1,
     borderColor: colores.borde,
     borderRadius: 8,
-    paddingVertical: 7,
+    paddingVertical: 8,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 5,
     marginTop: 2,
+    minHeight: 44,
   },
   inputLabelText: {
     color: colores.suave,
@@ -1265,18 +1658,14 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 
-  /* FIX STICKY BOTTOM BAR */
+  /* STICKY BOTTOM BAR */
   stickyBottomBar: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 24 : 14,
-    left: 16,
-    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     backgroundColor: 'rgba(15, 23, 42, 0.95)',
     paddingHorizontal: 12,
-    paddingVertical: 10,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: 'rgba(244, 63, 94, 0.40)',
@@ -1285,16 +1674,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 10,
     elevation: 8,
-  },
-  stickyTimerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colores.tarjeta,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colores.borde,
   },
 });

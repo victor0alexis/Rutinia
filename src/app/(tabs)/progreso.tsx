@@ -7,13 +7,15 @@ import { startOfMonth, endOfMonth, subDays, startOfYear } from 'date-fns';
 import { colores, fuentes } from '../../constants/colores';
 import EncabezadoSeccion from '../../components/EncabezadoSeccion';
 import ScreenBackground from '../../components/ScreenBackground';
-import { obtenerMetricasProgreso, MetricasProgreso } from '../../services/progreso';
+import { MetricasProgreso, obtenerMetricasProgreso } from '../../services/progreso';
 import { aISO } from '../../utils/fechas';
 import { seguro } from '../../utils/errores';
+import { useLayout } from '../../hooks/useLayout';
 
 type PeriodoFiltro = 'mes' | '30dias' | 'anio';
 
 export default function ProgresoScreen() {
+  const { gutter, contentMaxWidth, isCompact } = useLayout();
   const [periodo, setPeriodo] = useState<PeriodoFiltro>('mes');
   const [metricas, setMetricas] = useState<MetricasProgreso>({
     volumenTotalKg: 0,
@@ -69,7 +71,15 @@ export default function ProgresoScreen() {
         />
 
         <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 90, gap: 18 }}
+          contentContainerStyle={{
+            width: '100%',
+            maxWidth: contentMaxWidth,
+            alignSelf: 'center',
+            paddingHorizontal: gutter,
+            paddingTop: 10,
+            paddingBottom: 90,
+            gap: 18,
+          }}
           showsVerticalScrollIndicator={false}
         >
           {/* SELECTOR DE PERÍODO CON PILL LUMINOSO */}
@@ -87,6 +97,7 @@ export default function ProgresoScreen() {
                   style={[
                     styles.periodPill,
                     {
+                      paddingVertical: isCompact ? 6 : 8,
                       backgroundColor: active ? colores.primarioHover : 'transparent',
                       borderColor: active ? '#FFF' : 'transparent',
                     },
@@ -96,8 +107,9 @@ export default function ProgresoScreen() {
                     style={{
                       color: active ? '#FFF' : colores.suave,
                       fontFamily: active ? fuentes.black : fuentes.bold,
-                      fontSize: 12,
+                      fontSize: isCompact ? 10.5 : 12,
                     }}
+                    numberOfLines={1}
                   >
                     {item.label}
                   </Text>

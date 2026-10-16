@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AppState, AppStateStatus, Dimensions, Platform, StyleProp, StyleSheet, ViewStyle } from 'react-native';
+import { AppState, AppStateStatus, Platform, StyleProp, StyleSheet, ViewStyle, useWindowDimensions } from 'react-native';
 import {
   Canvas,
   Circle,
@@ -31,8 +31,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useIsFocused } from 'expo-router';
 import { tema } from '../constants/tema';
-
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 // 28 posiciones deterministas para estrellas
 const ESTRELLAS = [
@@ -108,6 +106,7 @@ function EstrellaItem({
 }
 
 export default function FondoEstelar({ acento = 'vacio', style, children }: Props) {
+  const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
   const isFocused = useIsFocused();
   const reducirMovimiento = useReducedMotion();
   const [appActive, setAppActive] = useState(true);

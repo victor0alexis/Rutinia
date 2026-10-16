@@ -15,8 +15,10 @@ import { agregarRutinaAFechas } from '../../services/registros';
 import { aISO, diasDeSemana, nombreDia } from '../../utils/fechas';
 import { seguro, confirmarAccion, mostrarMensaje } from '../../utils/errores';
 import { Rutina } from '../../types';
+import { useLayout } from '../../hooks/useLayout';
 
 export default function Rutinas() {
+  const { gutter, contentMaxWidth, bottomInset } = useLayout();
   const [rutinas, setRutinas] = useState<Rutina[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const [modalGestionarVisible, setModalGestionarVisible] = useState(false);
@@ -105,7 +107,15 @@ export default function Rutinas() {
         />
 
         <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 144, gap: 14 }}
+          contentContainerStyle={{
+            width: '100%',
+            maxWidth: contentMaxWidth,
+            alignSelf: 'center',
+            paddingHorizontal: gutter,
+            paddingTop: 10,
+            paddingBottom: 144,
+            gap: 14,
+          }}
           showsVerticalScrollIndicator={false}
         >
           {/* STATS RÁPIDAS DEL PANEL */}
@@ -331,7 +341,18 @@ export default function Rutinas() {
         {/* MODAL ASIGNAR RUTINA A DÍAS DE LA SEMANA */}
         <Modal visible={!!elegidaParaSemana} transparent animationType="slide" onRequestClose={() => setElegidaParaSemana(null)}>
           <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.85)' }}>
-            <View style={styles.assignModalContainer}>
+            <View
+              style={[
+                styles.assignModalContainer,
+                {
+                  width: '100%',
+                  maxWidth: contentMaxWidth,
+                  alignSelf: 'center',
+                  paddingHorizontal: gutter,
+                  paddingBottom: Math.max(22, bottomInset + 12),
+                },
+              ]}
+            >
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <View style={{ flex: 1, paddingRight: 10 }}>
                   <Text style={{ color: colores.primarioHover, fontSize: 11, fontFamily: fuentes.bold, textTransform: 'uppercase', letterSpacing: 1 }}>
@@ -472,8 +493,9 @@ const styles = StyleSheet.create({
   cardActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 8,
-    paddingTop: 4,
+    paddingTop: 6,
     borderTopWidth: 1,
     borderTopColor: colores.borde,
   },

@@ -3,6 +3,7 @@ import { Animated, Easing, Pressable, Text, View, StyleSheet } from 'react-nativ
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colores, fuentes } from '../constants/colores';
+import { useLayout } from '../hooks/useLayout';
 import GlowButton from './GlowButton';
 
 type Props = {
@@ -26,6 +27,8 @@ export default function EncabezadoSeccion({
   onCerrarSesion,
   botonAccion,
 }: Props) {
+  const { gutter, contentMaxWidth, isCompact, isLandscape } = useLayout();
+
   // Animación Enterprise: Micro-fade y micro-slide ultra suave
   const [fadeAnim] = useState(() => new Animated.Value(0));
   const [translateYAnim] = useState(() => new Animated.Value(-6));
@@ -59,17 +62,20 @@ export default function EncabezadoSeccion({
       style={{
         opacity: fadeAnim,
         transform: [{ translateY: translateYAnim }],
-        paddingTop: 10,
-        paddingBottom: 12,
-        paddingHorizontal: 20,
+        paddingTop: isLandscape ? 4 : 8,
+        paddingBottom: isLandscape ? 6 : 10,
+        paddingHorizontal: gutter,
         alignItems: 'center',
-        gap: 6,
+        gap: isLandscape ? 3 : 5,
         position: 'relative',
+        width: '100%',
+        maxWidth: contentMaxWidth,
+        alignSelf: 'center',
       }}
     >
       {/* Botón flotante discreto de cerrar sesión con Glow sutil */}
       {mostrarCerrarSesion && (
-        <View style={styles.cerrarSesionContainer}>
+        <View style={[styles.cerrarSesionContainer, { right: gutter }]}>
           <Pressable
             onPress={onCerrarSesion}
             style={({ pressed }) => [
@@ -97,14 +103,32 @@ export default function EncabezadoSeccion({
       </View>
 
       {/* TÍTULO PRINCIPAL */}
-      <Text style={styles.titulo}>{titulo}</Text>
+      <Text
+        style={[
+          styles.titulo,
+          isCompact && { fontSize: 24 },
+          isLandscape && { fontSize: 22 },
+        ]}
+      >
+        {titulo}
+      </Text>
 
       {/* Subtítulo Discreto */}
-      {subtitulo ? <Text style={styles.subtitulo}>{subtitulo}</Text> : null}
+      {subtitulo ? (
+        <Text
+          style={[
+            styles.subtitulo,
+            isCompact && { fontSize: 11 },
+            isLandscape && { fontSize: 11 },
+          ]}
+        >
+          {subtitulo}
+        </Text>
+      ) : null}
 
       {/* Botón de Acción Principal usando el Sistema GlowButton */}
       {botonAccion && (
-        <View style={{ marginTop: 4 }}>
+        <View style={{ marginTop: 2 }}>
           <GlowButton
             title={botonAccion.texto}
             icon={botonAccion.icono}
@@ -117,7 +141,7 @@ export default function EncabezadoSeccion({
       )}
 
       {/* Línea Divisoria de Acento Dinámica Luminosa */}
-      <View style={{ marginTop: 6, alignItems: 'center' }}>
+      <View style={{ marginTop: 4, alignItems: 'center' }}>
         <Animated.View style={[styles.lineaAcento, { width: lineWidthAnim }]} />
       </View>
     </Animated.View>
@@ -127,8 +151,7 @@ export default function EncabezadoSeccion({
 const styles = StyleSheet.create({
   cerrarSesionContainer: {
     position: 'absolute',
-    right: 20,
-    top: 10,
+    top: 6,
     zIndex: 10,
   },
   cerrarSesionButton: {

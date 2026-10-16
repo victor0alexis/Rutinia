@@ -30,6 +30,7 @@ import { listarRutinas } from '../services/rutinas';
 import { EjercicioRegistro, EjercicioRutina, Registro, Rutina } from '../types';
 import { seguro, confirmarAccion } from '../utils/errores';
 import { aISO, nombreDia } from '../utils/fechas';
+import { useLayout } from '../hooks/useLayout';
 
 type Props = {
   fecha: Date | null;
@@ -101,6 +102,7 @@ export function parsearNotaInteligente(rawText: string) {
 }
 
 export default function DiaDetalleModal({ fecha, registros, visible, onClose, alCambiar }: Props) {
+  const { topInset, bottomInset, leftInset, rightInset, gutter, contentMaxWidth } = useLayout();
   const [tab, setTab] = useState<'actividad' | 'rutina' | 'notas'>('actividad');
 
   // Form Actividad / Ejercicio Rápido
@@ -221,9 +223,14 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
           <View
             style={{
               flex: 1,
-              paddingTop: Platform.OS === 'ios' ? 50 : 20,
-              paddingHorizontal: 16,
-              gap: 16,
+              width: '100%',
+              maxWidth: contentMaxWidth,
+              alignSelf: 'center',
+              paddingTop: Math.max(12, topInset),
+              paddingBottom: Math.max(12, bottomInset),
+              paddingLeft: Math.max(gutter, leftInset),
+              paddingRight: Math.max(gutter, rightInset),
+              gap: 14,
             }}
           >
             {/* Header Pantalla Completa */}

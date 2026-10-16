@@ -16,6 +16,7 @@ import { aISO, nombreDia } from '../../utils/fechas';
 import { seguro } from '../../utils/errores';
 import { parsearEjercicioInfo } from '../../utils/ejercicios';
 import { EjercicioRegistro, Registro } from '../../types';
+import { useLayout } from '../../hooks/useLayout';
 
 // Configuración de idioma Español para el Calendario
 LocaleConfig.locales['es'] = {
@@ -31,6 +32,7 @@ LocaleConfig.locales['es'] = {
 LocaleConfig.defaultLocale = 'es';
 
 export default function CalendarioScreen() {
+  const { gutter, contentMaxWidth } = useLayout();
   const [fechaReferencia, setFechaReferencia] = useState(new Date());
   const [fechaSeleccionadaISO, setFechaSeleccionadaISO] = useState(aISO(new Date()));
   const [registrosMes, setRegistrosMes] = useState<Registro[]>([]);
@@ -127,7 +129,15 @@ export default function CalendarioScreen() {
         />
 
         <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 80, gap: 14 }}
+          contentContainerStyle={{
+            width: '100%',
+            maxWidth: contentMaxWidth,
+            alignSelf: 'center',
+            paddingHorizontal: gutter,
+            paddingTop: 10,
+            paddingBottom: 90,
+            gap: 14,
+          }}
           showsVerticalScrollIndicator={false}
         >
           {/* BARRA DE MÉTRICAS MENSUALES */}
