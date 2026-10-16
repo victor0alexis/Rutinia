@@ -17,8 +17,11 @@ import BotonRutinia from './BotonRutinia';
 import { crearRutina, eliminarRutina, actualizarRutina } from '../services/rutinas';
 import { seguro, confirmarAccion, mostrarMensaje } from '../utils/errores';
 import { parsearEjercicioInfo } from '../utils/ejercicios';
-import { Rutina } from '../types';
+import { DIAS_SEMANA_ABREV, DIAS_SEMANA_NOMBRES } from '../constants/colores';
+import { listarPlanes } from '../services/planes';
+import { PlanEntrenamiento, Rutina } from '../types';
 import { useLayout } from '../hooks/useLayout';
+
 
 type SerieInput = {
   id: string;
@@ -40,6 +43,7 @@ type EjercicioInput = {
 type Props = {
   visible: boolean;
   rutinaParaEditar?: Rutina | null;
+  planIdInicial?: string | null;
   onClose: () => void;
   onGuardado: () => void;
   onProgramarSemana?: (rutina: Rutina) => void;
@@ -65,12 +69,16 @@ const nuevoEjercicioVacio = (): EjercicioInput => ({
 export default function GestionarRutinaModal({
   visible,
   rutinaParaEditar,
+  planIdInicial,
   onClose,
   onGuardado,
   onProgramarSemana,
 }: Props) {
   const { isLandscape, isTablet, gutter, contentMaxWidth, bottomInset } = useLayout();
   const [nombreRutina, setNombreRutina] = useState('');
+  const [planId, setPlanId] = useState<string | null>(null);
+  const [diaSugerido, setDiaSugerido] = useState<number | null>(null);
+  const [planesDisponibles, setPlanesDisponibles] = useState<PlanEntrenamiento[]>([]);
   const [ejercicios, setEjercicios] = useState<EjercicioInput[]>([nuevoEjercicioVacio()]);
   const [notasExpandidas, setNotasExpandidas] = useState<Record<string, boolean>>({});
 
@@ -80,9 +88,13 @@ export default function GestionarRutinaModal({
 
   useEffect(() => {
     if (!visible) return;
+    listarPlanes({ incluirArchivados: false }).then(setPlanesDisponibles);
+
     const timer = setTimeout(() => {
       if (rutinaParaEditar) {
         setNombreRutina(rutinaParaEditar.nombre);
+        setPlanId(rutinaParaEditar.plan_id ?? null);
+        setDiaSugerido(rutinaParaEditar.dia_sugerido ?? null);
         const ejsMapeados: EjercicioInput[] = (rutinaParaEditar.ejercicios_rutina || []).map((e) => {
           const parsed = parsearEjercicioInfo(e);
           const numSeries = e.series || parsed.detallesSets.length || 1;
@@ -125,11 +137,14 @@ export default function GestionarRutinaModal({
         setEjercicios(ejsMapeados.length > 0 ? ejsMapeados : [nuevoEjercicioVacio()]);
       } else {
         setNombreRutina('');
+        setPlanId(planIdInicial ?? null);
+        setDiaSugerido(null);
         setEjercicios([nuevoEjercicioVacio()]);
       }
     }, 0);
     return () => clearTimeout(timer);
-  }, [visible, rutinaParaEditar]);
+  }, [visible, rutinaParaEditar, planIdInicial]);
+
 
   // Modificar Ejercicio
   const cambiarNombreEjercicio = (index: number, val: string) => {
@@ -254,10 +269,11 @@ export default function GestionarRutinaModal({
       });
 
       if (rutinaParaEditar?.id) {
-        await actualizarRutina(rutinaParaEditar.id, nombreRutina.trim(), payloadEjercicios);
+        await actualizarRutina(rutinaParaEditar.id, nombreRutina.trim(), payloadEjercicios, planId, diaSugerido);
       } else {
-        await crearRutina(nombreRutina.trim(), payloadEjercicios);
+        await crearRutina(nombreRutina.trim(), payloadEjercicios, planId, diaSugerido);
       }
+
 
       onGuardado();
       onClose();
@@ -361,12 +377,112 @@ export default function GestionarRutinaModal({
               />
             </View>
 
+            {/* Selector de Plan */}
+            {planesDisponibles.length > 0 && (
+              <View style={{ gap: 6 }}>
+                <Text style={styles.inputLabelText}>
+                  Plan al que pertenece
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
+                  {/* Opción Sin Plan */}
+                  <Pressable
+                    onPress={() => setPlanId(null)}
+                    style={[
+                      styles.planChip,
+                      planId === null && styles.planChipActive,
+                    ]}
+                  >
+                    <Ionicons
+                      name="folder-outline"
+                      size={14}
+                      color={planId === null ? colores.texto : colores.suave}
+                    />
+                    <Text style={[styles.planChipText, planId === null && { color: colores.texto, fontFamily: fuentes.bold }]}>
+                      Sin plan
+                    </Text>
+                  </Pressable>
+
+                  {/* Planes disponibles */}
+                  {planesDisponibles.map((p) => {
+                    const sel = planId === p.id;
+                    return (
+                      <Pressable
+                        key={p.id}
+                        onPress={() => setPlanId(p.id)}
+                        style={[
+                          styles.planChip,
+                          sel && {
+                            borderColor: p.color,
+                            backgroundColor: p.color + '22',
+                          },
+                        ]}
+                      >
+                        <View style={[styles.planDot, { backgroundColor: p.color }]} />
+                        <Text style={[styles.planChipText, sel && { color: colores.texto, fontFamily: fuentes.bold }]}>
+                          {p.nombre}
+                        </Text>
+                        {p.activo && (
+                          <View style={[styles.activeMiniBadge, { backgroundColor: p.color }]}>
+                            <Text style={styles.activeMiniBadgeText}>ACTIVO</Text>
+                          </View>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Selector de Día Sugerido */}
+            <View style={{ gap: 6 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={styles.inputLabelText}>
+                  Día sugerido en la semana
+                </Text>
+                {diaSugerido !== null && (
+                  <Pressable onPress={() => setDiaSugerido(null)} hitSlop={6}>
+                    <Text style={{ color: colores.suave, fontSize: 11, fontFamily: fuentes.bold }}>
+                      Quitar día fijo
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                {DIAS_SEMANA_ABREV.map((letra, index) => {
+                  const sel = diaSugerido === index;
+                  return (
+                    <Pressable
+                      key={letra}
+                      onPress={() => setDiaSugerido(sel ? null : index)}
+                      style={[
+                        styles.dayChip,
+                        sel && styles.dayChipActive,
+                      ]}
+                    >
+                      <Text style={[styles.dayChipText, sel && styles.dayChipTextActive]}>
+                        {letra}
+                      </Text>
+                      {sel && (
+                        <View style={styles.dayDotIndicator} />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={{ color: colores.suave, fontSize: 11, fontFamily: fuentes.regular }}>
+                {diaSugerido !== null
+                  ? `Sugerida para cada ${DIAS_SEMANA_NOMBRES[diaSugerido]}`
+                  : 'Sin día fijo (aparecerá disponible para asignar a cualquier fecha)'}
+              </Text>
+            </View>
+
             {/* Listado de Ejercicios */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={styles.inputLabelText}>
                 Ejercicios ({ejercicios.length})
               </Text>
             </View>
+
 
             {ejercicios.map((ej, ejIdx) => (
               <View key={ej.id} style={styles.exerciseCard}>
@@ -744,4 +860,71 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 4,
   },
+  planChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    backgroundColor: 'rgba(10, 12, 18, 0.60)',
+  },
+  planChipActive: {
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  planDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  planChipText: {
+    color: colores.suave,
+    fontSize: 12,
+    fontFamily: fuentes.medium,
+  },
+  activeMiniBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  activeMiniBadgeText: {
+    color: '#FFF',
+    fontSize: 8,
+    fontFamily: fuentes.black,
+    letterSpacing: 0.5,
+  },
+  dayChip: {
+    flex: 1,
+    height: 42,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    backgroundColor: 'rgba(10, 12, 18, 0.60)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayChipActive: {
+    borderColor: colores.primarioHover,
+    backgroundColor: colores.primarioSuave,
+  },
+  dayChipText: {
+    color: colores.suave,
+    fontSize: 13,
+    fontFamily: fuentes.bold,
+  },
+  dayChipTextActive: {
+    color: '#FFF',
+    fontFamily: fuentes.black,
+  },
+  dayDotIndicator: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colores.primarioHover,
+    marginTop: 2,
+  },
 });
+
