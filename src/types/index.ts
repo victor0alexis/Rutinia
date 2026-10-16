@@ -1,3 +1,19 @@
+export type PlanEntrenamiento = {
+  id: string;
+  usuario_id?: string | null;
+  nombre: string;
+  descripcion?: string | null;
+  objetivo?: string | null;
+  color: string;
+  icono: string;
+  orden: number;
+  activo: boolean;
+  archivado: boolean;
+  creado_en?: string;
+  totalRutinas?: number;
+  diasPorSemana?: number;
+};
+
 export type SerieRutina = {
   id: string;
   numeroSerie: number;
@@ -33,6 +49,10 @@ export type Rutina = {
   id: string;
   nombre: string;
   creado_en?: string;
+  plan_id?: string | null;
+  dia_sugerido?: number | null; // 0 = Lunes, 6 = Domingo
+  orden_en_plan?: number;
+  planes_entrenamiento?: PlanEntrenamiento | null;
   ejercicios_rutina: EjercicioRutina[];
 };
 
@@ -50,8 +70,13 @@ export type Registro = {
   id: string;
   fecha: string; // yyyy-MM-dd
   rutina_id: string | null;
+  plan_id?: string | null;
+  plan_nombre?: string | null;
+  rutina_nombre?: string | null;
   completado: boolean;
   notas?: string | null;
   rutinas: { nombre: string } | null;
+  planes_entrenamiento?: PlanEntrenamiento | null;
   ejercicios_registro: EjercicioRegistro[];
 };
+

@@ -46,3 +46,28 @@ export const fuentes = {
   extraBold: 'Outfit_800ExtraBold',
   black: 'Outfit_900Black',
 };
+
+export const COLORES_PLANES = [
+  '#E0334F', // Carmesí Rutinia
+  '#F59E0B', // Ámbar / Dorado
+  '#10B981', // Esmeralda
+  '#06B6D4', // Cian Glaciar
+  '#3B82F6', // Azul Cobalto
+  '#8B5CF6', // Violeta
+  '#EC4899', // Rosa Intenso
+  '#6366F1', // Índigo
+] as const;
+
+export const ICONOS_PLANES = [
+  'barbell-outline',
+  'flame-outline',
+  'flash-outline',
+  'fitness-outline',
+  'trophy-outline',
+  'body-outline',
+  'heart-outline',
+  'shield-checkmark-outline',
+] as const;
+
+export const DIAS_SEMANA_ABREV = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const;
+export const DIAS_SEMANA_NOMBRES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'] as const;

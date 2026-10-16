@@ -546,12 +546,20 @@ export default function EjecutarEntrenamientoModal({
         }
 
         const sesionCompletada = porcentajeProgreso >= 50;
+        const planNombreFinal = registro.plan_nombre || registro.planes_entrenamiento?.nombre || null;
+        const rutinaNombreFinal = registro.rutina_nombre || registro.rutinas?.nombre || null;
+        const planIdFinal = registro.plan_id || registro.planes_entrenamiento?.id || null;
+
         await actualizarEstadoRegistro(registro.id, {
           completado: sesionCompletada,
           notas: notasSesion.trim() || null,
+          plan_id: planIdFinal,
+          plan_nombre: planNombreFinal,
+          rutina_nombre: rutinaNombreFinal,
         });
 
         // Limpiar el borrador y timer en AsyncStorage
+
         await limpiarSesionActiva(registro.id);
 
         setResumenVisible(false);
@@ -670,17 +678,14 @@ export default function EjecutarEntrenamientoModal({
               /* PANTALLA PRINCIPAL DE SIMULACIÓN / ENTRENAMIENTO EN VIVO */
               <View style={{ flex: 1, paddingHorizontal: gutter, width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center' }}>
                 {/* Header de la Sesión en Vivo con Timer Persistente */}
-                <View
-                  style={{ width: '100%' }}
-                  onLayout={(e) => {
-                    setHeaderHeight(e.nativeEvent.layout.height);
-                  }}
-                >
+                <View style={{ width: '100%' }}>
                   <View style={[styles.liveHeader, isLandscape && { paddingVertical: 2, paddingBottom: 4 }]}>
                     <View style={{ flex: 1, paddingRight: 8 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <View style={styles.liveDotPulse} />
-                        <Text style={styles.modalBadgeText}>EN VIVO • {nombreDia(fecha)}</Text>
+                        <Text style={styles.modalBadgeText}>
+                          EN VIVO • {nombreDia(fecha)}
+                        </Text>
                       </View>
                       <Text
                         style={[
@@ -690,9 +695,12 @@ export default function EjecutarEntrenamientoModal({
                         ]}
                         numberOfLines={1}
                       >
-                        {registro.rutinas?.nombre || 'Entrenamiento del Día'}
+                        {registro.plan_nombre || registro.planes_entrenamiento?.nombre
+                          ? `${registro.plan_nombre || registro.planes_entrenamiento?.nombre} › ${registro.rutina_nombre || registro.rutinas?.nombre || 'Rutina'}`
+                          : registro.rutina_nombre || registro.rutinas?.nombre || 'Entrenamiento del Día'}
                       </Text>
                     </View>
+
 
                     {/* Widget Timer Interactivo (ÚNICO TIMER DE LA SESIÓN) */}
                     <Pressable

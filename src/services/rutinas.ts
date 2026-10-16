@@ -23,7 +23,9 @@ export async function listarRutinas(): Promise<Rutina[]> {
   try {
     const { data, error } = await supabase
       .from('rutinas')
-      .select('*, ejercicios_rutina(*)')
+      .select('*, ejercicios_rutina(*), planes_entrenamiento(*)')
+      .order('orden_en_plan', { ascending: true })
+      .order('dia_sugerido', { ascending: true })
       .order('creado_en', { ascending: false });
 
     if (error) throw error;
@@ -50,18 +52,26 @@ export async function listarRutinas(): Promise<Rutina[]> {
   }
 }
 
-export async function crearRutina(nombre: string, ejercicios: EjercicioNuevo[]): Promise<Rutina | null> {
+export async function crearRutina(
+  nombre: string,
+  ejercicios: EjercicioNuevo[],
+  planId?: string | null,
+  diaSugerido?: number | null
+): Promise<Rutina | null> {
   try {
     const usuarioId = await getUsuarioId();
 
     const insertData: any = { nombre };
+    if (planId !== undefined) insertData.plan_id = planId;
+    if (diaSugerido !== undefined) insertData.dia_sugerido = diaSugerido;
     if (usuarioId) insertData.usuario_id = usuarioId;
 
     const { data: rutina, error } = await supabase
       .from('rutinas')
       .insert(insertData)
-      .select()
+      .select('*, planes_entrenamiento(*)')
       .single();
+
 
     if (error) {
       throw new Error(`Error Supabase al crear rutina: ${error.message} (Código: ${error.code})`);
@@ -203,7 +213,8 @@ export async function eliminarRutina(id: string): Promise<void> {
 }
 
 
-export async function duplicarRutina(rutina: Rutina): Promise<Rutina | null> {
+export async function duplicarRutina(rutina: Rutina, nuevoPlanId?: string | null): Promise<Rutina | null> {
+  const targetPlanId = nuevoPlanId !== undefined ? nuevoPlanId : rutina.plan_id;
   const nuevosEjercicios: EjercicioNuevo[] = (rutina.ejercicios_rutina || []).map((e) => {
     const nombreBase = e.nombre.replace(/\s*\(.*\)$/, '').trim();
     return {
@@ -213,10 +224,16 @@ export async function duplicarRutina(rutina: Rutina): Promise<Rutina | null> {
       peso: e.peso,
     };
   });
-  return crearRutina(`${rutina.nombre} (Copia)`, nuevosEjercicios);
+  return crearRutina(`${rutina.nombre} (Copia)`, nuevosEjercicios, targetPlanId, rutina.dia_sugerido);
 }
 
-export async function actualizarRutina(rutinaId: string, nombre: string, ejercicios: EjercicioNuevo[]): Promise<void> {
+export async function actualizarRutina(
+  rutinaId: string,
+  nombre: string,
+  ejercicios: EjercicioNuevo[],
+  planId?: string | null,
+  diaSugerido?: number | null
+): Promise<void> {
   // IDs locales (modo offline) → solo actualizar caché
   if (rutinaId.startsWith('local_')) {
     const existentes = (await obtenerCacheLocal<Rutina[]>('rutinas')) || [];
@@ -227,6 +244,8 @@ export async function actualizarRutina(rutinaId: string, nombre: string, ejercic
           ? {
               ...r,
               nombre,
+              plan_id: planId !== undefined ? planId : r.plan_id,
+              dia_sugerido: diaSugerido !== undefined ? diaSugerido : r.dia_sugerido,
               ejercicios_rutina: ejercicios.map((e, i) => ({
                 id: `${rutinaId}_${i}`,
                 rutina_id: rutinaId,
@@ -245,12 +264,17 @@ export async function actualizarRutina(rutinaId: string, nombre: string, ejercic
 
   const usuarioId = await getUsuarioId();
 
-  // 1. Actualizar nombre
+  // 1. Actualizar datos de rutina
+  const updateData: any = { nombre };
+  if (planId !== undefined) updateData.plan_id = planId;
+  if (diaSugerido !== undefined) updateData.dia_sugerido = diaSugerido;
+
   const { error: errNombre } = await supabase
     .from('rutinas')
-    .update({ nombre })
+    .update(updateData)
     .eq('id', rutinaId);
-  if (errNombre) throw new Error(`Error actualizando nombre: ${errNombre.message}`);
+  if (errNombre) throw new Error(`Error actualizando rutina: ${errNombre.message}`);
+
 
   // 2. Borrar ejercicios anteriores
   const { error: errDel } = await supabase

@@ -17,7 +17,7 @@ export async function registrosDeRango(desde: string, hasta: string): Promise<Re
   try {
     const { data, error } = await supabase
       .from('registros_entrenamiento')
-      .select('*, rutinas(nombre), ejercicios_registro(*)')
+      .select('*, rutinas(nombre, plan_id, dia_sugerido), planes_entrenamiento(*), ejercicios_registro(*)')
       .gte('fecha', desde)
       .lte('fecha', hasta)
       .order('fecha', { ascending: true });
@@ -52,14 +52,33 @@ export async function registrosDeRango(desde: string, hasta: string): Promise<Re
   }
 }
 
-// Copia los ejercicios de la rutina a cada fecha elegida
-export async function agregarRutinaAFechas(rutina: Rutina, fechas: string[]) {
+// Copia los ejercicios de la rutina a cada fecha elegida, congelando nombres de plan y rutina
+export async function agregarRutinaAFechas(
+  rutina: Rutina,
+  fechas: string[],
+  opciones?: {
+    planId?: string | null;
+    planNombre?: string | null;
+    rutinaNombre?: string | null;
+  }
+) {
   const usuarioId = await getUsuarioId();
   const ejercicios = rutina.ejercicios_rutina || [];
 
+  const targetPlanId = opciones?.planId !== undefined ? opciones.planId : rutina.plan_id ?? null;
+  const targetPlanNombre = opciones?.planNombre !== undefined
+    ? opciones.planNombre
+    : rutina.planes_entrenamiento?.nombre ?? null;
+  const targetRutinaNombre = opciones?.rutinaNombre || rutina.nombre;
+
   for (const fecha of fechas) {
     try {
-      const regData: any = { fecha };
+      const regData: any = {
+        fecha,
+        plan_id: targetPlanId,
+        plan_nombre: targetPlanNombre,
+        rutina_nombre: targetRutinaNombre,
+      };
       if (rutina.id && !rutina.id.startsWith('local_')) {
         regData.rutina_id = rutina.id;
       }
@@ -95,6 +114,7 @@ export async function agregarRutinaAFechas(rutina: Rutina, fechas: string[]) {
     }
   }
 }
+
 
 // Desvincula/elimina un registro completo de rutina o actividad del día
 export async function eliminarRegistroRutina(registroId: string) {
@@ -172,13 +192,25 @@ export async function actualizarEjecucionEjercicio(
 
 export async function actualizarEstadoRegistro(
   registroId: string,
-  datos: { completado?: boolean; notas?: string | null },
+  datos: {
+    completado?: boolean;
+    notas?: string | null;
+    plan_id?: string | null;
+    plan_nombre?: string | null;
+    rutina_nombre?: string | null;
+  },
   fecha?: string
 ) {
-  if (datos.completado !== undefined) {
+  const updateData: any = {};
+  if (datos.completado !== undefined) updateData.completado = datos.completado;
+  if (datos.plan_id !== undefined) updateData.plan_id = datos.plan_id;
+  if (datos.plan_nombre !== undefined) updateData.plan_nombre = datos.plan_nombre;
+  if (datos.rutina_nombre !== undefined) updateData.rutina_nombre = datos.rutina_nombre;
+
+  if (Object.keys(updateData).length > 0) {
     const { error } = await supabase
       .from('registros_entrenamiento')
-      .update({ completado: datos.completado })
+      .update(updateData)
       .eq('id', registroId);
     if (error) throw error;
   }
@@ -194,6 +226,7 @@ export async function actualizarEstadoRegistro(
     if (errorNota) throw errorNota;
   }
 }
+
 
 export async function eliminarEjercicio(id: string) {
   const { error } = await supabase.from('ejercicios_registro').delete().eq('id', id);
