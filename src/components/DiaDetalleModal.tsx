@@ -441,7 +441,7 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
                                       color={e.completado ? colores.exito : colores.suave}
                                     />
                                     <View style={{ flex: 1 }}>
-                                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                                         <Text
                                           style={{
                                             color: e.completado ? colores.texto : colores.texto,
@@ -452,6 +452,24 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
                                         >
                                           {parsed.nombreLimpio}
                                         </Text>
+                                        {Boolean(parsed.sustituyeANombre || (e as any).sustituye_a_nombre) && (
+                                          <View style={styles.badgeSustituye}>
+                                            <Ionicons name="swap-horizontal" size={10} color="#60A5FA" />
+                                            <Text style={styles.badgeSustituyeText}>
+                                              ↔ Sustituye a {parsed.sustituyeANombre || (e as any).sustituye_a_nombre}
+                                            </Text>
+                                          </View>
+                                        )}
+                                        {parsed.tieneParciales && (
+                                          <View style={styles.badgeParcial}>
+                                            <Text style={styles.badgeParcialText}>PARCIAL</Text>
+                                          </View>
+                                        )}
+                                        {parsed.tieneDropset && (
+                                          <View style={styles.badgeDrop}>
+                                            <Text style={styles.badgeDropText}>DROP</Text>
+                                          </View>
+                                        )}
                                         {parsed.resumenVisual && (
                                           <View
                                             style={{
@@ -852,5 +870,47 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
+  },
+  badgeSustituye: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(96, 165, 250, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 165, 250, 0.35)',
+  },
+  badgeSustituyeText: {
+    color: '#60A5FA',
+    fontSize: 10,
+    fontFamily: fuentes.bold,
+  },
+  badgeParcial: {
+    backgroundColor: 'rgba(245, 158, 11, 0.20)',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.45)',
+  },
+  badgeParcialText: {
+    color: '#F59E0B',
+    fontSize: 9,
+    fontFamily: fuentes.black,
+  },
+  badgeDrop: {
+    backgroundColor: 'rgba(56, 189, 248, 0.20)',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.45)',
+  },
+  badgeDropText: {
+    color: '#38BDF8',
+    fontSize: 9,
+    fontFamily: fuentes.black,
   },
 });

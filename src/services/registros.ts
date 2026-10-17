@@ -184,7 +184,19 @@ export async function alternarEjercicio(id: string, completado: boolean) {
 
 export async function actualizarEjecucionEjercicio(
   id: string,
-  datos: { nombre?: string; series?: number | null; repeticiones?: number | null; peso?: number | null; completado?: boolean }
+  datos: {
+    nombre?: string;
+    series?: number | null;
+    repeticiones?: number | null;
+    peso?: number | null;
+    completado?: boolean;
+    ejercicio_nombre?: string | null;
+    sustituye_a_ejercicio_id?: string | null;
+    sustituye_a_nombre?: string | null;
+    sustitucion_alcance?: 'solo_hoy' | 'rutina' | null;
+    reps_parciales?: number;
+    drops?: any[];
+  }
 ) {
   const { error } = await supabase.from('ejercicios_registro').update(datos).eq('id', id);
   if (error) throw error;
@@ -227,7 +239,6 @@ export async function actualizarEstadoRegistro(
   }
 }
 
-
 export async function eliminarEjercicio(id: string) {
   const { error } = await supabase.from('ejercicios_registro').delete().eq('id', id);
   if (error) throw error;
@@ -262,3 +273,84 @@ export async function obtenerHistorialPrevioRutina(
     return null;
   }
 }
+
+// Obtener el historial previo de un ejercicio específico (para recálculo tras intercambiar ejercicio)
+export async function obtenerHistorialPrevioEjercicio(
+  nombreEjercicio: string,
+  fechaActual?: string
+): Promise<{ fechaFormateada: string; series: any[] } | null> {
+  if (!nombreEjercicio.trim()) return null;
+
+  try {
+    const nombreLimpio = nombreEjercicio.trim().replace(/^\[U(NILATERAL)?\]\s*/i, '');
+
+    let query = supabase
+      .from('ejercicios_registro')
+      .select('*, registros_entrenamiento!inner(fecha, completado)')
+      .ilike('nombre', `%${nombreLimpio}%`)
+      .order('creado_en', { ascending: false })
+      .limit(5);
+
+    const { data, error } = await query;
+    if (error || !data || data.length === 0) return null;
+
+    for (const item of data) {
+      const fechaReg = (item as any).registros_entrenamiento?.fecha;
+      if (fechaActual && fechaReg && fechaReg >= fechaActual) {
+        continue;
+      }
+
+      const matchResumen = (item.nombre || '').match(/\((.*?)\)$/);
+      if (matchResumen && matchResumen[1]) {
+        const rawSets = matchResumen[1].split('•').map((s: string) => s.trim());
+        const seriesPrevias = rawSets.map((setStr: string) => {
+          const datosStr = setStr.replace(/^\d+ª:\s*/, '').replace(/✓/g, '').trim();
+          const matchK = datosStr.match(/(\d+(?:\.\d+)?)k/);
+          const matchR = datosStr.match(/(\d+)r/);
+          const matchRir = datosStr.match(/RIR\s*(\d+)/i);
+          const matchParcial = datosStr.match(/\+(\d+)p/);
+
+          // Drops
+          const drops: any[] = [];
+          if (datosStr.includes('→')) {
+            const dropParts = datosStr.split('→').map((p: string) => p.trim());
+            dropParts.slice(1).forEach((dp: string, dIdx: number) => {
+              const mKg = dp.match(/(\d+(?:\.\d+)?)k/);
+              const mReps = dp.match(/(\d+)r/);
+              const mRir = dp.match(/RIR\s*(\d+)/i);
+              if (mKg || mReps) {
+                drops.push({
+                  orden: dIdx + 1,
+                  kg: mKg ? mKg[1] : '',
+                  reps: mReps ? mReps[1] : '',
+                  rir: mRir ? mRir[1] : null,
+                });
+              }
+            });
+          }
+
+          return {
+            peso: matchK ? matchK[1] : (item.peso ? item.peso.toString() : ''),
+            reps: matchR ? matchR[1] : (item.repeticiones ? item.repeticiones.toString() : ''),
+            rir: matchRir ? matchRir[1] : '',
+            nota: '',
+            repsParciales: matchParcial ? parseInt(matchParcial[1], 10) : 0,
+            esDropset: drops.length > 0,
+            drops,
+          };
+        });
+
+        return {
+          fechaFormateada: fechaReg || 'Previo',
+          series: seriesPrevias,
+        };
+      }
+    }
+
+    return null;
+  } catch (err) {
+    console.warn('Error obteniendo historial previo de ejercicio:', err);
+    return null;
+  }
+}
+

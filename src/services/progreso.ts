@@ -143,10 +143,41 @@ export async function obtenerMetricasProgreso(desde: string, hasta: string): Pro
       const parsed = parsearEjercicioInfo(e);
       const nombreLimpio = parsed.nombreLimpio;
       const numSeries = e.series || parsed.detallesSets.length || 1;
-      const reps = e.repeticiones || 1;
-      const peso = e.peso || 0;
 
-      const volEj = numSeries * reps * peso;
+      let volEj = 0;
+      let maxPesoEnEj = 0;
+      let maxRepsEnEj = 0;
+
+      if (parsed.detallesSets.length > 0) {
+        parsed.detallesSets.forEach((set) => {
+          const pD = Number(set.pesoD) || (e.peso || 0);
+          const rD = Number(set.repsD) || (e.repeticiones || 1);
+          const pI = parsed.esUnilateral ? (Number(set.pesoI) || pD) : 0;
+          const rI = parsed.esUnilateral ? (Number(set.repsI) || rD) : 0;
+
+          // Volumen de la serie principal
+          volEj += (pD * rD) + (pI * rI);
+
+          if (pD > maxPesoEnEj) maxPesoEnEj = pD;
+          if (rD > maxRepsEnEj) maxRepsEnEj = rD;
+
+          // Volumen de Dropsets
+          if (set.drops && set.drops.length > 0) {
+            set.drops.forEach((d) => {
+              const dKg = Number(d.kg) || 0;
+              const dReps = Number(d.reps) || 0;
+              volEj += (dKg * dReps);
+            });
+          }
+        });
+      } else {
+        const reps = e.repeticiones || 1;
+        const peso = e.peso || 0;
+        volEj = numSeries * reps * peso;
+        maxPesoEnEj = peso;
+        maxRepsEnEj = reps;
+      }
+
       volumenTotalKg += volEj;
       seriesTotales += numSeries;
 
@@ -158,8 +189,8 @@ export async function obtenerMetricasProgreso(desde: string, hasta: string): Pro
           mapRutinas[nombreRutina].ejercicios[nombreLimpio] = { maxPeso: 0, series: 0 };
         }
         mapRutinas[nombreRutina].ejercicios[nombreLimpio].series += numSeries;
-        if (peso > mapRutinas[nombreRutina].ejercicios[nombreLimpio].maxPeso) {
-          mapRutinas[nombreRutina].ejercicios[nombreLimpio].maxPeso = peso;
+        if (maxPesoEnEj > mapRutinas[nombreRutina].ejercicios[nombreLimpio].maxPeso) {
+          mapRutinas[nombreRutina].ejercicios[nombreLimpio].maxPeso = maxPesoEnEj;
         }
       }
 
@@ -174,9 +205,9 @@ export async function obtenerMetricasProgreso(desde: string, hasta: string): Pro
       }
 
       mapEjercicios[nombreLimpio].series += numSeries;
-      if (peso > mapEjercicios[nombreLimpio].maxPeso) {
-        mapEjercicios[nombreLimpio].maxPeso = peso;
-        mapEjercicios[nombreLimpio].maxReps = reps;
+      if (maxPesoEnEj > mapEjercicios[nombreLimpio].maxPeso) {
+        mapEjercicios[nombreLimpio].maxPeso = maxPesoEnEj;
+        mapEjercicios[nombreLimpio].maxReps = maxRepsEnEj;
         mapEjercicios[nombreLimpio].fechaMax = r.fecha;
       }
     });

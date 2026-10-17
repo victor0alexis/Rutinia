@@ -322,3 +322,50 @@ export async function actualizarRutina(
     )
   );
 }
+
+export async function reemplazarEjercicioEnRutina(
+  rutinaId: string,
+  nombreOriginal: string,
+  nombreNuevo: string
+): Promise<void> {
+  const nombreOrigLimpio = nombreOriginal.trim().toLowerCase();
+
+  if (!rutinaId.startsWith('local_')) {
+    const { data: ejs, error } = await supabase
+      .from('ejercicios_rutina')
+      .select('*')
+      .eq('rutina_id', rutinaId);
+
+    if (error) throw error;
+
+    for (const ej of ejs || []) {
+      const ejLimpio = ej.nombre.replace(/\s*\(.*\)$/, '').trim().toLowerCase();
+      if (ejLimpio === nombreOrigLimpio) {
+        const nuevoNombreFinal = nombreNuevo.trim();
+        await supabase
+          .from('ejercicios_rutina')
+          .update({ nombre: nuevoNombreFinal })
+          .eq('id', ej.id);
+      }
+    }
+  }
+
+  const existentes = (await obtenerCacheLocal<Rutina[]>('rutinas')) || [];
+  await guardarCacheLocal(
+    'rutinas',
+    existentes.map((r) => {
+      if (r.id !== rutinaId) return r;
+      return {
+        ...r,
+        ejercicios_rutina: r.ejercicios_rutina.map((e) => {
+          const eLimpio = e.nombre.replace(/\s*\(.*\)$/, '').trim().toLowerCase();
+          if (eLimpio === nombreOrigLimpio) {
+            return { ...e, nombre: nombreNuevo.trim() };
+          }
+          return e;
+        }),
+      };
+    })
+  );
+}
+

@@ -14,6 +14,22 @@ export type PlanEntrenamiento = {
   diasPorSemana?: number;
 };
 
+export type DropItem = {
+  orden: number;
+  kg: number | string;
+  reps: number | string;
+  rir?: number | string | null;
+};
+
+export type EjercicioCatalogo = {
+  id: string;
+  usuario_id?: string | null;
+  nombre: string;
+  grupo_muscular?: string | null;
+  equipo?: string | null;
+  creado_en?: string;
+};
+
 export type SerieRutina = {
   id: string;
   numeroSerie: number;
@@ -21,6 +37,9 @@ export type SerieRutina = {
   repeticiones: number | null;
   rir?: number | null; // Repeticiones en reserva (RIR)
   nota?: string;
+  reps_parciales?: number | null;
+  es_dropset?: boolean;
+  drops?: DropItem[];
 };
 
 export type EjercicioRutinaDetallado = {
@@ -64,6 +83,12 @@ export type EjercicioRegistro = {
   repeticiones: number | null;
   peso: number | null;
   completado: boolean;
+  ejercicio_nombre?: string | null;
+  sustituye_a_ejercicio_id?: string | null;
+  sustituye_a_nombre?: string | null;
+  sustitucion_alcance?: 'solo_hoy' | 'rutina' | null;
+  reps_parciales?: number;
+  drops?: DropItem[];
 };
 
 export type Registro = {
@@ -79,4 +104,5 @@ export type Registro = {
   planes_entrenamiento?: PlanEntrenamiento | null;
   ejercicios_registro: EjercicioRegistro[];
 };
+
 

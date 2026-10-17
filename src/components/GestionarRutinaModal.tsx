@@ -31,6 +31,8 @@ type SerieInput = {
   repsI?: string;
   rir: string;
   nota: string;
+  repsParciales?: number;
+  esDropset?: boolean;
 };
 
 type EjercicioInput = {
@@ -123,6 +125,8 @@ export default function GestionarRutinaModal({
               repsI: repsIStr,
               rir: rirStr,
               nota: notaStr,
+              repsParciales: sDetail?.repsParciales || 0,
+              esDropset: Boolean(sDetail?.esDropset),
             };
           });
 
@@ -241,15 +245,19 @@ export default function GestionarRutinaModal({
 
                   const rir = s.rir ? `RIR ${s.rir}` : '';
                   const n = s.nota ? `[${s.nota}]` : '';
+                  const parcialStr = s.repsParciales ? `+${s.repsParciales}p` : '';
+                  const dropStr = s.esDropset ? '↓' : '';
 
                   const resumenBrazo = `D ${strD} | I ${strI}`.trim();
-                  return `${idx + 1}ª: ${[resumenBrazo, rir, n].filter(Boolean).join(' ')}`;
+                  return `${idx + 1}ª: ${[resumenBrazo, parcialStr, dropStr, rir, n].filter(Boolean).join(' ')}`;
                 } else {
                   const p = s.peso ? `${s.peso}k` : '';
                   const r = s.reps ? `${s.reps}r` : '';
+                  const parcialStr = s.repsParciales ? `+${s.repsParciales}p` : '';
+                  const dropStr = s.esDropset ? '↓' : '';
                   const rir = s.rir ? `RIR ${s.rir}` : '';
                   const n = s.nota ? `[${s.nota}]` : '';
-                  return `${idx + 1}ª: ${[p, r, rir, n].filter(Boolean).join(' ')}`;
+                  return `${idx + 1}ª: ${[p, r, parcialStr, dropStr, rir, n].filter(Boolean).join(' ')}`;
                 }
               })
               .join(' • ')

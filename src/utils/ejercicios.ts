@@ -1,7 +1,15 @@
 /**
  * Utilidades para parsear y formatear ejercicios y series de Rutinia
- * Soporta ejercicios Estándar (bilaterales) y Unilaterales (Brazo/Pierna Derecho D vs Izquierdo I).
+ * Soporta ejercicios Estándar (bilaterales) y Unilaterales (Brazo/Pierna Derecho D vs Izquierdo I),
+ * así como Reps Parciales (+3p), Dropsets (→ kg r ↓) y Sustituciones (↔ Sustituye a...).
  */
+
+export interface DropDetalleParsed {
+  orden: number;
+  kg: string;
+  reps: string;
+  rir?: string;
+}
 
 export interface SetDetalleParsed {
   setNum: number;
@@ -13,6 +21,10 @@ export interface SetDetalleParsed {
   repsI?: string;
   rir?: string;
   nota?: string;
+  repsParciales?: number;
+  tieneParciales?: boolean;
+  esDropset?: boolean;
+  drops?: DropDetalleParsed[];
 }
 
 export interface InfoEjercicioParsed {
@@ -23,11 +35,14 @@ export interface InfoEjercicioParsed {
   seriesCompletadas: number;
   tieneDatosReales: boolean;
   detallesSets: SetDetalleParsed[];
+  tieneParciales: boolean;
+  tieneDropset: boolean;
+  sustituyeANombre: string | null;
 }
 
 /**
  * Parsea un objeto de ejercicio de registro o rutina para extraer el nombre limpio,
- * su modalidad (Estándar o Unilateral D/I) y badges de información estructurada.
+ * su modalidad (Estándar o Unilateral D/I), parciales, dropsets y sustitución.
  */
 export function parsearEjercicioInfo(e: {
   nombre: string;
@@ -35,17 +50,26 @@ export function parsearEjercicioInfo(e: {
   repeticiones?: number | null;
   peso?: number | null;
   completado?: boolean;
+  sustituye_a_nombre?: string | null;
 }): InfoEjercicioParsed {
   const nombreRaw = (e.nombre || '').trim();
 
-  // 1. Detectar si es unilateral por etiqueta [U] o "D ... | I ..." en el resumen
+  // 1. Detectar si sustituye a otro ejercicio (sea por columna o en el texto)
+  let sustituyeANombre = e.sustituye_a_nombre || null;
+  const matchSust = nombreRaw.match(/↔\s*Sustituye\s+a\s+([^(\[]+)/i);
+  if (matchSust && matchSust[1]) {
+    sustituyeANombre = matchSust[1].trim();
+  }
+
+  // 2. Detectar si es unilateral por etiqueta [U] o "D ... | I ..." en el resumen
   const tieneTagUnilateral = /^\[U(NILATERAL)?\]/i.test(nombreRaw) || nombreRaw.includes('[U]');
 
-  // Extraer el nombre base removiendo prefijo [U] y cualquier bloque (...) al final
-  const nombreSinTag = nombreRaw.replace(/^\[U(NILATERAL)?\]\s*/i, '').trim();
+  // Extraer el nombre base removiendo prefijo [U], cualquier bloque "↔ Sustituye a..." y bloque (...) al final
+  let nombreSinTag = nombreRaw.replace(/^\[U(NILATERAL)?\]\s*/i, '').trim();
+  nombreSinTag = nombreSinTag.replace(/↔\s*Sustituye\s+a\s+[^(\[]+/i, '').trim();
   const nombreLimpio = nombreSinTag.replace(/\s*\((.*?)\)$/, '').trim() || 'Ejercicio';
 
-  // 2. Extraer el contenido entre paréntesis si existe
+  // 3. Extraer el contenido entre paréntesis si existe
   const matchResumen = nombreRaw.match(/\((.*?)\)$/);
 
   let detallesSets: SetDetalleParsed[] = [];
@@ -53,6 +77,8 @@ export function parsearEjercicioInfo(e: {
   let seriesCompletadas = 0;
   let tieneDatosReales = false;
   let detectadoUnilateralEnSets = false;
+  let tieneParcialesGlobal = false;
+  let tieneDropsetGlobal = false;
   const partesDatos: string[] = [];
 
   if (matchResumen && matchResumen[1]) {
@@ -74,6 +100,41 @@ export function parsearEjercicioInfo(e: {
       let repsI: string | undefined;
       let rir: string | undefined;
       let nota: string | undefined;
+      let repsParciales: number | undefined;
+      let esDropset = false;
+      const drops: DropDetalleParsed[] = [];
+
+      // Detectar Parciales "+Np"
+      const matchParcial = datosStr.match(/\+(\d+)p/);
+      if (matchParcial) {
+        repsParciales = parseInt(matchParcial[1], 10);
+        tieneParcialesGlobal = true;
+      }
+
+      // Detectar Dropset si contiene flechas "→" o "↓"
+      if (datosStr.includes('→') || datosStr.includes('↓')) {
+        esDropset = true;
+        tieneDropsetGlobal = true;
+
+        // Separar drops si vienen con "→"
+        const dropParts = datosStr.split('→').map((p) => p.trim());
+        if (dropParts.length > 1) {
+          dropParts.slice(1).forEach((dp, dIdx) => {
+            const dpLimpio = dp.replace(/↓/g, '').trim();
+            const mKg = dpLimpio.match(/(\d+(?:\.\d+)?)k/);
+            const mReps = dpLimpio.match(/(\d+)r/);
+            const mRir = dpLimpio.match(/RIR\s*(\d+)/i);
+            if (mKg || mReps) {
+              drops.push({
+                orden: dIdx + 1,
+                kg: mKg ? mKg[1] : '',
+                reps: mReps ? mReps[1] : '',
+                rir: mRir ? mRir[1] : undefined,
+              });
+            }
+          });
+        }
+      }
 
       if (datosStr.includes('|') || datosStr.includes('D ') || datosStr.includes('I ')) {
         detectadoUnilateralEnSets = true;
@@ -88,6 +149,12 @@ export function parsearEjercicioInfo(e: {
           if (matchI[1]) pesoI = matchI[1];
           if (matchI[2]) repsI = matchI[2];
         }
+      } else {
+        // Bilateral normal
+        const matchK = datosStr.match(/^(\d+(?:\.\d+)?)k/);
+        if (matchK) pesoD = matchK[1];
+        const matchR = datosStr.match(/(\d+)r/);
+        if (matchR) repsD = matchR[1];
       }
 
       const matchRIR = datosStr.match(/RIR\s*(\d+)/i);
@@ -111,6 +178,10 @@ export function parsearEjercicioInfo(e: {
         repsI,
         rir,
         nota,
+        repsParciales,
+        tieneParciales: Boolean(repsParciales && repsParciales > 0),
+        esDropset,
+        drops: drops.length > 0 ? drops : undefined,
       });
     });
 
@@ -131,7 +202,7 @@ export function parsearEjercicioInfo(e: {
 
   const esUnilateral = tieneTagUnilateral || detectadoUnilateralEnSets;
 
-  // 3. Formatear resumen visual estilizado para chips/badges
+  // 4. Formatear resumen visual estilizado para chips/badges
   let resumenVisual: string | null = null;
 
   if (tieneDatosReales && partesDatos.length > 0) {
@@ -152,5 +223,8 @@ export function parsearEjercicioInfo(e: {
     seriesCompletadas,
     tieneDatosReales,
     detallesSets,
+    tieneParciales: tieneParcialesGlobal,
+    tieneDropset: tieneDropsetGlobal,
+    sustituyeANombre,
   };
 }

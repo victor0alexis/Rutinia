@@ -16,15 +16,20 @@ import { useLayout } from '../hooks/useLayout';
 import ScreenBackground from './ScreenBackground';
 import GlowButton from './GlowButton';
 import ResumenEntrenamientoModal, { EjercicioResumen } from './ResumenEntrenamientoModal';
+import SelectorIntercambioModal from './SelectorIntercambioModal';
 import {
   actualizarEjecucionEjercicio,
   actualizarEstadoRegistro,
   obtenerHistorialPrevioRutina,
+  obtenerHistorialPrevioEjercicio,
 } from '../services/registros';
+import { reemplazarEjercicioEnRutina } from '../services/rutinas';
 import { seguro, mostrarMensaje } from '../utils/errores';
 import { parsearEjercicioInfo } from '../utils/ejercicios';
 import { nombreDia } from '../utils/fechas';
 import { Registro } from '../types';
+import { DROPSET_MAX_DROPS, calcularKgSugeridoDrop } from '../constants/entrenamiento';
+import { supabase } from '../lib/supabase';
 import {
   EstadoTimer,
   obtenerOIniciarTimer,
@@ -48,7 +53,14 @@ type Props = {
   modoReanudar?: boolean;
 };
 
-type SerieEjecucion = {
+export type DropItemEjecucion = {
+  orden: number;
+  kg: string;
+  reps: string;
+  rir?: string;
+};
+
+export type SerieEjecucion = {
   id: string;
   peso: string;
   reps: string;
@@ -57,20 +69,31 @@ type SerieEjecucion = {
   rir: string;
   nota: string;
   completado: boolean;
+  repsParciales: number;
+  tieneParciales: boolean;
+  esDropset: boolean;
+  drops: DropItemEjecucion[];
 };
 
-type EjercicioState = {
+export type EjercicioState = {
   id: string;
   nombre: string;
   esUnilateral: boolean;
   series: SerieEjecucion[];
+  sustituye_a_nombre?: string | null;
+  sustituye_a_ejercicio_id?: string | null;
+  sustitucion_alcance?: 'solo_hoy' | 'rutina' | null;
+  notaEjercicio?: string;
 };
 
-type SerieHistorica = {
+export type SerieHistorica = {
   peso: string;
   reps: string;
   rir: string;
   nota: string;
+  repsParciales?: number;
+  esDropset?: boolean;
+  drops?: DropItemEjecucion[];
 };
 
 type HistoricoEjercicio = {
@@ -88,6 +111,7 @@ export default function EjecutarEntrenamientoModal({
   onGuardado,
   modoReanudar = false,
 }: Props) {
+
   // ── Responsive layout centralizado con useLayout ───────────────────────────
   const {
     width,
@@ -140,6 +164,31 @@ export default function EjecutarEntrenamientoModal({
   // MODAL RESUMEN Y CONFIRMACIÓN
   const [resumenVisible, setResumenVisible] = useState(false);
 
+  // ESTADOS PARA MENÚS DE SERIE, EJERCICIO E INTERCAMBIO
+  const [serieMenu, setSerieMenu] = useState<{ ejIdx: number; sIdx: number } | null>(null);
+  const [ejercicioMenu, setEjercicioMenu] = useState<number | null>(null);
+  const [selectorIntercambio, setSelectorIntercambio] = useState<{ ejIdx: number; modo: 'solo_hoy' | 'rutina' } | null>(null);
+  const [modalNotaEjercicio, setModalNotaEjercicio] = useState<{ ejIdx: number; nota: string } | null>(null);
+  const [confirmacionPermanente, setConfirmacionPermanente] = useState<{
+    ejIdx: number;
+    nombreOriginal: string;
+    nuevoNombre: string;
+    seriesHeredadas: SerieEjecucion[];
+    seriesCompletadas: SerieEjecucion[];
+  } | null>(null);
+
+  // SNACKBAR CON DESHACER (6 SEGUNDOS)
+  const [snackbar, setSnackbar] = useState<{ mensaje: string; onDeshacer?: () => void } | null>(null);
+  const snackbarTimerRef = useRef<any>(null);
+
+  const mostrarSnackbar = (mensaje: string, onDeshacer?: () => void) => {
+    if (snackbarTimerRef.current) clearTimeout(snackbarTimerRef.current);
+    setSnackbar({ mensaje, onDeshacer });
+    snackbarTimerRef.current = setTimeout(() => {
+      setSnackbar(null);
+    }, 6000);
+  };
+
   // Cargar o restaurar sesión
   useEffect(() => {
     if (!visible || !registro) return;
@@ -151,7 +200,16 @@ export default function EjecutarEntrenamientoModal({
       let notasTexto = '';
 
       if (borradorPrevio && borradorPrevio.ejerciciosState && borradorPrevio.ejerciciosState.length > 0) {
-        parsedEjercicios = borradorPrevio.ejerciciosState;
+        parsedEjercicios = borradorPrevio.ejerciciosState.map((ej) => ({
+          ...ej,
+          series: ej.series.map((s) => ({
+            ...s,
+            repsParciales: s.repsParciales || 0,
+            tieneParciales: Boolean(s.tieneParciales || (s.repsParciales && s.repsParciales > 0)),
+            esDropset: Boolean(s.esDropset || (s.drops && s.drops.length > 0)),
+            drops: s.drops ? s.drops.map((d) => ({ ...d })) : [],
+          })),
+        }));
         notasTexto = borradorPrevio.notasSesion || '';
       } else {
         const obsExistente = (registro.ejercicios_registro || []).find((e) =>
@@ -185,6 +243,16 @@ export default function EjecutarEntrenamientoModal({
               if (matchR) repsStr = matchR[1];
             }
 
+            const rParciales = sDetail?.repsParciales || 0;
+            const tieneP = Boolean(sDetail?.tieneParciales || rParciales > 0);
+            const esDrop = Boolean(sDetail?.esDropset || (sDetail?.drops && sDetail.drops.length > 0));
+            const dropsArray: DropItemEjecucion[] = (sDetail?.drops || []).map((d) => ({
+              orden: d.orden,
+              kg: d.kg,
+              reps: d.reps,
+              rir: d.rir,
+            }));
+
             return {
               id: i.toString() + Math.random().toString(),
               peso: pesoStr,
@@ -194,6 +262,10 @@ export default function EjecutarEntrenamientoModal({
               rir: rirStr,
               nota: notaStr,
               completado: sDetail ? sDetail.completado : Boolean(e.completado),
+              repsParciales: rParciales,
+              tieneParciales: tieneP,
+              esDropset: esDrop,
+              drops: dropsArray,
             };
           });
 
@@ -202,6 +274,9 @@ export default function EjecutarEntrenamientoModal({
             nombre: parsed.nombreLimpio,
             esUnilateral: parsed.esUnilateral,
             series: seriesArray,
+            sustituye_a_nombre: parsed.sustituyeANombre || (e as any).sustituye_a_nombre || null,
+            sustituye_a_ejercicio_id: (e as any).sustituye_a_ejercicio_id || null,
+            sustitucion_alcance: (e as any).sustitucion_alcance || null,
           };
         });
       }
@@ -228,36 +303,28 @@ export default function EjecutarEntrenamientoModal({
 
           for (const ePrev of sesionPrevia.ejercicios_registro || []) {
             if (ePrev.nombre.startsWith('📌')) continue;
-            const nLimpio = ePrev.nombre.replace(/\s*\(.*\)$/, '').trim();
-            const mResumen = ePrev.nombre.match(/\((.*?)\)/);
-            const rText = mResumen ? mResumen[1] : '';
-            const sItems = rText.split('•').map((s) => s.trim());
-            const nSeries = ePrev.series || sItems.length || 1;
-
-            const sPrevArray: SerieHistorica[] = Array.from({ length: nSeries }, (_, i) => {
-              let pStr = ePrev.peso ? ePrev.peso.toString() : '';
-              let rStr = ePrev.repeticiones ? ePrev.repeticiones.toString() : '';
-              let rirS = '';
-              let nS = '';
-
-              if (sItems[i]) {
-                const item = sItems[i];
-                const matchK = item.match(/(\d+(\.\d+)?)k/);
-                if (matchK) pStr = matchK[1];
-                const matchR = item.match(/(\d+)r/);
-                if (matchR) rStr = matchR[1];
-                const matchRIR = item.match(/RIR\s*(\d+)/i);
-                if (matchRIR) rirS = matchRIR[1];
-                const matchNota = item.match(/\[(.*?)\]/);
-                if (matchNota) nS = matchNota[1];
-              }
-
-              return { peso: pStr, reps: rStr, rir: rirS, nota: nS };
-            });
+            const parsedPrev = parsearEjercicioInfo(ePrev);
+            const nLimpio = parsedPrev.nombreLimpio;
+            const sPrevArray: SerieHistorica[] = parsedPrev.detallesSets.map((ds) => ({
+              peso: ds.pesoD || (ePrev.peso ? ePrev.peso.toString() : ''),
+              reps: ds.repsD || (ePrev.repeticiones ? ePrev.repeticiones.toString() : ''),
+              rir: ds.rir || '',
+              nota: ds.nota || '',
+              repsParciales: ds.repsParciales || 0,
+              esDropset: ds.esDropset || false,
+              drops: ds.drops ? ds.drops.map((d) => ({ ...d })) : [],
+            }));
 
             map[nLimpio] = {
               fechaFormateada: fechaPrevStr,
-              series: sPrevArray,
+              series: sPrevArray.length > 0 ? sPrevArray : [
+                {
+                  peso: ePrev.peso ? ePrev.peso.toString() : '',
+                  reps: ePrev.repeticiones ? ePrev.repeticiones.toString() : '',
+                  rir: '',
+                  nota: '',
+                },
+              ],
             };
           }
           setHistorialMap(map);
@@ -377,15 +444,219 @@ export default function EjecutarEntrenamientoModal({
               id: Date.now().toString() + Math.random().toString(),
               peso: ultimaSerie ? ultimaSerie.peso : '',
               reps: ultimaSerie ? ultimaSerie.reps : '',
+              pesoI: ultimaSerie ? ultimaSerie.pesoI : '',
+              repsI: ultimaSerie ? ultimaSerie.repsI : '',
               rir: ultimaSerie ? ultimaSerie.rir : '',
               nota: '',
               completado: false,
+              repsParciales: 0,
+              tieneParciales: false,
+              esDropset: false,
+              drops: [],
             },
           ],
         };
       });
       guardarDraftAuto(next);
       return next;
+    });
+  };
+
+  const duplicarSerie = (ejIndex: number, sIndex: number) => {
+    setEjerciciosState((prev) => {
+      const next = prev.map((ej, i) => {
+        if (i !== ejIndex) return ej;
+        const sTarget = ej.series[sIndex];
+        const copia: SerieEjecucion = {
+          ...sTarget,
+          id: Date.now().toString() + Math.random().toString(),
+          completado: false,
+          drops: sTarget.drops.map((d) => ({ ...d })),
+        };
+        const nuevasSeries = [...ej.series];
+        nuevasSeries.splice(sIndex + 1, 0, copia);
+        return {
+          ...ej,
+          series: nuevasSeries,
+        };
+      });
+      guardarDraftAuto(next);
+      return next;
+    });
+  };
+
+  const toggleRepsParciales = (ejIndex: number, sIndex: number) => {
+    setEjerciciosState((prev) => {
+      const next = prev.map((ej, i) => {
+        if (i !== ejIndex) return ej;
+        return {
+          ...ej,
+          series: ej.series.map((s, sj) => {
+            if (sj !== sIndex) return s;
+            const nuevoTiene = !s.tieneParciales;
+            return {
+              ...s,
+              tieneParciales: nuevoTiene,
+              repsParciales: nuevoTiene && (!s.repsParciales || s.repsParciales <= 0) ? 3 : s.repsParciales,
+            };
+          }),
+        };
+      });
+      guardarDraftAuto(next);
+      return next;
+    });
+  };
+
+  const toggleDropset = (ejIndex: number, sIndex: number) => {
+    setEjerciciosState((prev) => {
+      const next = prev.map((ej, i) => {
+        if (i !== ejIndex) return ej;
+        return {
+          ...ej,
+          series: ej.series.map((s, sj) => {
+            if (sj !== sIndex) return s;
+            const nuevoTiene = !s.esDropset;
+            let nuevosDrops = s.drops;
+            if (nuevoTiene && s.drops.length === 0) {
+              const kgSugerido = calcularKgSugeridoDrop(s.peso || '0');
+              nuevosDrops = [{ orden: 1, kg: kgSugerido, reps: '', rir: '' }];
+            }
+            return {
+              ...s,
+              esDropset: nuevoTiene,
+              drops: nuevosDrops,
+            };
+          }),
+        };
+      });
+      guardarDraftAuto(next);
+      return next;
+    });
+  };
+
+  const agregarDropASerie = (ejIndex: number, sIndex: number) => {
+    setEjerciciosState((prev) => {
+      const next = prev.map((ej, i) => {
+        if (i !== ejIndex) return ej;
+        return {
+          ...ej,
+          series: ej.series.map((s, sj) => {
+            if (sj !== sIndex) return s;
+            if (s.drops.length >= DROPSET_MAX_DROPS) {
+              mostrarMensaje('Límite alcanzado', `Una serie puede tener como máximo ${DROPSET_MAX_DROPS} drops.`);
+              return s;
+            }
+            const ultimoDrop = s.drops[s.drops.length - 1];
+            const pesoBase = ultimoDrop ? ultimoDrop.kg : s.peso;
+            const kgSugerido = calcularKgSugeridoDrop(pesoBase || '0');
+            const nuevoDrop: DropItemEjecucion = {
+              orden: s.drops.length + 1,
+              kg: kgSugerido,
+              reps: '',
+              rir: '',
+            };
+            return {
+              ...s,
+              drops: [...s.drops, nuevoDrop],
+            };
+          }),
+        };
+      });
+      guardarDraftAuto(next);
+      return next;
+    });
+  };
+
+  const quitarDropDeSerie = (ejIndex: number, sIndex: number, dropIndex: number) => {
+    setEjerciciosState((prev) => {
+      const next = prev.map((ej, i) => {
+        if (i !== ejIndex) return ej;
+        return {
+          ...ej,
+          series: ej.series.map((s, sj) => {
+            if (sj !== sIndex) return s;
+            const filtrados = s.drops.filter((_, di) => di !== dropIndex);
+            const reordenados = filtrados.map((d, di) => ({ ...d, orden: di + 1 }));
+            return {
+              ...s,
+              esDropset: reordenados.length > 0,
+              drops: reordenados,
+            };
+          }),
+        };
+      });
+      guardarDraftAuto(next);
+      return next;
+    });
+  };
+
+  const cambiarCampoDrop = (
+    ejIndex: number,
+    sIndex: number,
+    dropIndex: number,
+    campo: keyof DropItemEjecucion,
+    val: string
+  ) => {
+    setEjerciciosState((prev) => {
+      const next = prev.map((ej, i) => {
+        if (i !== ejIndex) return ej;
+        return {
+          ...ej,
+          series: ej.series.map((s, sj) => {
+            if (sj !== sIndex) return s;
+            return {
+              ...s,
+              drops: s.drops.map((d, di) => (di === dropIndex ? { ...d, [campo]: val } : d)),
+            };
+          }),
+        };
+      });
+      guardarDraftAuto(next);
+      return next;
+    });
+  };
+
+  const toggleCompletarSerie = (ejIndex: number, sIndex: number) => {
+    const s = ejerciciosState[ejIndex]?.series[sIndex];
+    if (!s) return;
+
+    if (!s.completado) {
+      if (s.esDropset && s.drops.length > 0) {
+        const dropIncompleto = s.drops.find((d) => !d.reps || d.reps.trim() === '' || Number(d.reps) <= 0);
+        if (dropIncompleto) {
+          mostrarMensaje(
+            'Drop incompleto',
+            `El Drop #${dropIncompleto.orden} no tiene repeticiones. Complétalo o quítalo antes de confirmar la serie.`
+          );
+          return;
+        }
+      }
+    }
+
+    cambiarCampoSerie(ejIndex, sIndex, 'completado', !s.completado);
+  };
+
+  const eliminarSerieConDeshacer = (ejIndex: number, sIndex: number) => {
+    const s = ejerciciosState[ejIndex]?.series[sIndex];
+    if (!s) return;
+    if (ejerciciosState[ejIndex].series.length === 1) {
+      mostrarMensaje('No permitido', 'Un ejercicio debe tener al menos una serie.');
+      return;
+    }
+
+    quitarSerieDeEjercicio(ejIndex, sIndex);
+
+    mostrarSnackbar(`Serie #${sIndex + 1} eliminada`, () => {
+      setEjerciciosState((prev) => {
+        const next = prev.map((ej, i) => {
+          if (i !== ejIndex) return ej;
+          const nuevas = [...ej.series];
+          nuevas.splice(sIndex, 0, s);
+          return { ...ej, series: nuevas };
+        });
+        guardarDraftAuto(next);
+        return next;
+      });
     });
   };
 
@@ -422,12 +693,203 @@ export default function EjecutarEntrenamientoModal({
               peso: hPrev?.peso ? hPrev.peso : s.peso,
               reps: hPrev?.reps ? hPrev.reps : s.reps,
               rir: hPrev?.rir ? hPrev.rir : s.rir,
+              repsParciales: hPrev?.repsParciales !== undefined ? hPrev.repsParciales : s.repsParciales,
+              tieneParciales: Boolean(hPrev?.repsParciales && hPrev.repsParciales > 0),
+              esDropset: Boolean(hPrev?.esDropset || (hPrev?.drops && hPrev.drops.length > 0)),
+              drops: hPrev?.drops && hPrev.drops.length > 0
+                ? hPrev.drops.map((d) => ({ ...d }))
+                : s.drops,
             };
           }),
         };
       });
       guardarDraftAuto(next);
       return next;
+    });
+  };
+
+  // Intercambiar Ejercicio
+  const aplicarIntercambioEjercicio = async (
+    ejIdx: number,
+    nuevoNombre: string,
+    modo: 'solo_hoy' | 'rutina'
+  ) => {
+    const ejActual = ejerciciosState[ejIdx];
+    if (!ejActual) return;
+    const nombreOriginal = ejActual.nombre;
+
+    const yaExiste = ejerciciosState.some(
+      (e, i) => i !== ejIdx && e.nombre.trim().toLowerCase() === nuevoNombre.trim().toLowerCase()
+    );
+    if (yaExiste) {
+      mostrarMensaje('Ejercicio ya presente', `"${nuevoNombre}" ya está en este entrenamiento.`);
+      return;
+    }
+
+    const seriesCompletadas = ejActual.series.filter((s) => s.completado);
+    const seriesNoCompletadas = ejActual.series.filter((s) => !s.completado);
+
+    const seriesHeredadas: SerieEjecucion[] = (
+      seriesNoCompletadas.length > 0 ? seriesNoCompletadas : [ejActual.series[0]]
+    ).map((s, idx) => ({
+      id: Date.now().toString() + Math.random().toString(),
+      peso: '',
+      reps: '',
+      pesoI: '',
+      repsI: '',
+      rir: '',
+      nota: '',
+      completado: false,
+      repsParciales: 0,
+      tieneParciales: false,
+      esDropset: false,
+      drops: [],
+    }));
+
+    // Cargar historial del nuevo ejercicio
+    const histNuevo = await obtenerHistorialPrevioEjercicio(nuevoNombre, registro?.fecha);
+    if (histNuevo) {
+      setHistorialMap((prev) => ({
+        ...prev,
+        [nuevoNombre]: histNuevo,
+      }));
+    }
+
+    if (modo === 'solo_hoy') {
+      let nuevoEjerciciosState: EjercicioState[] = [];
+      if (seriesCompletadas.length > 0) {
+        const ejOriginalRestante: EjercicioState = {
+          ...ejActual,
+          series: seriesCompletadas,
+        };
+        const ejNuevoState: EjercicioState = {
+          id: Date.now().toString() + Math.random().toString(),
+          nombre: nuevoNombre,
+          esUnilateral: false,
+          series: seriesHeredadas,
+          sustituye_a_nombre: nombreOriginal,
+          sustitucion_alcance: 'solo_hoy',
+        };
+        nuevoEjerciciosState = [
+          ...ejerciciosState.slice(0, ejIdx),
+          ejOriginalRestante,
+          ejNuevoState,
+          ...ejerciciosState.slice(ejIdx + 1),
+        ];
+      } else {
+        const ejNuevoState: EjercicioState = {
+          ...ejActual,
+          nombre: nuevoNombre,
+          series: seriesHeredadas,
+          sustituye_a_nombre: nombreOriginal,
+          sustitucion_alcance: 'solo_hoy',
+        };
+        nuevoEjerciciosState = [
+          ...ejerciciosState.slice(0, ejIdx),
+          ejNuevoState,
+          ...ejerciciosState.slice(ejIdx + 1),
+        ];
+      }
+
+      setEjerciciosState(nuevoEjerciciosState);
+      guardarDraftAuto(nuevoEjerciciosState);
+      setSelectorIntercambio(null);
+      mostrarMensaje('Sustitución aplicada', `"${nombreOriginal}" ha sido sustituido por "${nuevoNombre}" para hoy.`);
+    } else {
+      setSelectorIntercambio(null);
+      setConfirmacionPermanente({
+        ejIdx,
+        nombreOriginal,
+        nuevoNombre,
+        seriesHeredadas,
+        seriesCompletadas,
+      });
+    }
+  };
+
+  const consolidarCambioPermanente = (conf: {
+    ejIdx: number;
+    nombreOriginal: string;
+    nuevoNombre: string;
+    seriesHeredadas: SerieEjecucion[];
+    seriesCompletadas: SerieEjecucion[];
+  }) => {
+    const { ejIdx, nombreOriginal, nuevoNombre, seriesHeredadas, seriesCompletadas } = conf;
+    const ejActual = ejerciciosState[ejIdx];
+    const prevEjerciciosState = [...ejerciciosState];
+
+    let nuevoEjerciciosState: EjercicioState[] = [];
+    if (seriesCompletadas.length > 0) {
+      const ejOriginalRestante: EjercicioState = {
+        ...ejActual,
+        series: seriesCompletadas,
+      };
+      const ejNuevoState: EjercicioState = {
+        id: Date.now().toString() + Math.random().toString(),
+        nombre: nuevoNombre,
+        esUnilateral: false,
+        series: seriesHeredadas,
+        sustituye_a_nombre: nombreOriginal,
+        sustitucion_alcance: 'rutina',
+      };
+      nuevoEjerciciosState = [
+        ...ejerciciosState.slice(0, ejIdx),
+        ejOriginalRestante,
+        ejNuevoState,
+        ...ejerciciosState.slice(ejIdx + 1),
+      ];
+    } else {
+      const ejNuevoState: EjercicioState = {
+        ...ejActual,
+        nombre: nuevoNombre,
+        series: seriesHeredadas,
+        sustituye_a_nombre: nombreOriginal,
+        sustitucion_alcance: 'rutina',
+      };
+      nuevoEjerciciosState = [
+        ...ejerciciosState.slice(0, ejIdx),
+        ejNuevoState,
+        ...ejerciciosState.slice(ejIdx + 1),
+      ];
+    }
+
+    setEjerciciosState(nuevoEjerciciosState);
+    guardarDraftAuto(nuevoEjerciciosState);
+
+    let consolidado = false;
+    let timerConsolidar: any = setTimeout(async () => {
+      consolidado = true;
+      if (registro?.rutina_id) {
+        await reemplazarEjercicioEnRutina(registro.rutina_id, nombreOriginal, nuevoNombre).catch((err) =>
+          console.warn('Error reemplazando ejercicio en rutina:', err)
+        );
+      }
+    }, 6000);
+
+    mostrarSnackbar(`Cambio aplicado en la rutina: "${nuevoNombre}"`, () => {
+      if (!consolidado) {
+        clearTimeout(timerConsolidar);
+        setEjerciciosState(prevEjerciciosState);
+        guardarDraftAuto(prevEjerciciosState);
+      }
+    });
+  };
+
+  const eliminarEjercicioDeSesion = (ejIdx: number) => {
+    if (ejerciciosState.length === 1) {
+      mostrarMensaje('No permitido', 'El entrenamiento debe tener al menos un ejercicio.');
+      return;
+    }
+    const ejEliminado = ejerciciosState[ejIdx];
+    const nextState = ejerciciosState.filter((_, i) => i !== ejIdx);
+    setEjerciciosState(nextState);
+    guardarDraftAuto(nextState);
+
+    mostrarSnackbar(`"${ejEliminado.nombre}" eliminado`, () => {
+      const restaurado = [...nextState];
+      restaurado.splice(ejIdx, 0, ejEliminado);
+      setEjerciciosState(restaurado);
+      guardarDraftAuto(restaurado);
     });
   };
 
@@ -449,6 +911,14 @@ export default function EjecutarEntrenamientoModal({
           const rI = ej.esUnilateral ? Number(s.repsI !== undefined && s.repsI !== '' ? s.repsI : s.reps) || 0 : rD;
 
           volumenTotalKg += pD * rD + pI * rI;
+
+          if (s.esDropset && s.drops && s.drops.length > 0) {
+            s.drops.forEach((d) => {
+              const dKg = Number(d.kg) || 0;
+              const dReps = Number(d.reps) || 0;
+              volumenTotalKg += dKg * dReps;
+            });
+          }
 
           if (pD > maxPeso) {
             maxPeso = pD;
@@ -497,20 +967,25 @@ export default function EjecutarEntrenamientoModal({
           const todasCompletadas = ej.series.every((s) => s.completado);
 
           const tieneDatos = ej.series.some(
-            (s) => Boolean(s.peso || s.reps || s.pesoI || s.repsI || s.rir || s.nota || s.completado)
+            (s) => Boolean(s.peso || s.reps || s.pesoI || s.repsI || s.rir || s.nota || s.completado || s.tieneParciales || s.esDropset)
           );
           const resumenSeries = tieneDatos
             ? ej.series
                 .map((s, idx) => {
+                  let dropsStr = '';
+                  if (s.esDropset && s.drops && s.drops.length > 0) {
+                    dropsStr = s.drops.map((d) => ` → ${d.kg}k ${d.reps}r${d.rir ? ` RIR ${d.rir}` : ''}`).join('') + ' ↓';
+                  }
+
                   if (ej.esUnilateral) {
                     const pD = s.peso ? `${s.peso}k` : '';
-                    const rD = s.reps ? `${s.reps}r` : '';
+                    const rD = s.reps ? (s.repsParciales && s.repsParciales > 0 ? `${s.reps}+${s.repsParciales}p` : `${s.reps}r`) : '';
                     const strD = [pD, rD].filter(Boolean).join(' ');
 
                     const pesoIVal = s.pesoI !== undefined && s.pesoI !== '' ? s.pesoI : s.peso;
                     const repsIVal = s.repsI !== undefined && s.repsI !== '' ? s.repsI : s.reps;
                     const pI = pesoIVal ? `${pesoIVal}k` : '';
-                    const rI = repsIVal ? `${repsIVal}r` : '';
+                    const rI = repsIVal ? (s.repsParciales && s.repsParciales > 0 ? `${repsIVal}+${s.repsParciales}p` : `${repsIVal}r`) : '';
                     const strI = [pI, rI].filter(Boolean).join(' ');
 
                     const rir = s.rir ? `RIR ${s.rir}` : '';
@@ -518,14 +993,14 @@ export default function EjecutarEntrenamientoModal({
                     const c = s.completado ? '✓' : '';
 
                     const resumenBrazo = `D ${strD} | I ${strI}`.trim();
-                    return `${idx + 1}ª: ${[resumenBrazo, rir, n, c].filter(Boolean).join(' ')}`;
+                    return `${idx + 1}ª: ${[resumenBrazo, rir, dropsStr, n, c].filter(Boolean).join(' ')}`;
                   } else {
                     const p = s.peso ? `${s.peso}k` : '';
-                    const r = s.reps ? `${s.reps}r` : '';
+                    const r = s.reps ? (s.repsParciales && s.repsParciales > 0 ? `${s.reps}+${s.repsParciales}p` : `${s.reps}r`) : '';
                     const rir = s.rir ? `RIR ${s.rir}` : '';
                     const n = s.nota ? `[${s.nota}]` : '';
                     const c = s.completado ? '✓' : '';
-                    return `${idx + 1}ª: ${[p, r, rir, n, c].filter(Boolean).join(' ')}`;
+                    return `${idx + 1}ª: ${[p, r, rir, dropsStr, n, c].filter(Boolean).join(' ')}`;
                   }
                 })
                 .join(' • ')
@@ -536,14 +1011,42 @@ export default function EjecutarEntrenamientoModal({
           const nombreBase = tagU + nombreLimpio;
           const nombreConDetalle = resumenSeries ? `${nombreBase} (${resumenSeries})` : nombreBase;
 
-          await actualizarEjecucionEjercicio(ej.id, {
-            nombre: nombreConDetalle,
-            series: numSeriesTotal,
-            repeticiones: repsPrimera,
-            peso: pesoPrimero,
-            completado: todasCompletadas,
-          });
+          const totalParciales = ej.series.reduce((acc, s) => acc + (s.repsParciales || 0), 0);
+          const allDrops = ej.series.flatMap((s) => (s.esDropset ? s.drops : []));
+
+          // Si el id es temporal generado por sustitución, insertamos nueva fila
+          if (ej.id.includes('.')) {
+            await supabase.from('ejercicios_registro').insert({
+              registro_id: registro.id,
+              nombre: nombreConDetalle,
+              series: numSeriesTotal,
+              repeticiones: repsPrimera,
+              peso: pesoPrimero,
+              completado: todasCompletadas,
+              ejercicio_nombre: ej.nombre,
+              sustituye_a_nombre: ej.sustituye_a_nombre || null,
+              sustituye_a_ejercicio_id: ej.sustituye_a_ejercicio_id || null,
+              sustitucion_alcance: ej.sustitucion_alcance || null,
+              reps_parciales: totalParciales,
+              drops: allDrops,
+            });
+          } else {
+            await actualizarEjecucionEjercicio(ej.id, {
+              nombre: nombreConDetalle,
+              series: numSeriesTotal,
+              repeticiones: repsPrimera,
+              peso: pesoPrimero,
+              completado: todasCompletadas,
+              ejercicio_nombre: ej.nombre,
+              sustituye_a_nombre: ej.sustituye_a_nombre || null,
+              sustituye_a_ejercicio_id: ej.sustituye_a_ejercicio_id || null,
+              sustitucion_alcance: ej.sustitucion_alcance || null,
+              reps_parciales: totalParciales,
+              drops: allDrops,
+            });
+          }
         }
+
 
         const sesionCompletada = porcentajeProgreso >= 50;
         const planNombreFinal = registro.plan_nombre || registro.planes_entrenamiento?.nombre || null;
@@ -687,6 +1190,16 @@ export default function EjecutarEntrenamientoModal({
                           EN VIVO • {nombreDia(fecha)}
                         </Text>
                       </View>
+                      {/* DOS LÍNEAS: Plan arriba en texto pequeño si existe, Rutina debajo */}
+                      {Boolean(registro.plan_nombre || registro.planes_entrenamiento?.nombre) && (
+                        <Text
+                          style={styles.livePlanSubtitleText}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {registro.plan_nombre || registro.planes_entrenamiento?.nombre}
+                        </Text>
+                      )}
                       <Text
                         style={[
                           styles.liveTitleText,
@@ -694,12 +1207,12 @@ export default function EjecutarEntrenamientoModal({
                           isLandscape && { fontSize: 16 },
                         ]}
                         numberOfLines={1}
+                        ellipsizeMode="tail"
                       >
-                        {registro.plan_nombre || registro.planes_entrenamiento?.nombre
-                          ? `${registro.plan_nombre || registro.planes_entrenamiento?.nombre} › ${registro.rutina_nombre || registro.rutinas?.nombre || 'Rutina'}`
-                          : registro.rutina_nombre || registro.rutinas?.nombre || 'Entrenamiento del Día'}
+                        {registro.rutina_nombre || registro.rutinas?.nombre || 'Entrenamiento del Día'}
                       </Text>
                     </View>
+
 
 
                     {/* Widget Timer Interactivo (ÚNICO TIMER DE LA SESIÓN) */}
@@ -784,19 +1297,46 @@ export default function EjecutarEntrenamientoModal({
 
                     return (
                       <View key={ej.id} style={styles.exerciseCard}>
-                        {/* Header del Ejercicio */}
+                        {/* Header del Ejercicio con menú ⋯ y badge de sustitución */}
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Text style={{ color: colores.texto, fontFamily: fuentes.black, fontSize: 15, flex: 1, paddingRight: 8 }} numberOfLines={1}>
-                            {ejIdx + 1}. {ej.nombre}
-                          </Text>
-                          <View style={styles.seriesCountBadge}>
-                            <Text style={{ color: colores.primarioHover, fontSize: 10, fontFamily: fuentes.bold }}>
-                              {ej.series.length} {ej.series.length === 1 ? 'Serie' : 'Series'}
-                            </Text>
+                          <View style={{ flex: 1, paddingRight: 8 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              <Text style={{ color: colores.texto, fontFamily: fuentes.black, fontSize: 15 }} numberOfLines={1}>
+                                {ejIdx + 1}. {ej.nombre}
+                              </Text>
+                              {Boolean(ej.sustituye_a_nombre) && (
+                                <View style={styles.sustituyeBadge}>
+                                  <Ionicons name="swap-horizontal" size={10} color="#60A5FA" />
+                                  <Text style={styles.sustituyeBadgeText}>
+                                    ↔ Sustituye a {ej.sustituye_a_nombre}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                            {Boolean(ej.notaEjercicio) && (
+                              <Text style={{ color: colores.suave, fontSize: 11, fontStyle: 'italic', marginTop: 2 }}>
+                                📝 {ej.notaEjercicio}
+                              </Text>
+                            )}
+                          </View>
+
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <View style={styles.seriesCountBadge}>
+                              <Text style={{ color: colores.primarioHover, fontSize: 10, fontFamily: fuentes.bold }}>
+                                {ej.series.length} {ej.series.length === 1 ? 'Serie' : 'Series'}
+                              </Text>
+                            </View>
+                            <Pressable
+                              onPress={() => setEjercicioMenu(ejIdx)}
+                              style={styles.cardHeaderMoreBtn}
+                              hitSlop={8}
+                            >
+                              <Ionicons name="ellipsis-horizontal" size={16} color={colores.suave} />
+                            </Pressable>
                           </View>
                         </View>
 
-                        {/* Banner de Referencia Histórica */}
+                        {/* Banner de Referencia Histórica con Parciales y Drops */}
                         {histEj && histEj.series.length > 0 ? (
                           <View style={styles.historyBoxContainer}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -822,15 +1362,25 @@ export default function EjecutarEntrenamientoModal({
                             </View>
 
                             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-                              {histEj.series.map((sPrev, sIdx) => (
-                                <View key={sIdx} style={styles.historyChip}>
-                                  <Text style={{ fontSize: 10, fontFamily: fuentes.medium, color: colores.texto }}>
-                                    #{sIdx + 1}: <Text style={{ fontFamily: fuentes.bold, color: colores.hoy }}>{sPrev.peso ? `${sPrev.peso}k` : '-'}</Text> ×{' '}
-                                    <Text style={{ fontFamily: fuentes.bold, color: colores.texto }}>{sPrev.reps ? `${sPrev.reps}r` : '-'}</Text>
-                                    {sPrev.rir ? ` (RIR ${sPrev.rir})` : ''}
-                                  </Text>
-                                </View>
-                              ))}
+                              {histEj.series.map((sPrev, sIdx) => {
+                                const tieneP = Boolean(sPrev.repsParciales && sPrev.repsParciales > 0);
+                                const dropsStr = sPrev.drops && sPrev.drops.length > 0
+                                  ? sPrev.drops.map((d) => ` → ${d.kg}k×${d.reps}r`).join('') + ' ↓'
+                                  : '';
+                                return (
+                                  <View key={sIdx} style={styles.historyChip}>
+                                    <Text style={{ fontSize: 10, fontFamily: fuentes.medium, color: colores.texto }}>
+                                      #{sIdx + 1}: <Text style={{ fontFamily: fuentes.bold, color: colores.hoy }}>{sPrev.peso ? `${sPrev.peso}k` : '-'}</Text> ×{' '}
+                                      <Text style={{ fontFamily: fuentes.bold, color: colores.texto }}>
+                                        {sPrev.reps ? `${sPrev.reps}r` : '-'}
+                                        {tieneP ? <Text style={{ color: '#F59E0B' }}> +{sPrev.repsParciales}p</Text> : ''}
+                                      </Text>
+                                      {sPrev.rir ? ` (RIR ${sPrev.rir})` : ''}
+                                      {Boolean(dropsStr) && <Text style={{ color: '#38BDF8', fontFamily: fuentes.bold }}>{dropsStr}</Text>}
+                                    </Text>
+                                  </View>
+                                );
+                              })}
                             </View>
                           </View>
                         ) : (
@@ -841,6 +1391,7 @@ export default function EjecutarEntrenamientoModal({
                             </Text>
                           </View>
                         )}
+
 
                         {/* Tabla de Series (Bilateral vs Unilateral D/I) */}
                         {ej.esUnilateral ? (
@@ -982,15 +1533,14 @@ export default function EjecutarEntrenamientoModal({
                                     </Pressable>
                                   </View>
 
-                                  {/* Eliminar Serie */}
+                                  {/* Menú de opciones de la serie (⋯) */}
                                   <View style={styles.colDel}>
                                     <Pressable
-                                      onPress={() => quitarSerieDeEjercicio(ejIdx, sIdx)}
-                                      disabled={ej.series.length === 1}
-                                      style={{ opacity: ej.series.length === 1 ? 0.2 : 0.7, padding: 4 }}
+                                      onPress={() => setSerieMenu({ ejIdx, sIdx })}
+                                      style={styles.serieMoreBtn}
                                       hitSlop={6}
                                     >
-                                      <Ionicons name="close" size={14} color={colores.suave} />
+                                      <Ionicons name="ellipsis-horizontal" size={16} color={colores.suave} />
                                     </Pressable>
                                   </View>
                                 </View>
@@ -1057,11 +1607,21 @@ export default function EjecutarEntrenamientoModal({
                                       { backgroundColor: s.completado ? 'rgba(16, 185, 129, 0.12)' : 'transparent', borderRadius: 8 },
                                     ]}
                                   >
-                                    {/* ST — número de serie */}
+                                    {/* ST — número de serie con chips de parcial y dropset */}
                                     <View style={styles.colST}>
                                       <Text style={{ color: s.completado ? colores.exito : colores.texto, fontFamily: fuentes.bold, fontSize: 11 }}>
                                         #{sIdx + 1}
                                       </Text>
+                                      {s.tieneParciales && (
+                                        <View style={styles.chipMiniParcial}>
+                                          <Text style={styles.chipMiniParcialText}>P</Text>
+                                        </View>
+                                      )}
+                                      {s.esDropset && (
+                                        <View style={styles.chipMiniDrop}>
+                                          <Text style={styles.chipMiniDropText}>DS</Text>
+                                        </View>
+                                      )}
                                     </View>
 
                                     {/* KG */}
@@ -1141,10 +1701,10 @@ export default function EjecutarEntrenamientoModal({
                                       </View>
                                     )}
 
-                                    {/* OK checkbox */}
+                                    {/* OK checkbox con validación de drops */}
                                     <View style={styles.colOK}>
                                       <Pressable
-                                        onPress={() => cambiarCampoSerie(ejIdx, sIdx, 'completado', !s.completado)}
+                                        onPress={() => toggleCompletarSerie(ejIdx, sIdx)}
                                         style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
                                         hitSlop={4}
                                       >
@@ -1156,15 +1716,14 @@ export default function EjecutarEntrenamientoModal({
                                       </Pressable>
                                     </View>
 
-                                    {/* Eliminar Serie */}
+                                    {/* Menú de opciones de la serie (⋯) */}
                                     <View style={styles.colDel}>
                                       <Pressable
-                                        onPress={() => quitarSerieDeEjercicio(ejIdx, sIdx)}
-                                        disabled={ej.series.length === 1}
-                                        style={{ opacity: ej.series.length === 1 ? 0.2 : 0.7, padding: 4 }}
+                                        onPress={() => setSerieMenu({ ejIdx, sIdx })}
+                                        style={styles.serieMoreBtn}
                                         hitSlop={6}
                                       >
-                                        <Ionicons name="close" size={14} color={colores.suave} />
+                                        <Ionicons name="ellipsis-horizontal" size={16} color={colores.suave} />
                                       </Pressable>
                                     </View>
                                   </View>
@@ -1183,10 +1742,125 @@ export default function EjecutarEntrenamientoModal({
                                       />
                                     </View>
                                   )}
+
+                                  {/* Franja de Parciales si está activa */}
+                                  {s.tieneParciales && (
+                                    <View style={styles.parcialesRowContainer}>
+                                      <View style={styles.parcialesLabelBox}>
+                                        <Ionicons name="flash" size={12} color="#F59E0B" />
+                                        <Text style={styles.parcialesLabelText}>Parciales</Text>
+                                      </View>
+                                      <View style={styles.stepperContainer}>
+                                        <Pressable
+                                          onPress={() => cambiarCampoSerie(ejIdx, sIdx, 'repsParciales', Math.max(0, (s.repsParciales || 0) - 1))}
+                                          style={styles.stepperBtn}
+                                          hitSlop={6}
+                                        >
+                                          <Ionicons name="remove" size={14} color={colores.texto} />
+                                        </Pressable>
+                                        <TextInput
+                                          value={(s.repsParciales || 0).toString()}
+                                          onChangeText={(val) => {
+                                            const num = parseInt(val.replace(/[^0-9]/g, ''), 10) || 0;
+                                            cambiarCampoSerie(ejIdx, sIdx, 'repsParciales', num);
+                                          }}
+                                          keyboardType="number-pad"
+                                          inputMode="numeric"
+                                          style={styles.stepperInput}
+                                        />
+                                        <Pressable
+                                          onPress={() => cambiarCampoSerie(ejIdx, sIdx, 'repsParciales', (s.repsParciales || 0) + 1)}
+                                          style={styles.stepperBtn}
+                                          hitSlop={6}
+                                        >
+                                          <Ionicons name="add" size={14} color={colores.texto} />
+                                        </Pressable>
+                                      </View>
+                                    </View>
+                                  )}
+
+                                  {/* Filas de Dropset si está activo */}
+                                  {s.esDropset && (
+                                    <View style={styles.dropsetContainer}>
+                                      {s.drops.map((drop, dIdx) => (
+                                        <View key={drop.orden} style={styles.dropSubRow}>
+                                          <View style={styles.colSTDrop}>
+                                            <Ionicons name="arrow-down" size={11} color="#38BDF8" />
+                                            <Text style={styles.dropNumText}>D{drop.orden}</Text>
+                                          </View>
+                                          <View style={styles.colKG}>
+                                            <TextInput
+                                              placeholder="KG"
+                                              placeholderTextColor={colores.suave}
+                                              keyboardType="decimal-pad"
+                                              inputMode="decimal"
+                                              value={drop.kg}
+                                              onChangeText={(val) => cambiarCampoDrop(ejIdx, sIdx, dIdx, 'kg', val)}
+                                              style={[styles.inputCell, styles.inputCellDrop]}
+                                            />
+                                          </View>
+                                          <View style={styles.colREPS}>
+                                            <TextInput
+                                              placeholder="REPS"
+                                              placeholderTextColor={colores.suave}
+                                              keyboardType="number-pad"
+                                              inputMode="numeric"
+                                              value={drop.reps}
+                                              onChangeText={(val) => cambiarCampoDrop(ejIdx, sIdx, dIdx, 'reps', val)}
+                                              style={[styles.inputCell, styles.inputCellDrop, !drop.reps && styles.inputCellWarning]}
+                                            />
+                                          </View>
+                                          <View style={styles.colRIR}>
+                                            <TextInput
+                                              placeholder="—"
+                                              placeholderTextColor={colores.suave}
+                                              keyboardType="number-pad"
+                                              inputMode="numeric"
+                                              value={drop.rir || ''}
+                                              onChangeText={(val) => cambiarCampoDrop(ejIdx, sIdx, dIdx, 'rir', val)}
+                                              style={[styles.inputCell, styles.inputCellDrop]}
+                                            />
+                                          </View>
+                                          {mostrarNotaColumna && <View style={styles.colNOTA} />}
+                                          <View style={styles.colOK} />
+                                          <View style={styles.colDel}>
+                                            <Pressable
+                                              onPress={() => quitarDropDeSerie(ejIdx, sIdx, dIdx)}
+                                              hitSlop={6}
+                                              style={{ padding: 4 }}
+                                            >
+                                              <Ionicons name="close" size={13} color={colores.suave} />
+                                            </Pressable>
+                                          </View>
+                                        </View>
+                                      ))}
+
+                                      {/* Botón + Añadir drop */}
+                                      <View style={styles.addDropRow}>
+                                        <Pressable
+                                          onPress={() => agregarDropASerie(ejIdx, sIdx)}
+                                          disabled={s.drops.length >= DROPSET_MAX_DROPS}
+                                          style={({ pressed }) => [
+                                            styles.addDropBtn,
+                                            s.drops.length >= DROPSET_MAX_DROPS && { opacity: 0.5 },
+                                            pressed && s.drops.length < DROPSET_MAX_DROPS && { opacity: 0.8 },
+                                          ]}
+                                        >
+                                          <Ionicons name="add" size={12} color="#38BDF8" />
+                                          <Text style={styles.addDropBtnText}>
+                                            {s.drops.length >= DROPSET_MAX_DROPS
+                                              ? `Máximo ${DROPSET_MAX_DROPS} drops`
+                                              : `+ Añadir drop (${s.drops.length}/${DROPSET_MAX_DROPS})`}
+                                          </Text>
+                                        </Pressable>
+                                      </View>
+                                    </View>
+                                  )}
                                 </View>
                               );
                             })}
                           </View>
+
                         )}
 
                         {/* Botón + Serie */}
@@ -1273,6 +1947,373 @@ export default function EjecutarEntrenamientoModal({
         onConfirmarGuardar={guardarSesionFinal}
         onDescartarSesion={descartarSesion}
       />
+
+      {/* MODAL / SHEET: SELECTOR DE INTERCAMBIO DE EJERCICIO */}
+      {selectorIntercambio && (
+        <SelectorIntercambioModal
+          visible={Boolean(selectorIntercambio)}
+          ejercicioActualNombre={ejerciciosState[selectorIntercambio.ejIdx]?.nombre || ''}
+          ejerciciosEnRutina={ejerciciosState.map((e) => e.nombre)}
+          modo={selectorIntercambio.modo}
+          onSeleccionar={(nuevoNombre, modo) => {
+            aplicarIntercambioEjercicio(selectorIntercambio.ejIdx, nuevoNombre, modo);
+          }}
+          onClose={() => setSelectorIntercambio(null)}
+        />
+      )}
+
+      {/* MODAL / SHEET: OPCIONES DE LA SERIE */}
+      <Modal
+        visible={serieMenu !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSerieMenu(null)}
+      >
+        <Pressable style={styles.sheetBackdrop} onPress={() => setSerieMenu(null)}>
+          <Pressable style={styles.sheetContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.sheetHandle} />
+            {serieMenu && ejerciciosState[serieMenu.ejIdx]?.series[serieMenu.sIdx] && (() => {
+              const currentSerie = ejerciciosState[serieMenu.ejIdx].series[serieMenu.sIdx];
+              return (
+                <View style={{ gap: 10 }}>
+                  <View style={{ paddingBottom: 6, borderBottomWidth: 1, borderColor: colores.borde }}>
+                    <Text style={styles.sheetTitle}>
+                      Opciones Serie #{serieMenu.sIdx + 1}
+                    </Text>
+                    <Text style={styles.sheetSubtitle}>
+                      {ejerciciosState[serieMenu.ejIdx].nombre}
+                    </Text>
+                  </View>
+
+                  {/* Toggle Reps Parciales */}
+                  <Pressable
+                    onPress={() => {
+                      toggleRepsParciales(serieMenu.ejIdx, serieMenu.sIdx);
+                      setSerieMenu(null);
+                    }}
+                    style={styles.sheetOption}
+                  >
+                    <View style={[styles.sheetIconBox, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+                      <Ionicons name="flash" size={18} color="#F59E0B" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sheetOptionText}>
+                        {currentSerie.tieneParciales ? 'Desactivar reps parciales' : 'Activar reps parciales'}
+                      </Text>
+                      <Text style={styles.sheetOptionSubtext}>
+                        {currentSerie.tieneParciales ? 'Ocultar conteo de parciales' : 'Añadir repeticiones parciales al fallo'}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name={currentSerie.tieneParciales ? "checkmark-circle" : "ellipse-outline"}
+                      size={22}
+                      color={currentSerie.tieneParciales ? "#F59E0B" : colores.suave}
+                    />
+                  </Pressable>
+
+                  {/* Toggle Dropset */}
+                  <Pressable
+                    onPress={() => {
+                      toggleDropset(serieMenu.ejIdx, serieMenu.sIdx);
+                      setSerieMenu(null);
+                    }}
+                    style={styles.sheetOption}
+                  >
+                    <View style={[styles.sheetIconBox, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
+                      <Ionicons name="arrow-down-circle" size={18} color="#38BDF8" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sheetOptionText}>
+                        {currentSerie.esDropset ? 'Desactivar dropset' : 'Activar dropset'}
+                      </Text>
+                      <Text style={styles.sheetOptionSubtext}>
+                        {currentSerie.esDropset ? 'Eliminar series descendentes' : 'Añadir sub-series con -20% peso'}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name={currentSerie.esDropset ? "checkmark-circle" : "ellipse-outline"}
+                      size={22}
+                      color={currentSerie.esDropset ? "#38BDF8" : colores.suave}
+                    />
+                  </Pressable>
+
+                  {/* Duplicar Serie */}
+                  <Pressable
+                    onPress={() => {
+                      duplicarSerie(serieMenu.ejIdx, serieMenu.sIdx);
+                      setSerieMenu(null);
+                    }}
+                    style={styles.sheetOption}
+                  >
+                    <View style={[styles.sheetIconBox, { backgroundColor: colores.primarioSuave }]}>
+                      <Ionicons name="copy-outline" size={18} color={colores.primarioHover} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sheetOptionText}>Duplicar serie</Text>
+                      <Text style={styles.sheetOptionSubtext}>Crear una serie idéntica debajo</Text>
+                    </View>
+                  </Pressable>
+
+                  {/* Eliminar Serie */}
+                  <Pressable
+                    onPress={() => {
+                      const { ejIdx, sIdx } = serieMenu;
+                      setSerieMenu(null);
+                      eliminarSerieConDeshacer(ejIdx, sIdx);
+                    }}
+                    style={[styles.sheetOption, styles.sheetOptionDanger]}
+                  >
+                    <View style={[styles.sheetIconBox, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                      <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.sheetOptionText, { color: '#EF4444' }]}>Eliminar serie</Text>
+                      <Text style={styles.sheetOptionSubtext}>Podrás deshacer durante 6 segundos</Text>
+                    </View>
+                  </Pressable>
+                </View>
+              );
+            })()}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* MODAL / SHEET: OPCIONES DEL EJERCICIO */}
+      <Modal
+        visible={ejercicioMenu !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEjercicioMenu(null)}
+      >
+        <Pressable style={styles.sheetBackdrop} onPress={() => setEjercicioMenu(null)}>
+          <Pressable style={styles.sheetContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.sheetHandle} />
+            {ejercicioMenu !== null && ejerciciosState[ejercicioMenu] && (() => {
+              const ej = ejerciciosState[ejercicioMenu];
+              return (
+                <View style={{ gap: 10 }}>
+                  <View style={{ paddingBottom: 6, borderBottomWidth: 1, borderColor: colores.borde }}>
+                    <Text style={styles.sheetTitle}>
+                      {ej.nombre}
+                    </Text>
+                    <Text style={styles.sheetSubtitle}>
+                      {ej.series.length} {ej.series.length === 1 ? 'serie registrada' : 'series registradas'}
+                    </Text>
+                  </View>
+
+                  {/* Intercambiar solo hoy */}
+                  <Pressable
+                    onPress={() => {
+                      const idx = ejercicioMenu;
+                      setEjercicioMenu(null);
+                      setSelectorIntercambio({ ejIdx: idx, modo: 'solo_hoy' });
+                    }}
+                    style={styles.sheetOption}
+                  >
+                    <View style={[styles.sheetIconBox, { backgroundColor: 'rgba(96, 165, 250, 0.15)' }]}>
+                      <Ionicons name="swap-horizontal" size={18} color="#60A5FA" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sheetOptionText}>Intercambiar solo en este entrenamiento</Text>
+                      <Text style={styles.sheetOptionSubtext}>Sustituye hoy; series previas se conservan</Text>
+                    </View>
+                  </Pressable>
+
+                  {/* Intercambiar en la rutina (permanente) */}
+                  <Pressable
+                    onPress={() => {
+                      const idx = ejercicioMenu;
+                      setEjercicioMenu(null);
+                      setSelectorIntercambio({ ejIdx: idx, modo: 'rutina' });
+                    }}
+                    style={styles.sheetOption}
+                  >
+                    <View style={[styles.sheetIconBox, { backgroundColor: 'rgba(168, 85, 247, 0.15)' }]}>
+                      <Ionicons name="repeat" size={18} color="#A855F7" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sheetOptionText}>Intercambiar en la rutina (permanente)</Text>
+                      <Text style={styles.sheetOptionSubtext}>Actualiza la plantilla de rutina para futuros días</Text>
+                    </View>
+                  </Pressable>
+
+                  {/* Nota del Ejercicio */}
+                  <Pressable
+                    onPress={() => {
+                      const idx = ejercicioMenu;
+                      const notaActual = ej.notaEjercicio || '';
+                      setEjercicioMenu(null);
+                      setModalNotaEjercicio({ ejIdx: idx, nota: notaActual });
+                    }}
+                    style={styles.sheetOption}
+                  >
+                    <View style={[styles.sheetIconBox, { backgroundColor: colores.primarioSuave }]}>
+                      <Ionicons name="create-outline" size={18} color={colores.primarioHover} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sheetOptionText}>
+                        {ej.notaEjercicio ? 'Editar nota del ejercicio' : 'Añadir nota del ejercicio'}
+                      </Text>
+                      <Text style={styles.sheetOptionSubtext}>Ajustes de máquina, alturas, sensaciones</Text>
+                    </View>
+                  </Pressable>
+
+                  {/* Eliminar Ejercicio */}
+                  <Pressable
+                    onPress={() => {
+                      const idx = ejercicioMenu;
+                      setEjercicioMenu(null);
+                      eliminarEjercicioDeSesion(idx);
+                    }}
+                    style={[styles.sheetOption, styles.sheetOptionDanger]}
+                  >
+                    <View style={[styles.sheetIconBox, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                      <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.sheetOptionText, { color: '#EF4444' }]}>Eliminar ejercicio</Text>
+                      <Text style={styles.sheetOptionSubtext}>Quitar de esta sesión de entrenamiento</Text>
+                    </View>
+                  </Pressable>
+                </View>
+              );
+            })()}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* MODAL CONFIRMACIÓN: CAMBIO PERMANENTE EN RUTINA */}
+      <Modal
+        visible={confirmacionPermanente !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmacionPermanente(null)}
+      >
+        <Pressable style={styles.sheetBackdrop} onPress={() => setConfirmacionPermanente(null)}>
+          <Pressable style={styles.dialogCard} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.dialogHeader}>
+              <View style={[styles.sheetIconBox, { backgroundColor: 'rgba(168, 85, 247, 0.15)' }]}>
+                <Ionicons name="repeat" size={20} color="#A855F7" />
+              </View>
+              <Text style={styles.dialogTitle}>¿Cambiar en la rutina?</Text>
+            </View>
+            <Text style={styles.dialogText}>
+              Se reemplazará <Text style={{ fontFamily: fuentes.bold, color: colores.texto }}>"{confirmacionPermanente?.nombreOriginal}"</Text> por <Text style={{ fontFamily: fuentes.bold, color: colores.primarioHover }}>"{confirmacionPermanente?.nuevoNombre}"</Text> en la rutina base. Las próximas sesiones usarán este nuevo ejercicio.
+            </Text>
+            <Text style={styles.dialogSubtext}>
+              Tendrás 6 segundos para deshacer la acción mediante la barra inferior.
+            </Text>
+            <View style={styles.dialogActions}>
+              <Pressable
+                onPress={() => setConfirmacionPermanente(null)}
+                style={styles.dialogBtnSecondary}
+              >
+                <Text style={styles.dialogBtnSecondaryText}>Cancelar</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  if (confirmacionPermanente) {
+                    consolidarCambioPermanente(confirmacionPermanente);
+                    setConfirmacionPermanente(null);
+                  }
+                }}
+                style={styles.dialogBtnPrimary}
+              >
+                <Text style={styles.dialogBtnPrimaryText}>Confirmar cambio</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* MODAL NOTA DEL EJERCICIO */}
+      <Modal
+        visible={modalNotaEjercicio !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalNotaEjercicio(null)}
+      >
+        <Pressable style={styles.sheetBackdrop} onPress={() => setModalNotaEjercicio(null)}>
+          <Pressable style={styles.dialogCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.dialogTitle}>Nota del Ejercicio</Text>
+            <Text style={styles.dialogSubtext}>
+              {modalNotaEjercicio && ejerciciosState[modalNotaEjercicio.ejIdx]?.nombre}
+            </Text>
+            <TextInput
+              placeholder="Ej. Asiento posición 4, polea a la altura del hombro..."
+              placeholderTextColor={colores.suave}
+              multiline
+              numberOfLines={3}
+              value={modalNotaEjercicio?.nota || ''}
+              onChangeText={(val) => {
+                if (modalNotaEjercicio) {
+                  setModalNotaEjercicio({ ...modalNotaEjercicio, nota: val });
+                }
+              }}
+              style={[styles.inputBase, { height: 75, textAlignVertical: 'top', marginVertical: 10 }]}
+            />
+            <View style={styles.dialogActions}>
+              <Pressable
+                onPress={() => setModalNotaEjercicio(null)}
+                style={styles.dialogBtnSecondary}
+              >
+                <Text style={styles.dialogBtnSecondaryText}>Cancelar</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  if (modalNotaEjercicio) {
+                    setEjerciciosState((prev) => {
+                      const next = prev.map((e, i) =>
+                        i === modalNotaEjercicio.ejIdx ? { ...e, notaEjercicio: modalNotaEjercicio.nota } : e
+                      );
+                      guardarDraftAuto(next);
+                      return next;
+                    });
+                    setModalNotaEjercicio(null);
+                  }
+                }}
+                style={styles.dialogBtnPrimary}
+              >
+                <Text style={styles.dialogBtnPrimaryText}>Guardar</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* SNACKBAR DESHACER (6 SEGUNDOS) */}
+      {snackbar && (
+        <View
+          style={[
+            styles.snackbarContainer,
+            {
+              bottom: bottomInset + (isLandscape ? 60 : 76),
+              left: isLandscape || isTablet ? 'auto' : gutter,
+              right: isLandscape || isTablet ? 'auto' : gutter,
+              width: isLandscape || isTablet ? Math.min(width - gutter * 2, 600) : undefined,
+              alignSelf: 'center',
+            },
+          ]}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={styles.snackbarText} numberOfLines={2}>
+              {snackbar.mensaje}
+            </Text>
+          </View>
+          {snackbar.onDeshacer && (
+            <Pressable
+              onPress={() => {
+                snackbar.onDeshacer?.();
+                setSnackbar(null);
+              }}
+              style={styles.snackbarBtn}
+              hitSlop={8}
+            >
+              <Text style={styles.snackbarBtnText}>DESHACER (6s)</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
     </Modal>
   );
 }
@@ -1682,5 +2723,367 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 10,
     elevation: 8,
+  },
+
+  /* BADGES & HEADER ACTIONS */
+  sustituyeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(96, 165, 250, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 165, 250, 0.35)',
+  },
+  sustituyeBadgeText: {
+    color: '#60A5FA',
+    fontSize: 10,
+    fontFamily: fuentes.bold,
+  },
+  livePlanSubtitleText: {
+    color: colores.primarioHover,
+    fontSize: 11,
+    fontFamily: fuentes.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  cardHeaderMoreBtn: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: colores.borde,
+  },
+  serieMoreBtn: {
+    width: 32,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 6,
+  },
+
+  /* MINI CHIPS EN SERIE ROW */
+  chipMiniParcial: {
+    backgroundColor: 'rgba(245, 158, 11, 0.20)',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.45)',
+    marginTop: 2,
+  },
+  chipMiniParcialText: {
+    color: '#F59E0B',
+    fontSize: 9,
+    fontFamily: fuentes.black,
+  },
+  chipMiniDrop: {
+    backgroundColor: 'rgba(56, 189, 248, 0.20)',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.45)',
+    marginTop: 2,
+  },
+  chipMiniDropText: {
+    color: '#38BDF8',
+    fontSize: 9,
+    fontFamily: fuentes.black,
+  },
+
+  /* STEPPER DE PARCIALES */
+  parcialesRowContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.25)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginTop: 4,
+  },
+  parcialesLabelBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  parcialesLabelText: {
+    color: '#F59E0B',
+    fontSize: 11,
+    fontFamily: fuentes.bold,
+  },
+  stepperContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(10, 12, 18, 0.65)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  stepperBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperInput: {
+    color: colores.texto,
+    fontSize: 13,
+    fontFamily: fuentes.black,
+    textAlign: 'center',
+    minWidth: 26,
+    paddingVertical: 0,
+  },
+
+  /* DROPSET CONTAINER & ROWS */
+  dropsetContainer: {
+    marginTop: 4,
+    paddingLeft: 8,
+    borderLeftWidth: 2,
+    borderLeftColor: 'rgba(56, 189, 248, 0.40)',
+    gap: 4,
+  },
+  dropSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(56, 189, 248, 0.06)',
+    borderRadius: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.15)',
+  },
+  colSTDrop: {
+    width: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    justifyContent: 'center',
+  },
+  dropNumText: {
+    color: '#38BDF8',
+    fontSize: 10,
+    fontFamily: fuentes.black,
+  },
+  inputCellDrop: {
+    backgroundColor: 'rgba(10, 12, 18, 0.50)',
+    borderColor: 'rgba(56, 189, 248, 0.30)',
+  },
+  inputCellWarning: {
+    borderColor: 'rgba(239, 68, 68, 0.60)',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+  },
+  addDropRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    marginTop: 2,
+  },
+  addDropBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+  },
+  addDropBtnText: {
+    color: '#38BDF8',
+    fontSize: 10,
+    fontFamily: fuentes.bold,
+  },
+
+  /* BOTTOM SHEETS & DIALOGS */
+  sheetBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.70)',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  sheetContent: {
+    width: '100%',
+    maxWidth: 600,
+    backgroundColor: colores.tarjeta,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    padding: 16,
+    paddingBottom: 28,
+  },
+  sheetHandle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colores.suave,
+    opacity: 0.4,
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  sheetTitle: {
+    color: colores.texto,
+    fontSize: 16,
+    fontFamily: fuentes.black,
+  },
+  sheetSubtitle: {
+    color: colores.suave,
+    fontSize: 12,
+    fontFamily: fuentes.medium,
+    marginTop: 2,
+  },
+  sheetIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  sheetOptionDanger: {
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+  },
+  sheetOptionText: {
+    color: colores.texto,
+    fontSize: 13,
+    fontFamily: fuentes.bold,
+  },
+  sheetOptionSubtext: {
+    color: colores.suave,
+    fontSize: 11,
+    fontFamily: fuentes.medium,
+    marginTop: 1,
+  },
+
+  /* DIALOG CARD */
+  dialogCard: {
+    width: '90%',
+    maxWidth: 480,
+    backgroundColor: colores.tarjeta,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    padding: 18,
+    alignSelf: 'center',
+    marginVertical: 'auto',
+  },
+  dialogHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  dialogTitle: {
+    color: colores.texto,
+    fontSize: 17,
+    fontFamily: fuentes.black,
+  },
+  dialogText: {
+    color: colores.texto,
+    fontSize: 13,
+    fontFamily: fuentes.regular,
+    lineHeight: 18,
+  },
+  dialogSubtext: {
+    color: colores.suave,
+    fontSize: 11,
+    fontFamily: fuentes.medium,
+    marginTop: 6,
+    lineHeight: 15,
+  },
+  dialogActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 16,
+  },
+  dialogBtnSecondary: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  dialogBtnSecondaryText: {
+    color: colores.texto,
+    fontSize: 12,
+    fontFamily: fuentes.bold,
+  },
+  dialogBtnPrimary: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: colores.primario,
+  },
+  dialogBtnPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontFamily: fuentes.bold,
+  },
+
+  /* SNACKBAR */
+  snackbarContainer: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(244, 63, 94, 0.50)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 10,
+    zIndex: 9999,
+  },
+  snackbarText: {
+    color: '#F8FAFC',
+    fontSize: 12,
+    fontFamily: fuentes.medium,
+  },
+  snackbarBtn: {
+    backgroundColor: colores.primarioSuave,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colores.primarioGlow,
+  },
+  snackbarBtnText: {
+    color: colores.primarioHover,
+    fontSize: 11,
+    fontFamily: fuentes.black,
   },
 });

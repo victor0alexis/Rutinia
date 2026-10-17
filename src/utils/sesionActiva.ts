@@ -1,6 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { calcularSegundosTranscurridos, limpiarTimerSesion, obtenerOIniciarTimer } from './timer';
 
+export type DropDraftItem = {
+  orden: number;
+  kg: string;
+  reps: string;
+  rir?: string;
+};
+
 export type SerieEjecucionDraft = {
   id: string;
   peso: string;
@@ -10,6 +17,10 @@ export type SerieEjecucionDraft = {
   rir: string;
   nota: string;
   completado: boolean;
+  repsParciales?: number;
+  tieneParciales?: boolean;
+  esDropset?: boolean;
+  drops?: DropDraftItem[];
 };
 
 export type EjercicioStateDraft = {
@@ -17,7 +28,12 @@ export type EjercicioStateDraft = {
   nombre: string;
   esUnilateral: boolean;
   series: SerieEjecucionDraft[];
+  sustituye_a_nombre?: string | null;
+  sustituye_a_ejercicio_id?: string | null;
+  sustitucion_alcance?: 'solo_hoy' | 'rutina' | null;
+  notaEjercicio?: string;
 };
+
 
 export type BorradorSesion = {
   registroId: string;
