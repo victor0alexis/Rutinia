@@ -12,6 +12,8 @@ type Props = {
   subtitulo?: string;
   mostrarCerrarSesion?: boolean;
   onCerrarSesion?: () => void;
+  mostrarBotonVolver?: boolean;
+  onVolver?: () => void;
   botonAccion?: {
     texto: string;
     icono?: keyof typeof Ionicons.glyphMap;
@@ -25,6 +27,8 @@ export default function EncabezadoSeccion({
   subtitulo,
   mostrarCerrarSesion,
   onCerrarSesion,
+  mostrarBotonVolver,
+  onVolver,
   botonAccion,
 }: Props) {
   const { gutter, contentMaxWidth, isCompact, isLandscape } = useLayout();
@@ -73,6 +77,23 @@ export default function EncabezadoSeccion({
         alignSelf: 'center',
       }}
     >
+      {/* Botón flotante de volver atrás */}
+      {mostrarBotonVolver && (
+        <View style={[styles.volverContainer, { left: gutter }]}>
+          <Pressable
+            onPress={onVolver}
+            style={({ pressed }) => [
+              styles.volverButton,
+              pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
+            ]}
+            hitSlop={12}
+            accessibilityLabel="Volver a todos los planes"
+          >
+            <Ionicons name="chevron-back" size={18} color={colores.texto} />
+          </Pressable>
+        </View>
+      )}
+
       {/* Botón flotante discreto de cerrar sesión con Glow sutil */}
       {mostrarCerrarSesion && (
         <View style={[styles.cerrarSesionContainer, { right: gutter }]}>
@@ -149,6 +170,20 @@ export default function EncabezadoSeccion({
 }
 
 const styles = StyleSheet.create({
+  volverContainer: {
+    position: 'absolute',
+    top: 6,
+    zIndex: 10,
+  },
+  volverButton: {
+    backgroundColor: 'rgba(20, 24, 36, 0.85)',
+    padding: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   cerrarSesionContainer: {
     position: 'absolute',
     top: 6,

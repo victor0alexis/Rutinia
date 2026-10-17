@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  BackHandler,
   Modal,
   Pressable,
   ScrollView,
@@ -83,25 +84,42 @@ export default function RutinasScreen() {
   const [segundosRestantesUndo, setSegundosRestantesUndo] = useState(6);
   const undoTimerRef = useRef<any>(null);
 
-  // Carga general de datos
-  const cargarDatos = useCallback(async () => {
+  // Referencias para evitar condiciones de carrera o closures obsoletas al cambiar de nivel
+  const planSeleccionadoRef = useRef<PlanEntrenamiento | null>(null);
+  const viendoSinPlanRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    planSeleccionadoRef.current = planSeleccionado;
+  }, [planSeleccionado]);
+
+  useEffect(() => {
+    viendoSinPlanRef.current = viendoSinPlan;
+  }, [viendoSinPlan]);
+
+  // Carga general de datos con soporte para forzar id (o null para volver a todos los planes)
+  const cargarDatos = useCallback(async (forcedPlanId?: string | null) => {
     try {
       setCargando(true);
       const todosPlanes = await listarPlanes({ incluirArchivados: true });
       setPlanes(todosPlanes);
 
-      // Si hay un plan seleccionado en Nivel 2, recargar sus rutinas
-      if (planSeleccionado) {
-        const ruts = await listarRutinasDePlan(planSeleccionado.id);
+      const idActual = forcedPlanId !== undefined ? forcedPlanId : planSeleccionadoRef.current?.id ?? null;
+
+      if (idActual) {
+        const ruts = await listarRutinasDePlan(idActual);
         setRutinasDelPlan(ruts);
-        // Actualizar el plan seleccionado con sus nuevos valores
-        const planActualizado = todosPlanes.find((p) => p.id === planSeleccionado.id);
-        if (planActualizado) setPlanSeleccionado(planActualizado);
-      } else if (viendoSinPlan) {
+        const planActualizado = todosPlanes.find((p) => p.id === idActual);
+        if (planActualizado) {
+          planSeleccionadoRef.current = planActualizado;
+          setPlanSeleccionado(planActualizado);
+        } else {
+          planSeleccionadoRef.current = null;
+          setPlanSeleccionado(null);
+        }
+      } else if (viendoSinPlanRef.current && forcedPlanId === undefined) {
         const sueltas = await listarRutinasDePlan(null);
         setRutinasSueltas(sueltas);
       } else {
-        // También cargar rutinas sueltas por si acaso
         const sueltas = await listarRutinasDePlan(null);
         setRutinasSueltas(sueltas);
       }
@@ -110,7 +128,31 @@ export default function RutinasScreen() {
     } finally {
       setCargando(false);
     }
-  }, [planSeleccionado, viendoSinPlan]);
+  }, []);
+
+  // Función infalible para regresar al Nivel 1 (Todos los planes)
+  const volverATodosLosPlanes = useCallback(() => {
+    planSeleccionadoRef.current = null;
+    viendoSinPlanRef.current = false;
+    setPlanSeleccionado(null);
+    setViendoSinPlan(false);
+    setBusqueda('');
+    cargarDatos(null);
+  }, [cargarDatos]);
+
+  // Soporte de botón retroceso de hardware (Android)
+  useEffect(() => {
+    const onBackPress = () => {
+      if (planSeleccionado || viendoSinPlan) {
+        volverATodosLosPlanes();
+        return true;
+      }
+      return false;
+    };
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [planSeleccionado, viendoSinPlan, volverATodosLosPlanes]);
 
   useFocusEffect(
     useCallback(() => {
@@ -202,9 +244,10 @@ export default function RutinasScreen() {
     await seguro(async () => {
       await archivarPlan(p.id);
       if (planSeleccionado?.id === p.id) {
-        setPlanSeleccionado(null);
+        volverATodosLosPlanes();
+      } else {
+        await cargarDatos();
       }
-      await cargarDatos();
       mostrarMensaje('Plan Archivado', `El plan "${p.nombre}" se movió a la sección de archivados.`);
     });
   };
@@ -233,7 +276,7 @@ export default function RutinasScreen() {
     const planesPrevios = [...planes];
     setPlanes(planes.filter((p) => p.id !== planId));
     if (planSeleccionado?.id === planId) {
-      setPlanSeleccionado(null);
+      volverATodosLosPlanes();
     }
 
     dispararUndoSnackbar(
@@ -276,6 +319,8 @@ export default function RutinasScreen() {
 
   // Entrar al Nivel 2 (Detalle del Plan)
   const seleccionarPlan = async (p: PlanEntrenamiento) => {
+    planSeleccionadoRef.current = p;
+    viendoSinPlanRef.current = false;
     setViendoSinPlan(false);
     setPlanSeleccionado(p);
     await guardarUltimoPlanUsadoId(p.id);
@@ -284,6 +329,8 @@ export default function RutinasScreen() {
   };
 
   const seleccionarSinPlan = async () => {
+    planSeleccionadoRef.current = null;
+    viendoSinPlanRef.current = true;
     setPlanSeleccionado(null);
     setViendoSinPlan(true);
     const sueltas = await listarRutinasDePlan(null);
@@ -389,6 +436,8 @@ export default function RutinasScreen() {
               ? planSeleccionado.objetivo || planSeleccionado.descripcion || 'Gestiona las rutinas de este plan'
               : 'Organiza tus rutinas en planes estructurados e inteligentes'
           }
+          mostrarBotonVolver={Boolean(planSeleccionado || viendoSinPlan)}
+          onVolver={volverATodosLosPlanes}
         />
 
         {/* CONTENEDOR PRINCIPAL */}
@@ -408,13 +457,14 @@ export default function RutinasScreen() {
           {(planSeleccionado || viendoSinPlan) && (
             <View style={styles.backNavRow}>
               <Pressable
-                onPress={() => {
-                  setPlanSeleccionado(null);
-                  setViendoSinPlan(false);
-                  setBusqueda('');
-                  cargarDatos();
-                }}
-                style={styles.backButton}
+                onPress={volverATodosLosPlanes}
+                style={({ pressed }) => [
+                  styles.backButton,
+                  pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] },
+                ]}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Volver a todos los planes"
               >
                 <Ionicons name="chevron-back" size={18} color={colores.primarioHover} />
                 <Text style={styles.backButtonText}>Todos los planes</Text>
