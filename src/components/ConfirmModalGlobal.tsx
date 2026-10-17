@@ -133,7 +133,18 @@ export default function ConfirmModalGlobal() {
   );
 
   if (Platform.OS === 'web') {
-    return <View style={styles.webWrapper}>{content}</View>;
+    const webNode = <View style={styles.webWrapper}>{content}</View>;
+    if (typeof document !== 'undefined') {
+      try {
+        const ReactDOM = require('react-dom');
+        if (ReactDOM && typeof ReactDOM.createPortal === 'function') {
+          return ReactDOM.createPortal(webNode, document.body);
+        }
+      } catch {
+        // Fallback al render normal si falla require
+      }
+    }
+    return webNode;
   }
 
   return (
@@ -141,6 +152,7 @@ export default function ConfirmModalGlobal() {
       visible={config.visible}
       transparent
       animationType="fade"
+      statusBarTranslucent
       onRequestClose={manejarCancelar}
     >
       {content}
@@ -157,8 +169,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '100%',
     height: '100%',
-    zIndex: 10000,
-    elevation: 10000,
+    zIndex: 999999,
+    elevation: 999999,
   },
   overlay: {
     flex: 1,
