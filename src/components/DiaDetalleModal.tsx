@@ -121,6 +121,8 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
   // Notas estandarizadas y notas ad-hoc
   const [notasBiblioteca, setNotasBiblioteca] = useState<NotaEstandar[]>([]);
   const [nuevaNotaAdHoc, setNuevaNotaAdHoc] = useState('');
+  // Selector de rutina (declarado aquí para que ningún hook quede tras el early return de !fecha)
+  const [selectorPlanRutinaVisible, setSelectorPlanRutinaVisible] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -180,8 +182,6 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
       'Desvincular'
     );
   };
-
-  const [selectorPlanRutinaVisible, setSelectorPlanRutinaVisible] = useState(false);
 
   const vincularRutinaEntera = (rutina: Rutina, plan?: PlanEntrenamiento | null) =>
     seguro(async () => {

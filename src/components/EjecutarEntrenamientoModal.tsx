@@ -17,6 +17,7 @@ import ScreenBackground from './ScreenBackground';
 import GlowButton from './GlowButton';
 import ResumenEntrenamientoModal, { EjercicioResumen } from './ResumenEntrenamientoModal';
 import SelectorIntercambioModal from './SelectorIntercambioModal';
+import SmartWorkoutKeyboard, { CampoEntrenamiento } from './SmartWorkoutKeyboard';
 import {
   actualizarEjecucionEjercicio,
   actualizarEstadoRegistro,
@@ -42,6 +43,13 @@ import {
   obtenerBorradorSesion,
   limpiarSesionActiva,
 } from '../utils/sesionActiva';
+
+export type FocusTeclado = {
+  ejIdx: number;
+  sIdx: number;
+  campo: CampoEntrenamiento;
+  dropIdx?: number;
+} | null;
 
 type Props = {
   visible: boolean;
@@ -126,7 +134,8 @@ export default function EjecutarEntrenamientoModal({
   } = useLayout();
 
   const [dockHeight, setDockHeight] = useState(isLandscape ? 52 : 72);
-  const scrollBottomPad = (isKeyboardVisible ? 16 : dockHeight) + bottomInset + 20;
+  const [focusTeclado, setFocusTeclado] = useState<FocusTeclado>(null);
+  const scrollBottomPad = (focusTeclado ? 280 : isKeyboardVisible ? 16 : dockHeight) + bottomInset + 20;
 
   // Mapa de notas colapsadas/expandidas en vista vertical portrait
   const [notasAbiertas, setNotasAbiertas] = useState<Record<string, boolean>>({});
@@ -634,6 +643,190 @@ export default function EjecutarEntrenamientoModal({
     }
 
     cambiarCampoSerie(ejIndex, sIndex, 'completado', !s.completado);
+  };
+
+  /* FUNCIONES DE CONTROL PARA SMART WORKOUT KEYBOARD */
+  const pasarASiguienteSerie = (ejIdx: number, sIdx: number) => {
+    const ej = ejerciciosState[ejIdx];
+    if (!ej) {
+      setFocusTeclado(null);
+      return;
+    }
+    if (sIdx + 1 < ej.series.length) {
+      setFocusTeclado({ ejIdx, sIdx: sIdx + 1, campo: 'peso' });
+    } else if (ejIdx + 1 < ejerciciosState.length) {
+      setFocusTeclado({ ejIdx: ejIdx + 1, sIdx: 0, campo: 'peso' });
+    } else {
+      setFocusTeclado(null);
+    }
+  };
+
+  const avanzarCampoTeclado = () => {
+    if (!focusTeclado) return;
+    const { ejIdx, sIdx, campo, dropIdx } = focusTeclado;
+    const ej = ejerciciosState[ejIdx];
+    if (!ej) return;
+
+    if (dropIdx !== undefined) {
+      if (campo === 'peso') {
+        setFocusTeclado({ ejIdx, sIdx, campo: 'reps', dropIdx });
+      } else if (campo === 'reps') {
+        setFocusTeclado({ ejIdx, sIdx, campo: 'rir', dropIdx });
+      } else {
+        const serie = ej.series[sIdx];
+        if (serie && dropIdx + 1 < serie.drops.length) {
+          setFocusTeclado({ ejIdx, sIdx, campo: 'peso', dropIdx: dropIdx + 1 });
+        } else {
+          pasarASiguienteSerie(ejIdx, sIdx);
+        }
+      }
+      return;
+    }
+
+    if (ej.esUnilateral) {
+      if (campo === 'peso') {
+        setFocusTeclado({ ejIdx, sIdx, campo: 'reps' });
+      } else if (campo === 'reps') {
+        setFocusTeclado({ ejIdx, sIdx, campo: 'pesoI' });
+      } else if (campo === 'pesoI') {
+        setFocusTeclado({ ejIdx, sIdx, campo: 'repsI' });
+      } else if (campo === 'repsI') {
+        setFocusTeclado({ ejIdx, sIdx, campo: 'rir' });
+      } else {
+        pasarASiguienteSerie(ejIdx, sIdx);
+      }
+      return;
+    }
+
+    if (campo === 'peso') {
+      setFocusTeclado({ ejIdx, sIdx, campo: 'reps' });
+    } else if (campo === 'reps') {
+      setFocusTeclado({ ejIdx, sIdx, campo: 'rir' });
+    } else {
+      const serie = ej.series[sIdx];
+      if (serie?.esDropset && serie.drops.length > 0) {
+        setFocusTeclado({ ejIdx, sIdx, campo: 'peso', dropIdx: 0 });
+      } else {
+        pasarASiguienteSerie(ejIdx, sIdx);
+      }
+    }
+  };
+
+  const completarSerieDesdeTeclado = () => {
+    if (!focusTeclado) return;
+    const { ejIdx, sIdx } = focusTeclado;
+    toggleCompletarSerie(ejIdx, sIdx);
+    pasarASiguienteSerie(ejIdx, sIdx);
+  };
+
+  const obtenerValorActualTeclado = (): string => {
+    if (!focusTeclado) return '';
+    const { ejIdx, sIdx, campo, dropIdx } = focusTeclado;
+    const serie = ejerciciosState[ejIdx]?.series[sIdx];
+    if (!serie) return '';
+
+    if (dropIdx !== undefined) {
+      const drop = serie.drops[dropIdx];
+      if (!drop) return '';
+      if (campo === 'peso') return drop.kg || '';
+      if (campo === 'reps') return drop.reps || '';
+      if (campo === 'rir') return drop.rir || '';
+      return '';
+    }
+
+    if (campo === 'pesoI') return serie.pesoI !== undefined ? serie.pesoI : serie.peso;
+    if (campo === 'repsI') return serie.repsI !== undefined ? serie.repsI : serie.reps;
+    return serie[campo] || '';
+  };
+
+  const obtenerValorPrevioSugerido = (): string | undefined => {
+    if (!focusTeclado) return undefined;
+    const { ejIdx, sIdx, campo } = focusTeclado;
+    const ej = ejerciciosState[ejIdx];
+    if (!ej) return undefined;
+    const hist = historialMap[ej.nombre];
+
+    if (campo === 'peso' || campo === 'pesoI') {
+      if (sIdx > 0 && ej.series[sIdx - 1]?.peso) {
+        return ej.series[sIdx - 1].peso;
+      }
+      return hist?.series[sIdx]?.peso;
+    }
+
+    if (campo === 'reps' || campo === 'repsI') {
+      if (sIdx > 0 && ej.series[sIdx - 1]?.reps) {
+        return ej.series[sIdx - 1].reps;
+      }
+      return hist?.series[sIdx]?.reps;
+    }
+
+    return undefined;
+  };
+
+  const actualizarValorDesdeTeclado = (nuevoValor: string) => {
+    if (!focusTeclado) return;
+    const { ejIdx, sIdx, campo, dropIdx } = focusTeclado;
+
+    if (dropIdx !== undefined) {
+      const campoDrop = campo === 'peso' ? 'kg' : campo;
+      cambiarCampoDrop(ejIdx, sIdx, dropIdx, campoDrop as any, nuevoValor);
+      return;
+    }
+
+    cambiarCampoSerie(ejIdx, sIdx, campo, nuevoValor);
+  };
+
+  const renderCeldaInteractiva = ({
+    valor,
+    placeholder,
+    ejIdx,
+    sIdx,
+    campo,
+    dropIdx,
+    warning = false,
+    extraStyle,
+  }: {
+    valor?: string;
+    placeholder: string;
+    ejIdx: number;
+    sIdx: number;
+    campo: CampoEntrenamiento;
+    dropIdx?: number;
+    warning?: boolean;
+    extraStyle?: any;
+  }) => {
+    const esActivo =
+      focusTeclado?.ejIdx === ejIdx &&
+      focusTeclado?.sIdx === sIdx &&
+      focusTeclado?.campo === campo &&
+      focusTeclado?.dropIdx === dropIdx;
+
+    const tieneValor = valor !== undefined && valor !== null && valor.trim() !== '';
+
+    return (
+      <Pressable
+        onPress={() => setFocusTeclado({ ejIdx, sIdx, campo, dropIdx })}
+        style={[
+          styles.inputCell,
+          styles.celdaInteractiva,
+          extraStyle,
+          warning && !tieneValor && styles.inputCellWarning,
+          esActivo && styles.celdaActiva,
+        ]}
+      >
+        <Text
+          style={[
+            styles.textoCelda,
+            !tieneValor && styles.textoCeldaPlaceholder,
+            esActivo && styles.textoCeldaActivo,
+          ]}
+          numberOfLines={1}
+        >
+          {tieneValor ? valor : placeholder}
+        </Text>
+        {esActivo && <View style={styles.cursorParpadeante} />}
+      </Pressable>
+    );
   };
 
   const eliminarSerieConDeshacer = (ejIndex: number, sIndex: number) => {
@@ -1437,64 +1630,49 @@ export default function EjecutarEntrenamientoModal({
 
                                   {/* DERECHO */}
                                   <View style={styles.colUniBox}>
-                                    <TextInput
-                                      placeholder="KG D"
-                                      placeholderTextColor={colores.suave}
-                                      keyboardType="decimal-pad"
-                                      inputMode="decimal"
-                                      value={s.peso}
-                                      onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'peso', val)}
-                                      onFocus={handleInputFocus}
-                                      style={styles.inputCell}
-                                    />
-                                    <TextInput
-                                      placeholder="REPS D"
-                                      placeholderTextColor={colores.suave}
-                                      keyboardType="number-pad"
-                                      inputMode="numeric"
-                                      value={s.reps}
-                                      onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'reps', val)}
-                                      onFocus={handleInputFocus}
-                                      style={styles.inputCell}
-                                    />
+                                    {renderCeldaInteractiva({
+                                      valor: s.peso,
+                                      placeholder: 'KG D',
+                                      ejIdx,
+                                      sIdx,
+                                      campo: 'peso',
+                                    })}
+                                    {renderCeldaInteractiva({
+                                      valor: s.reps,
+                                      placeholder: 'REPS D',
+                                      ejIdx,
+                                      sIdx,
+                                      campo: 'reps',
+                                    })}
                                   </View>
 
                                   {/* IZQUIERDO */}
                                   <View style={styles.colUniBox}>
-                                    <TextInput
-                                      placeholder="KG I"
-                                      placeholderTextColor={colores.suave}
-                                      keyboardType="decimal-pad"
-                                      inputMode="decimal"
-                                      value={s.pesoI !== undefined ? s.pesoI : s.peso}
-                                      onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'pesoI', val)}
-                                      onFocus={handleInputFocus}
-                                      style={styles.inputCell}
-                                    />
-                                    <TextInput
-                                      placeholder="REPS I"
-                                      placeholderTextColor={colores.suave}
-                                      keyboardType="number-pad"
-                                      inputMode="numeric"
-                                      value={s.repsI !== undefined ? s.repsI : s.reps}
-                                      onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'repsI', val)}
-                                      onFocus={handleInputFocus}
-                                      style={styles.inputCell}
-                                    />
+                                    {renderCeldaInteractiva({
+                                      valor: s.pesoI !== undefined ? s.pesoI : s.peso,
+                                      placeholder: 'KG I',
+                                      ejIdx,
+                                      sIdx,
+                                      campo: 'pesoI',
+                                    })}
+                                    {renderCeldaInteractiva({
+                                      valor: s.repsI !== undefined ? s.repsI : s.reps,
+                                      placeholder: 'REPS I',
+                                      ejIdx,
+                                      sIdx,
+                                      campo: 'repsI',
+                                    })}
                                   </View>
 
                                   {/* RIR */}
                                   <View style={styles.colUniRIR}>
-                                    <TextInput
-                                      placeholder="RIR"
-                                      placeholderTextColor={colores.suave}
-                                      keyboardType="number-pad"
-                                      inputMode="numeric"
-                                      value={s.rir}
-                                      onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'rir', val)}
-                                      onFocus={handleInputFocus}
-                                      style={styles.inputCell}
-                                    />
+                                    {renderCeldaInteractiva({
+                                      valor: s.rir,
+                                      placeholder: 'RIR',
+                                      ejIdx,
+                                      sIdx,
+                                      campo: 'rir',
+                                    })}
                                   </View>
 
                                   {/* NOTA BUTTON (solo portrait) */}
@@ -1626,16 +1804,13 @@ export default function EjecutarEntrenamientoModal({
 
                                     {/* KG */}
                                     <View style={styles.colKG}>
-                                      <TextInput
-                                        placeholder={sPrev?.peso ?? '0'}
-                                        placeholderTextColor={colores.suave}
-                                        keyboardType="decimal-pad"
-                                        inputMode="decimal"
-                                        value={s.peso}
-                                        onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'peso', val)}
-                                        onFocus={handleInputFocus}
-                                        style={styles.inputCell}
-                                      />
+                                      {renderCeldaInteractiva({
+                                        valor: s.peso,
+                                        placeholder: sPrev?.peso ?? '0',
+                                        ejIdx,
+                                        sIdx,
+                                        campo: 'peso',
+                                      })}
                                       {diffPeso > 0 && (
                                         <Text style={styles.overloadBadge}>🔥+{diffPeso}k</Text>
                                       )}
@@ -1643,30 +1818,24 @@ export default function EjecutarEntrenamientoModal({
 
                                     {/* REPS */}
                                     <View style={styles.colREPS}>
-                                      <TextInput
-                                        placeholder={sPrev?.reps ?? '0'}
-                                        placeholderTextColor={colores.suave}
-                                        keyboardType="number-pad"
-                                        inputMode="numeric"
-                                        value={s.reps}
-                                        onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'reps', val)}
-                                        onFocus={handleInputFocus}
-                                        style={styles.inputCell}
-                                      />
+                                      {renderCeldaInteractiva({
+                                        valor: s.reps,
+                                        placeholder: sPrev?.reps ?? '0',
+                                        ejIdx,
+                                        sIdx,
+                                        campo: 'reps',
+                                      })}
                                     </View>
 
                                     {/* RIR */}
                                     <View style={styles.colRIR}>
-                                      <TextInput
-                                        placeholder={sPrev?.rir ? sPrev.rir : '—'}
-                                        placeholderTextColor={colores.suave}
-                                        keyboardType="number-pad"
-                                        inputMode="numeric"
-                                        value={s.rir}
-                                        onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'rir', val)}
-                                        onFocus={handleInputFocus}
-                                        style={styles.inputCell}
-                                      />
+                                      {renderCeldaInteractiva({
+                                        valor: s.rir,
+                                        placeholder: sPrev?.rir ? sPrev.rir : '—',
+                                        ejIdx,
+                                        sIdx,
+                                        campo: 'rir',
+                                      })}
                                     </View>
 
                                     {/* NOTA (en fila para landscape / tablet) */}
@@ -1758,16 +1927,11 @@ export default function EjecutarEntrenamientoModal({
                                         >
                                           <Ionicons name="remove" size={14} color={colores.texto} />
                                         </Pressable>
-                                        <TextInput
-                                          value={(s.repsParciales || 0).toString()}
-                                          onChangeText={(val) => {
-                                            const num = parseInt(val.replace(/[^0-9]/g, ''), 10) || 0;
-                                            cambiarCampoSerie(ejIdx, sIdx, 'repsParciales', num);
-                                          }}
-                                          keyboardType="number-pad"
-                                          inputMode="numeric"
-                                          style={styles.stepperInput}
-                                        />
+                                        <View style={styles.stepperInput}>
+                                          <Text style={{ color: colores.texto, fontFamily: fuentes.bold, fontSize: 13, textAlign: 'center' }}>
+                                            {s.repsParciales || 0}
+                                          </Text>
+                                        </View>
                                         <Pressable
                                           onPress={() => cambiarCampoSerie(ejIdx, sIdx, 'repsParciales', (s.repsParciales || 0) + 1)}
                                           style={styles.stepperBtn}
@@ -1789,37 +1953,38 @@ export default function EjecutarEntrenamientoModal({
                                             <Text style={styles.dropNumText}>D{drop.orden}</Text>
                                           </View>
                                           <View style={styles.colKG}>
-                                            <TextInput
-                                              placeholder="KG"
-                                              placeholderTextColor={colores.suave}
-                                              keyboardType="decimal-pad"
-                                              inputMode="decimal"
-                                              value={drop.kg}
-                                              onChangeText={(val) => cambiarCampoDrop(ejIdx, sIdx, dIdx, 'kg', val)}
-                                              style={[styles.inputCell, styles.inputCellDrop]}
-                                            />
+                                            {renderCeldaInteractiva({
+                                              valor: drop.kg,
+                                              placeholder: 'KG',
+                                              ejIdx,
+                                              sIdx,
+                                              campo: 'peso',
+                                              dropIdx: dIdx,
+                                              extraStyle: styles.inputCellDrop,
+                                            })}
                                           </View>
                                           <View style={styles.colREPS}>
-                                            <TextInput
-                                              placeholder="REPS"
-                                              placeholderTextColor={colores.suave}
-                                              keyboardType="number-pad"
-                                              inputMode="numeric"
-                                              value={drop.reps}
-                                              onChangeText={(val) => cambiarCampoDrop(ejIdx, sIdx, dIdx, 'reps', val)}
-                                              style={[styles.inputCell, styles.inputCellDrop, !drop.reps && styles.inputCellWarning]}
-                                            />
+                                            {renderCeldaInteractiva({
+                                              valor: drop.reps,
+                                              placeholder: 'REPS',
+                                              ejIdx,
+                                              sIdx,
+                                              campo: 'reps',
+                                              dropIdx: dIdx,
+                                              warning: !drop.reps,
+                                              extraStyle: styles.inputCellDrop,
+                                            })}
                                           </View>
                                           <View style={styles.colRIR}>
-                                            <TextInput
-                                              placeholder="—"
-                                              placeholderTextColor={colores.suave}
-                                              keyboardType="number-pad"
-                                              inputMode="numeric"
-                                              value={drop.rir || ''}
-                                              onChangeText={(val) => cambiarCampoDrop(ejIdx, sIdx, dIdx, 'rir', val)}
-                                              style={[styles.inputCell, styles.inputCellDrop]}
-                                            />
+                                            {renderCeldaInteractiva({
+                                              valor: drop.rir || '',
+                                              placeholder: '—',
+                                              ejIdx,
+                                              sIdx,
+                                              campo: 'rir',
+                                              dropIdx: dIdx,
+                                              extraStyle: styles.inputCellDrop,
+                                            })}
                                           </View>
                                           {mostrarNotaColumna && <View style={styles.colNOTA} />}
                                           <View style={styles.colOK} />
@@ -1897,7 +2062,7 @@ export default function EjecutarEntrenamientoModal({
                 </ScrollView>
 
                 {/* DOCK INFERIOR — altura y posición responsive con safe areas, sin timer duplicado */}
-                {!isKeyboardVisible && (
+                {!isKeyboardVisible && !focusTeclado && (
                   <View
                     style={[
                       styles.stickyBottomBar,
@@ -1923,6 +2088,34 @@ export default function EjecutarEntrenamientoModal({
                       />
                     </View>
                   </View>
+                )}
+
+                {/* TECLADO INTELIGENTE DE ENTRENAMIENTO */}
+                {focusTeclado && (
+                  <SmartWorkoutKeyboard
+                    visible={Boolean(focusTeclado)}
+                    modo={focusTeclado.campo}
+                    valorActual={obtenerValorActualTeclado()}
+                    nombreEjercicio={
+                      parsearEjercicioInfo({ nombre: ejerciciosState[focusTeclado.ejIdx]?.nombre || '' }).nombreLimpio
+                    }
+                    serieNumero={focusTeclado.sIdx + 1}
+                    esUnilateral={Boolean(ejerciciosState[focusTeclado.ejIdx]?.esUnilateral)}
+                    lado={
+                      focusTeclado.campo === 'peso' || focusTeclado.campo === 'reps'
+                        ? 'D'
+                        : focusTeclado.campo === 'pesoI' || focusTeclado.campo === 'repsI'
+                        ? 'I'
+                        : undefined
+                    }
+                    pesoPara1RM={ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.peso}
+                    repsPara1RM={ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.reps}
+                    valorPrevioSugerido={obtenerValorPrevioSugerido()}
+                    onChangeValor={actualizarValorDesdeTeclado}
+                    onNext={avanzarCampoTeclado}
+                    onCompletarSerie={completarSerieDesdeTeclado}
+                    onClose={() => setFocusTeclado(null)}
+                  />
                 )}
               </View>
             )}
@@ -2198,7 +2391,7 @@ export default function EjecutarEntrenamientoModal({
               <Text style={styles.dialogTitle}>¿Cambiar en la rutina?</Text>
             </View>
             <Text style={styles.dialogText}>
-              Se reemplazará <Text style={{ fontFamily: fuentes.bold, color: colores.texto }}>"{confirmacionPermanente?.nombreOriginal}"</Text> por <Text style={{ fontFamily: fuentes.bold, color: colores.primarioHover }}>"{confirmacionPermanente?.nuevoNombre}"</Text> en la rutina base. Las próximas sesiones usarán este nuevo ejercicio.
+              Se reemplazará <Text style={{ fontFamily: fuentes.bold, color: colores.texto }}>&quot;{confirmacionPermanente?.nombreOriginal}&quot;</Text> por <Text style={{ fontFamily: fuentes.bold, color: colores.primarioHover }}>&quot;{confirmacionPermanente?.nuevoNombre}&quot;</Text> en la rutina base. Las próximas sesiones usarán este nuevo ejercicio.
             </Text>
             <Text style={styles.dialogSubtext}>
               Tendrás 6 segundos para deshacer la acción mediante la barra inferior.
@@ -2628,6 +2821,45 @@ const styles = StyleSheet.create({
     minWidth: 0,
     minHeight: 44,
     width: '100%',
+  },
+  /* CELDAS INTERACTIVAS SMART KEYBOARD */
+  celdaInteractiva: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(10, 12, 18, 0.60)',
+    borderColor: colores.borde,
+  },
+  celdaActiva: {
+    borderColor: colores.primarioHover,
+    backgroundColor: 'rgba(194, 36, 61, 0.20)',
+    borderWidth: 1.5,
+    shadowColor: colores.primarioHover,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  textoCelda: {
+    color: colores.texto,
+    fontSize: Platform.OS === 'web' ? 14 : 12,
+    fontFamily: fuentes.bold,
+    textAlign: 'center',
+  },
+  textoCeldaPlaceholder: {
+    color: colores.suave,
+    fontFamily: fuentes.regular,
+  },
+  textoCeldaActivo: {
+    color: '#FFFFFF',
+    fontFamily: fuentes.black,
+  },
+  cursorParpadeante: {
+    position: 'absolute',
+    bottom: 2,
+    width: 14,
+    height: 2,
+    backgroundColor: colores.primarioHover,
+    borderRadius: 1,
   },
   inputBase: {
     backgroundColor: 'rgba(10, 12, 18, 0.60)',

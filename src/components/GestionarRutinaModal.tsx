@@ -11,13 +11,12 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colores, fuentes } from '../constants/colores';
+import { colores, DIAS_SEMANA_ABREV, DIAS_SEMANA_NOMBRES, fuentes } from '../constants/colores';
 import GlowButton from './GlowButton';
 import BotonRutinia from './BotonRutinia';
 import { crearRutina, eliminarRutina, actualizarRutina } from '../services/rutinas';
 import { seguro, confirmarAccion, mostrarMensaje } from '../utils/errores';
 import { parsearEjercicioInfo } from '../utils/ejercicios';
-import { DIAS_SEMANA_ABREV, DIAS_SEMANA_NOMBRES } from '../constants/colores';
 import { listarPlanes } from '../services/planes';
 import { PlanEntrenamiento, Rutina } from '../types';
 import { useLayout } from '../hooks/useLayout';

@@ -7,7 +7,6 @@ import {
   TextInput,
   View,
   StyleSheet,
-  Platform,
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,21 +33,24 @@ export default function SelectorIntercambioModal({
   onClose,
   onSeleccionar,
 }: Props) {
-  const { height, width } = useWindowDimensions();
+  const { height } = useWindowDimensions();
   const { bottomInset } = useLayout();
   const [busqueda, setBusqueda] = useState('');
   const [catalogo, setCatalogo] = useState<EjercicioCatalogo[]>([]);
-  const [cargando, setCargando] = useState(false);
   const [creando, setCreando] = useState(false);
 
   useEffect(() => {
-    if (visible) {
+    if (!visible) return;
+    let cancelado = false;
+    const cargarCatalogo = async () => {
       setBusqueda('');
-      setCargando(true);
-      listarEjerciciosCatalogo()
-        .then((items) => setCatalogo(items))
-        .finally(() => setCargando(false));
-    }
+      const items = await listarEjerciciosCatalogo();
+      if (!cancelado) setCatalogo(items);
+    };
+    cargarCatalogo();
+    return () => {
+      cancelado = true;
+    };
   }, [visible]);
 
   const nombreActualLimpio = ejercicioActualNombre.trim().toLowerCase();
@@ -180,7 +182,7 @@ export default function SelectorIntercambioModal({
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: colores.exito, fontFamily: fuentes.bold, fontSize: 13 }}>
-                    Crear y usar "{busqueda.trim()}"
+                    Crear y usar &quot;{busqueda.trim()}&quot;
                   </Text>
                   <Text style={{ color: colores.suave, fontSize: 11, fontFamily: fuentes.regular }}>
                     Se guardará en tu catálogo de ejercicios

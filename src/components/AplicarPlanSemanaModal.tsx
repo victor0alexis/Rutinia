@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colores, DIAS_SEMANA_ABREV, DIAS_SEMANA_NOMBRES, fuentes } from '../constants/colores';
 import BotonRutinia from './BotonRutinia';
 import { PlanEntrenamiento, Registro, Rutina } from '../types';
-import { aISO, diasDeSemana, nombreDia, rangoSemana } from '../utils/fechas';
+import { aISO, diasDeSemana, rangoSemana } from '../utils/fechas';
 import { registrosDeRango } from '../services/registros';
 import { aplicarPlanASemana, listarRutinasDePlan } from '../services/planes';
 import { useLayout } from '../hooks/useLayout';
@@ -38,26 +38,32 @@ export default function AplicarPlanSemanaModal({
   const [aplicando, setAplicando] = useState(false);
   const [cargando, setCargando] = useState(true);
 
-  const dias = diasDeSemana(fechaSemana);
+  const dias = useMemo(() => diasDeSemana(fechaSemana), [fechaSemana]);
 
   useEffect(() => {
     if (!visible || !plan) return;
-    setCargando(true);
-    Promise.all([
-      listarRutinasDePlan(plan.id),
-      registrosDeRango(aISO(dias[0]), aISO(dias[6])),
-    ])
-      .then(([ruts, regs]) => {
-        setRutinasPlan(ruts);
-        setRegistrosSemana(regs);
-        // Preseleccionar los días que efectivamente tienen una rutina sugerida asignada en este plan
-        const diasConRutina = ruts
-          .map((r) => r.dia_sugerido)
-          .filter((d): d is number => d !== null && d !== undefined);
-        setDiasSeleccionados(diasConRutina.length > 0 ? diasConRutina : [0, 1, 2, 3, 4, 5, 6]);
-      })
-      .finally(() => setCargando(false));
-  }, [visible, plan]);
+    let cancelado = false;
+    const cargarDatos = async () => {
+      setCargando(true);
+      const [ruts, regs] = await Promise.all([
+        listarRutinasDePlan(plan.id),
+        registrosDeRango(aISO(dias[0]), aISO(dias[6])),
+      ]);
+      if (cancelado) return;
+      setRutinasPlan(ruts);
+      setRegistrosSemana(regs);
+      // Preseleccionar los días que efectivamente tienen una rutina sugerida asignada en este plan
+      const diasConRutina = ruts
+        .map((r) => r.dia_sugerido)
+        .filter((d): d is number => d !== null && d !== undefined);
+      setDiasSeleccionados(diasConRutina.length > 0 ? diasConRutina : [0, 1, 2, 3, 4, 5, 6]);
+      setCargando(false);
+    };
+    cargarDatos();
+    return () => {
+      cancelado = true;
+    };
+  }, [visible, plan, dias]);
 
   if (!visible || !plan) return null;
 

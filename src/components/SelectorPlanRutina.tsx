@@ -62,15 +62,17 @@ export default function SelectorPlanRutina({
 
   useEffect(() => {
     if (!visible) return;
-    setCargando(true);
-    setBusqueda('');
-    setRutinaExpandidaId(null);
-
-    Promise.all([
-      listarPlanes({ incluirArchivados: false }),
-      listarRutinasDePlan(null),
-      obtenerUltimoPlanUsadoId(),
-    ]).then(([planesCargados, sueltas, ultimoPlanId]) => {
+    let cancelado = false;
+    const cargarDatos = async () => {
+      setCargando(true);
+      setBusqueda('');
+      setRutinaExpandidaId(null);
+      const [planesCargados, sueltas, ultimoPlanId] = await Promise.all([
+        listarPlanes({ incluirArchivados: false }),
+        listarRutinasDePlan(null),
+        obtenerUltimoPlanUsadoId(),
+      ]);
+      if (cancelado) return;
       setPlanes(planesCargados);
       setRutinasSueltas(sueltas);
 
@@ -94,7 +96,11 @@ export default function SelectorPlanRutina({
         setPaso(1);
       }
       setCargando(false);
-    });
+    };
+    cargarDatos();
+    return () => {
+      cancelado = true;
+    };
   }, [visible]);
 
   if (!visible) return null;

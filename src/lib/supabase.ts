@@ -3,8 +3,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://bwjtulvnpjgufxhoqehg.supabase.co';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3anR1bHZucGpndWZ4aG9xZWhnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDcxNzM0NywiZXhwIjoyMTA2MjkzMzQ3fQ.X9TEflpAu88wnoMury3Ilpy9MEvAneboe6T-iyfAjqU';
+// Las credenciales se leen SIEMPRE de variables de entorno (.env).
+// Nunca usar la service_role key en el cliente: va en el .env que no se sube a git,
+// pero el cliente debería usar la anon key (Settings → API → "anon public").
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Configuración de Supabase incompleta. Define en tu archivo .env:\n' +
+      '  EXPO_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co\n' +
+      '  EXPO_PUBLIC_SUPABASE_ANON_KEY=<anon key, NO la service_role>'
+  );
+}
 
 const customStorage =
   Platform.OS === 'web' && typeof window === 'undefined'

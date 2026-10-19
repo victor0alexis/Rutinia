@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   BackHandler,
   Modal,
   Pressable,
@@ -13,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colores, DIAS_SEMANA_ABREV, DIAS_SEMANA_NOMBRES, fuentes } from '../../constants/colores';
+import { colores, DIAS_SEMANA_ABREV, fuentes } from '../../constants/colores';
 import EncabezadoSeccion from '../../components/EncabezadoSeccion';
 import ScreenBackground from '../../components/ScreenBackground';
 import BotonRutinia from '../../components/BotonRutinia';
@@ -34,11 +33,10 @@ import {
   listarPlanes,
   listarRutinasDePlan,
   moverRutina,
-  obtenerUltimoPlanUsadoId,
   reordenarPlanes,
   restaurarPlan,
 } from '../../services/planes';
-import { eliminarRutina, listarRutinas } from '../../services/rutinas';
+import { eliminarRutina } from '../../services/rutinas';
 import { PlanEntrenamiento, Rutina } from '../../types';
 import { useLayout } from '../../hooks/useLayout';
 import { mostrarMensaje, seguro } from '../../utils/errores';

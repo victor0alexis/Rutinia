@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -46,8 +46,11 @@ export default function GestionarPlanModal({
   const [guardando, setGuardando] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  useEffect(() => {
-    if (!visible) return;
+  // Resetear el formulario cuando cambia la apertura del modal o el plan a editar.
+  // Patrón recomendado por React: ajustar estado durante el render en lugar de un efecto.
+  const [estadoAnterior, setEstadoAnterior] = useState({ visible, planParaEditar });
+  if (estadoAnterior.visible !== visible || estadoAnterior.planParaEditar !== planParaEditar) {
+    setEstadoAnterior({ visible, planParaEditar });
     if (planParaEditar) {
       setNombre(planParaEditar.nombre || '');
       setDescripcion(planParaEditar.descripcion || '');
@@ -65,7 +68,7 @@ export default function GestionarPlanModal({
     }
     setErrorMsg('');
     setGuardando(false);
-  }, [visible, planParaEditar]);
+  }
 
   const handleSubmit = async () => {
     if (!nombre.trim()) {

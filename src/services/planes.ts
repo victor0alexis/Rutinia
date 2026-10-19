@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
-import { PlanEntrenamiento, Rutina, Registro } from '../types';
+import { PlanEntrenamiento, Rutina } from '../types';
 import { guardarCacheLocal, obtenerCacheLocal } from '../utils/offline';
 import { EjercicioNuevo } from './rutinas';
 import { aISO, diasDeSemana } from '../utils/fechas';

@@ -136,6 +136,7 @@ export default function ConfirmModalGlobal() {
     const webNode = <View style={styles.webWrapper}>{content}</View>;
     if (typeof document !== 'undefined') {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- require dinámico: evita romper el bundle nativo
         const ReactDOM = require('react-dom');
         if (ReactDOM && typeof ReactDOM.createPortal === 'function') {
           return ReactDOM.createPortal(webNode, document.body);
