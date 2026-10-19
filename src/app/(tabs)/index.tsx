@@ -11,7 +11,7 @@ import EjecutarEntrenamientoModal from '../../components/EjecutarEntrenamientoMo
 import ModalPartidaEnCurso from '../../components/ModalPartidaEnCurso';
 import EncabezadoSeccion from '../../components/EncabezadoSeccion';
 import ScreenBackground from '../../components/ScreenBackground';
-import BotonRutinia from '../../components/BotonRutinia';
+import LiquidMetalButton from '../../components/LiquidMetalButton';
 import DockPrincipal from '../../components/DockPrincipal';
 import { registrosDeRango } from '../../services/registros';
 import { listarPlanes } from '../../services/planes';
@@ -620,9 +620,8 @@ export default function Semana() {
 
         {/* Dock del Botón Principal anclado sobre la barra de pestañas */}
         <DockPrincipal>
-          <BotonRutinia
+          <LiquidMetalButton
             titulo="+ Administrar / Gestionar Día"
-            variante="principal"
             onPress={() => setModalVisible(true)}
             style={{ alignSelf: 'stretch' }}
           />
