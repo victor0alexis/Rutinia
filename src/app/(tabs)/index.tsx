@@ -23,7 +23,7 @@ import { useLayout } from '../../hooks/useLayout';
 
 export default function Semana() {
   const { gutter, contentMaxWidth, isLandscape, isCompact, bottomInset, safeBottom } = useLayout();
-  const tabBottomPadding = isLandscape ? 48 + Math.max(bottomInset, 4) : 64 + safeBottom;
+  const tabBottomPadding = isLandscape ? 56 + Math.max(bottomInset, 4) : 74 + safeBottom;
   const isFocused = useIsFocused();
   const [ref, setRef] = useState(new Date());
   const [diaActivo, setDiaActivo] = useState(new Date());
