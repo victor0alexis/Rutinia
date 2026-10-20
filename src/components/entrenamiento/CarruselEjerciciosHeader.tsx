@@ -1,0 +1,170 @@
+import React, { useRef, useEffect } from 'react';
+import {
+  ScrollView,
+  Pressable,
+  View,
+  StyleSheet,
+} from 'react-native';
+import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
+import { vibrarBoton } from '../../utils/haptics';
+import { obtenerGifEjercicio } from '../../services/ejerciciosGifs';
+
+export interface EjercicioCarruselItem {
+  id: string;
+  nombre: string;
+  completado: boolean;
+  totalSeries: number;
+  seriesCompletadas: number;
+}
+
+interface Props {
+  ejercicios: EjercicioCarruselItem[];
+  activoIndex: number;
+  onSelectEjercicio: (index: number) => void;
+}
+
+export default function CarruselEjerciciosHeader({
+  ejercicios,
+  activoIndex,
+  onSelectEjercicio,
+}: Props) {
+  const scrollRef = useRef<ScrollView>(null);
+
+  // Auto-scroll para centrar el ejercicio activo
+  useEffect(() => {
+    if (scrollRef.current && activoIndex >= 0) {
+      const xOffset = Math.max(0, activoIndex * 66 - 80);
+      scrollRef.current.scrollTo({ x: xOffset, animated: true });
+    }
+  }, [activoIndex]);
+
+  return (
+    <View style={styles.container}>
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {ejercicios.map((ej, index) => {
+          const esActivo = index === activoIndex;
+          const estaCompletado = ej.completado || (ej.totalSeries > 0 && ej.seriesCompletadas >= ej.totalSeries);
+          const gifInfo = obtenerGifEjercicio(ej.nombre);
+
+          return (
+            <Pressable
+              key={ej.id || `${ej.nombre}-${index}`}
+              onPress={() => {
+                vibrarBoton(12);
+                onSelectEjercicio(index);
+              }}
+              style={({ pressed }) => [
+                styles.itemWrapper,
+                pressed && { opacity: 0.8 },
+              ]}
+              hitSlop={6}
+            >
+              {/* Contenedor Circular del Avatar Anatómico */}
+              <View
+                style={[
+                  styles.avatarRing,
+                  esActivo && styles.avatarRingActivo,
+                  !esActivo && !estaCompletado && styles.avatarRingInactivo,
+                ]}
+              >
+                <Image
+                  source={{ uri: gifInfo.thumbUrl }}
+                  style={styles.avatarImage}
+                  contentFit="contain"
+                  transition={200}
+                  cachePolicy="disk"
+                />
+              </View>
+
+              {/* Badge Checkmark si está completado */}
+              {estaCompletado && (
+                <View style={styles.badgeCompletado}>
+                  <Ionicons name="checkmark" size={11} color="#FFFFFF" />
+                </View>
+              )}
+
+              {/* Pequeño punto indicador si es el activo pero no completado */}
+              {esActivo && !estaCompletado && (
+                <View style={styles.badgeActivoDot} />
+              )}
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    paddingVertical: 10,
+    backgroundColor: 'transparent',
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    gap: 12,
+    alignItems: 'center',
+  },
+  itemWrapper: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarRing: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#0A0C14',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarRingActivo: {
+    borderColor: '#FFFFFF',
+    borderWidth: 2.5,
+    shadowColor: '#7CF3FF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 8,
+    transform: [{ scale: 1.06 }],
+  },
+  avatarRingInactivo: {
+    opacity: 0.5,
+  },
+  avatarImage: {
+    width: '85%',
+    height: '85%',
+  },
+  badgeCompletado: {
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#05070B',
+    zIndex: 2,
+  },
+  badgeActivoDot: {
+    position: 'absolute',
+    bottom: -2,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#7CF3FF',
+    zIndex: 2,
+  },
+});

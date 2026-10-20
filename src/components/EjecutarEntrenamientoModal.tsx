@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Modal,
   Pressable,
@@ -14,8 +14,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { colores, fuentes } from '../constants/colores';
 import { useLayout } from '../hooks/useLayout';
 import ScreenBackground from './ScreenBackground';
-import GlowButton from './GlowButton';
 import { LiquidMetalButton } from './LiquidMetalButton';
+import CarruselEjerciciosHeader from './entrenamiento/CarruselEjerciciosHeader';
+import HeroEjercicioActivo from './entrenamiento/HeroEjercicioActivo';
+import TablaSeriesFocus from './entrenamiento/TablaSeriesFocus';
 import ResumenEntrenamientoModal, { EjercicioResumen } from './ResumenEntrenamientoModal';
 import SelectorIntercambioModal from './SelectorIntercambioModal';
 import SmartWorkoutKeyboard, { CampoEntrenamiento } from './SmartWorkoutKeyboard';
@@ -30,7 +32,7 @@ import { seguro, mostrarMensaje } from '../utils/errores';
 import { parsearEjercicioInfo } from '../utils/ejercicios';
 import { nombreDia } from '../utils/fechas';
 import { Registro } from '../types';
-import { DROPSET_MAX_DROPS, calcularKgSugeridoDrop } from '../constants/entrenamiento';
+import { calcularKgSugeridoDrop } from '../constants/entrenamiento';
 import { supabase } from '../lib/supabase';
 import {
   EstadoTimer,
@@ -125,7 +127,6 @@ export default function EjecutarEntrenamientoModal({
   const {
     width,
     isLandscape,
-    isCompact,
     isTablet,
     gutter,
     contentMaxWidth,
@@ -134,31 +135,12 @@ export default function EjecutarEntrenamientoModal({
     isKeyboardVisible,
   } = useLayout();
 
-  const [dockHeight, setDockHeight] = useState(isLandscape ? 52 : 72);
+  const dockHeight = isLandscape ? 52 : 72;
   const [focusTeclado, setFocusTeclado] = useState<FocusTeclado>(null);
   const scrollBottomPad = (focusTeclado ? 280 : isKeyboardVisible ? 16 : dockHeight) + bottomInset + 20;
 
-  // Mapa de notas colapsadas/expandidas en vista vertical portrait
-  const [notasAbiertas, setNotasAbiertas] = useState<Record<string, boolean>>({});
-
-  const toggleNotaAbierta = (serieId: string) => {
-    setNotasAbiertas((prev) => ({
-      ...prev,
-      [serieId]: !prev[serieId],
-    }));
-  };
-
-  const handleInputFocus = (e: any) => {
-    if (Platform.OS === 'web' && e?.target?.scrollIntoView) {
-      try {
-        e.target.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      } catch {
-        // Ignorar si no está soportado en este entorno
-      }
-    }
-  };
-
   const [ejerciciosState, setEjerciciosState] = useState<EjercicioState[]>([]);
+  const [ejercicioActivoIndex, setEjercicioActivoIndex] = useState(0);
   const [notasSesion, setNotasSesion] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [historialMap, setHistorialMap] = useState<HistoricoMap>({});
@@ -382,6 +364,52 @@ export default function EjecutarEntrenamientoModal({
     };
   }, [visible, estadoTimer]);
 
+  // Estado y datos para el Modo Focus de Entrenamiento en Vivo.
+  // Estos hooks deben ejecutarse antes del early return para no romper el
+  // orden de hooks cuando `fecha` o `registro` cambian.
+  const itemsCarrusel = useMemo(() => {
+    return ejerciciosState.map((ej, idx) => ({
+      id: ej.id || `ej-${idx}`,
+      nombre: ej.nombre,
+      completado: ej.series.length > 0 && ej.series.every((s) => s.completado),
+      totalSeries: ej.series.length,
+      seriesCompletadas: ej.series.filter((s) => s.completado).length,
+    }));
+  }, [ejerciciosState]);
+
+  const indexValido = Math.min(
+    Math.max(0, ejercicioActivoIndex),
+    Math.max(0, ejerciciosState.length - 1)
+  );
+  const ejActivo = ejerciciosState[indexValido] || ejerciciosState[0];
+
+  const seriesFocus = useMemo(() => {
+    if (!ejActivo) return [];
+    const hist = historialMap[ejActivo.nombre];
+    return ejActivo.series.map((s, sIdx) => {
+      const prevSet = hist?.series[sIdx];
+      const previaStr = prevSet ? `${prevSet.peso} × ${prevSet.reps}` : undefined;
+      return {
+        id: s.id,
+        setNum: sIdx + 1,
+        peso: s.peso,
+        reps: s.reps,
+        rir: s.rir,
+        completado: s.completado,
+        previa: previaStr,
+        repsParciales: s.repsParciales,
+        tipo: (s as any).tipo || 'normal',
+        drops: (s.drops || []).map((d) => ({
+          orden: d.orden,
+          peso: d.kg,
+          reps: d.reps,
+          rir: d.rir,
+          completado: s.completado,
+        })),
+      };
+    });
+  }, [ejActivo, historialMap]);
+
   if (!fecha || !registro) return null;
 
   const totalSeriesEnSesion = ejerciciosState.reduce((acc, ej) => acc + ej.series.length, 0);
@@ -535,62 +563,6 @@ export default function EjecutarEntrenamientoModal({
               ...s,
               esDropset: nuevoTiene,
               drops: nuevosDrops,
-            };
-          }),
-        };
-      });
-      guardarDraftAuto(next);
-      return next;
-    });
-  };
-
-  const agregarDropASerie = (ejIndex: number, sIndex: number) => {
-    setEjerciciosState((prev) => {
-      const next = prev.map((ej, i) => {
-        if (i !== ejIndex) return ej;
-        return {
-          ...ej,
-          series: ej.series.map((s, sj) => {
-            if (sj !== sIndex) return s;
-            if (s.drops.length >= DROPSET_MAX_DROPS) {
-              mostrarMensaje('Límite alcanzado', `Una serie puede tener como máximo ${DROPSET_MAX_DROPS} drops.`);
-              return s;
-            }
-            const ultimoDrop = s.drops[s.drops.length - 1];
-            const pesoBase = ultimoDrop ? ultimoDrop.kg : s.peso;
-            const kgSugerido = calcularKgSugeridoDrop(pesoBase || '0');
-            const nuevoDrop: DropItemEjecucion = {
-              orden: s.drops.length + 1,
-              kg: kgSugerido,
-              reps: '',
-              rir: '',
-            };
-            return {
-              ...s,
-              drops: [...s.drops, nuevoDrop],
-            };
-          }),
-        };
-      });
-      guardarDraftAuto(next);
-      return next;
-    });
-  };
-
-  const quitarDropDeSerie = (ejIndex: number, sIndex: number, dropIndex: number) => {
-    setEjerciciosState((prev) => {
-      const next = prev.map((ej, i) => {
-        if (i !== ejIndex) return ej;
-        return {
-          ...ej,
-          series: ej.series.map((s, sj) => {
-            if (sj !== sIndex) return s;
-            const filtrados = s.drops.filter((_, di) => di !== dropIndex);
-            const reordenados = filtrados.map((d, di) => ({ ...d, orden: di + 1 }));
-            return {
-              ...s,
-              esDropset: reordenados.length > 0,
-              drops: reordenados,
             };
           }),
         };
@@ -775,59 +747,6 @@ export default function EjecutarEntrenamientoModal({
     }
 
     cambiarCampoSerie(ejIdx, sIdx, campo, nuevoValor);
-  };
-
-  const renderCeldaInteractiva = ({
-    valor,
-    placeholder,
-    ejIdx,
-    sIdx,
-    campo,
-    dropIdx,
-    warning = false,
-    extraStyle,
-  }: {
-    valor?: string;
-    placeholder: string;
-    ejIdx: number;
-    sIdx: number;
-    campo: CampoEntrenamiento;
-    dropIdx?: number;
-    warning?: boolean;
-    extraStyle?: any;
-  }) => {
-    const esActivo =
-      focusTeclado?.ejIdx === ejIdx &&
-      focusTeclado?.sIdx === sIdx &&
-      focusTeclado?.campo === campo &&
-      focusTeclado?.dropIdx === dropIdx;
-
-    const tieneValor = valor !== undefined && valor !== null && valor.trim() !== '';
-
-    return (
-      <Pressable
-        onPress={() => setFocusTeclado({ ejIdx, sIdx, campo, dropIdx })}
-        style={[
-          styles.inputCell,
-          styles.celdaInteractiva,
-          extraStyle,
-          warning && !tieneValor && styles.inputCellWarning,
-          esActivo && styles.celdaActiva,
-        ]}
-      >
-        <Text
-          style={[
-            styles.textoCelda,
-            !tieneValor && styles.textoCeldaPlaceholder,
-            esActivo && styles.textoCeldaActivo,
-          ]}
-          numberOfLines={1}
-        >
-          {tieneValor ? valor : placeholder}
-        </Text>
-        {esActivo && <View style={styles.cursorParpadeante} />}
-      </Pressable>
-    );
   };
 
   const eliminarSerieConDeshacer = (ejIndex: number, sIndex: number) => {
@@ -1365,729 +1284,188 @@ export default function EjecutarEntrenamientoModal({
                     titulo="¡INICIAR ENTRENAMIENTO!"
                     onPress={iniciarEntrenamiento}
                     tamano="lg"
+                    activo={visible}
                     style={{ alignSelf: 'stretch' }}
                   />
                 </View>
               </View>
             ) : (
-              /* PANTALLA PRINCIPAL DE SIMULACIÓN / ENTRENAMIENTO EN VIVO */
-              <View style={{ flex: 1, paddingHorizontal: gutter, width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center' }}>
-                {/* Header de la Sesión en Vivo con Timer Persistente */}
-                <View style={{ width: '100%' }}>
-                  <View style={[styles.liveHeader, isLandscape && { paddingVertical: 2, paddingBottom: 4 }]}>
-                    <View style={{ flex: 1, paddingRight: 8 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <View style={styles.liveDotPulse} />
-                        <Text style={styles.modalBadgeText}>
-                          EN VIVO • {nombreDia(fecha)}
-                        </Text>
-                      </View>
-                      {/* DOS LÍNEAS: Plan arriba en texto pequeño si existe, Rutina debajo */}
-                      {Boolean(registro.plan_nombre || registro.planes_entrenamiento?.nombre) && (
-                        <Text
-                          style={styles.livePlanSubtitleText}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {registro.plan_nombre || registro.planes_entrenamiento?.nombre}
-                        </Text>
-                      )}
-                      <Text
-                        style={[
-                          styles.liveTitleText,
-                          isCompact && { fontSize: 17 },
-                          isLandscape && { fontSize: 16 },
-                        ]}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                      >
-                        {registro.rutina_nombre || registro.rutinas?.nombre || 'Entrenamiento del Día'}
-                      </Text>
-                    </View>
+              /* PANTALLA PRINCIPAL: MODO FOCUS DE ENTRENAMIENTO EN VIVO */
+              <View style={{ flex: 1, width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center' }}>
+                {/* Top Header Bar minimalista estilo boceto */}
+                <View style={styles.focusTopBar}>
+                  <Pressable onPress={onClose} hitSlop={10} style={styles.focusChevronBtn}>
+                    <Ionicons name="chevron-down" size={24} color="#FFFFFF" />
+                  </Pressable>
 
+                  <Pressable onPress={togglePausaTimer} style={styles.focusTimerBox} hitSlop={6}>
+                    <Text style={styles.focusTimerText}>
+                      {formatearTiempo(segundosTranscurridos)}
+                    </Text>
+                    <Text style={styles.focusSubtitleText} numberOfLines={1}>
+                      {registro.rutina_nombre || registro.rutinas?.nombre || registro.plan_nombre || 'Entrenamiento'}
+                    </Text>
+                  </Pressable>
 
-
-                    {/* Widget Timer Interactivo (ÚNICO TIMER DE LA SESIÓN) */}
-                    <Pressable
-                      onPress={togglePausaTimer}
-                      style={({ pressed }) => [
-                        styles.timerWidget,
-                        estadoTimer?.pausado && styles.timerWidgetPausado,
-                        pressed && { opacity: 0.8 },
-                      ]}
-                      hitSlop={6}
-                    >
+                  <View style={styles.focusHeaderActions}>
+                    <Pressable onPress={togglePausaTimer} style={styles.focusTimerIconBtn} hitSlop={6}>
                       <Ionicons
-                        name={estadoTimer?.pausado ? 'play' : 'time'}
-                        size={14}
-                        color={estadoTimer?.pausado ? '#F59E0B' : colores.hoy}
+                        name={estadoTimer?.pausado ? 'play' : 'time-outline'}
+                        size={18}
+                        color={estadoTimer?.pausado ? '#F59E0B' : '#FFFFFF'}
                       />
-                      <Text style={styles.timerWidgetText}>
-                        {formatearTiempo(segundosTranscurridos)}
-                      </Text>
                     </Pressable>
 
-                    <Pressable onPress={onClose} style={styles.closeIconButton} hitSlop={8}>
-                      <Ionicons name="close" size={20} color={colores.texto} />
+                    <Pressable onPress={abrirResumenConfirmacion} style={styles.focusTerminarBtn} hitSlop={6}>
+                      <Text style={styles.focusTerminarBtnText}>Terminar</Text>
                     </Pressable>
                   </View>
-
-                  {/* Barra de Progreso de Sesión: ultra-compacta en horizontal */}
-                  {isLandscape ? (
-                    <View style={styles.progressLandscapeRow}>
-                      <Text style={styles.progressLandscapeText}>
-                        Series: {totalSeriesCompletadas}/{totalSeriesEnSesion} ({porcentajeProgreso}%)
-                      </Text>
-                      <View style={styles.progressBarTrackLandscape}>
-                        <View
-                          style={[
-                            styles.progressBarFill,
-                            {
-                              width: `${porcentajeProgreso}%`,
-                              backgroundColor: porcentajeProgreso === 100 ? colores.exito : colores.primarioHover,
-                            },
-                          ]}
-                        />
-                      </View>
-                    </View>
-                  ) : (
-                    <View style={styles.progressCardBox}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Text style={{ color: colores.texto, fontFamily: fuentes.bold, fontSize: 12 }}>
-                          Series completadas: {totalSeriesCompletadas} / {totalSeriesEnSesion}
-                        </Text>
-                        <Text style={{ color: colores.primarioHover, fontFamily: fuentes.black, fontSize: 13 }}>
-                          {porcentajeProgreso}%
-                        </Text>
-                      </View>
-
-                      <View style={styles.progressBarTrack}>
-                        <View
-                          style={[
-                            styles.progressBarFill,
-                            {
-                              width: `${porcentajeProgreso}%`,
-                              backgroundColor: porcentajeProgreso === 100 ? colores.exito : colores.primarioHover,
-                            },
-                          ]}
-                        />
-                      </View>
-                    </View>
-                  )}
                 </View>
 
-                {/* Formulario Scrollable de Ejercicios y Series */}
+                {/* Carrusel Superior de Avatares Anatómicos */}
+                <CarruselEjerciciosHeader
+                  ejercicios={itemsCarrusel}
+                  activoIndex={indexValido}
+                  onSelectEjercicio={(idx) => {
+                    setEjercicioActivoIndex(idx);
+                    setFocusTeclado(null);
+                  }}
+                />
+
+                {/* Contenido Scrollable del Ejercicio Activo */}
                 <ScrollView
-                  contentContainerStyle={{ gap: 14, paddingTop: 10, paddingBottom: scrollBottomPad, width: '100%' }}
+                  contentContainerStyle={{
+                    paddingHorizontal: gutter,
+                    paddingBottom: scrollBottomPad + 40,
+                    gap: 14,
+                  }}
                   keyboardShouldPersistTaps="handled"
-                  keyboardDismissMode="on-drag"
                   showsVerticalScrollIndicator={false}
                 >
-                  {ejerciciosState.map((ej, ejIdx) => {
-                    const histEj = historialMap[ej.nombre];
-                    const mostrarNotaColumna = isLandscape || isTablet;
-
-                    return (
-                      <View key={ej.id} style={styles.exerciseCard}>
-                        {/* Header del Ejercicio con menú ⋯ y badge de sustitución */}
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <View style={{ flex: 1, paddingRight: 8 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                              <Text style={{ color: colores.texto, fontFamily: fuentes.black, fontSize: 15 }} numberOfLines={1}>
-                                {ejIdx + 1}. {ej.nombre}
-                              </Text>
-                              {Boolean(ej.sustituye_a_nombre) && (
-                                <View style={styles.sustituyeBadge}>
-                                  <Ionicons name="swap-horizontal" size={10} color="#60A5FA" />
-                                  <Text style={styles.sustituyeBadgeText}>
-                                    ↔ Sustituye a {ej.sustituye_a_nombre}
-                                  </Text>
-                                </View>
-                              )}
-                            </View>
-                            {Boolean(ej.notaEjercicio) && (
-                              <Text style={{ color: colores.suave, fontSize: 11, fontStyle: 'italic', marginTop: 2 }}>
-                                📝 {ej.notaEjercicio}
-                              </Text>
-                            )}
-                          </View>
-
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <View style={styles.seriesCountBadge}>
-                              <Text style={{ color: colores.primarioHover, fontSize: 10, fontFamily: fuentes.bold }}>
-                                {ej.series.length} {ej.series.length === 1 ? 'Serie' : 'Series'}
-                              </Text>
-                            </View>
-                            <Pressable
-                              onPress={() => setEjercicioMenu(ejIdx)}
-                              style={styles.cardHeaderMoreBtn}
-                              hitSlop={8}
-                            >
-                              <Ionicons name="ellipsis-horizontal" size={16} color={colores.suave} />
-                            </Pressable>
-                          </View>
-                        </View>
-
-                        {/* Banner de Referencia Histórica con Parciales y Drops */}
-                        {histEj && histEj.series.length > 0 ? (
-                          <View style={styles.historyBoxContainer}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                <Ionicons name="time-outline" size={12} color={colores.hoy} />
-                                <Text style={{ fontSize: 10, fontFamily: fuentes.bold, color: colores.hoy }}>
-                                  PREVIO • {histEj.fechaFormateada}
-                                </Text>
-                              </View>
-                              <Pressable
-                                onPress={() => copiarSeriesHistorial(ejIdx)}
-                                hitSlop={6}
-                                style={({ pressed }) => [
-                                  styles.copyMarksBtn,
-                                  pressed && { opacity: 0.7 },
-                                ]}
-                              >
-                                <Ionicons name="duplicate-outline" size={11} color={colores.primarioHover} />
-                                <Text style={{ fontSize: 10, fontFamily: fuentes.bold, color: colores.primarioHover }}>
-                                  Copiar
-                                </Text>
-                              </Pressable>
-                            </View>
-
-                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-                              {histEj.series.map((sPrev, sIdx) => {
-                                const tieneP = Boolean(sPrev.repsParciales && sPrev.repsParciales > 0);
-                                const dropsStr = sPrev.drops && sPrev.drops.length > 0
-                                  ? sPrev.drops.map((d) => ` → ${d.kg}k×${d.reps}r`).join('') + ' ↓'
-                                  : '';
-                                return (
-                                  <View key={sIdx} style={styles.historyChip}>
-                                    <Text style={{ fontSize: 10, fontFamily: fuentes.medium, color: colores.texto }}>
-                                      #{sIdx + 1}: <Text style={{ fontFamily: fuentes.bold, color: colores.hoy }}>{sPrev.peso ? `${sPrev.peso}k` : '-'}</Text> ×{' '}
-                                      <Text style={{ fontFamily: fuentes.bold, color: colores.texto }}>
-                                        {sPrev.reps ? `${sPrev.reps}r` : '-'}
-                                        {tieneP ? <Text style={{ color: '#F59E0B' }}> +{sPrev.repsParciales}p</Text> : ''}
-                                      </Text>
-                                      {sPrev.rir ? ` (RIR ${sPrev.rir})` : ''}
-                                      {Boolean(dropsStr) && <Text style={{ color: '#38BDF8', fontFamily: fuentes.bold }}>{dropsStr}</Text>}
-                                    </Text>
-                                  </View>
-                                );
-                              })}
-                            </View>
-                          </View>
-                        ) : (
-                          <View style={styles.noHistoryBox}>
-                            <Ionicons name="sparkles-outline" size={12} color={colores.suave} />
-                            <Text style={{ fontSize: 10, fontFamily: fuentes.medium, color: colores.suave, fontStyle: 'italic' }}>
-                              Sin registro previo • Marca base
-                            </Text>
-                          </View>
-                        )}
-
-
-                        {/* Tabla de Series (Bilateral vs Unilateral D/I) */}
-                        {ej.esUnilateral ? (
-                          <View style={{ gap: 4 }}>
-                            {/* Encabezado Unilateral — IDÉNTICO a la fila */}
-                            <View style={styles.serieRow}>
-                              <View style={styles.colUniST}>
-                                <Text style={styles.serieHeaderText}>ST</Text>
-                              </View>
-                              <View style={[styles.colUniBox, { justifyContent: 'center' }]}>
-                                <Text style={[styles.serieHeaderText, { color: colores.exito }]}>D (KG × R)</Text>
-                              </View>
-                              <View style={[styles.colUniBox, { justifyContent: 'center' }]}>
-                                <Text style={[styles.serieHeaderText, { color: colores.hoy }]}>I (KG × R)</Text>
-                              </View>
-                              <View style={[styles.colUniRIR, { alignItems: 'center' }]}>
-                                <Text style={styles.serieHeaderText}>RIR</Text>
-                              </View>
-                              {!mostrarNotaColumna && (
-                                <View style={styles.colNotaBtn}>
-                                  <Text style={styles.serieHeaderText}>NOTA</Text>
-                                </View>
-                              )}
-                              <View style={[styles.colUniOK, { alignItems: 'center' }]}>
-                                <Text style={styles.serieHeaderText}>OK</Text>
-                              </View>
-                              <View style={styles.colDel} />
-                            </View>
-
-                            {ej.series.map((s, sIdx) => (
-                              <View key={s.id}>
-                                <View
-                                  style={[
-                                    styles.serieRow,
-                                    { backgroundColor: s.completado ? 'rgba(16, 185, 129, 0.12)' : 'transparent', borderRadius: 8 },
-                                  ]}
-                                >
-                                  <View style={styles.colUniST}>
-                                    <Text style={{ color: s.completado ? colores.exito : colores.texto, fontFamily: fuentes.bold, fontSize: 11 }}>
-                                      #{sIdx + 1}
-                                    </Text>
-                                  </View>
-
-                                  {/* DERECHO */}
-                                  <View style={styles.colUniBox}>
-                                    {renderCeldaInteractiva({
-                                      valor: s.peso,
-                                      placeholder: 'KG D',
-                                      ejIdx,
-                                      sIdx,
-                                      campo: 'peso',
-                                    })}
-                                    {renderCeldaInteractiva({
-                                      valor: s.reps,
-                                      placeholder: 'REPS D',
-                                      ejIdx,
-                                      sIdx,
-                                      campo: 'reps',
-                                    })}
-                                  </View>
-
-                                  {/* IZQUIERDO */}
-                                  <View style={styles.colUniBox}>
-                                    {renderCeldaInteractiva({
-                                      valor: s.pesoI !== undefined ? s.pesoI : s.peso,
-                                      placeholder: 'KG I',
-                                      ejIdx,
-                                      sIdx,
-                                      campo: 'pesoI',
-                                    })}
-                                    {renderCeldaInteractiva({
-                                      valor: s.repsI !== undefined ? s.repsI : s.reps,
-                                      placeholder: 'REPS I',
-                                      ejIdx,
-                                      sIdx,
-                                      campo: 'repsI',
-                                    })}
-                                  </View>
-
-                                  {/* RIR */}
-                                  <View style={styles.colUniRIR}>
-                                    {renderCeldaInteractiva({
-                                      valor: s.rir,
-                                      placeholder: 'RIR',
-                                      ejIdx,
-                                      sIdx,
-                                      campo: 'rir',
-                                    })}
-                                  </View>
-
-                                  {/* NOTA BUTTON (solo portrait) */}
-                                  {!mostrarNotaColumna && (
-                                    <View style={styles.colNotaBtn}>
-                                      <Pressable
-                                        onPress={() => toggleNotaAbierta(s.id)}
-                                        style={({ pressed }) => [
-                                          styles.notaToggleBtn,
-                                          Boolean(s.nota) && styles.notaToggleBtnActiva,
-                                          pressed && { opacity: 0.7 },
-                                        ]}
-                                        hitSlop={4}
-                                      >
-                                        <Ionicons
-                                          name={Boolean(s.nota) ? 'document-text' : 'document-text-outline'}
-                                          size={16}
-                                          color={Boolean(s.nota) ? colores.hoy : colores.suave}
-                                        />
-                                      </Pressable>
-                                    </View>
-                                  )}
-
-                                  {/* OK checkbox */}
-                                  <View style={styles.colUniOK}>
-                                    <Pressable
-                                      onPress={() => cambiarCampoSerie(ejIdx, sIdx, 'completado', !s.completado)}
-                                      style={{ width: 40, height: 44, alignItems: 'center', justifyContent: 'center' }}
-                                      hitSlop={4}
-                                    >
-                                      <Ionicons
-                                        name={s.completado ? 'checkmark-circle' : 'ellipse-outline'}
-                                        size={22}
-                                        color={s.completado ? colores.exito : colores.suave}
-                                      />
-                                    </Pressable>
-                                  </View>
-
-                                  {/* Menú de opciones de la serie (⋯) */}
-                                  <View style={styles.colDel}>
-                                    <Pressable
-                                      onPress={() => setSerieMenu({ ejIdx, sIdx })}
-                                      style={styles.serieMoreBtn}
-                                      hitSlop={6}
-                                    >
-                                      <Ionicons name="ellipsis-horizontal" size={16} color={colores.suave} />
-                                    </Pressable>
-                                  </View>
-                                </View>
-
-                                {/* Sub-fila de nota en unilateral (portrait) */}
-                                {!mostrarNotaColumna && (notasAbiertas[s.id] || Boolean(s.nota)) && (
-                                  <View style={styles.subNotaContainer}>
-                                    <Ionicons name="create-outline" size={14} color={colores.primarioHover} />
-                                    <TextInput
-                                      placeholder="Nota de la serie (ej. Técnica, sensaciones)..."
-                                      placeholderTextColor={colores.suave}
-                                      value={s.nota}
-                                      onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'nota', val)}
-                                      onFocus={handleInputFocus}
-                                      style={styles.subNotaInput}
-                                    />
-                                  </View>
-                                )}
-                              </View>
-                            ))}
-                          </View>
-                        ) : (
-                          /* BILATERAL */
-                          <View style={{ gap: 4 }}>
-                            {/* Encabezados — estructura IDÉNTICA a las filas */}
-                            <View style={styles.serieRow}>
-                              <View style={styles.colST}>
-                                <Text style={styles.serieHeaderText}>ST</Text>
-                              </View>
-                              <View style={[styles.colKG, { alignItems: 'center' }]}>
-                                <Text style={styles.serieHeaderText}>KG</Text>
-                              </View>
-                              <View style={[styles.colREPS, { alignItems: 'center' }]}>
-                                <Text style={styles.serieHeaderText}>REPS</Text>
-                              </View>
-                              <View style={[styles.colRIR, { alignItems: 'center' }]}>
-                                <Text style={styles.serieHeaderText}>RIR</Text>
-                              </View>
-                              {mostrarNotaColumna ? (
-                                <View style={[styles.colNOTA, { alignItems: 'center' }]}>
-                                  <Text style={styles.serieHeaderText}>NOTA</Text>
-                                </View>
-                              ) : (
-                                <View style={styles.colNotaBtn}>
-                                  <Text style={styles.serieHeaderText}>NOTA</Text>
-                                </View>
-                              )}
-                              <View style={[styles.colOK, { alignItems: 'center' }]}>
-                                <Text style={styles.serieHeaderText}>OK</Text>
-                              </View>
-                              <View style={styles.colDel} />
-                            </View>
-
-                            {ej.series.map((s, sIdx) => {
-                              const sPrev = histEj?.series[sIdx];
-                              const diffPeso = s.peso && sPrev?.peso ? Number(s.peso) - Number(sPrev.peso) : 0;
-
-                              return (
-                                <View key={s.id}>
-                                  {/* Fila principal */}
-                                  <View
-                                    style={[
-                                      styles.serieRow,
-                                      { backgroundColor: s.completado ? 'rgba(16, 185, 129, 0.12)' : 'transparent', borderRadius: 8 },
-                                    ]}
-                                  >
-                                    {/* ST — número de serie con chips de parcial y dropset */}
-                                    <View style={styles.colST}>
-                                      <Text style={{ color: s.completado ? colores.exito : colores.texto, fontFamily: fuentes.bold, fontSize: 11 }}>
-                                        #{sIdx + 1}
-                                      </Text>
-                                      {s.tieneParciales && (
-                                        <View style={styles.chipMiniParcial}>
-                                          <Text style={styles.chipMiniParcialText}>P</Text>
-                                        </View>
-                                      )}
-                                      {s.esDropset && (
-                                        <View style={styles.chipMiniDrop}>
-                                          <Text style={styles.chipMiniDropText}>DS</Text>
-                                        </View>
-                                      )}
-                                    </View>
-
-                                    {/* KG */}
-                                    <View style={styles.colKG}>
-                                      {renderCeldaInteractiva({
-                                        valor: s.peso,
-                                        placeholder: sPrev?.peso ?? '0',
-                                        ejIdx,
-                                        sIdx,
-                                        campo: 'peso',
-                                      })}
-                                      {diffPeso > 0 && (
-                                        <Text style={styles.overloadBadge}>🔥+{diffPeso}k</Text>
-                                      )}
-                                    </View>
-
-                                    {/* REPS */}
-                                    <View style={styles.colREPS}>
-                                      {renderCeldaInteractiva({
-                                        valor: s.reps,
-                                        placeholder: sPrev?.reps ?? '0',
-                                        ejIdx,
-                                        sIdx,
-                                        campo: 'reps',
-                                      })}
-                                    </View>
-
-                                    {/* RIR */}
-                                    <View style={styles.colRIR}>
-                                      {renderCeldaInteractiva({
-                                        valor: s.rir,
-                                        placeholder: sPrev?.rir ? sPrev.rir : '—',
-                                        ejIdx,
-                                        sIdx,
-                                        campo: 'rir',
-                                      })}
-                                    </View>
-
-                                    {/* NOTA (en fila para landscape / tablet) */}
-                                    {mostrarNotaColumna ? (
-                                      <View style={styles.colNOTA}>
-                                        <TextInput
-                                          placeholder="Nota"
-                                          placeholderTextColor={colores.suave}
-                                          value={s.nota}
-                                          onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'nota', val)}
-                                          onFocus={handleInputFocus}
-                                          style={[styles.inputCell, { fontSize: Platform.OS === 'web' ? 16 : 11 }]}
-                                        />
-                                      </View>
-                                    ) : (
-                                      <View style={styles.colNotaBtn}>
-                                        <Pressable
-                                          onPress={() => toggleNotaAbierta(s.id)}
-                                          style={({ pressed }) => [
-                                            styles.notaToggleBtn,
-                                            Boolean(s.nota) && styles.notaToggleBtnActiva,
-                                            pressed && { opacity: 0.7 },
-                                          ]}
-                                          hitSlop={4}
-                                        >
-                                          <Ionicons
-                                            name={Boolean(s.nota) ? 'document-text' : 'document-text-outline'}
-                                            size={16}
-                                            color={Boolean(s.nota) ? colores.hoy : colores.suave}
-                                          />
-                                        </Pressable>
-                                      </View>
-                                    )}
-
-                                    {/* OK checkbox con validación de drops */}
-                                    <View style={styles.colOK}>
-                                      <Pressable
-                                        onPress={() => toggleCompletarSerie(ejIdx, sIdx)}
-                                        style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
-                                        hitSlop={4}
-                                      >
-                                        <Ionicons
-                                          name={s.completado ? 'checkmark-circle' : 'ellipse-outline'}
-                                          size={22}
-                                          color={s.completado ? colores.exito : colores.suave}
-                                        />
-                                      </Pressable>
-                                    </View>
-
-                                    {/* Menú de opciones de la serie (⋯) */}
-                                    <View style={styles.colDel}>
-                                      <Pressable
-                                        onPress={() => setSerieMenu({ ejIdx, sIdx })}
-                                        style={styles.serieMoreBtn}
-                                        hitSlop={6}
-                                      >
-                                        <Ionicons name="ellipsis-horizontal" size={16} color={colores.suave} />
-                                      </Pressable>
-                                    </View>
-                                  </View>
-
-                                  {/* NOTA — segunda línea colapsable/expandible, en vertical portrait */}
-                                  {!mostrarNotaColumna && (notasAbiertas[s.id] || Boolean(s.nota)) && (
-                                    <View style={styles.subNotaContainer}>
-                                      <Ionicons name="create-outline" size={14} color={colores.primarioHover} />
-                                      <TextInput
-                                        placeholder="Nota de la serie (ej. Buena técnica, fallo en 8ª)..."
-                                        placeholderTextColor={colores.suave}
-                                        value={s.nota}
-                                        onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'nota', val)}
-                                        onFocus={handleInputFocus}
-                                        style={styles.subNotaInput}
-                                      />
-                                    </View>
-                                  )}
-
-                                  {/* Franja de Parciales si está activa */}
-                                  {s.tieneParciales && (
-                                    <View style={styles.parcialesRowContainer}>
-                                      <View style={styles.parcialesLabelBox}>
-                                        <Ionicons name="flash" size={12} color="#F59E0B" />
-                                        <Text style={styles.parcialesLabelText}>Parciales</Text>
-                                      </View>
-                                      <View style={styles.stepperContainer}>
-                                        <Pressable
-                                          onPress={() => cambiarCampoSerie(ejIdx, sIdx, 'repsParciales', Math.max(0, (s.repsParciales || 0) - 1))}
-                                          style={styles.stepperBtn}
-                                          hitSlop={6}
-                                        >
-                                          <Ionicons name="remove" size={14} color={colores.texto} />
-                                        </Pressable>
-                                        <View style={styles.stepperInput}>
-                                          <Text style={{ color: colores.texto, fontFamily: fuentes.bold, fontSize: 13, textAlign: 'center' }}>
-                                            {s.repsParciales || 0}
-                                          </Text>
-                                        </View>
-                                        <Pressable
-                                          onPress={() => cambiarCampoSerie(ejIdx, sIdx, 'repsParciales', (s.repsParciales || 0) + 1)}
-                                          style={styles.stepperBtn}
-                                          hitSlop={6}
-                                        >
-                                          <Ionicons name="add" size={14} color={colores.texto} />
-                                        </Pressable>
-                                      </View>
-                                    </View>
-                                  )}
-
-                                  {/* Filas de Dropset si está activo */}
-                                  {s.esDropset && (
-                                    <View style={styles.dropsetContainer}>
-                                      {s.drops.map((drop, dIdx) => (
-                                        <View key={drop.orden} style={styles.dropSubRow}>
-                                          <View style={styles.colSTDrop}>
-                                            <Ionicons name="arrow-down" size={11} color="#38BDF8" />
-                                            <Text style={styles.dropNumText}>D{drop.orden}</Text>
-                                          </View>
-                                          <View style={styles.colKG}>
-                                            {renderCeldaInteractiva({
-                                              valor: drop.kg,
-                                              placeholder: 'KG',
-                                              ejIdx,
-                                              sIdx,
-                                              campo: 'peso',
-                                              dropIdx: dIdx,
-                                              extraStyle: styles.inputCellDrop,
-                                            })}
-                                          </View>
-                                          <View style={styles.colREPS}>
-                                            {renderCeldaInteractiva({
-                                              valor: drop.reps,
-                                              placeholder: 'REPS',
-                                              ejIdx,
-                                              sIdx,
-                                              campo: 'reps',
-                                              dropIdx: dIdx,
-                                              warning: !drop.reps,
-                                              extraStyle: styles.inputCellDrop,
-                                            })}
-                                          </View>
-                                          <View style={styles.colRIR}>
-                                            {renderCeldaInteractiva({
-                                              valor: drop.rir || '',
-                                              placeholder: '—',
-                                              ejIdx,
-                                              sIdx,
-                                              campo: 'rir',
-                                              dropIdx: dIdx,
-                                              extraStyle: styles.inputCellDrop,
-                                            })}
-                                          </View>
-                                          {mostrarNotaColumna && <View style={styles.colNOTA} />}
-                                          <View style={styles.colOK} />
-                                          <View style={styles.colDel}>
-                                            <Pressable
-                                              onPress={() => quitarDropDeSerie(ejIdx, sIdx, dIdx)}
-                                              hitSlop={6}
-                                              style={{ padding: 4 }}
-                                            >
-                                              <Ionicons name="close" size={13} color={colores.suave} />
-                                            </Pressable>
-                                          </View>
-                                        </View>
-                                      ))}
-
-                                      {/* Botón + Añadir drop */}
-                                      <View style={styles.addDropRow}>
-                                        <Pressable
-                                          onPress={() => agregarDropASerie(ejIdx, sIdx)}
-                                          disabled={s.drops.length >= DROPSET_MAX_DROPS}
-                                          style={({ pressed }) => [
-                                            styles.addDropBtn,
-                                            s.drops.length >= DROPSET_MAX_DROPS && { opacity: 0.5 },
-                                            pressed && s.drops.length < DROPSET_MAX_DROPS && { opacity: 0.8 },
-                                          ]}
-                                        >
-                                          <Ionicons name="add" size={12} color="#38BDF8" />
-                                          <Text style={styles.addDropBtnText}>
-                                            {s.drops.length >= DROPSET_MAX_DROPS
-                                              ? `Máximo ${DROPSET_MAX_DROPS} drops`
-                                              : `+ Añadir drop (${s.drops.length}/${DROPSET_MAX_DROPS})`}
-                                          </Text>
-                                        </Pressable>
-                                      </View>
-                                    </View>
-                                  )}
-                                </View>
-                              );
-                            })}
-                          </View>
-
-                        )}
-
-                        {/* Botón + Serie */}
-                        <Pressable
-                          onPress={() => agregarSerieAEjercicio(ejIdx)}
-                          style={({ pressed }) => [
-                            styles.addSerieBtn,
-                            pressed && { opacity: 0.8 },
-                          ]}
-                        >
-                          <Ionicons name="add" size={14} color={colores.primarioHover} />
-                          <Text style={{ color: colores.primarioHover, fontFamily: fuentes.bold, fontSize: 11 }}>
-                            + Añadir Serie
-                          </Text>
-                        </Pressable>
-                      </View>
-                    );
-                  })}
-
-                  {/* Observaciones Generales del Día */}
-                  <View style={{ gap: 6 }}>
-                    <Text style={styles.inputLabelText}>Observaciones del Entrenamiento</Text>
-                    <TextInput
-                      placeholder="Ej. Buena energía, foco en sobrecarga progresiva..."
-                      placeholderTextColor={colores.suave}
-                      multiline
-                      numberOfLines={3}
-                      value={notasSesion}
-                      onChangeText={setNotasSesion}
-                      onFocus={handleInputFocus}
-                      style={[styles.inputBase, { height: 65, textAlignVertical: 'top' }]}
-                    />
-                  </View>
-                </ScrollView>
-
-                {/* DOCK INFERIOR — altura y posición responsive con safe areas, sin timer duplicado */}
-                {!isKeyboardVisible && !focusTeclado && (
-                  <View
-                    style={[
-                      styles.stickyBottomBar,
-                      {
-                        bottom: bottomInset + (isLandscape ? 4 : 8),
-                        left: isLandscape || isTablet ? 'auto' : gutter,
-                        right: isLandscape || isTablet ? 'auto' : gutter,
-                        width: isLandscape || isTablet ? Math.min(width - gutter * 2, 720) : undefined,
-                        alignSelf: 'center',
-                        paddingVertical: isLandscape ? 6 : 10,
-                      },
-                    ]}
-                    onLayout={(e) => setDockHeight(e.nativeEvent.layout.height)}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <GlowButton
-                        title="Guardar Entrenamiento"
-                        onPress={abrirResumenConfirmacion}
-                        variant="primary"
-                        size={isLandscape ? "sm" : "md"}
-                        shape="rounded"
-                        fullWidth
+                  {Boolean(ejActivo) && (
+                    <>
+                      {/* Hero con Animación Anatómica y Píldoras de Acción */}
+                      <HeroEjercicioActivo
+                        nombreEjercicio={ejActivo.nombre}
+                        totalSeries={ejActivo.series.length}
+                        objetivoTexto={`${ejActivo.series.length} series`}
+                        tieneHistorialPrevio={Boolean(historialMap[ejActivo.nombre]?.series?.length)}
+                        onCopiarHistorial={() => {
+                          copiarSeriesHistorial(indexValido);
+                        }}
+                        onReemplazar={() => {
+                          setSelectorIntercambio({ ejIdx: indexValido, modo: 'solo_hoy' });
+                        }}
+                        onNotas={() => {
+                          setEjercicioMenu(indexValido);
+                        }}
                       />
-                    </View>
-                  </View>
-                )}
+
+                      {/* Tabla de Series de Alto Rendimiento */}
+                      <TablaSeriesFocus
+                        ejIdx={indexValido}
+                        series={seriesFocus}
+                        focusCampoActivo={
+                          focusTeclado && focusTeclado.ejIdx === indexValido
+                            ? {
+                                sIdx: focusTeclado.sIdx,
+                                campo: focusTeclado.campo === 'peso' ? 'kg' : (focusTeclado.campo as any),
+                                dropIdx: focusTeclado.dropIdx,
+                              }
+                            : null
+                        }
+                        onFocusCampo={(sIdx, campo, dropIdx) => {
+                          const campoTeclado = campo === 'kg' ? 'peso' : campo;
+                          setFocusTeclado({
+                            ejIdx: indexValido,
+                            sIdx,
+                            campo: campoTeclado as any,
+                            dropIdx,
+                          });
+                        }}
+                        onToggleCompletado={(sIdx) => {
+                          toggleCompletarSerie(indexValido, sIdx);
+                        }}
+                        onAnadirSerie={() => {
+                          agregarSerieAEjercicio(indexValido);
+                        }}
+                        onEliminarSerie={(sIdx) => {
+                          eliminarSerieConDeshacer(indexValido, sIdx);
+                        }}
+                        onActualizarSerie={(sIdx, patch) => {
+                          if (patch.drops) {
+                            setEjerciciosState((prev) => {
+                              const next = prev.map((ej, i) => {
+                                if (i !== indexValido) return ej;
+                                return {
+                                  ...ej,
+                                  series: ej.series.map((s, sj) => {
+                                    if (sj !== sIdx) return s;
+                                    return {
+                                      ...s,
+                                      esDropset: patch.drops!.length > 0,
+                                      drops: patch.drops!.map((d) => ({
+                                        orden: d.orden,
+                                        kg: d.peso,
+                                        reps: d.reps,
+                                        rir: d.rir || '',
+                                      })),
+                                    };
+                                  }),
+                                };
+                              });
+                              guardarDraftAuto(next);
+                              return next;
+                            });
+                          }
+                          if (patch.repsParciales !== undefined) {
+                            const repsParciales = patch.repsParciales ?? 0;
+                            setEjerciciosState((prev) => {
+                              const next = prev.map((ej, i) => {
+                                if (i !== indexValido) return ej;
+                                return {
+                                  ...ej,
+                                  series: ej.series.map((s, sj) => {
+                                    if (sj !== sIdx) return s;
+                                    return {
+                                      ...s,
+                                      tieneParciales: repsParciales > 0,
+                                      repsParciales,
+                                    };
+                                  }),
+                                };
+                              });
+                              guardarDraftAuto(next);
+                              return next;
+                            });
+                          }
+                          if (patch.tipo !== undefined) {
+                            cambiarCampoSerie(indexValido, sIdx, 'tipo' as any, patch.tipo);
+                          }
+                        }}
+                      />
+
+                      {/* Tarjeta de Notas Generales de la Sesión */}
+                      <View style={styles.focusNotesCard}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                          <Ionicons name="document-text-outline" size={14} color={colores.suave} />
+                          <Text style={{ color: colores.suave, fontFamily: fuentes.bold, fontSize: 11 }}>
+                            NOTAS GENERALES DEL DÍA
+                          </Text>
+                        </View>
+                        <TextInput
+                          placeholder="Registra sensaciones, fatiga o notas del entrenamiento..."
+                          placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                          multiline
+                          numberOfLines={2}
+                          value={notasSesion}
+                          onChangeText={setNotasSesion}
+                          style={styles.focusNotesInput}
+                        />
+                      </View>
+                    </>
+                  )}
+                </ScrollView>
 
                 {/* TECLADO INTELIGENTE DE ENTRENAMIENTO */}
                 {focusTeclado && (
@@ -3316,5 +2694,81 @@ const styles = StyleSheet.create({
     color: colores.primarioHover,
     fontSize: 11,
     fontFamily: fuentes.black,
+  },
+  /* FOCUS MODE STYLES */
+  focusTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 6,
+    width: '100%',
+  },
+  focusChevronBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  focusTimerBox: {
+    alignItems: 'center',
+    flex: 1,
+    paddingHorizontal: 8,
+  },
+  focusTimerText: {
+    color: '#FFFFFF',
+    fontFamily: fuentes.black,
+    fontSize: 21,
+    letterSpacing: 0.5,
+  },
+  focusSubtitleText: {
+    color: colores.suave,
+    fontFamily: fuentes.medium,
+    fontSize: 11,
+    marginTop: 1,
+  },
+  focusHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  focusTimerIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  focusTerminarBtn: {
+    backgroundColor: '#7F1D1D',
+    borderWidth: 1.5,
+    borderColor: '#EF4444',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+  },
+  focusTerminarBtnText: {
+    color: '#FFFFFF',
+    fontFamily: fuentes.bold,
+    fontSize: 12.5,
+  },
+  focusNotesCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    marginTop: 8,
+  },
+  focusNotesInput: {
+    color: '#FFFFFF',
+    fontFamily: fuentes.regular,
+    fontSize: 13,
+    minHeight: 46,
+    textAlignVertical: 'top',
   },
 });
