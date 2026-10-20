@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { memo, useState } from 'react';
 import {
   LayoutChangeEvent,
   Pressable,
@@ -20,14 +20,16 @@ import { vibrarBoton } from '../utils/haptics';
 
 export interface LiquidMetalButtonProps {
   /** Texto del botón */
-  titulo: string;
+  titulo?: string;
+  /** Contenido libre */
+  children?: React.ReactNode;
   /** Acción al presionar */
   onPress?: () => void;
   /** Estado deshabilitado */
   disabled?: boolean;
   /** Icono opcional en la parte izquierda */
   icon?: React.ReactNode;
-  /** Ancho del borde metálico líquido en píxeles (default: 3) */
+  /** Ancho del borde metálico líquido en píxeles (default de VengeanceUI: 4) */
   borderWidth?: number;
   /** Tamaño del botón */
   tamano?: 'normal' | 'compacto';
@@ -43,12 +45,13 @@ export interface LiquidMetalButtonProps {
   style?: StyleProp<ViewStyle>;
 }
 
-export default function LiquidMetalButton({
+export const LiquidMetalButton = memo(function LiquidMetalButton({
   titulo,
+  children,
   onPress,
   disabled = false,
   icon,
-  borderWidth = 3,
+  borderWidth = 4,
   tamano = 'normal',
   metalConfig,
   style,
@@ -56,12 +59,12 @@ export default function LiquidMetalButton({
   const [dimensiones, setDimensiones] = useState({ ancho: 0, alto: 0 });
   const presionado = useSharedValue(0);
 
-  const altoDefecto = tamano === 'compacto' ? 42 : 52;
+  const altoDefecto = tamano === 'compacto' ? 44 : 54;
   const altoFinal = dimensiones.alto > 0 ? dimensiones.alto : altoDefecto;
   const borderRadius = altoFinal / 2;
 
   const estiloAnimado = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 - 0.03 * presionado.value }],
+    transform: [{ scale: 1 - 0.025 * presionado.value }],
   }));
 
   const handleLayout = (e: LayoutChangeEvent) => {
@@ -72,11 +75,11 @@ export default function LiquidMetalButton({
   };
 
   const handlePressIn = () => {
-    presionado.value = withSpring(1, { damping: 18, stiffness: 300 });
+    presionado.value = withSpring(1, { damping: 15, stiffness: 350 });
   };
 
   const handlePressOut = () => {
-    presionado.value = withTiming(0, { duration: 180 });
+    presionado.value = withTiming(0, { duration: 160 });
   };
 
   const handlePress = () => {
@@ -104,21 +107,19 @@ export default function LiquidMetalButton({
           },
         ]}
       >
-        {/* CAPA DE SHADER DE METAL LÍQUIDO (FONDO Y BORDE) */}
-        {dimensiones.ancho > 0 && (
-          <LiquidMetalShader
-            width={dimensiones.ancho}
-            height={altoFinal}
-            borderRadius={borderRadius}
-            colorBack={metalConfig?.colorBack ?? '#121520'}
-            colorTint={metalConfig?.colorTint ?? '#FFFFFF'}
-            speed={metalConfig?.speed ?? 0.5}
-            repetition={metalConfig?.repetition ?? 4.0}
-            distortion={metalConfig?.distortion ?? 0.16}
-          />
-        )}
+        {/* CAPA DE SHADER DE METAL LÍQUIDO 100% VENGEANCE UI */}
+        <LiquidMetalShader
+          width={dimensiones.ancho}
+          height={altoFinal}
+          borderRadius={borderRadius}
+          colorBack={metalConfig?.colorBack ?? '#888888'}
+          colorTint={metalConfig?.colorTint ?? '#ffffff'}
+          speed={metalConfig?.speed ?? 0.4}
+          repetition={metalConfig?.repetition ?? 4}
+          distortion={metalConfig?.distortion ?? 0.15}
+        />
 
-        {/* CUERPO INTERIOR OBSIDIANA / VIDRIO OSCURO */}
+        {/* CUERPO INTERIOR DEL BOTÓN (Estilo Dark VengeanceUI: bg-black / obsidiana) */}
         <View
           style={[
             styles.cuerpoInterior,
@@ -128,7 +129,7 @@ export default function LiquidMetalButton({
               right: borderWidth,
               bottom: borderWidth,
               borderRadius: Math.max(0, borderRadius - borderWidth),
-              paddingHorizontal: tamano === 'compacto' ? 14 : 20,
+              paddingHorizontal: tamano === 'compacto' ? 14 : 22,
             },
           ]}
         >
@@ -138,23 +139,31 @@ export default function LiquidMetalButton({
             </View>
           )}
 
-          <Text style={[styles.tituloTexto, tamano === 'compacto' && styles.tituloTextoCompacto]}>
-            {titulo}
-          </Text>
+          {titulo ? (
+            <Text style={[styles.tituloTexto, tamano === 'compacto' && styles.tituloTextoCompacto]}>
+              {titulo}
+            </Text>
+          ) : (
+            children
+          )}
         </View>
       </Pressable>
     </Animated.View>
   );
-}
+});
+
+LiquidMetalButton.displayName = 'LiquidMetalButton';
+
+export default LiquidMetalButton;
 
 const styles = StyleSheet.create({
   contenedorBase: {
     alignSelf: 'stretch',
-    shadowColor: '#7CF3FF',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 18,
-    elevation: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 10,
   },
   pressableWrapper: {
     width: '100%',
@@ -164,19 +173,19 @@ const styles = StyleSheet.create({
   },
   cuerpoInterior: {
     position: 'absolute',
-    backgroundColor: 'rgba(12, 14, 22, 0.94)',
+    backgroundColor: '#05070B',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 10,
     zIndex: 1,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   iconChip: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -187,11 +196,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: fuentes.bold,
     fontSize: 15,
-    letterSpacing: 0.4,
+    letterSpacing: -0.2,
     textAlign: 'center',
   },
   tituloTextoCompacto: {
     fontSize: 13,
-    letterSpacing: 0.2,
+    letterSpacing: -0.1,
   },
 });

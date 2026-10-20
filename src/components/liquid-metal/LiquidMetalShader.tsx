@@ -30,14 +30,15 @@ export interface LiquidMetalShaderProps {
 
 const CHROMATIC_METAL_COLORS = [
   '#FFFFFF',
-  '#94A3B8',
-  '#7CF3FF',
-  '#A78BFA',
-  '#FF8AD8',
-  '#FFE3C2',
+  '#888888',
+  '#E2E8F0',
   '#FFFFFF',
-  '#475569',
-  '#1E293B',
+  '#67E8F9',
+  '#C084FC',
+  '#F472B6',
+  '#FFFFFF',
+  '#64748B',
+  '#94A3B8',
   '#FFFFFF',
 ];
 
