@@ -1,29 +1,29 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
+import { Pressable, Text, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useIsFocused } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { addDays, addWeeks, isSameDay, isSameWeek, parseISO } from 'date-fns';
 import { colores, fuentes } from '../../constants/colores';
 import { supabase } from '../../lib/supabase';
-import DiaDetalleModal, { parsearNotaInteligente } from '../../components/DiaDetalleModal';
+import DiaDetalleModal from '../../components/DiaDetalleModal';
 import EjecutarEntrenamientoModal from '../../components/EjecutarEntrenamientoModal';
 import ModalPartidaEnCurso from '../../components/ModalPartidaEnCurso';
 import EncabezadoSeccion from '../../components/EncabezadoSeccion';
 import ScreenBackground from '../../components/ScreenBackground';
+import MainDayCard from '../../components/MainDayCard';
 import { LiquidMetalButton } from '../../components/LiquidMetalButton';
-import DockPrincipal from '../../components/DockPrincipal';
 import { registrosDeRango } from '../../services/registros';
 import { listarPlanes } from '../../services/planes';
 import { aISO, diasDeSemana, nombreDia, rangoSemana } from '../../utils/fechas';
 import { seguro } from '../../utils/errores';
-import { parsearEjercicioInfo } from '../../utils/ejercicios';
 import { EjercicioRegistro, PlanEntrenamiento, Registro } from '../../types';
 import { SesionActivaInfo, obtenerSesionActivaInfo, obtenerBorradorSesion } from '../../utils/sesionActiva';
 import { useLayout } from '../../hooks/useLayout';
 
 export default function Semana() {
-  const { gutter, contentMaxWidth, isLandscape, isCompact } = useLayout();
+  const { gutter, contentMaxWidth, isLandscape, isCompact, bottomInset, safeBottom } = useLayout();
+  const tabBottomPadding = isLandscape ? 48 + Math.max(bottomInset, 4) : 64 + safeBottom;
   const isFocused = useIsFocused();
   const [ref, setRef] = useState(new Date());
   const [diaActivo, setDiaActivo] = useState(new Date());
@@ -198,7 +198,7 @@ export default function Semana() {
             maxWidth: contentMaxWidth,
             alignSelf: 'center',
             paddingHorizontal: gutter,
-            paddingBottom: 70,
+            paddingBottom: tabBottomPadding,
             gap: isLandscape ? 6 : 10,
           }}
         >
@@ -355,284 +355,41 @@ export default function Semana() {
             })}
           </View>
 
-          {/* TARJETA PRINCIPAL DEL DÍA SELECCIONADO */}
-          <View
-            style={[
-              styles.mainDayCard,
-              {
-                borderColor: esDiaHoy(diaActivo) ? colores.hoy : colores.borde,
-              },
-            ]}
-          >
-            {/* Header de la Tarjeta del Día */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Pressable onPress={irDiaAnterior} style={{ padding: 6 }} hitSlop={10}>
-                <Ionicons name="chevron-back" size={22} color={colores.suave} />
-              </Pressable>
+          {/* TARJETA PRINCIPAL DEL DÍA SELECCIONADO (Estilo Uiverse one-div glow) */}
+          <MainDayCard
+            diaActivo={diaActivo}
+            onDiaAnterior={irDiaAnterior}
+            onDiaSiguiente={irDiaSiguiente}
+            registrosConRutina={registrosConRutina}
+            notasDelDia={notasDelDia}
+            ejerciciosExtras={ejerciciosExtras}
+            sesionActivaInfo={sesionActivaInfo}
+            onIniciarRutina={abrirEjecutarRutina}
+            onReanudarRutina={(r) => {
+              if (sesionActivaInfo && sesionActivaInfo.registroId === r.id) {
+                reanudarPartidaEnCurso();
+              } else {
+                abrirEjecutarRutina(r);
+              }
+            }}
+            onVerResumenRutina={abrirEjecutarRutina}
+          />
 
-              <View style={{ alignItems: 'center' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={styles.selectedDayTitle}>
-                    {nombreDia(diaActivo)}
-                  </Text>
-                  {esDiaHoy(diaActivo) && (
-                    <View style={styles.hoyBadge}>
-                      <Text style={styles.hoyBadgeText}>HOY</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.selectedDaySubdate}>
-                  {aISO(diaActivo)}
-                </Text>
-              </View>
-
-              <Pressable onPress={irDiaSiguiente} style={{ padding: 6 }} hitSlop={10}>
-                <Ionicons name="chevron-forward" size={22} color={colores.suave} />
-              </Pressable>
-            </View>
-
-            {/* LISTA SCROLLABLE DE NOTAS, RUTINAS Y EJERCICIOS EXTRAS */}
-            <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 144 }} showsVerticalScrollIndicator={false}>
-              {notasDelDia.length === 0 && registrosConRutina.length === 0 && ejerciciosExtras.length === 0 ? (
-                <View style={styles.emptyDayContainer}>
-                  <View style={styles.emptyDayIconBox}>
-                    <Ionicons name="barbell-outline" size={24} color={colores.suave} />
-                  </View>
-                  <Text style={styles.emptyDayTitle}>Sin actividades ni notas</Text>
-                  <Text style={styles.emptyDaySubtext}>
-                    Toca el botón &quot;+ Administrar Día&quot; para añadir rutinas, ejercicios o anotaciones.
-                  </Text>
-                </View>
-              ) : (
-                <>
-                  {/* 1. SECCIÓN NOTAS DEL DÍA */}
-                  {notasDelDia.length > 0 && (
-                    <View style={{ gap: 8 }}>
-                      {notasDelDia.map((notaObj) => {
-                        const { categoria, titulo, cuerpo, colorBadge, bgBadge, iconName } = parsearNotaInteligente(notaObj.nombre);
-                        return (
-                          <View
-                            key={notaObj.id}
-                            style={[
-                              styles.noteCard,
-                              { borderLeftColor: colorBadge },
-                            ]}
-                          >
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <View style={[styles.noteCategoryBadge, { backgroundColor: bgBadge }]}>
-                                <Ionicons name={iconName} size={12} color={colorBadge} />
-                                <Text style={[styles.noteCategoryText, { color: colorBadge }]}>
-                                  {categoria}
-                                </Text>
-                              </View>
-                              <Text numberOfLines={1} style={styles.noteTitle}>
-                                {titulo}
-                              </Text>
-                            </View>
-                            {cuerpo ? (
-                              <Text numberOfLines={2} style={styles.noteBody}>
-                                {cuerpo}
-                              </Text>
-                            ) : null}
-                          </View>
-                        );
-                      })}
-                    </View>
-                  )}
-
-                  {/* 2. SECCIÓN RUTINAS DEL DÍA */}
-                  {registrosConRutina.map((r) => {
-                    const ejsRutina = (r.ejercicios_registro || []).filter((e) => !e.nombre.startsWith('📌'));
-                    const planColor = r.planes_entrenamiento?.color || colores.primarioHover;
-                    const nombrePlan = r.plan_nombre || r.planes_entrenamiento?.nombre;
-                    const nombreRutina = r.rutina_nombre || r.rutinas?.nombre || 'Rutina Vinculada';
-
-                    return (
-                      <Pressable
-                        key={r.id}
-                        onPress={() => abrirEjecutarRutina(r)}
-                        style={({ pressed }) => [
-                          styles.routineBox,
-                          {
-                            borderColor: r.completado ? colores.exito : colores.borde,
-                            borderLeftColor: r.completado ? colores.exito : planColor,
-                            borderLeftWidth: 4,
-                            opacity: pressed ? 0.9 : 1,
-                          },
-                        ]}
-                      >
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, paddingRight: 6 }}>
-                            <Ionicons name="fitness" size={18} color={r.completado ? colores.exito : planColor} />
-                            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                              {nombrePlan ? (
-                                <View
-                                  style={[
-                                    styles.planTagChip,
-                                    { backgroundColor: planColor + '20', borderColor: planColor + '40' },
-                                  ]}
-                                >
-                                  <Text style={[styles.planTagChipText, { color: planColor }]}>
-                                    {nombrePlan}
-                                  </Text>
-                                </View>
-                              ) : null}
-                              <Text
-                                style={[
-                                  styles.routineBoxTitle,
-                                  { color: r.completado ? colores.exito : colores.texto },
-                                ]}
-                                numberOfLines={1}
-                              >
-                                {nombreRutina}
-                              </Text>
-                            </View>
-                          </View>
-
-
-                          <View
-                            style={[
-                              styles.fillRegistroBadge,
-                              r.completado && {
-                                backgroundColor: 'rgba(43, 213, 152, 0.12)',
-                                borderColor: 'rgba(43, 213, 152, 0.35)',
-                              },
-                            ]}
-                          >
-                            <Ionicons
-                              name={r.completado ? 'checkmark-circle' : 'create-outline'}
-                              size={12}
-                              color={r.completado ? colores.exito : colores.primarioHover}
-                            />
-                            <Text
-                              style={[
-                                styles.fillRegistroBadgeText,
-                                r.completado && { color: colores.exito },
-                              ]}
-                            >
-                              {r.completado ? 'Completado' : 'Llenar Registro'}
-                            </Text>
-                          </View>
-                        </View>
-
-                        {ejsRutina.map((e) => {
-                          const parsed = parsearEjercicioInfo(e);
-                          return (
-                            <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                                <Ionicons
-                                  name={e.completado ? 'checkmark-circle' : 'ellipse-outline'}
-                                  size={18}
-                                  color={e.completado ? colores.exito : colores.suave}
-                                />
-                                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                  <Text
-                                    style={{
-                                      color: e.completado ? colores.texto : colores.texto,
-                                      fontSize: 14,
-                                      fontFamily: fuentes.bold,
-                                      opacity: e.completado ? 0.75 : 1,
-                                    }}
-                                  >
-                                    {parsed.nombreLimpio}
-                                  </Text>
-                                  {parsed.resumenVisual && (
-                                    <View
-                                      style={{
-                                        backgroundColor: e.completado ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.08)',
-                                        paddingHorizontal: 7,
-                                        paddingVertical: 1,
-                                        borderRadius: 6,
-                                        borderWidth: 1,
-                                        borderColor: e.completado ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255, 255, 255, 0.1)',
-                                      }}
-                                    >
-                                      <Text style={{ color: e.completado ? colores.exito : colores.suave, fontSize: 10, fontFamily: fuentes.bold }}>
-                                        {parsed.resumenVisual}
-                                      </Text>
-                                    </View>
-                                  )}
-                                </View>
-                              </View>
-                            </View>
-                          );
-                        })}
-                      </Pressable>
-                    );
-                  })}
-
-                  {/* 3. SECCIÓN EJERCICIOS EXTRAS / SUELTOS */}
-                  {ejerciciosExtras.length > 0 && (
-                    <View style={styles.extraExercisesCard}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Ionicons name="flash" size={15} color={colores.exito} />
-                        <Text style={{ color: colores.exito, fontFamily: fuentes.black, fontSize: 14 }}>Ejercicios Extras</Text>
-                      </View>
-
-                      {ejerciciosExtras.map((e) => {
-                        const parsed = parsearEjercicioInfo(e);
-                        return (
-                          <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                              <Ionicons
-                                name={e.completado ? 'checkmark-circle' : 'ellipse-outline'}
-                                size={18}
-                                color={e.completado ? colores.exito : colores.suave}
-                              />
-                              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                <Text
-                                  style={{
-                                    color: e.completado ? colores.texto : colores.texto,
-                                    fontSize: 14,
-                                    fontFamily: fuentes.bold,
-                                    opacity: e.completado ? 0.75 : 1,
-                                  }}
-                                >
-                                  {parsed.nombreLimpio}
-                                </Text>
-                                {parsed.resumenVisual && (
-                                  <View
-                                    style={{
-                                      backgroundColor: e.completado ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.08)',
-                                      paddingHorizontal: 7,
-                                      paddingVertical: 1,
-                                      borderRadius: 6,
-                                      borderWidth: 1,
-                                      borderColor: e.completado ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255, 255, 255, 0.1)',
-                                    }}
-                                  >
-                                    <Text style={{ color: e.completado ? colores.exito : colores.suave, fontSize: 10, fontFamily: fuentes.bold }}>
-                                      {parsed.resumenVisual}
-                                    </Text>
-                                  </View>
-                                )}
-                              </View>
-                            </View>
-                          </View>
-                        );
-                      })}
-                    </View>
-                  )}
-                </>
-              )}
-            </ScrollView>
+          {/* BOTÓN PRINCIPAL LIQUID METAL ENTRE MAINDAYCARD Y BOTTOMTABBAR */}
+          <View style={{ paddingTop: 4, width: '100%' }}>
+            <LiquidMetalButton
+              titulo="+ Administrar / Gestionar Día"
+              onPress={() => setModalVisible(true)}
+              activo={
+                isFocused &&
+                !modalVisible &&
+                !modalEjecutarVisible &&
+                !modalPartidaVisible
+              }
+              style={{ alignSelf: 'stretch' }}
+            />
           </View>
         </View>
-
-        {/* Dock del Botón Principal anclado sobre la barra de pestañas */}
-        <DockPrincipal>
-          <LiquidMetalButton
-            titulo="+ Administrar / Gestionar Día"
-            onPress={() => setModalVisible(true)}
-            activo={
-              isFocused &&
-              !modalVisible &&
-              !modalEjecutarVisible &&
-              !modalPartidaVisible
-            }
-            style={{ alignSelf: 'stretch' }}
-          />
-        </DockPrincipal>
 
         {/* Modal Detalle del Día (Pantalla Completa) */}
         <DiaDetalleModal

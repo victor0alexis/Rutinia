@@ -106,7 +106,9 @@ const LiquidMetalShaderNative = memo(function LiquidMetalShaderNative({
 
   const frameCallback = useFrameCallback((frame) => {
     'worklet';
-    const delta = frame.timeSincePreviousFrame ?? 16.6667;
+    // Limitamos el delta para evitar saltos al volver de segundo plano o de
+    // una pausa larga.
+    const delta = Math.min(frame.timeSincePreviousFrame ?? 16.6667, 50);
     tiempo.value += (delta / 1000) * velocidad.value;
   }, false);
 
@@ -142,7 +144,7 @@ const LiquidMetalShaderNative = memo(function LiquidMetalShaderNative({
 
   // Recorta el shader al anillo visible. Se solapa 0.5px bajo el cuerpo
   // interior para evitar costuras por antialiasing en las esquinas.
-  const innerInset = borderWidth > 0 ? Math.max(0, borderWidth - 0.5) : 0;
+  const innerInset = borderWidth > 0 ? borderWidth + 0.5 : 0;
   const innerClip = useMemo(() => {
     const innerRadio = Math.max(0, radio - innerInset);
     return Skia.RRectXY(

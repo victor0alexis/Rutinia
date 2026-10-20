@@ -11,6 +11,8 @@
  *   - fwidth(stripe) se aproxima con el tamaño del píxel y la densidad de
  *     bandas para conservar el antialiasing del original.
  */
+import { processColor } from 'react-native';
+
 export const LIQUID_METAL_SKSL = `
 uniform float2 u_resolution;
 uniform float u_pixelRatio;
@@ -343,6 +345,23 @@ half4 main(float2 fragCoord) {
 export function parseColorToRGBA(color: string): [number, number, number, number] {
   const value = color.trim();
 
+  // React Native reconoce nombres CSS, hsl, etc. Igual que el componente web,
+  // processColor devuelve un entero ARGB empaquetado.
+  try {
+    const processed = processColor(value);
+    if (typeof processed === 'number') {
+      const argb = processed >>> 0;
+      return [
+        ((argb >>> 16) & 0xff) / 255,
+        ((argb >>> 8) & 0xff) / 255,
+        (argb & 0xff) / 255,
+        ((argb >>> 24) & 0xff) / 255,
+      ];
+    }
+  } catch {
+    // Si processColor no puede interpretar el valor, usamos el parser manual.
+  }
+
   if (value.startsWith('#')) {
     let hex = value.slice(1);
 
@@ -359,31 +378,6 @@ export function parseColorToRGBA(color: string): [number, number, number, number
       const b = parseInt(hex.slice(4, 6), 16) / 255;
       const a = hex.length === 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1;
 
-      if (Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b)) {
-        return [r, g, b, a];
-      }
-    }
-  }
-
-  const match = value.match(/^rgba?\(([^)]+)\)$/i);
-  if (match) {
-    const parts = match[1]
-      .split(/[,\s/]+/)
-      .map((part) => part.trim())
-      .filter(Boolean)
-      .map((part) => {
-        if (part.endsWith('%')) {
-          return parseFloat(part) / 100;
-        }
-        return parseFloat(part);
-      });
-
-    if (parts.length >= 3) {
-      const r = parts[0] / 255;
-      const g = parts[1] / 255;
-      const b = parts[2] / 255;
-      const a = parts.length >= 4 ? parts[3] : 1;
-
       if (
         Number.isFinite(r) &&
         Number.isFinite(g) &&
@@ -391,6 +385,39 @@ export function parseColorToRGBA(color: string): [number, number, number, number
         Number.isFinite(a)
       ) {
         return [r, g, b, a];
+      }
+    }
+  }
+
+  const match = value.match(/^rgba?\(([^)]+)\)$/i);
+  if (match) {
+    const rawParts = match[1]
+      .split(/[,\s/]+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    if (rawParts.length >= 3) {
+      const parseChannel = (part: string, isAlpha: boolean) => {
+        const numeric = parseFloat(part);
+        if (!Number.isFinite(numeric)) return NaN;
+        if (part.endsWith('%')) return numeric / 100;
+        return isAlpha ? numeric : numeric / 255;
+      };
+
+      const r = parseChannel(rawParts[0], false);
+      const g = parseChannel(rawParts[1], false);
+      const b = parseChannel(rawParts[2], false);
+      const a = rawParts.length >= 4 ? parseChannel(rawParts[3], true) : 1;
+
+      if (
+        Number.isFinite(r) &&
+        Number.isFinite(g) &&
+        Number.isFinite(b) &&
+        Number.isFinite(a)
+      ) {
+        const clamp01 = (channel: number) =>
+          Math.min(1, Math.max(0, channel));
+        return [clamp01(r), clamp01(g), clamp01(b), clamp01(a)];
       }
     }
   }

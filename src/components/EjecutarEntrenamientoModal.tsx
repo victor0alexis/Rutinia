@@ -10,6 +10,7 @@ import {
   Platform,
   StyleSheet,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { colores, fuentes } from '../constants/colores';
 import { useLayout } from '../hooks/useLayout';
@@ -1173,6 +1174,15 @@ export default function EjecutarEntrenamientoModal({
           plan_nombre: planNombreFinal,
           rutina_nombre: rutinaNombreFinal,
         });
+
+        // Persistir la duración final de la sesión para la tarjeta de resumen
+        if (segundosTranscurridos > 0) {
+          try {
+            await AsyncStorage.setItem(`rutinia_duracion_${registro.id}`, segundosTranscurridos.toString());
+          } catch (e) {
+            console.warn('Error guardando duración final:', e);
+          }
+        }
 
         // Limpiar el borrador y timer en AsyncStorage
 

@@ -133,6 +133,15 @@ export default function Root({ children }: PropsWithChildren) {
             filter: invert(1) contrast(1.1) brightness(0.96) !important;
             background-color: transparent !important;
           }
+
+          /* Uiverse one-div glow card */
+          .uiverse-one-div-glow {
+            background-color: rgb(15, 15, 15) !important;
+            border-radius: 20px !important;
+            box-shadow: 0 0 50px 0px rgba(255, 255, 255, 0.7), inset 0 0 90px 0px rgba(255, 255, 255, 0.45) !important;
+            color: white !important;
+            transition: 1.5s !important;
+          }
         ` }} />
 
         <ScrollViewStyleReset />
