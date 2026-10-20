@@ -16,7 +16,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Rutinia" />
-        <meta name="theme-color" content="#0B0D12" />
+        <meta name="theme-color" content="#000000" />
 
         {/* Iconos de pantalla de inicio para iOS (iPhone) y Web */}
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -74,12 +74,15 @@ export default function Root({ children }: PropsWithChildren) {
             font-weight: 900;
           }
 
-          *, html, body, #root {
+          * {
             box-sizing: border-box;
-            background-color: #0B0D12;
-            color: #F9FAFB;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
+          }
+
+          html, body, #root {
+            background-color: #000000;
+            color: #F9FAFB;
           }
 
           html {
@@ -93,6 +96,7 @@ export default function Root({ children }: PropsWithChildren) {
           }
 
           body, #root {
+            background-color: #000000;
             width: 100%;
             min-height: 100%;
             min-height: -webkit-fill-available;

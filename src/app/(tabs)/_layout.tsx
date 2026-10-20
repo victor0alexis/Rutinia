@@ -19,7 +19,7 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: tema.colores.textoSuave,
         tabBarShowLabel: !isLandscape,
         tabBarStyle: {
-          backgroundColor: 'rgba(8, 10, 20, 0.94)',
+          backgroundColor: 'rgba(6, 8, 14, 0.94)',
           borderTopColor: tema.fondo.bordeVidrio,
           borderTopWidth: 1,
           height: barHeight,

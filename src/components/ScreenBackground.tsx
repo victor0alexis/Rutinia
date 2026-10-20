@@ -1,6 +1,5 @@
 import React from 'react';
 import { ViewStyle, StyleProp } from 'react-native';
-import FondoRutinia from './FondoRutinia';
 import FondoNegroGradiente from './FondoNegroGradiente';
 
 type Props = {
@@ -8,18 +7,17 @@ type Props = {
   style?: StyleProp<ViewStyle>;
   hasHalos?: boolean;
   acento?: 'vacio' | 'pendiente' | 'completado';
-  variante?: 'estelar' | 'negro_gradiente';
+  variante?: 'negro_gradiente' | 'estelar';
 };
 
+/**
+ * ScreenBackground predeterminado de Rutinia.
+ * Ahora renderiza de forma unificada FondoNegroGradiente (negro puro y gradiente inteligente)
+ * en todas las pantallas y modales de la aplicación.
+ */
 export default function ScreenBackground({
   children,
-  acento,
   style,
-  variante = 'estelar',
 }: Props) {
-  if (variante === 'negro_gradiente') {
-    return <FondoNegroGradiente style={style}>{children}</FondoNegroGradiente>;
-  }
-
-  return <FondoRutinia acento={acento}>{children}</FondoRutinia>;
+  return <FondoNegroGradiente style={style}>{children}</FondoNegroGradiente>;
 }

@@ -3,7 +3,7 @@ import { tema } from './tema';
 export const colores = {
   // Fondos y Capas (Base tokens de tema.ts)
   fondo: tema.colores.fondo,
-  fondoGradiente: [tema.colores.fondo, '#0F121B', '#0B0D14'] as const,
+  fondoGradiente: ['#080A0F', '#040508', '#000000', '#06080E'] as const,
   tarjeta: tema.fondo.vidrio,
   tarjetaSolida: tema.colores.superficie,
   tarjetaElevada: tema.fondo.vidrio,

@@ -1,6 +1,6 @@
 export const tema = {
   colores: {
-    fondo: '#0B0D14',
+    fondo: '#000000',
     superficie: '#0F121B',
     borde: '#232838',
     texto: '#F4F3F8',
