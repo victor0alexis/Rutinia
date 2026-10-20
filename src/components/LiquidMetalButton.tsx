@@ -32,7 +32,7 @@ export interface LiquidMetalButtonProps {
   /** Ancho del borde metálico líquido en píxeles (default de VengeanceUI: 4) */
   borderWidth?: number;
   /** Tamaño del botón */
-  tamano?: 'normal' | 'compacto';
+  tamano?: 'normal' | 'compacto' | 'lg';
   /** Configuración personalizada del shader de metal */
   metalConfig?: {
     colorBack?: string;
@@ -59,7 +59,7 @@ export const LiquidMetalButton = memo(function LiquidMetalButton({
   const [dimensiones, setDimensiones] = useState({ ancho: 0, alto: 0 });
   const presionado = useSharedValue(0);
 
-  const altoDefecto = tamano === 'compacto' ? 44 : 54;
+  const altoDefecto = tamano === 'compacto' ? 44 : tamano === 'lg' ? 56 : 52;
   const altoFinal = dimensiones.alto > 0 ? dimensiones.alto : altoDefecto;
   const borderRadius = altoFinal / 2;
 
@@ -140,7 +140,13 @@ export const LiquidMetalButton = memo(function LiquidMetalButton({
           )}
 
           {titulo ? (
-            <Text style={[styles.tituloTexto, tamano === 'compacto' && styles.tituloTextoCompacto]}>
+            <Text
+              style={[
+                styles.tituloTexto,
+                tamano === 'compacto' && styles.tituloTextoCompacto,
+                tamano === 'lg' && styles.tituloTextoLg,
+              ]}
+            >
               {titulo}
             </Text>
           ) : (
@@ -202,5 +208,9 @@ const styles = StyleSheet.create({
   tituloTextoCompacto: {
     fontSize: 13,
     letterSpacing: -0.1,
+  },
+  tituloTextoLg: {
+    fontSize: 16,
+    letterSpacing: -0.2,
   },
 });

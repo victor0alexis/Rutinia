@@ -15,6 +15,7 @@ import { colores, fuentes } from '../constants/colores';
 import { useLayout } from '../hooks/useLayout';
 import ScreenBackground from './ScreenBackground';
 import GlowButton from './GlowButton';
+import { LiquidMetalButton } from './LiquidMetalButton';
 import ResumenEntrenamientoModal, { EjercicioResumen } from './ResumenEntrenamientoModal';
 import SelectorIntercambioModal from './SelectorIntercambioModal';
 import SmartWorkoutKeyboard, { CampoEntrenamiento } from './SmartWorkoutKeyboard';
@@ -1360,13 +1361,11 @@ export default function EjecutarEntrenamientoModal({
 
                 {/* Botón de Inicio de Impacto */}
                 <View style={{ paddingBottom: Math.max(bottomInset, 16), paddingTop: 10 }}>
-                  <GlowButton
-                    title="🔥 ¡INICIAR ENTRENAMIENTO!"
+                  <LiquidMetalButton
+                    titulo="¡INICIAR ENTRENAMIENTO!"
                     onPress={iniciarEntrenamiento}
-                    variant="primary"
-                    size="lg"
-                    shape="rounded"
-                    fullWidth
+                    tamano="lg"
+                    style={{ alignSelf: 'stretch' }}
                   />
                 </View>
               </View>

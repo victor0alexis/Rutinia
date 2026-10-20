@@ -11,7 +11,7 @@ import EjecutarEntrenamientoModal from '../../components/EjecutarEntrenamientoMo
 import ModalPartidaEnCurso from '../../components/ModalPartidaEnCurso';
 import EncabezadoSeccion from '../../components/EncabezadoSeccion';
 import ScreenBackground from '../../components/ScreenBackground';
-import LiquidMetalButton from '../../components/LiquidMetalButton';
+import { LiquidMetalButton } from '../../components/LiquidMetalButton';
 import DockPrincipal from '../../components/DockPrincipal';
 import { registrosDeRango } from '../../services/registros';
 import { listarPlanes } from '../../services/planes';
