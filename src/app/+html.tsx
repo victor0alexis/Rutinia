@@ -120,6 +120,15 @@ export default function Root({ children }: PropsWithChildren) {
           * {
             max-width: 100%;
           }
+
+          /* Inversión estética para GIFs y miniaturas anatómicas de ejercicios (Dark Mode) */
+          img[src*="JahelCuadrado"],
+          img[src*="exercises"],
+          img[src*=".thumb.webp"],
+          img[src*=".gif"] {
+            filter: invert(1) contrast(1.1) brightness(0.96) !important;
+            background-color: transparent !important;
+          }
         ` }} />
 
         <ScrollViewStyleReset />
