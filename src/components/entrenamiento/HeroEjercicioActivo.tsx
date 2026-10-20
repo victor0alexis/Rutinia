@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -41,17 +42,22 @@ export default function HeroEjercicioActivo({
 
   return (
     <View style={styles.container}>
-      {/* Visualizador Hero Anatómico (GIF Animado) */}
+      {/* Visualizador Hero Anatómico (GIF Animado sin marco blanco) */}
       <View style={styles.heroBox}>
         <Image
           source={{ uri: gifInfo.gifUrl }}
-          style={styles.gifImage}
+          style={[
+            styles.gifImage,
+            Platform.OS === 'web' && ({
+              filter: 'invert(1) contrast(1.1) brightness(0.96)',
+            } as any),
+          ]}
           contentFit="contain"
           autoplay
           cachePolicy="disk"
         />
 
-        {/* Badge 'R' de Rutinia / Rest en esquina inferior derecha */}
+        {/* Badge 'R' de Rutinia en esquina inferior derecha */}
         <View style={styles.badgeR}>
           <Text style={styles.badgeRText}>R</Text>
         </View>
@@ -154,7 +160,12 @@ export default function HeroEjercicioActivo({
               <View style={styles.modalBigGifBox}>
                 <Image
                   source={{ uri: gifInfo.gifUrl }}
-                  style={styles.modalBigGif}
+                  style={[
+                    styles.modalBigGif,
+                    Platform.OS === 'web' && ({
+                      filter: 'invert(1) contrast(1.1) brightness(0.96)',
+                    } as any),
+                  ]}
                   contentFit="contain"
                   autoplay
                 />
@@ -200,38 +211,41 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   heroBox: {
-    width: 170,
-    height: 170,
-    borderRadius: 22,
-    backgroundColor: 'rgba(10, 12, 20, 0.65)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    width: '100%',
+    height: 250,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    overflow: 'hidden',
+    overflow: 'visible',
+    marginVertical: 4,
   },
   gifImage: {
-    width: '90%',
-    height: '90%',
+    width: '100%',
+    height: '100%',
   },
   badgeR: {
     position: 'absolute',
-    bottom: 8,
-    right: 8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#7F1D1D',
+    bottom: 4,
+    right: 28,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1E0608',
     borderWidth: 1.5,
-    borderColor: '#EF4444',
+    borderColor: '#FF1E3C',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#FF1E3C',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 12,
+    elevation: 8,
   },
   badgeRText: {
     color: '#FFFFFF',
     fontFamily: fuentes.black,
-    fontSize: 14,
+    fontSize: 15,
   },
   textContainer: {
     alignItems: 'center',
@@ -330,18 +344,18 @@ const styles = StyleSheet.create({
   },
   modalBigGifBox: {
     width: '100%',
-    height: 220,
-    borderRadius: 18,
-    backgroundColor: '#05070B',
+    height: 250,
+    borderRadius: 20,
+    backgroundColor: '#000000',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   modalBigGif: {
-    width: '92%',
-    height: '92%',
+    width: '100%',
+    height: '100%',
   },
   modalMetaCard: {
     flexDirection: 'row',

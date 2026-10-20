@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useIsFocused } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { addDays, addWeeks, isSameDay, isSameWeek, parseISO } from 'date-fns';
 import { colores, fuentes } from '../../constants/colores';
@@ -24,6 +24,7 @@ import { useLayout } from '../../hooks/useLayout';
 
 export default function Semana() {
   const { gutter, contentMaxWidth, isLandscape, isCompact } = useLayout();
+  const isFocused = useIsFocused();
   const [ref, setRef] = useState(new Date());
   const [diaActivo, setDiaActivo] = useState(new Date());
   const [registros, setRegistros] = useState<Registro[]>([]);
@@ -623,6 +624,12 @@ export default function Semana() {
           <LiquidMetalButton
             titulo="+ Administrar / Gestionar Día"
             onPress={() => setModalVisible(true)}
+            activo={
+              isFocused &&
+              !modalVisible &&
+              !modalEjecutarVisible &&
+              !modalPartidaVisible
+            }
             style={{ alignSelf: 'stretch' }}
           />
         </DockPrincipal>

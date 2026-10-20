@@ -15,6 +15,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import LiquidMetalShader from './liquid-metal/LiquidMetalShader';
+import type { LiquidMetalShaderConfig } from './liquid-metal/types';
 import { fuentes } from '../constants/colores';
 import { vibrarBoton } from '../utils/haptics';
 
@@ -27,20 +28,20 @@ export interface LiquidMetalButtonProps {
   onPress?: () => void;
   /** Estado deshabilitado */
   disabled?: boolean;
+  /** Pausa la animación del metal (por ejemplo, con un modal cerrado). */
+  activo?: boolean;
   /** Icono opcional en la parte izquierda */
   icon?: React.ReactNode;
   /** Ancho del borde metálico líquido en píxeles (default de VengeanceUI: 4) */
   borderWidth?: number;
   /** Tamaño del botón */
   tamano?: 'normal' | 'compacto' | 'lg';
+  /** Alto explícito del botón. Si se omite, se usa el alto de `tamano`. */
+  height?: number;
   /** Configuración personalizada del shader de metal */
-  metalConfig?: {
-    colorBack?: string;
-    colorTint?: string;
-    speed?: number;
-    repetition?: number;
-    distortion?: number;
-  };
+  metalConfig?: LiquidMetalShaderConfig;
+  /** Etiqueta accesible. Si se omite, se usa `titulo`. */
+  accessibilityLabel?: string;
   /** Estilo contenedor */
   style?: StyleProp<ViewStyle>;
 }
@@ -50,16 +51,20 @@ export const LiquidMetalButton = memo(function LiquidMetalButton({
   children,
   onPress,
   disabled = false,
+  activo = true,
   icon,
   borderWidth = 4,
   tamano = 'normal',
+  height,
   metalConfig,
+  accessibilityLabel,
   style,
 }: LiquidMetalButtonProps) {
   const [dimensiones, setDimensiones] = useState({ ancho: 0, alto: 0 });
   const presionado = useSharedValue(0);
 
-  const altoDefecto = tamano === 'compacto' ? 44 : tamano === 'lg' ? 56 : 52;
+  const altoDefecto =
+    height ?? (tamano === 'compacto' ? 44 : tamano === 'lg' ? 56 : 52);
   const altoFinal = dimensiones.alto > 0 ? dimensiones.alto : altoDefecto;
   const borderRadius = altoFinal / 2;
 
@@ -97,6 +102,7 @@ export const LiquidMetalButton = memo(function LiquidMetalButton({
         onLayout={handleLayout}
         disabled={disabled}
         accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel ?? titulo}
         accessibilityState={{ disabled }}
         style={[
           styles.pressableWrapper,
@@ -112,11 +118,18 @@ export const LiquidMetalButton = memo(function LiquidMetalButton({
           width={dimensiones.ancho}
           height={altoFinal}
           borderRadius={borderRadius}
-          colorBack={metalConfig?.colorBack ?? '#888888'}
-          colorTint={metalConfig?.colorTint ?? '#ffffff'}
-          speed={metalConfig?.speed ?? 0.4}
-          repetition={metalConfig?.repetition ?? 4}
-          distortion={metalConfig?.distortion ?? 0.15}
+          borderWidth={borderWidth}
+          colorBack={metalConfig?.colorBack}
+          colorTint={metalConfig?.colorTint}
+          speed={metalConfig?.speed}
+          repetition={metalConfig?.repetition}
+          distortion={metalConfig?.distortion}
+          softness={metalConfig?.softness}
+          shiftRed={metalConfig?.shiftRed}
+          shiftBlue={metalConfig?.shiftBlue}
+          angle={metalConfig?.angle}
+          contour={metalConfig?.contour}
+          activo={activo && !disabled}
         />
 
         {/* CUERPO INTERIOR DEL BOTÓN (Estilo Dark VengeanceUI: bg-black / obsidiana) */}

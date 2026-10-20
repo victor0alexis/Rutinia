@@ -1,26 +1,34 @@
 import React, { memo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { LiquidMetal } from '@paper-design/shaders-react';
+import { useReducedMotion } from 'react-native-reanimated';
+import {
+  LIQUID_METAL_DEFAULTS,
+  type LiquidMetalShaderProps,
+} from './types';
 
-export interface LiquidMetalShaderProps {
-  colorBack?: string;
-  colorTint?: string;
-  speed?: number;
-  repetition?: number;
-  distortion?: number;
-  borderRadius?: number;
-  width?: number;
-  height?: number;
-}
+export type {
+  LiquidMetalShaderConfig,
+  LiquidMetalShaderProps,
+} from './types';
 
 const LiquidMetalShaderWeb = memo(function LiquidMetalShaderWeb({
-  colorBack = '#888888',
-  colorTint = '#ffffff',
-  speed = 0.4,
-  repetition = 4,
-  distortion = 0.15,
-  borderRadius = 26,
+  colorBack = LIQUID_METAL_DEFAULTS.colorBack,
+  colorTint = LIQUID_METAL_DEFAULTS.colorTint,
+  speed = LIQUID_METAL_DEFAULTS.speed,
+  repetition = LIQUID_METAL_DEFAULTS.repetition,
+  distortion = LIQUID_METAL_DEFAULTS.distortion,
+  softness = LIQUID_METAL_DEFAULTS.softness,
+  shiftRed = LIQUID_METAL_DEFAULTS.shiftRed,
+  shiftBlue = LIQUID_METAL_DEFAULTS.shiftBlue,
+  angle = LIQUID_METAL_DEFAULTS.angle,
+  contour = LIQUID_METAL_DEFAULTS.contour,
+  borderRadius = LIQUID_METAL_DEFAULTS.borderRadius,
+  activo = true,
 }: LiquidMetalShaderProps) {
+  const reduceMotion = useReducedMotion();
+  const velocidad = activo && !reduceMotion ? speed : 0;
+
   return (
     <View
       pointerEvents="none"
@@ -35,13 +43,14 @@ const LiquidMetalShaderWeb = memo(function LiquidMetalShaderWeb({
       <LiquidMetal
         colorBack={colorBack}
         colorTint={colorTint}
-        speed={speed}
+        speed={velocidad}
         repetition={repetition}
         distortion={distortion}
-        softness={0}
-        shiftRed={0.3}
-        shiftBlue={-0.3}
-        angle={45}
+        softness={softness}
+        shiftRed={shiftRed}
+        shiftBlue={shiftBlue}
+        angle={angle}
+        contour={contour}
         shape="none"
         scale={1}
         fit="cover"

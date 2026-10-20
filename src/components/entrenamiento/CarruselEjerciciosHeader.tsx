@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import {
+  Platform,
   ScrollView,
   Pressable,
   View,
@@ -75,7 +76,12 @@ export default function CarruselEjerciciosHeader({
               >
                 <Image
                   source={{ uri: gifInfo.thumbUrl }}
-                  style={styles.avatarImage}
+                  style={[
+                    styles.avatarImage,
+                    Platform.OS === 'web' && ({
+                      filter: 'invert(1) contrast(1.1) brightness(0.96)',
+                    } as any),
+                  ]}
                   contentFit="contain"
                   transition={200}
                   cachePolicy="disk"
@@ -117,12 +123,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarRing: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: '#0A0C14',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#000000',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -130,32 +136,37 @@ const styles = StyleSheet.create({
   avatarRingActivo: {
     borderColor: '#FFFFFF',
     borderWidth: 2.5,
-    shadowColor: '#7CF3FF',
+    shadowColor: '#FFFFFF',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.75,
     shadowRadius: 10,
-    elevation: 8,
-    transform: [{ scale: 1.06 }],
+    elevation: 10,
+    transform: [{ scale: 1.08 }],
   },
   avatarRingInactivo: {
-    opacity: 0.5,
+    opacity: 0.45,
   },
   avatarImage: {
-    width: '85%',
-    height: '85%',
+    width: '90%',
+    height: '90%',
   },
   badgeCompletado: {
     position: 'absolute',
     bottom: -1,
     right: -1,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#EF4444',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#FF1E3C',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#05070B',
+    borderColor: '#000000',
+    shadowColor: '#FF1E3C',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 6,
+    elevation: 6,
     zIndex: 2,
   },
   badgeActivoDot: {

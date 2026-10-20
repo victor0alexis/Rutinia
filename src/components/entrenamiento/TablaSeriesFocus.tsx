@@ -34,6 +34,7 @@ export interface SerieItem {
 interface Props {
   ejIdx: number;
   series: SerieItem[];
+  activo?: boolean;
   focusCampoActivo?: {
     sIdx: number;
     campo: 'kg' | 'reps' | 'rir';
@@ -48,6 +49,7 @@ interface Props {
 
 export default function TablaSeriesFocus({
   series,
+  activo = true,
   focusCampoActivo,
   onFocusCampo,
   onToggleCompletado,
@@ -287,6 +289,7 @@ export default function TablaSeriesFocus({
           }}
           tamano="normal"
           borderWidth={3}
+          activo={activo}
           style={{ alignSelf: 'stretch' }}
         />
       </View>

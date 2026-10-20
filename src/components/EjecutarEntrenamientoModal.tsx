@@ -1291,7 +1291,11 @@ export default function EjecutarEntrenamientoModal({
               </View>
             ) : (
               /* PANTALLA PRINCIPAL: MODO FOCUS DE ENTRENAMIENTO EN VIVO */
-              <View style={{ flex: 1, width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center' }}>
+              <View style={{ flex: 1, width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center', position: 'relative' }}>
+                {/* Aura Atmosférica Central de Iluminación 3D detrás de la figura */}
+                <View pointerEvents="none" style={styles.focusAtmosphereAura} />
+                <View pointerEvents="none" style={styles.focusAtmospherePedestal} />
+
                 {/* Top Header Bar minimalista estilo boceto */}
                 <View style={styles.focusTopBar}>
                   <Pressable onPress={onClose} hitSlop={10} style={styles.focusChevronBtn}>
@@ -1365,6 +1369,7 @@ export default function EjecutarEntrenamientoModal({
                       <TablaSeriesFocus
                         ejIdx={indexValido}
                         series={seriesFocus}
+                        activo={visible}
                         focusCampoActivo={
                           focusTeclado && focusTeclado.ejIdx === indexValido
                             ? {
@@ -2696,6 +2701,38 @@ const styles = StyleSheet.create({
     fontFamily: fuentes.black,
   },
   /* FOCUS MODE STYLES */
+  focusAtmosphereAura: {
+    position: 'absolute',
+    top: 130,
+    left: '50%',
+    width: 380,
+    height: 380,
+    marginLeft: -190,
+    borderRadius: 190,
+    backgroundColor: 'rgba(0, 229, 255, 0.04)',
+    ...(Platform.OS === 'web'
+      ? {
+          background: 'radial-gradient(circle, rgba(0, 229, 255, 0.08) 0%, rgba(255, 30, 60, 0.03) 45%, transparent 70%)',
+          filter: 'blur(45px)',
+        }
+      : {}),
+  },
+  focusAtmospherePedestal: {
+    position: 'absolute',
+    top: 360,
+    left: '50%',
+    width: 260,
+    height: 32,
+    marginLeft: -130,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 229, 255, 0.04)',
+    ...(Platform.OS === 'web'
+      ? {
+          background: 'radial-gradient(ellipse, rgba(0, 229, 255, 0.12) 0%, rgba(255, 255, 255, 0.03) 40%, transparent 75%)',
+          filter: 'blur(12px)',
+        }
+      : {}),
+  },
   focusTopBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2704,12 +2741,15 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 6,
     width: '100%',
+    zIndex: 10,
   },
   focusChevronBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2721,13 +2761,13 @@ const styles = StyleSheet.create({
   focusTimerText: {
     color: '#FFFFFF',
     fontFamily: fuentes.black,
-    fontSize: 21,
+    fontSize: 22,
     letterSpacing: 0.5,
   },
   focusSubtitleText: {
-    color: colores.suave,
+    color: '#8A99AD',
     fontFamily: fuentes.medium,
-    fontSize: 11,
+    fontSize: 11.5,
     marginTop: 1,
   },
   focusHeaderActions: {
@@ -2736,25 +2776,33 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   focusTimerIconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   focusTerminarBtn: {
-    backgroundColor: '#7F1D1D',
+    backgroundColor: '#8B1423',
     borderWidth: 1.5,
-    borderColor: '#EF4444',
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 16,
+    borderColor: '#FF1E3C',
+    paddingVertical: 7,
+    paddingHorizontal: 16,
+    borderRadius: 18,
+    shadowColor: '#FF1E3C',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.65,
+    shadowRadius: 10,
+    elevation: 8,
   },
   focusTerminarBtnText: {
     color: '#FFFFFF',
     fontFamily: fuentes.bold,
-    fontSize: 12.5,
+    fontSize: 13,
+    letterSpacing: 0.2,
   },
   focusNotesCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
