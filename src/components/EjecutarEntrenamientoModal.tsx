@@ -1207,7 +1207,7 @@ export default function EjecutarEntrenamientoModal({
         style={{ flex: 1 }}
         keyboardVerticalOffset={0}
       >
-        <ScreenBackground>
+        <ScreenBackground variante="negro_gradiente">
           <View style={{ flex: 1, paddingTop: isLandscape ? Math.max(topInset, 6) : Math.max(topInset, Platform.OS === 'ios' ? 44 : 16) }}>
             {/* LOBBY PRE-PARTIDA */}
             {enLobby ? (
@@ -1292,10 +1292,6 @@ export default function EjecutarEntrenamientoModal({
             ) : (
               /* PANTALLA PRINCIPAL: MODO FOCUS DE ENTRENAMIENTO EN VIVO */
               <View style={{ flex: 1, width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center', position: 'relative' }}>
-                {/* Aura Atmosférica Central de Iluminación 3D detrás de la figura */}
-                <View pointerEvents="none" style={styles.focusAtmosphereAura} />
-                <View pointerEvents="none" style={styles.focusAtmospherePedestal} />
-
                 {/* Top Header Bar minimalista estilo boceto */}
                 <View style={styles.focusTopBar}>
                   <Pressable onPress={onClose} hitSlop={10} style={styles.focusChevronBtn}>
@@ -2701,38 +2697,6 @@ const styles = StyleSheet.create({
     fontFamily: fuentes.black,
   },
   /* FOCUS MODE STYLES */
-  focusAtmosphereAura: {
-    position: 'absolute',
-    top: 130,
-    left: '50%',
-    width: 380,
-    height: 380,
-    marginLeft: -190,
-    borderRadius: 190,
-    backgroundColor: 'rgba(0, 229, 255, 0.04)',
-    ...(Platform.OS === 'web'
-      ? {
-          background: 'radial-gradient(circle, rgba(0, 229, 255, 0.08) 0%, rgba(255, 30, 60, 0.03) 45%, transparent 70%)',
-          filter: 'blur(45px)',
-        }
-      : {}),
-  },
-  focusAtmospherePedestal: {
-    position: 'absolute',
-    top: 360,
-    left: '50%',
-    width: 260,
-    height: 32,
-    marginLeft: -130,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0, 229, 255, 0.04)',
-    ...(Platform.OS === 'web'
-      ? {
-          background: 'radial-gradient(ellipse, rgba(0, 229, 255, 0.12) 0%, rgba(255, 255, 255, 0.03) 40%, transparent 75%)',
-          filter: 'blur(12px)',
-        }
-      : {}),
-  },
   focusTopBar: {
     flexDirection: 'row',
     alignItems: 'center',
