@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import {
+  LayoutChangeEvent,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -7,6 +9,13 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import {
+  Canvas,
+  Box,
+  BoxShadow,
+  rect,
+  rrect,
+} from '@shopify/react-native-skia';
 import { colores, fuentes } from '../constants/colores';
 import { Registro } from '../types';
 import { SesionActivaInfo } from '../utils/sesionActiva';
@@ -23,6 +32,7 @@ export interface RutinaLiveCardProps {
   onVerResumen: (registro: Registro) => void;
   onDesvincular?: (registro: Registro) => void;
   permitirDesplegarEjercicios?: boolean;
+  conEfectoGlowBlanco?: boolean;
 }
 
 export default function RutinaLiveCard({
@@ -33,8 +43,19 @@ export default function RutinaLiveCard({
   onVerResumen,
   onDesvincular,
   permitirDesplegarEjercicios = false,
+  conEfectoGlowBlanco = false,
 }: RutinaLiveCardProps) {
   const [ejerciciosDesplegados, setEjerciciosDesplegados] = useState(false);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+  const handleLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    if (width > 0 && height > 0) {
+      setDimensions({ width, height });
+    }
+  };
+
+  const isWeb = Platform.OS === 'web';
   const estaEnProceso = Boolean(
     sesionActivaInfo && sesionActivaInfo.registroId === registro.id
   );
@@ -117,12 +138,41 @@ export default function RutinaLiveCard({
 
   return (
     <View
+      onLayout={handleLayout}
       style={[
         styles.cardContainer,
+        conEfectoGlowBlanco && styles.cardContainerGlowBase,
+        conEfectoGlowBlanco && isWeb && styles.cardContainerGlowWeb,
         estaEnProceso && styles.cardContainerEnProceso,
         estaFinalizada && styles.cardContainerFinalizada,
       ]}
     >
+      {/* Fondo Skia en plataformas nativas para el efecto Uiverse con Outer Glow e Inset Glow */}
+      {conEfectoGlowBlanco && !isWeb && dimensions.width > 0 && dimensions.height > 0 && (
+        <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Box
+            box={rrect(rect(0, 0, dimensions.width, dimensions.height), 20, 20)}
+            color="rgb(15, 15, 15)"
+          >
+            {/* Outer Glow blanco/plateado difuso (box-shadow: 0 0 50px 0px white) */}
+            <BoxShadow
+              dx={0}
+              dy={0}
+              blur={28}
+              color="rgba(255, 255, 255, 0.70)"
+            />
+            {/* Inset Glow blanco desde los bordes hacia el centro (inset 0 0 90px 0px white) */}
+            <BoxShadow
+              dx={0}
+              dy={0}
+              blur={50}
+              color="rgba(255, 255, 255, 0.40)"
+              inner
+            />
+          </Box>
+        </Canvas>
+      )}
+
       {/* 1. Header con Badge de Plan y Estado */}
       <View style={styles.headerRow}>
         {nombrePlan ? (
@@ -350,6 +400,26 @@ const styles = StyleSheet.create({
   cardContainerFinalizada: {
     borderColor: 'rgba(16, 185, 129, 0.3)',
     backgroundColor: '#131816',
+  },
+  cardContainerGlowBase: {
+    backgroundColor: 'rgb(15, 15, 15)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.65,
+    shadowRadius: 22,
+    elevation: 12,
+    marginVertical: 6,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  cardContainerGlowWeb: {
+    // @ts-ignore
+    boxShadow:
+      '0 0 50px 0px rgba(255, 255, 255, 0.70), inset 0 0 90px 0px rgba(255, 255, 255, 0.45)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   headerRow: {
     flexDirection: 'row',

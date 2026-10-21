@@ -290,7 +290,7 @@ export default function DiaDetalleModal({
 
             {/* 3. CONTENIDO DINÁMICO */}
             <ScrollView
-              contentContainerStyle={{ gap: 20, paddingBottom: 60 }}
+              contentContainerStyle={{ gap: 22, paddingBottom: 60, paddingHorizontal: 6, paddingTop: 6 }}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
@@ -417,12 +417,13 @@ export default function DiaDetalleModal({
                       </View>
                     ) : (
                       <>
-                        {/* A. Resumen Estético de Rutina (Reutilizando RutinaLiveCard de MainDayCard) */}
+                        {/* A. Resumen Estético de Rutina (Reutilizando RutinaLiveCard de MainDayCard con Efecto Glow Blanco) */}
                         {registrosConRutina.map((r) => (
                           <RutinaLiveCard
                             key={r.id}
                             registro={r}
                             sesionActivaInfo={sesionActivaInfo}
+                            conEfectoGlowBlanco={true}
                             onIniciar={(reg) => {
                               onClose();
                               if (onIniciarRutina) onIniciarRutina(reg);
