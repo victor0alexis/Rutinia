@@ -142,6 +142,25 @@ export default function Root({ children }: PropsWithChildren) {
             color: white !important;
             transition: 1.5s !important;
           }
+
+          /* ReactBits ShinyText web sweep animation */
+          @keyframes shinySweep {
+            0% {
+              background-position: 140% 0;
+            }
+            100% {
+              background-position: -140% 0;
+            }
+          }
+          .shiny-text-web {
+            background-size: 200% 100% !important;
+            -webkit-background-clip: text !important;
+            background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            color: transparent !important;
+            display: inline-block !important;
+            animation: shinySweep 2.8s ease-in-out infinite !important;
+          }
         ` }} />
 
         <ScrollViewStyleReset />

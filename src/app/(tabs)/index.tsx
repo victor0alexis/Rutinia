@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Text, View, StyleSheet } from 'react-native';
+import { Pressable, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useIsFocused } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,16 +9,15 @@ import { supabase } from '../../lib/supabase';
 import DiaDetalleModal from '../../components/DiaDetalleModal';
 import EjecutarEntrenamientoModal from '../../components/EjecutarEntrenamientoModal';
 import ModalPartidaEnCurso from '../../components/ModalPartidaEnCurso';
-import EncabezadoSeccion from '../../components/EncabezadoSeccion';
 import ScreenBackground from '../../components/ScreenBackground';
 import MainDayCard from '../../components/MainDayCard';
 import Semana3DCarousel from '../../components/Semana3DCarousel';
+import ShinyText from '../../components/ShinyText';
 import { LiquidMetalButton } from '../../components/LiquidMetalButton';
 import { registrosDeRango } from '../../services/registros';
-import { listarPlanes } from '../../services/planes';
 import { aISO, diasDeSemana } from '../../utils/fechas';
 import { seguro } from '../../utils/errores';
-import { EjercicioRegistro, PlanEntrenamiento, Registro } from '../../types';
+import { EjercicioRegistro, Registro } from '../../types';
 import { SesionActivaInfo, obtenerSesionActivaInfo, obtenerBorradorSesion } from '../../utils/sesionActiva';
 import { useLayout } from '../../hooks/useLayout';
 
@@ -29,7 +28,6 @@ export default function Semana() {
   const [ref, setRef] = useState(new Date());
   const [diaActivo, setDiaActivo] = useState(new Date());
   const [registros, setRegistros] = useState<Registro[]>([]);
-  const [planActivo, setPlanActivo] = useState<PlanEntrenamiento | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
 
@@ -57,9 +55,6 @@ export default function Semana() {
   useFocusEffect(
     useCallback(() => {
       cargar();
-      listarPlanes({ incluirArchivados: false })
-        .then((pls) => setPlanActivo(pls.find((p) => p.activo) || null))
-        .catch(() => {});
       if (atendidoPartidaRef.current) return;
       seguro(async () => {
         const active = await obtenerSesionActivaInfo();
@@ -179,13 +174,39 @@ export default function Semana() {
   return (
     <ScreenBackground acento={acento}>
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-        {/* ENCABEZADO ESTANDARIZADO CENTRADO CON DESTELLO ANIMADO */}
-        <EncabezadoSeccion
-          badgeText="ENTRENAMIENTO"
-          titulo="Mi Semana"
-          mostrarCerrarSesion
-          onCerrarSesion={() => supabase.auth.signOut()}
-        />
+        {/* CABECERA ESTÉTICA CON SHINYTEXT ANIMADO: DISCIPLINE */}
+        <View
+          style={[
+            styles.topHeaderBar,
+            {
+              paddingHorizontal: gutter,
+              paddingTop: isLandscape ? 4 : 8,
+              paddingBottom: isLandscape ? 4 : 6,
+            },
+          ]}
+        >
+          <ShinyText
+            text="DISCIPLINE"
+            fontSize={isLandscape ? 20 : 24}
+            letterSpacing={3.5}
+            speed={2.8}
+            color="#8A8F98"
+            shineColor="#FFFFFF"
+          />
+          {/* Botón flotante discreto de cerrar sesión */}
+          <Pressable
+            onPress={() => supabase.auth.signOut()}
+            style={({ pressed }) => [
+              styles.topLogoutButton,
+              { right: gutter },
+              pressed && { opacity: 0.6, transform: [{ scale: 0.94 }] },
+            ]}
+            hitSlop={12}
+            accessibilityLabel="Cerrar sesión"
+          >
+            <Ionicons name="log-out-outline" size={17} color={colores.suave} />
+          </Pressable>
+        </View>
 
         {/* CONTENIDO PRINCIPAL */}
         <View
@@ -199,28 +220,6 @@ export default function Semana() {
             gap: isLandscape ? 6 : 10,
           }}
         >
-          {/* CHIP DE PLAN ACTIVO EN CABECERA */}
-          {planActivo && (
-            <View
-              style={[
-                styles.headerPlanChip,
-                {
-                  borderColor: planActivo.color + '60',
-                  backgroundColor: planActivo.color + '15',
-                },
-              ]}
-            >
-              <Ionicons
-                name={(planActivo.icono as any) || 'barbell-outline'}
-                size={14}
-                color={planActivo.color}
-              />
-              <Text style={[styles.headerPlanChipText, { color: planActivo.color }]}>
-                PLAN ACTIVO · {planActivo.nombre.toUpperCase()}
-              </Text>
-            </View>
-          )}
-
           {/* CARRUSEL 3D CILÍNDRICO UNIFICADO (ReactICX 3D Carousel + Flechas en extremos) */}
           <Semana3DCarousel
             fechaReferencia={ref}
@@ -523,31 +522,23 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: colores.exito,
   },
-  headerPlanChip: {
-    flexDirection: 'row',
+  topHeaderBar: {
+    width: '100%',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  topLogoutButton: {
+    position: 'absolute',
+    top: 6,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
-    alignSelf: 'center',
-  },
-  headerPlanChipText: {
-    fontSize: 11,
-    fontFamily: fuentes.black,
-    letterSpacing: 0.8,
-  },
-  planTagChip: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  planTagChipText: {
-    fontSize: 10,
-    fontFamily: fuentes.bold,
-    textTransform: 'uppercase',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 
