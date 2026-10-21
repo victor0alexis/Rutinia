@@ -1,6 +1,5 @@
-import React, { memo, useEffect, useMemo, useState } from "react";
+import React, { Component, memo, useEffect, useMemo, useState } from "react";
 import {
-  Platform,
   Pressable,
   StyleSheet,
   View,
@@ -8,17 +7,12 @@ import {
   type LayoutChangeEvent,
 } from "react-native";
 import {
-  Canvas,
-  RoundedRect,
-  vec,
-  Group,
-  LinearGradient,
-  Rect,
-  Fill,
-  Shader,
-  Skia,
   BlurMask,
-  Mask,
+  Canvas,
+  Group,
+  RoundedRect,
+  SweepGradient,
+  vec,
 } from "@shopify/react-native-skia";
 import Animated, {
   useSharedValue,
@@ -28,198 +22,176 @@ import Animated, {
   Easing,
   useAnimatedStyle,
   interpolate,
+  cancelAnimation,
+  useReducedMotion,
 } from "react-native-reanimated";
-import { BORDER_GLOW_SHADER } from "./conf";
-import { createDotShaderSource, hexToRgb } from "./helpers";
 import type { IRadiantButton } from "./types";
 
 const DEFAULT_THEME = {
   background: "#000000",
-  backgroundSubtle: "#1a1a1a",
+  backgroundSubtle: "#101016",
   foreground: "#ffffff",
-  highlight: "#c084fc",
-  highlightSubtle: "#a855f7",
+  highlight: "#e37e19",
+  highlightSubtle: "#000000",
 };
 
-const RadiantButton: React.FC<IRadiantButton> = memo(
-  function RadiantButton({
+const PAD = 14;
+
+// Error Boundary para blindar contra cualquier fallo de renderizado
+interface EBState {
+  hasError: boolean;
+}
+
+class RadiantErrorBoundary extends Component<{ children: React.ReactNode; fallback?: React.ReactNode }, EBState> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: any) {
+    console.warn("RadiantButton render error suppressed:", error);
+  }
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || this.props.children;
+    }
+    return this.props.children;
+  }
+}
+
+const RadiantButtonInner: React.FC<IRadiantButton> = memo(
+  function RadiantButtonInner({
     children,
     onPress,
     style,
     textStyle,
     borderRadius = 12,
-    borderWidth = 2,
+    borderWidth = 1.5,
     duration = 3000,
     theme: themeProp,
     paddingHorizontal = 24,
     paddingVertical = 14,
     disabled = false,
-    showDots = true,
-    showShimmer = true,
     showGlow = true,
-    dotSpacing = 5,
-    dotRadius = 0.65,
-    dotOpacity = 0.35,
-    shimmerOpacity = 0.35,
-    glowBlur = 18,
-    glowWidth = 0.7,
+    glowWidth = 0.6,
+    glowBlur = 8,
     breathingEnabled = true,
-    glowBandWidth = 0.15,
   }: IRadiantButton) {
-    const progress = useSharedValue<number>(0);
-    const shimmerAngle = useSharedValue<number>(0);
+    const progreso = useSharedValue<number>(0);
     const breathe = useSharedValue<number>(0);
-    const pressed = useSharedValue<number>(0);
+    const presionado = useSharedValue<number>(0);
+    const reduceMotion = useReducedMotion();
+
+    const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
     const theme = useMemo(
       () => ({ ...DEFAULT_THEME, ...themeProp }),
       [themeProp],
     );
 
-    const highlightRgb = useMemo<number[]>(
-      () => hexToRgb(theme.highlight || "#67e8f9"),
-      [theme.highlight],
-    );
-
-    const isWeb = Platform.OS === "web";
-    const [layout, setLayout] = useState<{ width: number; height: number }>({
-      width: 0,
-      height: 0,
-    });
-
-    const borderGlowShader = useMemo(() => {
-      try {
-        return Skia.RuntimeEffect.Make(BORDER_GLOW_SHADER);
-      } catch {
-        return null;
-      }
-    }, []);
-
-    const dotShader = useMemo(() => {
-      if (!showDots) return null;
-      try {
-        return Skia.RuntimeEffect.Make(
-          createDotShaderSource<number, number>(
-            dotSpacing,
-            dotRadius,
-            dotOpacity,
-            true,
-          ),
-        );
-      } catch {
-        return null;
-      }
-    }, [showDots, dotSpacing, dotRadius, dotOpacity]);
+    const highlight = theme.highlight || "#e37e19";
 
     useEffect(() => {
-      if (disabled) return;
+      if (disabled || reduceMotion) {
+        cancelAnimation(progreso);
+        cancelAnimation(breathe);
+        return;
+      }
 
-      progress.value = withRepeat<number>(
+      progreso.value = withRepeat(
         withTiming(1, { duration, easing: Easing.linear }),
         -1,
         false,
       );
 
-      if (showShimmer) {
-        shimmerAngle.value = withRepeat<number>(
-          withTiming(360, {
-            duration: duration / 0.4,
-            easing: Easing.linear,
-          }),
-          -1,
-          false,
-        );
-      }
-
       if (breathingEnabled && showGlow) {
-        breathe.value = withRepeat<number>(
+        breathe.value = withRepeat(
           withTiming(1, {
-            duration: duration * 1.5,
+            duration: duration * 0.75,
             easing: Easing.inOut(Easing.sin),
           }),
           -1,
           true,
         );
       }
-    }, [disabled, duration, showShimmer, showGlow, breathingEnabled, progress, shimmerAngle, breathe]);
-    const handleLayout = <T extends LayoutChangeEvent>(e: T) => {
+
+      return () => {
+        cancelAnimation(progreso);
+        cancelAnimation(breathe);
+      };
+    }, [disabled, duration, showGlow, breathingEnabled, reduceMotion, progreso, breathe]);
+
+    const handlePressIn = () => {
+      presionado.value = withTiming(1, { duration: 150 });
+    };
+
+    const handlePressOut = () => {
+      presionado.value = withTiming(0, { duration: 300 });
+    };
+
+    const handleLayout = (e: LayoutChangeEvent) => {
       const { width: w, height: h } = e.nativeEvent.layout;
-      if (w !== layout.width || h !== layout.height) {
-        setLayout({ width: w, height: h });
+      if (w > 0 && h > 0 && (w !== dimensions.width || h !== dimensions.height)) {
+        setDimensions({ width: w, height: h });
       }
     };
 
-    const { width, height } = layout;
-    const cx = width / 2;
-    const cy = height / 2;
-
-    const innerClip = useMemo(() => {
-      if (!width || !height) return undefined;
-      const bw = borderWidth;
-      const p = Skia.Path.Make();
-      p.addRRect(
-        Skia.RRectXY(
-          Skia.XYWHRect(bw, bw, width - bw * 2, height - bw * 2),
-          Math.max(borderRadius - bw, 0),
-          Math.max(borderRadius - bw, 0),
-        ),
-      );
-      return p;
-    }, [width, height, borderRadius, borderWidth]);
-
-    const borderGlowUniforms = useDerivedValue(() => {
-      const bandWidthAdjusted = interpolate(
-        pressed.value,
-        [0, 1],
-        [glowBandWidth, glowBandWidth * 2],
-      );
-      return {
-        iResolution: [width, height] as [number, number],
-        progress: progress.value,
-        borderRadius: borderRadius,
-        borderWidth: borderWidth,
-        bandWidth: bandWidthAdjusted,
-        highlightColor: highlightRgb,
-      };
-    });
-    const dotUniforms = useDerivedValue(() => ({
-      iResolution: [width, height] as [number, number],
-      angle: progress.value * Math.PI * 2,
+    const animatedPressStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: interpolate(presionado.value, [0, 1], [1, 0.98]) }],
     }));
 
-    const shimmerTransform = useDerivedValue(() => {
-      const rad = (shimmerAngle.value * Math.PI) / 180;
-      return [{ rotate: rad }];
+    const { width, height } = dimensions;
+    const cx = PAD + width / 2;
+    const cy = PAD + height / 2;
+
+    const transRotacion = useDerivedValue(() => {
+      const angulo = reduceMotion ? Math.PI * 0.5 : progreso.value * Math.PI * 2;
+      return [
+        { translateX: cx },
+        { translateY: cy },
+        { rotate: angulo },
+        { translateX: -cx },
+        { translateY: -cy },
+      ];
     });
 
-    const glowOpacity = useDerivedValue<number>(() => {
-      const base = 0.25;
+    const haloOpacityAnim = useDerivedValue(() => {
+      const base = 0.55;
       const breatheAdd = breathingEnabled
-        ? interpolate(breathe.value, [0, 1], [0, 0.2])
+        ? interpolate(breathe.value, [0, 1], [0, 0.25])
         : 0;
-      const pressAdd = interpolate(pressed.value, [0, 1], [0, 0.5]);
+      const pressAdd = interpolate(presionado.value, [0, 1], [0, 0.35]);
       return base + breatheAdd + pressAdd;
     });
 
-    const glowScale = useDerivedValue<number>(() =>
-      breathingEnabled ? interpolate(breathe.value, [0, 1], [1, 1.15]) : 1,
+    const breatheBottomGlowOpacity = useDerivedValue(() => {
+      const base = 0.4;
+      const breatheAdd = breathingEnabled
+        ? interpolate(breathe.value, [0, 1], [0, 0.3])
+        : 0;
+      return base + breatheAdd;
+    });
+
+    const radiantColors = useMemo(
+      () => [
+        "transparent",
+        "transparent",
+        `${highlight}44`,
+        highlight,
+        "#FFFFFF",
+        highlight,
+        `${highlight}44`,
+        "transparent",
+      ],
+      [highlight],
     );
 
-    const glowTransform = useDerivedValue(() => [{ scale: glowScale.value }]);
-
-    const handlePressIn = () => {
-      pressed.value = withTiming<number>(1, { duration: 300 });
-    };
-    const handlePressOut = () => {
-      pressed.value = withTiming<number>(0, { duration: 600 });
-    };
-
-    const animatedPressStyle = useAnimatedStyle(() => ({
-      transform: [{ translateY: interpolate(pressed.value, [0, 1], [0, 1]) }],
-    }));
-
-    const shimmerSize = Math.max(width, height) * 1.5;
-    const hasLayout = width > 0 && height > 0;
+    const radiantPositions = useMemo(
+      () => [0, 0.35, 0.5, 0.62, 0.72, 0.82, 0.92, 1],
+      [],
+    );
 
     const renderChildren = () => {
       if (typeof children === "string") {
@@ -233,7 +205,7 @@ const RadiantButton: React.FC<IRadiantButton> = memo(
     };
 
     return (
-      <Animated.View style={animatedPressStyle}>
+      <Animated.View style={[styles.container, animatedPressStyle, style]}>
         <Pressable
           onPress={onPress}
           onPressIn={handlePressIn}
@@ -246,157 +218,104 @@ const RadiantButton: React.FC<IRadiantButton> = memo(
               borderRadius,
               paddingHorizontal,
               paddingVertical,
+              backgroundColor: theme.background,
               opacity: disabled ? 0.5 : 1,
             },
-            style,
           ]}
         >
-          {isWeb && (
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                {
-                  borderRadius,
-                  borderWidth,
-                  borderColor: theme.highlight || "#e37e19",
-                  backgroundColor: theme.background || "#000000",
-                  // @ts-ignore
-                  boxShadow: `0 0 20px ${theme.highlight || "#e37e19"}66, inset 0 0 16px ${theme.highlight || "#e37e19"}33`,
-                },
-              ]}
-            />
-          )}
-
-          {!isWeb && hasLayout && innerClip && (
+          {/* Canvas Skia GPU de alta velocidad y resplandor continuo */}
+          {width > 0 && height > 0 && (
             <Canvas
-              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: -PAD,
+                top: -PAD,
+                width: width + PAD * 2,
+                height: height + PAD * 2,
+              }}
             >
-              {borderGlowShader && (
-                <Group>
-                  <Rect x={0} y={0} width={width} height={height}>
-                    <Shader
-                      source={borderGlowShader}
-                      uniforms={borderGlowUniforms}
+              {/* Capa 1: Fondo interior */}
+              <RoundedRect
+                x={PAD}
+                y={PAD}
+                width={width}
+                height={height}
+                r={borderRadius}
+                color={theme.background}
+              />
+
+              {/* Capa 2: Borde Base sutil */}
+              <RoundedRect
+                x={PAD}
+                y={PAD}
+                width={width}
+                height={height}
+                r={borderRadius}
+                style="stroke"
+                strokeWidth={borderWidth}
+                color={`${highlight}30`}
+              />
+
+              {/* Capa 3: Halo de resplandor difuminado rotativo */}
+              {showGlow && (
+                <Group opacity={haloOpacityAnim} transform={transRotacion}>
+                  <RoundedRect
+                    x={PAD}
+                    y={PAD}
+                    width={width}
+                    height={height}
+                    r={borderRadius}
+                    style="stroke"
+                    strokeWidth={borderWidth * 2.5}
+                  >
+                    <SweepGradient
+                      c={vec(cx, cy)}
+                      colors={radiantColors}
+                      positions={radiantPositions}
                     />
-                    <BlurMask blur={6} style="normal" />
-                  </Rect>
-                  <Rect x={0} y={0} width={width} height={height}>
-                    <Shader
-                      source={borderGlowShader}
-                      uniforms={borderGlowUniforms}
-                    />
-                  </Rect>
+                    <BlurMask blur={glowBlur} style="normal" />
+                  </RoundedRect>
                 </Group>
               )}
 
-              <Group clip={innerClip}>
-                <Rect
-                  x={borderWidth}
-                  y={borderWidth}
-                  width={width - borderWidth * 2}
-                  height={height - borderWidth * 2}
-                  color={theme.background}
-                />
-
+              {/* Capa 4: Anillo nítido y brillante rotativo */}
+              <Group opacity={1} transform={transRotacion}>
                 <RoundedRect
-                  x={borderWidth}
-                  y={borderWidth}
-                  width={width - borderWidth * 2}
-                  height={height - borderWidth * 2}
-                  r={Math.max(borderRadius - borderWidth, 0)}
-                  color={theme.backgroundSubtle}
+                  x={PAD}
+                  y={PAD}
+                  width={width}
+                  height={height}
+                  r={borderRadius}
                   style="stroke"
-                  strokeWidth={1}
-                />
-
-                {showDots && dotShader && (
-                  <Fill>
-                    <Shader source={dotShader} uniforms={dotUniforms} />
-                  </Fill>
-                )}
-
-                {showShimmer && (
-                  <Mask
-                    mask={
-                      <Group>
-                        <Rect
-                          x={borderWidth}
-                          y={borderWidth}
-                          width={width - borderWidth * 2}
-                          height={height - borderWidth * 2}
-                        >
-                          <LinearGradient
-                            start={vec(cx, borderWidth)}
-                            end={vec(cx, height - borderWidth)}
-                            colors={["transparent", "transparent", "white"]}
-                            positions={[0, 0.4, 1]}
-                          />
-                        </Rect>
-                      </Group>
-                    }
-                  >
-                    <Group
-                      transform={shimmerTransform}
-                      origin={vec(cx, cy)}
-                      opacity={shimmerOpacity}
-                    >
-                      <Rect
-                        x={cx - shimmerSize / 2}
-                        y={cy - shimmerSize / 2}
-                        width={shimmerSize}
-                        height={shimmerSize}
-                      >
-                        <LinearGradient
-                          start={vec(0, 0)}
-                          end={vec(shimmerSize, shimmerSize * 0.7)}
-                          colors={[
-                            "transparent",
-                            "transparent",
-                            theme.highlight || "#67e8f9",
-                            "transparent",
-                            "transparent",
-                          ]}
-                          positions={[0, 0.35, 0.5, 0.65, 1]}
-                        />
-                      </Rect>
-                    </Group>
-                  </Mask>
-                )}
-                {showGlow && (
-                  <Group
-                    transform={glowTransform}
-                    origin={vec(cx, height)}
-                    opacity={glowOpacity}
-                  >
-                    <RoundedRect
-                      x={cx - (width * glowWidth) / 2}
-                      y={height - 22}
-                      width={width * glowWidth}
-                      height={26}
-                      r={13}
-                      color={theme.highlight || "#67e8f9"}
-                    >
-                      <BlurMask blur={glowBlur} style="normal" />
-                    </RoundedRect>
-                  </Group>
-                )}
-                {showGlow && (
-                  <Group opacity={20}>
-                    <RoundedRect
-                      x={cx - width * 0.3}
-                      y={height - borderWidth - 300}
-                      width={width * 0.5}
-                      height={3}
-                      r={1.5}
-                      color={theme.highlight || "#67e8f9"}
-                    >
-                      <BlurMask blur={3} style="normal" />
-                    </RoundedRect>
-                  </Group>
-                )}
+                  strokeWidth={borderWidth}
+                >
+                  <SweepGradient
+                    c={vec(cx, cy)}
+                    colors={radiantColors}
+                    positions={radiantPositions}
+                  />
+                </RoundedRect>
               </Group>
+
+              {/* Capa 5: Halo respiratorio difuso en el borde inferior */}
+              {showGlow && (
+                <Group opacity={breatheBottomGlowOpacity}>
+                  <RoundedRect
+                    x={PAD + (width - width * glowWidth) / 2}
+                    y={PAD + height - 6}
+                    width={width * glowWidth}
+                    height={10}
+                    r={5}
+                    color={highlight}
+                  >
+                    <BlurMask blur={7} style="normal" />
+                  </RoundedRect>
+                </Group>
+              )}
             </Canvas>
           )}
+
           <View style={styles.content}>{renderChildren()}</View>
         </Pressable>
       </Animated.View>
@@ -404,11 +323,41 @@ const RadiantButton: React.FC<IRadiantButton> = memo(
   },
 );
 
+const RadiantButton: React.FC<IRadiantButton> = (props) => {
+  const fallback = (
+    <View
+      style={[
+        styles.button,
+        {
+          borderRadius: props.borderRadius ?? 12,
+          paddingHorizontal: props.paddingHorizontal ?? 24,
+          paddingVertical: props.paddingVertical ?? 14,
+          backgroundColor: props.theme?.background ?? "#000000",
+          borderWidth: props.borderWidth ?? 1.5,
+          borderColor: props.theme?.highlight ?? "#e37e19",
+        },
+        props.style,
+      ]}
+    >
+      <View style={styles.content}>{props.children}</View>
+    </View>
+  );
+
+  return (
+    <RadiantErrorBoundary fallback={fallback}>
+      <RadiantButtonInner {...props} />
+    </RadiantErrorBoundary>
+  );
+};
+
 const styles = StyleSheet.create({
+  container: {
+    alignSelf: "flex-start",
+  },
   button: {
     position: "relative",
     overflow: "hidden",
-    minHeight: 48,
+    minHeight: 40,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -416,15 +365,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 1,
+    zIndex: 2,
   },
   text: {
-    fontSize: 16,
-    fontWeight: "500",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
 
-RadiantButton.displayName = "RadiantButton";
-
 export default RadiantButton;
-

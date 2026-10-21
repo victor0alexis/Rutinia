@@ -535,12 +535,12 @@ export default function DiaDetalleModal({
                                 },
                               ]}
                             >
-                              <Ionicons name={(p.icono as any) || 'barbell'} size={11} color={colorTema} />
+                              <Ionicons name={(p?.icono as any) || 'barbell'} size={11} color={colorTema} />
                               <Text
                                 numberOfLines={1}
                                 style={[styles.planCardTagText, { color: colorTema }]}
                               >
-                                {p.nombre.toUpperCase()}
+                                {(p?.nombre || 'PLAN').toUpperCase()}
                               </Text>
                             </View>
 
@@ -558,7 +558,7 @@ export default function DiaDetalleModal({
 
                           {/* 2. Título y Objetivo / Descripción */}
                           <Text numberOfLines={1} style={styles.planCardTitle}>
-                            {p.nombre}
+                            {p?.nombre || 'Plan de Entrenamiento'}
                           </Text>
 
                           {Boolean(p.descripcion || p.objetivo) && (
