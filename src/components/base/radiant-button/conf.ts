@@ -11,14 +11,14 @@ const BORDER_GLOW_SHADER: string = `
     float2 p = pos - center;
     
     float angle = atan(p.y, p.x);
-    float normalizedAngle = (angle + 3.14159265) / 6.28318530;
+    float normalizedAngle = (angle + 3.1415926535) / 6.283185307;
     
     return normalizedAngle;
   }
 
   float sdRoundedRect(float2 p, float2 b, float r) {
     float2 q = abs(p) - b + r;
-    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
+    return min(max(q.x, q.y), 0.0) + length(max(q, float2(0.0))) - r;
   }
 
   half4 main(float2 fragCoord) {
@@ -30,7 +30,6 @@ const BORDER_GLOW_SHADER: string = `
     float r = max(borderRadius - borderWidth, 0.0);
     
     float distInner = sdRoundedRect(p, halfSize, r);
-    
     float distOuter = sdRoundedRect(p, center, borderRadius);
     
     float borderMask = smoothstep(0.0, 1.5, distInner) * (1.0 - smoothstep(-1.5, 0.0, distOuter));
@@ -40,7 +39,7 @@ const BORDER_GLOW_SHADER: string = `
     }
     
     float angle = atan(p.y, p.x);
-    float perimProgress = (angle + 3.14159265) / 6.28318530;
+    float perimProgress = (angle + 3.1415926535) / 6.283185307;
     
     float dist = perimProgress - progress;
     
@@ -50,7 +49,7 @@ const BORDER_GLOW_SHADER: string = `
     dist = abs(dist);
     
     float glow = 1.0 - smoothstep(0.0, bandWidth, dist);
-    glow = pow(glow, 1.5); // Sharpen the falloff slightly
+    glow = pow(glow, 1.5);
     
     float core = 1.0 - smoothstep(0.0, bandWidth * 0.3, dist);
     

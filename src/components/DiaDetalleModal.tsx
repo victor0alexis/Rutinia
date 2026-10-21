@@ -472,23 +472,24 @@ export default function DiaDetalleModal({
               {/* PANEL 2: Planes de Entrenamiento con RadiantButton de Reacticx */}
               {tab === 'rutina' && (
                 <View style={{ gap: 16 }}>
-                  <View style={{ alignItems: 'flex-start' }}>
+                  <View style={styles.radiantButtonCenterWrapper}>
                     <RadiantButton
+                      style={styles.radiantHeroButton}
                       theme={{
                         foreground: "#ffffff",
-                        background: "#050508",
-                        backgroundSubtle: "#101016",
+                        background: "#000000",
+                        backgroundSubtle: "#000000",
                         highlight: "#e37e19",
                         highlightSubtle: "#000000",
                       }}
-                      borderRadius={22}
+                      borderRadius={16}
                       borderWidth={1.5}
                       dotOpacity={1}
                       showDots
                       glowWidth={0.5}
                       shimmerOpacity={0.5}
-                      paddingHorizontal={16}
-                      paddingVertical={8}
+                      paddingHorizontal={24}
+                      paddingVertical={14}
                     >
                       <View style={styles.radiantHeaderRow}>
                         <Text style={styles.radiantHeaderText}>
@@ -1256,26 +1257,37 @@ const styles = StyleSheet.create({
     fontFamily: fuentes.black,
     fontSize: 9,
   },
+  radiantButtonCenterWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    width: '100%',
+  },
+  radiantHeroButton: {
+    width: '100%',
+    maxWidth: 290,
+  },
   radiantHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    gap: 10,
   },
   radiantHeaderText: {
     color: '#FFFFFF',
-    fontSize: 11,
-    fontFamily: fuentes.extraBold,
-    letterSpacing: 1.2,
+    fontSize: 13.5,
+    fontFamily: fuentes.bold,
+    letterSpacing: 0.8,
   },
   radiantCountChip: {
     backgroundColor: 'rgba(255, 255, 255, 0.16)',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
   },
   radiantCountChipText: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: fuentes.bold,
   },
 });
