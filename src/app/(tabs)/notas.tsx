@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
+import Head from 'expo-router/head';
 import { Ionicons } from '@expo/vector-icons';
 import { colores, fuentes } from '../../constants/colores';
 import EncabezadoSeccion from '../../components/EncabezadoSeccion';
@@ -128,6 +129,9 @@ export default function Notas() {
 
   return (
     <ScreenBackground>
+      <Head>
+        <title>Notas · Rutinia</title>
+      </Head>
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         {/* ENCABEZADO ESTANDARIZADO CENTRADO CON DESTELLO ANIMADO */}
         <EncabezadoSeccion

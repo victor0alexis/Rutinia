@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
+import Head from 'expo-router/head';
 import { Ionicons } from '@expo/vector-icons';
 import { colores, DIAS_SEMANA_ABREV, fuentes } from '../../constants/colores';
 import EncabezadoSeccion from '../../components/EncabezadoSeccion';
@@ -424,6 +425,9 @@ export default function RutinasScreen() {
 
   return (
     <ScreenBackground>
+      <Head>
+        <title>Rutinas · Rutinia</title>
+      </Head>
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         {/* ENCABEZADO ESTANDARIZADO */}
         <EncabezadoSeccion

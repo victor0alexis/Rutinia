@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useIsFocused } from 'expo-router';
+import Head from 'expo-router/head';
 import { Ionicons } from '@expo/vector-icons';
 import { addDays, parseISO } from 'date-fns';
 import { colores, fuentes } from '../../constants/colores';
@@ -173,6 +174,9 @@ export default function Semana() {
 
   return (
     <ScreenBackground acento={acento}>
+      <Head>
+        <title>Semana · Rutinia</title>
+      </Head>
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         {/* CABECERA ESTÉTICA CON SHINYTEXT ANIMADO: DISCIPLINE */}
         <View

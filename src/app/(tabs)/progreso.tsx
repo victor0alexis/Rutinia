@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
+import Head from 'expo-router/head';
 import { Ionicons } from '@expo/vector-icons';
 import { startOfMonth, endOfMonth, subDays, startOfYear } from 'date-fns';
 import { colores, fuentes } from '../../constants/colores';
@@ -72,6 +73,9 @@ export default function ProgresoScreen() {
 
   return (
     <ScreenBackground>
+      <Head>
+        <title>Progreso · Rutinia</title>
+      </Head>
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         {/* ENCABEZADO ESTANDARIZADO CENTRADO */}
         <EncabezadoSeccion

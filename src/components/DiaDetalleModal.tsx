@@ -22,7 +22,6 @@ import {
 } from '@shopify/react-native-skia';
 import { colores, fuentes } from '../constants/colores';
 import ScreenBackground from './ScreenBackground';
-import GlowButton from './GlowButton';
 import SpotlightSegmentedTabs from './SpotlightSegmentedTabs';
 import RutinaLiveCard from './RutinaLiveCard';
 import RadiantButton from './base/radiant-button';
@@ -218,6 +217,251 @@ function RoutineStatCardWithMainDayGlow({
   );
 }
 
+interface LibraryNoteCardWithMainDayGlowProps {
+  nota: NotaEstandar;
+  isLinking: boolean;
+  onVincular: (n: NotaEstandar) => void;
+}
+
+function LibraryNoteCardWithMainDayGlow({
+  nota,
+  isLinking,
+  onVincular,
+}: LibraryNoteCardWithMainDayGlowProps) {
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+  const handleLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    if (width > 0 && height > 0) {
+      setDimensions({ width, height });
+    }
+  };
+
+  const isWeb = Platform.OS === 'web';
+  const parsed = parsearNotaInteligente(`[${nota.categoria}] ${nota.titulo}: ${nota.contenido}`);
+
+  return (
+    <View
+      onLayout={handleLayout}
+      style={[
+        styles.libraryNoteCardGlowBase,
+        isWeb && styles.routineCardMainDayGlowWeb,
+      ]}
+    >
+      {!isWeb && dimensions.width > 0 && dimensions.height > 0 && (
+        <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Box
+            box={rrect(rect(0, 0, dimensions.width, dimensions.height), 20, 20)}
+            color="rgb(15, 15, 17)"
+          >
+            <BoxShadow
+              dx={0}
+              dy={0}
+              blur={16}
+              color="rgba(255, 255, 255, 0.40)"
+            />
+            <BoxShadow
+              dx={0}
+              dy={0}
+              blur={26}
+              color="rgba(255, 255, 255, 0.20)"
+              inner
+            />
+          </Box>
+        </Canvas>
+      )}
+
+      {/* Header con Badge de Categoría Inteligente */}
+      <View style={styles.libraryNoteTopRow}>
+        <View
+          style={[
+            styles.libraryNoteCategoryPill,
+            {
+              backgroundColor: parsed.bgBadge,
+              borderColor: `${parsed.colorBadge}40`,
+            },
+          ]}
+        >
+          <Ionicons name={parsed.iconName} size={11.5} color={parsed.colorBadge} />
+          <Text
+            style={[
+              styles.libraryNoteCategoryPillText,
+              { color: parsed.colorBadge },
+            ]}
+          >
+            {nota.categoria.toUpperCase()}
+          </Text>
+        </View>
+      </View>
+
+      {/* Título de la Nota Centrado */}
+      <Text style={styles.libraryNoteTitle}>{nota.titulo}</Text>
+
+      {/* Contenido / Descripción */}
+      {Boolean(nota.contenido) && (
+        <Text style={styles.libraryNoteBody} numberOfLines={3}>
+          {nota.contenido}
+        </Text>
+      )}
+
+      {/* Separador de luz tenue */}
+      <View style={styles.routineCardInnerDivider} />
+
+      {/* Botón YoungNewtButton animado idéntico */}
+      <View style={styles.routineStatActionRow}>
+        <YoungNewtButton
+          title="Añadir al Día"
+          loadingTitle="Añadiendo..."
+          loading={isLinking}
+          onPress={() => onVincular(nota)}
+        />
+      </View>
+    </View>
+  );
+}
+
+const CATEGORIAS_RAPIDAS = [
+  { id: 'General', label: 'General', icon: 'document-text-outline', color: colores.hoy },
+  { id: 'Nutrición', label: 'Nutrición', icon: 'nutrition-outline', color: '#10B981' },
+  { id: 'Entrenamiento', label: 'Entreno', icon: 'fitness-outline', color: colores.primarioHover },
+  { id: 'Suplementos', label: 'Suplementos', icon: 'medical-outline', color: '#A855F7' },
+  { id: 'Recuperación', label: 'Descanso', icon: 'pulse-outline', color: '#3B82F6' },
+];
+
+interface QuickNoteCardWithMainDayGlowProps {
+  texto: string;
+  onChangeTexto: (t: string) => void;
+  categoria: string;
+  onSelectCategoria: (cat: string) => void;
+  guardando: boolean;
+  onSubmit: () => void;
+}
+
+function QuickNoteCardWithMainDayGlow({
+  texto,
+  onChangeTexto,
+  categoria,
+  onSelectCategoria,
+  guardando,
+  onSubmit,
+}: QuickNoteCardWithMainDayGlowProps) {
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+  const handleLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    if (width > 0 && height > 0) {
+      setDimensions({ width, height });
+    }
+  };
+
+  const isWeb = Platform.OS === 'web';
+
+  return (
+    <View
+      onLayout={handleLayout}
+      style={[
+        styles.quickNoteCardGlowBase,
+        isWeb && styles.routineCardMainDayGlowWeb,
+      ]}
+    >
+      {!isWeb && dimensions.width > 0 && dimensions.height > 0 && (
+        <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Box
+            box={rrect(rect(0, 0, dimensions.width, dimensions.height), 22, 22)}
+            color="rgb(15, 15, 17)"
+          >
+            <BoxShadow
+              dx={0}
+              dy={0}
+              blur={16}
+              color="rgba(255, 255, 255, 0.40)"
+            />
+            <BoxShadow
+              dx={0}
+              dy={0}
+              blur={26}
+              color="rgba(255, 255, 255, 0.20)"
+              inner
+            />
+          </Box>
+        </Canvas>
+      )}
+
+      {/* Header del bloque rápido */}
+      <View style={{ alignItems: 'center', gap: 3, width: '100%' }}>
+        <Text style={styles.quickNoteHeadingTitle}>Nota Rápida Exclusiva</Text>
+        <Text style={styles.quickNoteHeadingSubtitle}>
+          Registra sensaciones, pesajes o comentarios para esta fecha
+        </Text>
+      </View>
+
+      {/* Selector Inteligente de Categorías */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.quickNoteCategoryChipsRow}
+      >
+        {CATEGORIAS_RAPIDAS.map((cat) => {
+          const isSelected = categoria === cat.id;
+          return (
+            <Pressable
+              key={cat.id}
+              onPress={() => {
+                vibrarBoton();
+                onSelectCategoria(cat.id);
+              }}
+              style={({ pressed }) => [
+                styles.quickNoteCategoryChip,
+                isSelected && {
+                  backgroundColor: `${cat.color}22`,
+                  borderColor: cat.color,
+                },
+                pressed && { opacity: 0.75, transform: [{ scale: 0.96 }] },
+              ]}
+            >
+              <Ionicons
+                name={cat.icon as any}
+                size={12}
+                color={isSelected ? cat.color : colores.suave}
+              />
+              <Text
+                style={[
+                  styles.quickNoteCategoryChipText,
+                  { color: isSelected ? '#FFFFFF' : colores.suave },
+                ]}
+              >
+                {cat.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      {/* TextInput de nota rápida */}
+      <TextInput
+        placeholder="Escribe anotaciones rápidas, sensaciones o hydration..."
+        placeholderTextColor="rgba(255, 255, 255, 0.35)"
+        multiline
+        numberOfLines={3}
+        value={texto}
+        onChangeText={onChangeTexto}
+        style={styles.quickNoteTextInput}
+      />
+
+      {/* Botón YoungNewtButton para guardar */}
+      <View style={styles.routineStatActionRow}>
+        <YoungNewtButton
+          title="Guardar Nota al Día"
+          loadingTitle="Guardando..."
+          loading={guardando}
+          disabled={!texto.trim()}
+          onPress={onSubmit}
+        />
+      </View>
+    </View>
+  );
+}
+
 export default function DiaDetalleModal({
   fecha,
   registros,
@@ -243,6 +487,9 @@ export default function DiaDetalleModal({
   // Notas estandarizadas y notas ad-hoc
   const [notasBiblioteca, setNotasBiblioteca] = useState<NotaEstandar[]>([]);
   const [nuevaNotaAdHoc, setNuevaNotaAdHoc] = useState('');
+  const [categoriaAdHoc, setCategoriaAdHoc] = useState('General');
+  const [guardandoNota, setGuardandoNota] = useState(false);
+  const [vinculandoNotaId, setVinculandoNotaId] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) {
@@ -331,8 +578,10 @@ export default function DiaDetalleModal({
 
   const vincularNotaEstandar = (n: NotaEstandar) =>
     seguro(async () => {
+      setVinculandoNotaId(n.id);
       const textoFormateado = `[${n.categoria.toUpperCase()}] ${n.titulo}: ${n.contenido}`;
       await guardarNotaDelDia(aISO(fecha), textoFormateado);
+      setVinculandoNotaId(null);
       alCambiar();
       setTab('actividad');
       Alert.alert('Nota añadida', `Nota "${n.titulo}" vinculada al ${nombreDia(fecha)}.`);
@@ -340,9 +589,13 @@ export default function DiaDetalleModal({
 
   const guardarNotaSubmit = () =>
     seguro(async () => {
-      if (!nuevaNotaAdHoc.trim()) return;
-      await guardarNotaDelDia(aISO(fecha), nuevaNotaAdHoc.trim());
+      const texto = nuevaNotaAdHoc.trim();
+      if (!texto) return;
+      setGuardandoNota(true);
+      const textoFinal = `[${categoriaAdHoc.toUpperCase()}] ${texto}`;
+      await guardarNotaDelDia(aISO(fecha), textoFinal);
       setNuevaNotaAdHoc('');
+      setGuardandoNota(false);
       alCambiar();
       setTab('actividad');
       Alert.alert('Nota guardada', 'Tu nota ha quedado registrada en la Actividad del Día.');
@@ -746,63 +999,58 @@ export default function DiaDetalleModal({
                 </View>
               )}
 
-              {/* PANEL 3: Notas */}
+              {/* PANEL 3: Notas (Rediseñado con Efecto MainDayCard y YoungNewtButton) */}
               {tab === 'notas' && (
-                <View style={{ gap: 18 }}>
-                  <Text style={styles.sectionLabelText}>
-                    Elegir de la Biblioteca de Notas
-                  </Text>
+                <View style={{ gap: 20 }}>
+                  {/* Header Inteligente 1: Biblioteca de Plantillas */}
+                  <View style={styles.aestheticSectionHeaderRow}>
+                    <View style={styles.cyberSectionBadge}>
+                      <Ionicons name="document-text" size={12.5} color="#FFFFFF" />
+                      <Text style={styles.cyberSectionBadgeText}>BIBLIOTECA DE PLANTILLAS</Text>
+                    </View>
+                    <View style={styles.countChip}>
+                      <Text style={styles.countChipText}>{notasBiblioteca.length}</Text>
+                    </View>
+                  </View>
 
+                  {/* Lista de Notas de la Biblioteca con Efecto MainDayCard */}
                   {notasBiblioteca.length === 0 ? (
-                    <Text style={{ color: colores.suave, fontStyle: 'italic', fontSize: 13, fontFamily: fuentes.regular }}>
-                      No tienes notas estandarizadas. Crea plantillas en la pestaña &apos;Notas&apos;.
-                    </Text>
+                    <View style={styles.emptyDashedBox}>
+                      <Ionicons name="document-text-outline" size={26} color={colores.suave} />
+                      <Text style={styles.emptyDashedText}>
+                        No tienes notas estandarizadas. Crea plantillas en la pestaña &apos;Notas&apos;.
+                      </Text>
+                    </View>
                   ) : (
-                    notasBiblioteca.map((n) => (
-                      <View key={n.id} style={styles.libraryNoteCard}>
-                        <View style={{ flex: 1, gap: 2 }}>
-                          <View style={styles.libraryNoteCategoryBadge}>
-                            <Text style={{ color: colores.primarioHover, fontSize: 10, fontFamily: fuentes.bold }}>{n.categoria}</Text>
-                          </View>
-                          <Text style={{ color: colores.texto, fontSize: 14.5, fontFamily: fuentes.black }}>{n.titulo}</Text>
-                          <Text numberOfLines={2} style={{ color: colores.suave, fontSize: 12, fontFamily: fuentes.regular }}>
-                            {n.contenido}
-                          </Text>
-                        </View>
-
-                        <GlowButton
-                          title="+ Añadir"
-                          onPress={() => vincularNotaEstandar(n)}
-                          variant="primary"
-                          size="sm"
-                          shape="pill"
+                    <View style={{ gap: 14 }}>
+                      {notasBiblioteca.map((n) => (
+                        <LibraryNoteCardWithMainDayGlow
+                          key={n.id}
+                          nota={n}
+                          isLinking={vinculandoNotaId === n.id}
+                          onVincular={vincularNotaEstandar}
                         />
-                      </View>
-                    ))
+                      ))}
+                    </View>
                   )}
 
-                  <Text style={[styles.sectionLabelText, { marginTop: 8 }]}>
-                    O redactar Nota Ad-hoc para este día
-                  </Text>
-                  <View style={styles.quickFormBox}>
-                    <TextInput
-                      placeholder="Escribe anotaciones rápidas exclusivas para esta fecha..."
-                      placeholderTextColor={colores.suave}
-                      multiline
-                      numberOfLines={4}
-                      value={nuevaNotaAdHoc}
-                      onChangeText={setNuevaNotaAdHoc}
-                      style={[styles.inputBase, { height: 90, textAlignVertical: 'top' }]}
-                    />
-                    <GlowButton
-                      title="Guardar Nota Ad-hoc"
-                      onPress={guardarNotaSubmit}
-                      variant="primary"
-                      size="md"
-                      shape="rounded"
-                      fullWidth
-                    />
+                  {/* Header Inteligente 2: Nota Rápida del Día */}
+                  <View style={[styles.aestheticSectionHeaderRow, { marginTop: 6 }]}>
+                    <View style={styles.cyberSectionBadge}>
+                      <Ionicons name="sparkles" size={12.5} color={colores.primarioHover} />
+                      <Text style={styles.cyberSectionBadgeText}>NOTA RÁPIDA AD-HOC</Text>
+                    </View>
                   </View>
+
+                  {/* Tarjeta de Nota Rápida con Selector Inteligente y Efecto MainDayCard */}
+                  <QuickNoteCardWithMainDayGlow
+                    texto={nuevaNotaAdHoc}
+                    onChangeTexto={setNuevaNotaAdHoc}
+                    categoria={categoriaAdHoc}
+                    onSelectCategoria={setCategoriaAdHoc}
+                    guardando={guardandoNota}
+                    onSubmit={guardarNotaSubmit}
+                  />
                 </View>
               )}
             </ScrollView>
@@ -1142,49 +1390,119 @@ const styles = StyleSheet.create({
     fontFamily: fuentes.bold,
     flex: 1,
   },
-  sectionLabelText: {
-    color: colores.suave,
-    fontFamily: fuentes.bold,
-    fontSize: 11.5,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  quickFormBox: {
-    backgroundColor: 'rgba(20, 20, 26, 0.85)',
+  libraryNoteCardGlowBase: {
+    backgroundColor: 'rgb(14, 14, 18)',
+    borderRadius: 20,
     padding: 16,
-    borderRadius: 18,
-    gap: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  inputBase: {
-    backgroundColor: 'rgba(10, 12, 18, 0.75)',
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: colores.texto,
-    fontSize: 14.5,
-    fontFamily: fuentes.regular,
-  },
-  libraryNoteCard: {
-    backgroundColor: 'rgba(20, 20, 26, 0.85)',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    borderColor: 'rgba(255, 255, 255, 0.20)',
+    gap: 8,
+    overflow: 'hidden',
+    position: 'relative',
+    marginHorizontal: 3,
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 6,
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'center',
   },
-  libraryNoteCategoryBadge: {
-    backgroundColor: colores.primarioSuave,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+  libraryNoteTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  libraryNoteCategoryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 9,
+    borderWidth: 1,
+  },
+  libraryNoteCategoryPillText: {
+    fontSize: 9.5,
+    fontFamily: fuentes.bold,
+    letterSpacing: 0.6,
+  },
+  libraryNoteTitle: {
+    color: '#FFFFFF',
+    fontSize: 16.5,
+    fontFamily: fuentes.bold,
+    textAlign: 'center',
+  },
+  libraryNoteBody: {
+    color: 'rgba(255, 255, 255, 0.70)',
+    fontSize: 12.5,
+    fontFamily: fuentes.regular,
+    lineHeight: 18,
+    textAlign: 'center',
+    paddingHorizontal: 8,
+  },
+  quickNoteCardGlowBase: {
+    backgroundColor: 'rgb(14, 14, 18)',
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
+    gap: 12,
+    overflow: 'hidden',
+    position: 'relative',
+    marginHorizontal: 3,
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.38,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  quickNoteHeadingTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontFamily: fuentes.bold,
+    textAlign: 'center',
+  },
+  quickNoteHeadingSubtitle: {
+    color: colores.suave,
+    fontSize: 12,
+    fontFamily: fuentes.regular,
+    textAlign: 'center',
+  },
+  quickNoteCategoryChipsRow: {
+    gap: 7,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    justifyContent: 'center',
+  },
+  quickNoteCategoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
+  },
+  quickNoteCategoryChipText: {
+    fontFamily: fuentes.bold,
+    fontSize: 11,
+    letterSpacing: 0.3,
+  },
+  quickNoteTextInput: {
+    backgroundColor: 'rgba(10, 10, 14, 0.95)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontFamily: fuentes.regular,
+    minHeight: 85,
+    textAlignVertical: 'top',
   },
   planSectionSubtext: {
     color: 'rgba(255, 255, 255, 0.65)',

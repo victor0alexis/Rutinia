@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
+import Head from 'expo-router/head';
 import { Ionicons } from '@expo/vector-icons';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
@@ -144,6 +145,9 @@ export default function CalendarioScreen() {
 
   return (
     <ScreenBackground>
+      <Head>
+        <title>Calendario · Rutinia</title>
+      </Head>
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         {/* ENCABEZADO ESTANDARIZADO CENTRADO */}
         <EncabezadoSeccion
