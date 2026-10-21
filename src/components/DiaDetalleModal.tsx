@@ -17,6 +17,7 @@ import ScreenBackground from './ScreenBackground';
 import GlowButton from './GlowButton';
 import SpotlightSegmentedTabs from './SpotlightSegmentedTabs';
 import RutinaLiveCard from './RutinaLiveCard';
+import RadiantButton from './base/radiant-button';
 import { vibrarBoton } from '../utils/haptics';
 import { NotaEstandar, obtenerNotasEstandar } from '../services/notas';
 import {
@@ -468,24 +469,39 @@ export default function DiaDetalleModal({
                 </View>
               )}
 
-              {/* PANEL 2: Planes de Entrenamiento (Stat Cards estilo RutinaLiveCard con Activo primero) */}
+              {/* PANEL 2: Planes de Entrenamiento con RadiantButton de Reacticx */}
               {tab === 'rutina' && (
                 <View style={{ gap: 16 }}>
-                  <View style={styles.aestheticSectionHeaderRow}>
-                    <View style={styles.cyberSectionBadge}>
-                      <Ionicons name="layers-outline" size={13} color={colores.primarioHover} />
-                      <Text style={styles.cyberSectionBadgeText}>PLANES DE ENTRENAMIENTO</Text>
-                      {planes.length > 0 && (
-                        <View style={styles.countChip}>
-                          <Text style={styles.countChipText}>{planes.length}</Text>
-                        </View>
-                      )}
-                    </View>
+                  <View style={{ alignItems: 'flex-start' }}>
+                    <RadiantButton
+                      theme={{
+                        foreground: "#ffffff",
+                        background: "#050508",
+                        backgroundSubtle: "#101016",
+                        highlight: "#e37e19",
+                        highlightSubtle: "#000000",
+                      }}
+                      borderRadius={22}
+                      borderWidth={1.5}
+                      dotOpacity={1}
+                      showDots
+                      glowWidth={0.5}
+                      shimmerOpacity={0.5}
+                      paddingHorizontal={16}
+                      paddingVertical={8}
+                    >
+                      <View style={styles.radiantHeaderRow}>
+                        <Text style={styles.radiantHeaderText}>
+                          PLANES DE ENTRENAMIENTO
+                        </Text>
+                        {planes.length > 0 && (
+                          <View style={styles.radiantCountChip}>
+                            <Text style={styles.radiantCountChipText}>{planes.length}</Text>
+                          </View>
+                        )}
+                      </View>
+                    </RadiantButton>
                   </View>
-
-                  <Text style={styles.planSectionSubtext}>
-                    Toca un plan para explorar sus rutinas y asignar una a tu {nombreDia(fecha)}.
-                  </Text>
 
                   {planes.length === 0 ? (
                     <View style={styles.emptyDashedBox}>
@@ -1239,5 +1255,27 @@ const styles = StyleSheet.create({
     color: '#10B981',
     fontFamily: fuentes.black,
     fontSize: 9,
+  },
+  radiantHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  radiantHeaderText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontFamily: fuentes.extraBold,
+    letterSpacing: 1.2,
+  },
+  radiantCountChip: {
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 8,
+  },
+  radiantCountChipText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontFamily: fuentes.bold,
   },
 });
