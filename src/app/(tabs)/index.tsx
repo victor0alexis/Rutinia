@@ -278,6 +278,16 @@ export default function Semana() {
           alCambiar={() => {
             cargar();
           }}
+          sesionActivaInfo={sesionActivaInfo}
+          onIniciarRutina={abrirEjecutarRutina}
+          onReanudarRutina={(r) => {
+            if (sesionActivaInfo && sesionActivaInfo.registroId === r.id) {
+              reanudarPartidaEnCurso();
+            } else {
+              abrirEjecutarRutina(r);
+            }
+          }}
+          onVerResumenRutina={abrirEjecutarRutina}
         />
 
         {/* Modal Llenar Registro / Ejecutar Entrenamiento del Día */}

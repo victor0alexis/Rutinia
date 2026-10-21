@@ -16,24 +16,24 @@ import { colores, fuentes } from '../constants/colores';
 import BotonRutinia from './BotonRutinia';
 import ScreenBackground from './ScreenBackground';
 import GlowButton from './GlowButton';
-import { parsearEjercicioInfo } from '../utils/ejercicios';
+import SpotlightSegmentedTabs from './SpotlightSegmentedTabs';
+import RutinaLiveCard from './RutinaLiveCard';
+import { vibrarBoton } from '../utils/haptics';
 import { NotaEstandar, obtenerNotasEstandar } from '../services/notas';
 import {
   agregarActividad,
   agregarRutinaAFechas,
-  alternarEjercicio,
   eliminarEjercicio,
   eliminarRegistroRutina,
   guardarNotaDelDia,
 } from '../services/registros';
 import { listarRutinas } from '../services/rutinas';
 import { EjercicioRegistro, EjercicioRutina, PlanEntrenamiento, Registro, Rutina } from '../types';
-
+import { SesionActivaInfo } from '../utils/sesionActiva';
 import { seguro, confirmarAccion } from '../utils/errores';
 import { aISO, nombreDia } from '../utils/fechas';
 import { useLayout } from '../hooks/useLayout';
 import SelectorPlanRutina from './SelectorPlanRutina';
-
 
 type Props = {
   fecha: Date | null;
@@ -41,6 +41,10 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   alCambiar: () => void;
+  sesionActivaInfo?: SesionActivaInfo | null;
+  onIniciarRutina?: (r: Registro) => void;
+  onReanudarRutina?: (r: Registro) => void;
+  onVerResumenRutina?: (r: Registro) => void;
 };
 
 const PALETA_NOTAS = [
@@ -104,7 +108,17 @@ export function parsearNotaInteligente(rawText: string) {
   return { categoria, titulo, cuerpo, colorBadge, bgBadge, iconName };
 }
 
-export default function DiaDetalleModal({ fecha, registros, visible, onClose, alCambiar }: Props) {
+export default function DiaDetalleModal({
+  fecha,
+  registros,
+  visible,
+  onClose,
+  alCambiar,
+  sesionActivaInfo,
+  onIniciarRutina,
+  onReanudarRutina,
+  onVerResumenRutina,
+}: Props) {
   const { topInset, bottomInset, leftInset, rightInset, gutter, contentMaxWidth } = useLayout();
   const [tab, setTab] = useState<'actividad' | 'rutina' | 'notas'>('actividad');
 
@@ -121,7 +135,6 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
   // Notas estandarizadas y notas ad-hoc
   const [notasBiblioteca, setNotasBiblioteca] = useState<NotaEstandar[]>([]);
   const [nuevaNotaAdHoc, setNuevaNotaAdHoc] = useState('');
-  // Selector de rutina (declarado aquí para que ningún hook quede tras el early return de !fecha)
   const [selectorPlanRutinaVisible, setSelectorPlanRutinaVisible] = useState(false);
 
   useEffect(() => {
@@ -137,14 +150,21 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
 
   if (!fecha) return null;
 
-  const esHoy = aISO(fecha) === aISO(new Date());
-
   // Extraer todos los ejercicios del día
   const todosEjercicios: EjercicioRegistro[] = registros.flatMap((r) => r.ejercicios_registro || []);
 
-  // Separar 1. NOTAS y 2. RUTINAS
+  // 1. NOTAS
   const notasDelDia = todosEjercicios.filter((e) => e.nombre.startsWith('📌'));
   const ejerciciosPure = todosEjercicios.filter((e) => !e.nombre.startsWith('📌'));
+
+  // 2. RUTINAS CON REGISTRO ASIGNADO
+  const registrosConRutina = registros.filter((r) => Boolean(r.rutina_id || r.rutinas?.nombre));
+
+  // 3. EJERCICIOS EXTRAS SUELTOS (sin rutina)
+  const registrosExtraSueltos = registros.filter((r) => !r.rutina_id && !r.rutinas?.nombre);
+  const ejerciciosExtras = registrosExtraSueltos
+    .flatMap((r) => r.ejercicios_registro || [])
+    .filter((e) => !e.nombre.startsWith('📌'));
 
   const guardarActividadIndependiente = () =>
     seguro(async () => {
@@ -157,12 +177,6 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
       alCambiar();
       setTab('actividad');
       Alert.alert('Ejercicio añadido', `"${nombreActividad.trim()}" se agregó a la Actividad del Día.`);
-    });
-
-  const alternar = (e: EjercicioRegistro) =>
-    seguro(async () => {
-      await alternarEjercicio(e.id, !e.completado);
-      alCambiar();
     });
 
   const quitarEjercicioSolo = (e: EjercicioRegistro) =>
@@ -195,7 +209,6 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
       setTab('actividad');
       Alert.alert('Éxito', `Rutina "${rutina.nombre}" agregada a tu día.`);
     });
-
 
   const vincularEjercicioIndividual = (ejercicio: EjercicioRutina) =>
     seguro(async () => {
@@ -241,134 +254,117 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
               paddingBottom: Math.max(12, bottomInset),
               paddingLeft: Math.max(gutter, leftInset),
               paddingRight: Math.max(gutter, rightInset),
-              gap: 14,
+              gap: 16,
             }}
           >
-            {/* Header Pantalla Completa */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8 }}>
-              <View>
-                <Text style={{ color: colores.primarioHover, textTransform: 'uppercase', fontSize: 11, fontFamily: fuentes.bold, letterSpacing: 1.2 }}>
-                  {esHoy ? '🔥 HOY - DETALLE COMPLETO' : 'FECHA PROGRAMADA'}
-                </Text>
-                <Text style={{ color: colores.texto, fontSize: 26, fontFamily: fuentes.black, textTransform: 'capitalize', marginTop: 2 }}>
-                  {nombreDia(fecha)}
-                </Text>
-              </View>
-              <Pressable onPress={onClose} style={styles.closeButton}>
-                <Ionicons name="close" size={22} color={colores.texto} />
+            {/* 1. TOP BAR ULTRA-ESTÉTICA: SHEET HANDLE & BOTÓN DE (X) INTELIGENTE */}
+            <View style={styles.smartTopBar}>
+              <View style={styles.sheetHandlePill} />
+              <Pressable
+                onPress={() => {
+                  vibrarBoton();
+                  onClose();
+                }}
+                hitSlop={12}
+                style={({ pressed }) => [
+                  styles.smartCloseButton,
+                  pressed && { opacity: 0.7, transform: [{ scale: 0.94 }] },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar modal"
+              >
+                <Ionicons name="close" size={19} color="#FFFFFF" />
               </Pressable>
             </View>
 
-            {/* Tabs Selector con Pill Glow Focus */}
-            <View style={styles.tabsContainer}>
-              {[
-                { id: 'actividad', label: 'Actividad', icon: 'flash-outline' },
-                { id: 'rutina', label: '+ Rutina', icon: 'barbell-outline' },
-                { id: 'notas', label: 'Notas', icon: 'create-outline' },
-              ].map((item) => {
-                const active = tab === item.id;
-                return (
-                  <Pressable
-                    key={item.id}
-                    onPress={() => setTab(item.id as any)}
-                    style={[
-                      styles.tabItemButton,
-                      {
-                        backgroundColor: active ? colores.tarjeta : 'transparent',
-                        borderColor: active ? colores.bordeBrillante : 'transparent',
-                      },
-                    ]}
-                  >
-                    <Ionicons name={item.icon as any} size={16} color={active ? colores.primarioHover : colores.suave} />
-                    <Text style={{ color: active ? colores.texto : colores.suave, fontFamily: active ? fuentes.black : fuentes.bold, fontSize: 11 }}>
-                      {item.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            {/* 2. BARRA DE PESTAÑAS: SPOTLIGHT TAB BAR REUTILIZABLE (SIN EMOJIS) */}
+            <SpotlightSegmentedTabs
+              tabs={[
+                { id: 'actividad', label: 'Actividad', iconFocused: 'flash', iconOutline: 'flash-outline' },
+                { id: 'rutina', label: '+ Rutina', iconFocused: 'barbell', iconOutline: 'barbell-outline' },
+                { id: 'notas', label: 'Notas', iconFocused: 'document-text', iconOutline: 'document-text-outline' },
+              ]}
+              activeTab={tab}
+              onChangeTab={(newTab) => setTab(newTab as any)}
+            />
 
-            {/* Contenido Dinámico con Scroll e integración con teclado */}
+            {/* 3. CONTENIDO DINÁMICO */}
             <ScrollView
-              contentContainerStyle={{ gap: 18, paddingBottom: 50 }}
+              contentContainerStyle={{ gap: 20, paddingBottom: 60 }}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
               {/* PANEL 1: Actividad del Día */}
               {tab === 'actividad' && (
-                <View style={{ gap: 22 }}>
+                <View style={{ gap: 24 }}>
                   {/* ────── SECCIÓN: NOTAS DEL DÍA ────── */}
                   <View style={{ gap: 12 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                      <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(16,185,129,0.30)' }} />
-                      <Pressable
-                        onPress={() => setTab('notas')}
-                        style={styles.sectionHeaderBadgeGreen}
-                      >
+                    <View style={styles.aestheticSectionHeaderRow}>
+                      <View style={styles.cyberSectionBadge}>
                         <Ionicons name="document-text-outline" size={13} color="#10B981" />
-                        <Text style={{ color: '#10B981', fontSize: 11, fontFamily: fuentes.bold, textTransform: 'uppercase', letterSpacing: 1 }}>
-                          Notas{notasDelDia.length > 0 ? `  ·  ${notasDelDia.length}` : ''}
-                        </Text>
-                        <Text style={{ color: 'rgba(16,185,129,0.65)', fontSize: 11, fontFamily: fuentes.bold }}>+ Añadir</Text>
+                        <Text style={styles.cyberSectionBadgeText}>NOTAS</Text>
+                        {notasDelDia.length > 0 && (
+                          <View style={styles.countChip}>
+                            <Text style={styles.countChipText}>{notasDelDia.length}</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Pressable
+                        onPress={() => {
+                          vibrarBoton();
+                          setTab('notas');
+                        }}
+                        style={({ pressed }) => [
+                          styles.addSectionBtn,
+                          pressed && { opacity: 0.75, transform: [{ scale: 0.96 }] },
+                        ]}
+                      >
+                        <Ionicons name="add" size={13} color={colores.suave} />
+                        <Text style={styles.addSectionBtnText}>Añadir</Text>
                       </Pressable>
-                      <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(16,185,129,0.30)' }} />
                     </View>
 
                     {notasDelDia.length === 0 ? (
                       <View style={styles.emptyDashedBox}>
-                        <Text style={{ color: colores.suave, fontStyle: 'italic', fontSize: 13, fontFamily: fuentes.regular }}>Sin notas registradas para este día.</Text>
+                        <Text style={styles.emptyDashedText}>Sin notas registradas para este día.</Text>
                       </View>
                     ) : (
                       notasDelDia.map((n, idx) => {
                         const { categoria, titulo, cuerpo, iconName } = parsearNotaInteligente(n.nombre);
                         const pal = PALETA_NOTAS[idx % PALETA_NOTAS.length];
                         return (
-                          <View
-                            key={n.id}
-                            style={[
-                              styles.noteCardBox,
-                              {
-                                backgroundColor: pal.bg,
-                                borderColor: pal.border + '45',
-                                borderLeftColor: pal.border,
-                              },
-                            ]}
-                          >
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, paddingRight: 10 }}>
-                                <View
-                                  style={{
-                                    width: 34,
-                                    height: 34,
-                                    borderRadius: 10,
-                                    backgroundColor: pal.border + '20',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    borderWidth: 1,
-                                    borderColor: pal.border + '40',
-                                  }}
-                                >
-                                  <Ionicons name={iconName} size={16} color={pal.border} />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                  <Text style={{ color: pal.border, fontSize: 10, fontFamily: fuentes.bold, textTransform: 'uppercase', letterSpacing: 1 }}>
+                          <View key={n.id} style={styles.obsidianNoteCard}>
+                            <View style={styles.noteTopRow}>
+                              <View style={styles.noteMetaLeft}>
+                                <View style={[styles.noteCategoryIndicator, { backgroundColor: pal.border }]} />
+                                <View style={[styles.noteCategoryPill, { backgroundColor: pal.border + '18' }]}>
+                                  <Ionicons name={iconName} size={11} color={pal.border} />
+                                  <Text style={[styles.noteCategoryPillText, { color: pal.border }]}>
                                     {categoria}
-                                  </Text>
-                                  <Text style={{ color: colores.texto, fontSize: 15, fontFamily: fuentes.black, marginTop: 1 }} numberOfLines={2}>
-                                    {titulo}
                                   </Text>
                                 </View>
                               </View>
                               <Pressable
-                                onPress={() => quitarEjercicioSolo(n)}
-                                hitSlop={12}
-                                style={{ backgroundColor: 'rgba(220,38,38,0.16)', borderRadius: 8, padding: 6 }}
+                                onPress={() => {
+                                  vibrarBoton();
+                                  quitarEjercicioSolo(n);
+                                }}
+                                hitSlop={10}
+                                style={({ pressed }) => [
+                                  styles.deleteNoteBtn,
+                                  pressed && { opacity: 0.7, backgroundColor: 'rgba(239, 68, 68, 0.2)' },
+                                ]}
                               >
-                                <Ionicons name="trash-outline" size={16} color={colores.peligro} />
+                                <Ionicons name="trash-outline" size={13} color="rgba(248, 113, 113, 0.85)" />
                               </Pressable>
                             </View>
+
+                            <Text style={styles.noteCardTitle} numberOfLines={2}>
+                              {titulo}
+                            </Text>
+
                             {cuerpo ? (
-                              <Text style={{ color: colores.suave, fontSize: 13, lineHeight: 20, paddingLeft: 44, fontFamily: fuentes.regular }}>
+                              <Text style={styles.noteCardBody}>
                                 {cuerpo}
                               </Text>
                             ) : null}
@@ -378,140 +374,105 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
                     )}
                   </View>
 
-                  {/* ────── SECCIÓN: ENTRENAMIENTOS DEL DÍA ────── */}
+                  {/* ────── SECCIÓN: ENTRENAMIENTOS DEL DÍA (RESUMEN ESTÉTICO REUTILIZANDO MAINDAYCARD) ────── */}
                   <View style={{ gap: 12 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                      <View style={{ flex: 1, height: 1, backgroundColor: colores.primarioGlow }} />
-                      <Pressable
-                        onPress={() => setTab('rutina')}
-                        style={styles.sectionHeaderBadgeRed}
-                      >
+                    <View style={styles.aestheticSectionHeaderRow}>
+                      <View style={styles.cyberSectionBadge}>
                         <Ionicons name="barbell-outline" size={13} color={colores.primarioHover} />
-                        <Text style={{ color: colores.primarioHover, fontSize: 11, fontFamily: fuentes.bold, textTransform: 'uppercase', letterSpacing: 1 }}>
-                          Entrenamientos{ejerciciosPure.length > 0 ? `  ·  ${ejerciciosPure.length}` : ''}
-                        </Text>
-                        <Text style={{ color: colores.primarioHover + 'AA', fontSize: 11, fontFamily: fuentes.bold }}>+ Añadir</Text>
+                        <Text style={styles.cyberSectionBadgeText}>ENTRENAMIENTOS</Text>
+                        {ejerciciosPure.length > 0 && (
+                          <View style={styles.countChip}>
+                            <Text style={styles.countChipText}>{ejerciciosPure.length}</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Pressable
+                        onPress={() => {
+                          vibrarBoton();
+                          setTab('rutina');
+                        }}
+                        style={({ pressed }) => [
+                          styles.addSectionBtn,
+                          pressed && { opacity: 0.75, transform: [{ scale: 0.96 }] },
+                        ]}
+                      >
+                        <Ionicons name="add" size={13} color={colores.suave} />
+                        <Text style={styles.addSectionBtnText}>Añadir</Text>
                       </Pressable>
-                      <View style={{ flex: 1, height: 1, backgroundColor: colores.primarioGlow }} />
                     </View>
 
-                    {registros.length === 0 && ejerciciosPure.length === 0 ? (
+                    {registrosConRutina.length === 0 && ejerciciosExtras.length === 0 ? (
                       <View style={styles.emptyDashedBox}>
-                        <Ionicons name="fitness-outline" size={30} color={colores.suave} />
-                        <Text style={{ color: colores.suave, fontStyle: 'italic', fontSize: 13, fontFamily: fuentes.regular }}>No hay rutinas ni ejercicios asignados a este día.</Text>
+                        <Ionicons name="barbell-outline" size={26} color={colores.suave} />
+                        <Text style={styles.emptyDashedText}>No hay entrenamientos asignados a este día.</Text>
+                        <Pressable
+                          onPress={() => {
+                            vibrarBoton();
+                            setTab('rutina');
+                          }}
+                          style={styles.emptyActionBtn}
+                        >
+                          <Text style={styles.emptyActionBtnText}>+ Asignar Rutina</Text>
+                        </Pressable>
                       </View>
                     ) : (
-                      registros.map((r) => {
-                        const ejsEntrenamiento = (r.ejercicios_registro || []).filter((e) => !e.nombre.startsWith('📌'));
-                        const tieneRutina = Boolean(r.rutina_id || r.rutinas?.nombre);
-                        if (!tieneRutina && ejsEntrenamiento.length === 0) return null;
+                      <>
+                        {/* A. Resumen Estético de Rutina (Reutilizando RutinaLiveCard de MainDayCard) */}
+                        {registrosConRutina.map((r) => (
+                          <RutinaLiveCard
+                            key={r.id}
+                            registro={r}
+                            sesionActivaInfo={sesionActivaInfo}
+                            onIniciar={(reg) => {
+                              onClose();
+                              if (onIniciarRutina) onIniciarRutina(reg);
+                            }}
+                            onReanudar={(reg) => {
+                              onClose();
+                              if (onReanudarRutina) onReanudarRutina(reg);
+                            }}
+                            onVerResumen={(reg) => {
+                              onClose();
+                              if (onVerResumenRutina) onVerResumenRutina(reg);
+                            }}
+                            onDesvincular={() => desvincularRutinaCompleta(r)}
+                            permitirDesplegarEjercicios={true}
+                          />
+                        ))}
 
-                        const nombreMostrar = r.rutinas?.nombre || 'Rutina Vinculada';
-
-                        return (
-                          <View key={r.id} style={styles.workoutContainerCard}>
-                            {tieneRutina ? (
-                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colores.borde, paddingBottom: 10 }}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                  <View style={styles.workoutIconBox}>
-                                    <Ionicons name="barbell-outline" size={16} color={colores.primarioHover} />
-                                  </View>
-                                  <Text style={{ color: colores.primarioHover, fontFamily: fuentes.black, fontSize: 15 }} numberOfLines={1}>
-                                    {nombreMostrar}
-                                  </Text>
-                                </View>
+                        {/* B. Ejercicios Sueltos / Extras (si los hay) */}
+                        {ejerciciosExtras.length > 0 && (
+                          <View style={styles.extraExercisesContainer}>
+                            <View style={styles.extraExercisesHeader}>
+                              <Ionicons name="flash-outline" size={12} color={colores.exito} />
+                              <Text style={styles.extraExercisesHeaderText}>EJERCICIOS SUELTOS</Text>
+                            </View>
+                            {ejerciciosExtras.map((e) => (
+                              <View key={e.id} style={styles.extraExerciseMinimalRow}>
+                                <Text style={styles.extraExerciseMinimalName}>{e.nombre}</Text>
                                 <Pressable
-                                  onPress={() => desvincularRutinaCompleta(r)}
-                                  style={styles.unlinkButton}
+                                  onPress={() => {
+                                    vibrarBoton();
+                                    quitarEjercicioSolo(e);
+                                  }}
+                                  hitSlop={8}
+                                  style={styles.deleteNoteBtn}
                                 >
-                                  <Ionicons name="trash-outline" size={13} color={colores.peligro} />
-                                  <Text style={{ color: colores.peligro, fontFamily: fuentes.bold, fontSize: 11 }}>Desvincular</Text>
+                                  <Ionicons name="trash-outline" size={13} color="rgba(248, 113, 113, 0.85)" />
                                 </Pressable>
                               </View>
-                            ) : null}
-
-                            {ejsEntrenamiento.map((e) => {
-                              const parsed = parsearEjercicioInfo(e);
-                              return (
-                                <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6 }}>
-                                  <Pressable onPress={() => alternar(e)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
-                                    <Ionicons
-                                      name={e.completado ? 'checkmark-circle' : 'ellipse-outline'}
-                                      size={22}
-                                      color={e.completado ? colores.exito : colores.suave}
-                                    />
-                                    <View style={{ flex: 1 }}>
-                                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                        <Text
-                                          style={{
-                                            color: e.completado ? colores.texto : colores.texto,
-                                            fontSize: 15,
-                                            fontFamily: fuentes.bold,
-                                            opacity: e.completado ? 0.75 : 1,
-                                          }}
-                                        >
-                                          {parsed.nombreLimpio}
-                                        </Text>
-                                        {Boolean(parsed.sustituyeANombre || (e as any).sustituye_a_nombre) && (
-                                          <View style={styles.badgeSustituye}>
-                                            <Ionicons name="swap-horizontal" size={10} color="#60A5FA" />
-                                            <Text style={styles.badgeSustituyeText}>
-                                              ↔ Sustituye a {parsed.sustituyeANombre || (e as any).sustituye_a_nombre}
-                                            </Text>
-                                          </View>
-                                        )}
-                                        {parsed.tieneParciales && (
-                                          <View style={styles.badgeParcial}>
-                                            <Text style={styles.badgeParcialText}>PARCIAL</Text>
-                                          </View>
-                                        )}
-                                        {parsed.tieneDropset && (
-                                          <View style={styles.badgeDrop}>
-                                            <Text style={styles.badgeDropText}>DROP</Text>
-                                          </View>
-                                        )}
-                                        {parsed.resumenVisual && (
-                                          <View
-                                            style={{
-                                              backgroundColor: e.completado ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.08)',
-                                              paddingHorizontal: 8,
-                                              paddingVertical: 2,
-                                              borderRadius: 6,
-                                              borderWidth: 1,
-                                              borderColor: e.completado ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255, 255, 255, 0.12)',
-                                            }}
-                                          >
-                                            <Text
-                                              style={{
-                                                color: e.completado ? colores.exito : colores.suave,
-                                                fontSize: 11,
-                                                fontFamily: fuentes.bold,
-                                              }}
-                                            >
-                                              {parsed.resumenVisual}
-                                            </Text>
-                                          </View>
-                                        )}
-                                      </View>
-                                    </View>
-                                  </Pressable>
-                                  <Pressable onPress={() => quitarEjercicioSolo(e)} hitSlop={10} style={{ padding: 6 }}>
-                                    <Ionicons name="close-circle-outline" size={20} color={colores.suave} />
-                                  </Pressable>
-                                </View>
-                              );
-                            })}
+                            ))}
                           </View>
-                        );
-                      })
+                        )}
+                      </>
                     )}
                   </View>
                 </View>
               )}
 
-              {/* PANEL 2: + Rutina / Ejercicio */}
+              {/* PANEL 2: + Rutina / Ejercicio Rápido */}
               {tab === 'rutina' && (
-                <View style={{ gap: 16 }}>
+                <View style={{ gap: 18 }}>
                   <Text style={styles.sectionLabelText}>
                     Añadir Ejercicio Rápido al Día
                   </Text>
@@ -571,17 +532,18 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
                   </View>
 
                   {rutinas.length === 0 ? (
-                    <Text style={{ color: colores.suave, fontStyle: 'italic', fontFamily: fuentes.regular }}>No tienes rutinas creadas aún. Dirígete a la pestaña &apos;Rutinas&apos;.</Text>
+                    <Text style={{ color: colores.suave, fontStyle: 'italic', fontFamily: fuentes.regular }}>
+                      No tienes rutinas creadas aún. Dirígete a la pestaña &apos;Rutinas&apos;.
+                    </Text>
                   ) : (
-
                     rutinas.map((rut) => {
                       const estaExpandida = rutinaExpandida === rut.id;
                       return (
                         <View key={rut.id} style={styles.routineAccordionCard}>
-                          <View style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <View style={{ padding: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Pressable onPress={() => setRutinaExpandida(estaExpandida ? null : rut.id)} style={{ flex: 1 }}>
-                              <Text style={{ color: colores.texto, fontSize: 17, fontFamily: fuentes.black }}>{rut.nombre}</Text>
-                              <Text style={{ color: colores.suave, fontSize: 12, marginTop: 2, fontFamily: fuentes.regular }}>
+                              <Text style={{ color: colores.texto, fontSize: 16, fontFamily: fuentes.black }}>{rut.nombre}</Text>
+                              <Text style={{ color: colores.suave, fontSize: 11, marginTop: 2, fontFamily: fuentes.regular }}>
                                 {rut.ejercicios_rutina?.length || 0} ejercicios • Toca para desplegar
                               </Text>
                             </Pressable>
@@ -596,13 +558,13 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
 
                           {estaExpandida && (
                             <View style={styles.accordionBody}>
-                              <Text style={{ color: colores.suave, fontSize: 11, fontFamily: fuentes.bold, textTransform: 'uppercase' }}>
+                              <Text style={{ color: colores.suave, fontSize: 10.5, fontFamily: fuentes.bold, textTransform: 'uppercase' }}>
                                 Seleccionar ejercicio individual:
                               </Text>
                               {rut.ejercicios_rutina.map((ej) => (
                                 <View key={ej.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                                   <View style={{ flex: 1 }}>
-                                    <Text style={{ color: colores.texto, fontSize: 14, fontFamily: fuentes.bold }}>{ej.nombre}</Text>
+                                    <Text style={{ color: colores.texto, fontSize: 13.5, fontFamily: fuentes.bold }}>{ej.nombre}</Text>
                                     <Text style={{ color: colores.suave, fontSize: 11, fontFamily: fuentes.regular }}>
                                       {ej.series && ej.repeticiones ? `${ej.series}×${ej.repeticiones}` : ''} {ej.peso ? `• ${ej.peso}kg` : ''}
                                     </Text>
@@ -627,7 +589,7 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
 
               {/* PANEL 3: Notas */}
               {tab === 'notas' && (
-                <View style={{ gap: 16 }}>
+                <View style={{ gap: 18 }}>
                   <Text style={styles.sectionLabelText}>
                     Elegir de la Biblioteca de Notas
                   </Text>
@@ -643,7 +605,7 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
                           <View style={styles.libraryNoteCategoryBadge}>
                             <Text style={{ color: colores.primarioHover, fontSize: 10, fontFamily: fuentes.bold }}>{n.categoria}</Text>
                           </View>
-                          <Text style={{ color: colores.texto, fontSize: 15, fontFamily: fuentes.black }}>{n.titulo}</Text>
+                          <Text style={{ color: colores.texto, fontSize: 14.5, fontFamily: fuentes.black }}>{n.titulo}</Text>
                           <Text numberOfLines={2} style={{ color: colores.suave, fontSize: 12, fontFamily: fuentes.regular }}>
                             {n.contenido}
                           </Text>
@@ -701,135 +663,244 @@ export default function DiaDetalleModal({ fecha, registros, visible, onClose, al
   );
 }
 
-
 const styles = StyleSheet.create({
-  closeButton: {
-    backgroundColor: colores.tarjeta,
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colores.borde,
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(10, 12, 18, 0.60)',
-    borderRadius: 14,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: colores.borde,
-  },
-  tabItemButton: {
-    flex: 1,
+  smartTopBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
+    justifyContent: 'space-between',
+    paddingTop: 4,
+    paddingBottom: 2,
+    position: 'relative',
+    height: 40,
   },
-  sectionHeaderBadgeGreen: {
+  sheetHandlePill: {
+    position: 'absolute',
+    left: '50%',
+    marginLeft: -18,
+    top: 6,
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+  },
+  smartCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 'auto',
+  },
+  aestheticSectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  cyberSectionBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    backgroundColor: 'rgba(16,185,129,0.12)',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(16,185,129,0.35)',
-  },
-  sectionHeaderBadgeRed: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    backgroundColor: colores.primarioSuave,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colores.primarioGlow,
-  },
-  emptyDashedBox: {
-    backgroundColor: colores.tarjeta,
-    padding: 18,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colores.borde,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    gap: 6,
-  },
-  noteCardBox: {
-    borderRadius: 16,
-    padding: 16,
-    gap: 10,
-    borderWidth: 1,
-    borderLeftWidth: 3,
-  },
-  workoutContainerCard: {
-    backgroundColor: colores.tarjeta,
-    borderRadius: 16,
-    padding: 16,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: colores.borde,
-  },
-  workoutIconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: colores.primarioSuave,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colores.primarioGlow,
-  },
-  unlinkButton: {
-    backgroundColor: 'rgba(220, 38, 38, 0.16)',
-    paddingHorizontal: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(220, 38, 38, 0.35)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  cyberSectionBadgeText: {
+    color: '#E4E4E7',
+    fontSize: 10.5,
+    fontFamily: fuentes.extraBold,
+    letterSpacing: 1.2,
+  },
+  countChip: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 10,
+  },
+  countChipText: {
+    color: '#A1A1AA',
+    fontSize: 10,
+    fontFamily: fuentes.bold,
+  },
+  addSectionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.09)',
+  },
+  addSectionBtnText: {
+    color: colores.suave,
+    fontSize: 11,
+    fontFamily: fuentes.bold,
+  },
+  obsidianNoteCard: {
+    backgroundColor: 'rgba(20, 20, 26, 0.85)',
+    borderRadius: 18,
+    padding: 14,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+  },
+  noteTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  noteMetaLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  noteCategoryIndicator: {
+    width: 3,
+    height: 14,
+    borderRadius: 2,
+  },
+  noteCategoryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 8,
+  },
+  noteCategoryPillText: {
+    fontSize: 10,
+    fontFamily: fuentes.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  deleteNoteBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noteCardTitle: {
+    color: '#F4F4F5',
+    fontSize: 14.5,
+    fontFamily: fuentes.bold,
+    lineHeight: 19,
+  },
+  noteCardBody: {
+    color: colores.suave,
+    fontSize: 12.5,
+    lineHeight: 18,
+    fontFamily: fuentes.regular,
+  },
+  emptyDashedBox: {
+    backgroundColor: 'rgba(15, 15, 20, 0.5)',
+    padding: 22,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  emptyDashedText: {
+    color: colores.suave,
+    fontStyle: 'italic',
+    fontSize: 12.5,
+    fontFamily: fuentes.regular,
+    textAlign: 'center',
+  },
+  emptyActionBtn: {
+    marginTop: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  emptyActionBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11.5,
+    fontFamily: fuentes.bold,
+  },
+  extraExercisesContainer: {
+    backgroundColor: 'rgba(20, 20, 26, 0.75)',
+    borderRadius: 18,
+    padding: 14,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+  },
+  extraExercisesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  extraExercisesHeaderText: {
+    color: colores.exito,
+    fontSize: 10.5,
+    fontFamily: fuentes.bold,
+    letterSpacing: 0.8,
+  },
+  extraExerciseMinimalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  extraExerciseMinimalName: {
+    color: '#F4F4F5',
+    fontSize: 13.5,
+    fontFamily: fuentes.bold,
+    flex: 1,
   },
   sectionLabelText: {
     color: colores.suave,
     fontFamily: fuentes.bold,
-    fontSize: 12,
+    fontSize: 11.5,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   quickFormBox: {
-    backgroundColor: colores.tarjeta,
+    backgroundColor: 'rgba(20, 20, 26, 0.85)',
     padding: 16,
-    borderRadius: 16,
-    gap: 10,
+    borderRadius: 18,
+    gap: 12,
     borderWidth: 1,
-    borderColor: colores.borde,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   inputBase: {
-    backgroundColor: 'rgba(10, 12, 18, 0.60)',
-    borderColor: colores.borde,
+    backgroundColor: 'rgba(10, 12, 18, 0.75)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
     color: colores.texto,
-    fontSize: 15,
+    fontSize: 14.5,
     fontFamily: fuentes.regular,
   },
   subInputBase: {
-    backgroundColor: 'rgba(10, 12, 18, 0.60)',
-    borderColor: colores.borde,
+    backgroundColor: 'rgba(10, 12, 18, 0.75)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 6,
     paddingVertical: 8,
     color: colores.texto,
@@ -840,25 +911,25 @@ const styles = StyleSheet.create({
     fontFamily: fuentes.regular,
   },
   routineAccordionCard: {
-    backgroundColor: colores.tarjeta,
-    borderRadius: 16,
+    backgroundColor: 'rgba(20, 20, 26, 0.85)',
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: colores.borde,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     overflow: 'hidden',
   },
   accordionBody: {
     borderTopWidth: 1,
-    borderTopColor: colores.borde,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
     backgroundColor: 'rgba(10, 12, 18, 0.60)',
     padding: 14,
     gap: 10,
   },
   libraryNoteCard: {
-    backgroundColor: colores.tarjeta,
-    borderRadius: 14,
+    backgroundColor: 'rgba(20, 20, 26, 0.85)',
+    borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: colores.borde,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -869,48 +940,6 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
-  },
-  badgeSustituye: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(96, 165, 250, 0.15)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
     borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(96, 165, 250, 0.35)',
-  },
-  badgeSustituyeText: {
-    color: '#60A5FA',
-    fontSize: 10,
-    fontFamily: fuentes.bold,
-  },
-  badgeParcial: {
-    backgroundColor: 'rgba(245, 158, 11, 0.20)',
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.45)',
-  },
-  badgeParcialText: {
-    color: '#F59E0B',
-    fontSize: 9,
-    fontFamily: fuentes.black,
-  },
-  badgeDrop: {
-    backgroundColor: 'rgba(56, 189, 248, 0.20)',
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.45)',
-  },
-  badgeDropText: {
-    color: '#38BDF8',
-    fontSize: 9,
-    fontFamily: fuentes.black,
   },
 });

@@ -13,12 +13,16 @@ import { SesionActivaInfo } from '../utils/sesionActiva';
 import { formatearTiempo, formatearTiempoTexto } from '../utils/timer';
 import { vibrarBoton } from '../utils/haptics';
 
+import { parsearEjercicioInfo } from '../utils/ejercicios';
+
 export interface RutinaLiveCardProps {
   registro: Registro;
   sesionActivaInfo?: SesionActivaInfo | null;
   onIniciar: (registro: Registro) => void;
   onReanudar: (registro: Registro) => void;
   onVerResumen: (registro: Registro) => void;
+  onDesvincular?: (registro: Registro) => void;
+  permitirDesplegarEjercicios?: boolean;
 }
 
 export default function RutinaLiveCard({
@@ -27,7 +31,10 @@ export default function RutinaLiveCard({
   onIniciar,
   onReanudar,
   onVerResumen,
+  onDesvincular,
+  permitirDesplegarEjercicios = false,
 }: RutinaLiveCardProps) {
+  const [ejerciciosDesplegados, setEjerciciosDesplegados] = useState(false);
   const estaEnProceso = Boolean(
     sesionActivaInfo && sesionActivaInfo.registroId === registro.id
   );
@@ -140,26 +147,39 @@ export default function RutinaLiveCard({
           <View style={styles.planBadgePlaceholder} />
         )}
 
-        {/* Badge de Estado */}
-        {estaEnProceso && (
-          <View style={styles.badgeEnProceso}>
-            <View style={styles.dotLivePulse} />
-            <Text style={styles.badgeEnProcesoText}>EN PROCESO</Text>
-          </View>
-        )}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {/* Badge de Estado */}
+          {estaEnProceso && (
+            <View style={styles.badgeEnProceso}>
+              <View style={styles.dotLivePulse} />
+              <Text style={styles.badgeEnProcesoText}>EN PROCESO</Text>
+            </View>
+          )}
 
-        {estaFinalizada && (
-          <View style={styles.badgeFinalizada}>
-            <Ionicons name="checkmark-circle" size={12} color={colores.exito} />
-            <Text style={styles.badgeFinalizadaText}>FINALIZADA</Text>
-          </View>
-        )}
+          {estaFinalizada && (
+            <View style={styles.badgeFinalizada}>
+              <Ionicons name="checkmark-circle" size={12} color={colores.exito} />
+              <Text style={styles.badgeFinalizadaText}>FINALIZADA</Text>
+            </View>
+          )}
 
-        {estaPendiente && (
-          <View style={styles.badgePendiente}>
-            <Text style={styles.badgePendienteText}>POR INICIAR</Text>
-          </View>
-        )}
+          {estaPendiente && (
+            <View style={styles.badgePendiente}>
+              <Text style={styles.badgePendienteText}>POR INICIAR</Text>
+            </View>
+          )}
+
+          {/* Botón discreto de desvincular */}
+          {Boolean(onDesvincular) && (
+            <Pressable
+              onPress={() => onDesvincular && onDesvincular(registro)}
+              hitSlop={8}
+              style={styles.unlinkGlassBtn}
+            >
+              <Ionicons name="trash-outline" size={13} color="rgba(248, 113, 113, 0.85)" />
+            </Pressable>
+          )}
+        </View>
       </View>
 
       {/* 2. Título de la Rutina */}
@@ -248,6 +268,63 @@ export default function RutinaLiveCard({
           )}
         </Pressable>
       </View>
+
+      {/* 5. Desglose colapsable opcional de ejercicios */}
+      {permitirDesplegarEjercicios && totalEjercicios > 0 && (
+        <View style={styles.collapseWrapper}>
+          <Pressable
+            onPress={() => {
+              vibrarBoton();
+              setEjerciciosDesplegados(!ejerciciosDesplegados);
+            }}
+            style={styles.collapseToggleBtn}
+          >
+            <Text style={styles.collapseToggleText}>
+              {ejerciciosDesplegados ? 'Ocultar ejercicios' : `Ver ejercicios (${totalEjercicios})`}
+            </Text>
+            <Ionicons
+              name={ejerciciosDesplegados ? 'chevron-up' : 'chevron-down'}
+              size={13}
+              color={colores.suave}
+            />
+          </Pressable>
+
+          {ejerciciosDesplegados && (
+            <View style={styles.exercisesListExpanded}>
+              {ejsPuros.map((ej) => {
+                const parsed = parsearEjercicioInfo(ej);
+                return (
+                  <View key={ej.id} style={styles.expandedExerciseRow}>
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <Text style={styles.expandedExerciseName} numberOfLines={1}>
+                        {parsed.nombreLimpio}
+                      </Text>
+                      {parsed.tieneDropset && (
+                        <View style={styles.miniTag}>
+                          <Text style={styles.miniTagText}>DROP</Text>
+                        </View>
+                      )}
+                      {parsed.tieneParciales && (
+                        <View style={styles.miniTag}>
+                          <Text style={styles.miniTagText}>PARCIAL</Text>
+                        </View>
+                      )}
+                      {Boolean(parsed.sustituyeANombre) && (
+                        <View style={styles.miniTag}>
+                          <Text style={styles.miniTagText}>↔ {parsed.sustituyeANombre}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.expandedExerciseSets}>
+                      {ej.series ? `${ej.series} series` : ''} {ej.repeticiones ? `· ${ej.repeticiones}r` : ''}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -483,4 +560,67 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FFFFFF',
   },
+  unlinkGlassBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(248, 113, 113, 0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(248, 113, 113, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  collapseWrapper: {
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+    paddingTop: 8,
+  },
+  collapseToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 4,
+  },
+  collapseToggleText: {
+    fontFamily: fuentes.bold,
+    fontSize: 11,
+    color: colores.suave,
+  },
+  exercisesListExpanded: {
+    marginTop: 8,
+    gap: 7,
+  },
+  expandedExerciseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+  },
+  expandedExerciseName: {
+    fontFamily: fuentes.bold,
+    fontSize: 12.5,
+    color: '#F4F4F5',
+  },
+  expandedExerciseSets: {
+    fontFamily: fuentes.regular,
+    fontSize: 11,
+    color: colores.suave,
+  },
+  miniTag: {
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+  },
+  miniTagText: {
+    fontFamily: fuentes.bold,
+    fontSize: 9,
+    color: '#A1A1AA',
+  },
 });
+
