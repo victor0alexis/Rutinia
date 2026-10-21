@@ -20,10 +20,10 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { addWeeks, isSameDay, isSameWeek } from 'date-fns';
+import { addWeeks, isSameDay } from 'date-fns';
 import { colores, fuentes } from '../constants/colores';
 import { Registro } from '../types';
-import { aISO, diasDeSemana, nombreDia, rangoSemana } from '../utils/fechas';
+import { aISO, diasDeSemana, nombreDia } from '../utils/fechas';
 import { vibrarBoton } from '../utils/haptics';
 import { useLayout } from '../hooks/useLayout';
 
@@ -51,13 +51,9 @@ export default function Semana3DCarousel({
   onCambiarSemana,
 }: Semana3DCarouselProps) {
   const { isCompact } = useLayout();
-  const [containerWidth, setContainerWidth] = useState(340);
+  const [containerWidth, setContainerWidth] = useState(350);
 
   const dias = useMemo(() => diasDeSemana(fechaReferencia), [fechaReferencia]);
-  const esSemanaActual = useMemo(
-    () => isSameWeek(fechaReferencia, new Date(), { weekStartsOn: 1 }),
-    [fechaReferencia]
-  );
 
   // Encontrar el índice del día activo dentro de los 7 días (0 a 6)
   const activeDayIndex = useMemo(() => {
@@ -65,9 +61,8 @@ export default function Semana3DCarousel({
     return idx >= 0 ? idx : 0;
   }, [dias, diaActivo]);
 
-  // Geometría 3D cilíndrica de ReactICX
-  const radius = Math.max(130, containerWidth * 0.42);
-  const degreesPerPixel = (180 / (Math.PI * radius)) * 0.95;
+  // Sensibilidad táctil: ~40px de arrastre equivale a 1 día
+  const degreesPerPixel = STEP / 40;
 
   const rotation = useSharedValue<number>(-activeDayIndex * STEP);
   const dragOrigin = useSharedValue<number>(-activeDayIndex * STEP);
@@ -157,41 +152,18 @@ export default function Semana3DCarousel({
     onCambiarDia(addWeeks(diaActivo, 1));
   };
 
-  const volverAHoy = () => {
-    vibrarBoton();
-    const hoy = new Date();
-    onCambiarSemana(hoy);
-    onCambiarDia(hoy);
-  };
-
   const handleLayout = (e: LayoutChangeEvent) => {
     const { width } = e.nativeEvent.layout;
     if (width > 0) setContainerWidth(width);
   };
 
+  const maxSpan = Math.min(Math.max(containerWidth - 84, 220) * 0.46, 128);
   const cardWidth = isCompact ? 44 : 48;
   const cardHeight = isCompact ? 60 : 66;
 
   return (
     <View style={styles.outerContainer} onLayout={handleLayout}>
-      {/* 1. Header Integrado de Rango de Semana */}
-      <View style={styles.topHeaderRow}>
-        <Pressable onPress={volverAHoy} style={styles.rangoPressable} hitSlop={8}>
-          <View style={styles.rangoInnerRow}>
-            <Ionicons name="calendar-outline" size={13} color={colores.primarioHover} />
-            <Text style={styles.rangoText}>{rangoSemana(fechaReferencia)}</Text>
-          </View>
-          {!esSemanaActual ? (
-            <View style={styles.subtextSemanaBadge}>
-              <Text style={styles.subtextSemanaBadgeText}>• Ir a Semana Actual</Text>
-            </View>
-          ) : (
-            <Text style={styles.subtextSemanaCurrent}>Semana en curso</Text>
-          )}
-        </Pressable>
-      </View>
-
-      {/* 2. Fila del Carrusel 3D con Flechas en los Extremos */}
+      {/* Carrusel 3D Cilíndrico de Días con Flechas en los Extremos */}
       <View style={styles.carouselRow}>
         {/* Flecha Extremo Izquierdo: Semana Anterior */}
         <Pressable
@@ -206,7 +178,7 @@ export default function Semana3DCarousel({
           <Ionicons name="chevron-back" size={18} color={colores.primarioHover} />
         </Pressable>
 
-        {/* Carrusel 3D Cilíndrico de Días (Área de Gestos) */}
+        {/* Carrusel Cilíndrico de Días (Área de Gestos con los 7 días visibles) */}
         <GestureDetector gesture={panGesture}>
           <View style={[styles.cylinderStage, { height: cardHeight + 14 }]}>
             {dias.map((d, index) => {
@@ -231,7 +203,7 @@ export default function Semana3DCarousel({
                   cardWidth={cardWidth}
                   cardHeight={cardHeight}
                   rotation={rotation}
-                  radius={radius}
+                  maxSpan={maxSpan}
                   onPress={() => {
                     vibrarBoton();
                     const currentRot = rotation.value;
@@ -274,7 +246,7 @@ interface Carousel3DDayFaceProps {
   cardWidth: number;
   cardHeight: number;
   rotation: SharedValue<number>;
-  radius: number;
+  maxSpan: number;
   onPress: () => void;
 }
 
@@ -289,7 +261,7 @@ function Carousel3DDayFace({
   cardWidth,
   cardHeight,
   rotation,
-  radius,
+  maxSpan,
   onPress,
 }: Carousel3DDayFaceProps) {
   const animatedFaceStyle = useAnimatedStyle(() => {
@@ -297,35 +269,46 @@ function Carousel3DDayFace({
     const angle = rotation.value + index * STEP;
     // Normalizar ángulo relativo al frente [-180, 180]
     const norm = ((((angle % 360) + 540) % 360) - 180);
-    const radians = (norm * Math.PI) / 180;
-    const cos = Math.cos(radians);
-    const sin = Math.sin(radians);
+    const absNorm = Math.abs(norm);
+    const sign = norm >= 0 ? 1 : -1;
 
-    // Traslación cilíndrica horizontal
-    const translateX = sin * radius;
+    // Desplazamiento horizontal para que los 7 días estén siempre visibles y apreciables:
+    // norm = 0   (día activo al centro): translateX = 0
+    // norm = 51° (±1 día vecino): translateX = ±35% de maxSpan (~42px)
+    // norm = 103° (±2 días): translateX = ±68% de maxSpan (~82px)
+    // norm = 154° (±3 días bordes): translateX = ±96% de maxSpan (~118px)
+    const translateX = sign * interpolate(
+      absNorm,
+      [0, 51.43, 102.86, 154.29, 180],
+      [0, maxSpan * 0.35, maxSpan * 0.68, maxSpan * 0.96, maxSpan * 1.02],
+      Extrapolation.CLAMP
+    );
 
-    // Escala según profundidad (1.06x al frente, ~0.84x a los costados)
+    // Escala armónica: 1.08x al frente, descendiendo progresivamente
     const scale = interpolate(
-      cos,
-      [0, 0.5, 1],
-      [0.75, 0.88, 1.05],
+      absNorm,
+      [0, 51.43, 102.86, 154.29, 180],
+      [1.08, 0.88, 0.78, 0.70, 0.65],
       Extrapolation.CLAMP
     );
 
-    // Opacidad: visibilidad frontal limpia; desvanecer completamente en la parte posterior
+    // Opacidad: visibilidad clara para todos los 7 días
     const opacity = interpolate(
-      cos,
-      [0.15, 0.5, 1],
-      [0, 0.65, 1],
+      absNorm,
+      [0, 51.43, 102.86, 154.29, 180],
+      [1, 0.85, 0.68, 0.52, 0.38],
       Extrapolation.CLAMP
     );
 
-    // Rotación 3D en el eje Y siguiendo la curvatura cilíndrica
-    const rotateY = `${norm * 0.72}deg`;
+    // Rotación 3D en el eje Y siguiendo la curvatura
+    const rotateY = `${sign * Math.min(absNorm * 0.28, 38)}deg`;
+
+    // zIndex: la tarjeta más cercana al centro siempre tiene prioridad de capa
+    const zIndex = Math.round(200 - absNorm);
 
     return {
       opacity,
-      zIndex: Math.round(cos * 100) + 100,
+      zIndex,
       transform: [
         { perspective: 700 },
         { translateX },
@@ -333,7 +316,7 @@ function Carousel3DDayFace({
         { scale },
       ],
     };
-  }, [index, radius]);
+  }, [index, maxSpan]);
 
   return (
     <Animated.View
@@ -413,52 +396,13 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    paddingVertical: 10,
+    paddingVertical: 8,
     paddingHorizontal: 8,
-    gap: 6,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.45,
     shadowRadius: 14,
     elevation: 8,
-  },
-  topHeaderRow: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rangoPressable: {
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 2,
-  },
-  rangoInnerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  rangoText: {
-    fontFamily: fuentes.bold,
-    fontSize: 13.5,
-    color: colores.texto,
-    letterSpacing: -0.2,
-  },
-  subtextSemanaCurrent: {
-    fontSize: 10,
-    color: colores.suave,
-    fontFamily: fuentes.medium,
-    marginTop: 1,
-  },
-  subtextSemanaBadge: {
-    marginTop: 1,
-    backgroundColor: 'rgba(244, 63, 94, 0.12)',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 6,
-  },
-  subtextSemanaBadgeText: {
-    fontSize: 9.5,
-    color: colores.primarioHover,
-    fontFamily: fuentes.bold,
   },
   carouselRow: {
     flexDirection: 'row',
