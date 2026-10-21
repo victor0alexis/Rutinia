@@ -43,6 +43,7 @@ export default function YoungNewtButtonWeb({
       display: flex;
       align-items: center;
       justify-content: center;
+      min-width: 190px;
       padding: 0.5em 0.85em 0.5em 0.9em;
       font-family: "Poppins", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-size: 0.95em;

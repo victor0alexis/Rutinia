@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
+  LayoutChangeEvent,
   Modal,
   Platform,
   Pressable,
@@ -12,6 +13,13 @@ import {
   View,
   StyleSheet,
 } from 'react-native';
+import {
+  Canvas,
+  Box,
+  BoxShadow,
+  rect,
+  rrect,
+} from '@shopify/react-native-skia';
 import { colores, fuentes } from '../constants/colores';
 import ScreenBackground from './ScreenBackground';
 import GlowButton from './GlowButton';
@@ -104,6 +112,110 @@ export function parsearNotaInteligente(rawText: string) {
   }
 
   return { categoria, titulo, cuerpo, colorBadge, bgBadge, iconName };
+}
+
+interface RoutineStatCardWithMainDayGlowProps {
+  rut: Rutina;
+  esSugeridoHoy: boolean;
+  planParaVerRutinas: PlanEntrenamiento | null;
+  onVincular: (r: Rutina, p?: PlanEntrenamiento | null) => void;
+}
+
+function RoutineStatCardWithMainDayGlow({
+  rut,
+  esSugeridoHoy,
+  planParaVerRutinas,
+  onVincular,
+}: RoutineStatCardWithMainDayGlowProps) {
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+  const handleLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    if (width > 0 && height > 0) {
+      setDimensions({ width, height });
+    }
+  };
+
+  const isWeb = Platform.OS === 'web';
+  const numEjs = rut.ejercicios_rutina?.length || 0;
+  const totalSeries = (rut.ejercicios_rutina || []).reduce(
+    (acc, ej) => acc + (ej.series || 3),
+    0
+  );
+
+  return (
+    <View
+      onLayout={handleLayout}
+      style={[
+        styles.routineStatCard,
+        styles.routineCardMainDayGlowBase,
+        isWeb && styles.routineCardMainDayGlowWeb,
+      ]}
+    >
+      {/* Fondo Skia en plataformas nativas para lograr el BoxShadow e Inset Glow idéntico a MainDayCard */}
+      {!isWeb && dimensions.width > 0 && dimensions.height > 0 && (
+        <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Box
+            box={rrect(rect(0, 0, dimensions.width, dimensions.height), 20, 20)}
+            color="rgb(15, 15, 17)"
+          >
+            {/* Outer Glow blanco/plateado difuso prolijo y minimalista */}
+            <BoxShadow
+              dx={0}
+              dy={0}
+              blur={16}
+              color="rgba(255, 255, 255, 0.40)"
+            />
+            {/* Inset Glow blanco suave desde el perímetro hacia adentro */}
+            <BoxShadow
+              dx={0}
+              dy={0}
+              blur={26}
+              color="rgba(255, 255, 255, 0.20)"
+              inner
+            />
+          </Box>
+        </Canvas>
+      )}
+
+      {/* Badge superior si es sugerido hoy */}
+      {esSugeridoHoy && (
+        <View style={styles.routineHoyBadgeCentered}>
+          <Ionicons name="flash" size={10} color="#10B981" />
+          <Text style={styles.routineHoyBadgeText}>SUGERIDO PARA HOY</Text>
+        </View>
+      )}
+
+      {/* Título de la Rutina Centrado */}
+      <Text style={styles.routineStatTitle}>{rut.nombre}</Text>
+
+      {/* Micro-chips de Métricas Centrados */}
+      <View style={styles.routineStatMetaRow}>
+        <View style={styles.routineMiniChip}>
+          <Ionicons name="barbell-outline" size={11} color={colores.suave} />
+          <Text style={styles.routineMiniChipText}>{numEjs} ejercicios</Text>
+        </View>
+        {Boolean(totalSeries) && (
+          <View style={styles.routineMiniChip}>
+            <Ionicons name="layers-outline" size={11} color={colores.suave} />
+            <Text style={styles.routineMiniChipText}>{totalSeries} series</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Separador de luz interno tenue */}
+      <View style={styles.routineCardInnerDivider} />
+
+      {/* Botón Uiverse Young-Newt-20 animado idéntico y centrado */}
+      <View style={styles.routineStatActionRow}>
+        <YoungNewtButton
+          title="Añadir al Día"
+          loadingTitle="Añadiendo..."
+          onPress={() => onVincular(rut, planParaVerRutinas)}
+        />
+      </View>
+    </View>
+  );
 }
 
 export default function DiaDetalleModal({
@@ -772,9 +884,9 @@ export default function DiaDetalleModal({
             {/* Separador de luz sutil */}
             <View style={styles.dialogDivider} />
 
-            {/* Lista de Rutinas del Plan con StatCards Estéticas Centradas */}
+            {/* Lista de Rutinas del Plan con StatCards Estéticas Centradas y Efecto MainDayCard */}
             <ScrollView
-              contentContainerStyle={{ gap: 14, paddingVertical: 4 }}
+              contentContainerStyle={{ gap: 16, paddingVertical: 10, paddingHorizontal: 6 }}
               showsVerticalScrollIndicator={false}
               style={{ maxHeight: 440 }}
             >
@@ -789,56 +901,17 @@ export default function DiaDetalleModal({
                 </View>
               ) : (
                 rutinasDelPlanModal.map((rut) => {
-                  const numEjs = rut.ejercicios_rutina?.length || 0;
                   const diaSemanaIndex = fecha ? (fecha.getDay() === 0 ? 6 : fecha.getDay() - 1) : null;
                   const esSugeridoHoy = rut.dia_sugerido !== null && rut.dia_sugerido === diaSemanaIndex;
-                  const totalSeries = (rut.ejercicios_rutina || []).reduce((acc, ej) => acc + (ej.series || 3), 0);
 
                   return (
-                    <View key={rut.id} style={styles.routineStatCard}>
-                      {/* Badge superior si es sugerido hoy */}
-                      {esSugeridoHoy && (
-                        <View style={styles.routineHoyBadgeCentered}>
-                          <Ionicons name="flash" size={10} color="#10B981" />
-                          <Text style={styles.routineHoyBadgeText}>SUGERIDO PARA HOY</Text>
-                        </View>
-                      )}
-
-                      {/* Título de la Rutina Centrado */}
-                      <Text style={styles.routineStatTitle}>
-                        {rut.nombre}
-                      </Text>
-
-                      {/* Micro-chips de Métricas Centrados */}
-                      <View style={styles.routineStatMetaRow}>
-                        <View style={styles.routineMiniChip}>
-                          <Ionicons name="barbell-outline" size={11} color={colores.suave} />
-                          <Text style={styles.routineMiniChipText}>
-                            {numEjs} ejercicios
-                          </Text>
-                        </View>
-                        {Boolean(totalSeries) && (
-                          <View style={styles.routineMiniChip}>
-                            <Ionicons name="layers-outline" size={11} color={colores.suave} />
-                            <Text style={styles.routineMiniChipText}>
-                              {totalSeries} series
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-
-                      {/* Separador de luz interno tenue */}
-                      <View style={styles.routineCardInnerDivider} />
-
-                      {/* Botón Uiverse Young-Newt-20 animado idéntico y centrado */}
-                      <View style={styles.routineStatActionRow}>
-                        <YoungNewtButton
-                          title="Añadir al Día"
-                          loadingTitle="Añadiendo..."
-                          onPress={() => vincularRutinaEntera(rut, planParaVerRutinas)}
-                        />
-                      </View>
-                    </View>
+                    <RoutineStatCardWithMainDayGlow
+                      key={rut.id}
+                      rut={rut}
+                      esSugeridoHoy={esSugeridoHoy}
+                      planParaVerRutinas={planParaVerRutinas}
+                      onVincular={vincularRutinaEntera}
+                    />
                   );
                 })
               )}
@@ -874,12 +947,24 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#101010',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.16)',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 'auto',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.45,
+    shadowRadius: 8,
+    elevation: 4,
+    // @ts-ignore
+    ...(Platform.OS === 'web'
+      ? {
+          boxShadow:
+            'inset 0px 1px 1px rgba(255, 255, 255, 0.22), inset 0px 2px 2px rgba(255, 255, 255, 0.14), inset 0px 4px 4px rgba(255, 255, 255, 0.08), 0px 2px 6px rgba(0, 0, 0, 0.45)',
+        }
+      : {}),
   },
   aestheticSectionHeaderRow: {
     flexDirection: 'row',
@@ -1230,17 +1315,35 @@ const styles = StyleSheet.create({
   planCardActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    gap: 5,
+    backgroundColor: '#101010',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 10,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.09)',
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 3,
+    // @ts-ignore
+    ...(Platform.OS === 'web'
+      ? {
+          boxShadow:
+            'inset 0px 1px 1px rgba(255, 255, 255, 0.2), inset 0px 2px 2px rgba(255, 255, 255, 0.1), 0px 2px 4px rgba(0, 0, 0, 0.35)',
+        }
+      : {}),
   },
   planCardActionBtnActivo: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(255, 255, 255, 0.30)',
+    // @ts-ignore
+    ...(Platform.OS === 'web'
+      ? {
+          boxShadow:
+            'inset 0px 1px 1px rgba(255, 255, 255, 0.28), 0 0 10px rgba(255, 255, 255, 0.2)',
+        }
+      : {}),
   },
   planCardActionBtnText: {
     fontFamily: fuentes.bold,
@@ -1285,14 +1388,26 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     top: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#101010',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.16)',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.45,
+    shadowRadius: 8,
+    elevation: 4,
+    // @ts-ignore
+    ...(Platform.OS === 'web'
+      ? {
+          boxShadow:
+            'inset 0px 1px 1px rgba(255, 255, 255, 0.22), inset 0px 2px 2px rgba(255, 255, 255, 0.14), inset 0px 4px 4px rgba(255, 255, 255, 0.08), 0px 2px 6px rgba(0, 0, 0, 0.45)',
+        }
+      : {}),
   },
   modalHeaderCenterGroup: {
     alignItems: 'center',
@@ -1320,19 +1435,29 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   routineStatCard: {
-    backgroundColor: 'rgba(16, 16, 22, 0.96)',
+    backgroundColor: 'rgb(14, 14, 18)',
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.11)',
+    borderColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 3,
+    overflow: 'hidden',
+    position: 'relative',
+    marginHorizontal: 3,
+  },
+  routineCardMainDayGlowBase: {
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.40,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  routineCardMainDayGlowWeb: {
+    // @ts-ignore
+    boxShadow:
+      '0 0 28px 0px rgba(255, 255, 255, 0.38), inset 0 0 36px 0px rgba(255, 255, 255, 0.24)',
   },
   routineHoyBadgeCentered: {
     flexDirection: 'row',
