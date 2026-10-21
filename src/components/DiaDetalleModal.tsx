@@ -13,7 +13,6 @@ import {
   StyleSheet,
 } from 'react-native';
 import { colores, fuentes } from '../constants/colores';
-import BotonRutinia from './BotonRutinia';
 import ScreenBackground from './ScreenBackground';
 import GlowButton from './GlowButton';
 import SpotlightSegmentedTabs from './SpotlightSegmentedTabs';
@@ -21,19 +20,18 @@ import RutinaLiveCard from './RutinaLiveCard';
 import { vibrarBoton } from '../utils/haptics';
 import { NotaEstandar, obtenerNotasEstandar } from '../services/notas';
 import {
-  agregarActividad,
   agregarRutinaAFechas,
   eliminarEjercicio,
   eliminarRegistroRutina,
   guardarNotaDelDia,
 } from '../services/registros';
 import { listarRutinas } from '../services/rutinas';
-import { EjercicioRegistro, EjercicioRutina, PlanEntrenamiento, Registro, Rutina } from '../types';
+import { listarPlanes, listarRutinasDePlan } from '../services/planes';
+import { EjercicioRegistro, PlanEntrenamiento, Registro, Rutina } from '../types';
 import { SesionActivaInfo } from '../utils/sesionActiva';
 import { seguro, confirmarAccion } from '../utils/errores';
 import { aISO, nombreDia } from '../utils/fechas';
 import { useLayout } from '../hooks/useLayout';
-import SelectorPlanRutina from './SelectorPlanRutina';
 
 type Props = {
   fecha: Date | null;
@@ -56,8 +54,6 @@ const PALETA_NOTAS = [
   { border: '#A855F7', bg: 'rgba(168,85,247,0.12)' },
   { border: '#14B8A6', bg: 'rgba(20,184,166,0.12)' },
 ];
-
-const num = (t: string) => (t.trim() ? Number(t) : null);
 
 // Helper para parsear la nota e identificador visual inteligente
 export function parsearNotaInteligente(rawText: string) {
@@ -122,28 +118,36 @@ export default function DiaDetalleModal({
   const { topInset, bottomInset, leftInset, rightInset, gutter, contentMaxWidth } = useLayout();
   const [tab, setTab] = useState<'actividad' | 'rutina' | 'notas'>('actividad');
 
-  // Form Actividad / Ejercicio Rápido
-  const [nombreActividad, setNombreActividad] = useState('');
-  const [series, setSeries] = useState('');
-  const [reps, setReps] = useState('');
-  const [peso, setPeso] = useState('');
-
-  // Rutinas disponibles
-  const [rutinas, setRutinas] = useState<Rutina[]>([]);
-  const [rutinaExpandida, setRutinaExpandida] = useState<string | null>(null);
+  // Planes y Rutinas para vincular
+  const [planes, setPlanes] = useState<PlanEntrenamiento[]>([]);
+  const [rutinasSueltas, setRutinasSueltas] = useState<Rutina[]>([]);
+  const [planParaVerRutinas, setPlanParaVerRutinas] = useState<PlanEntrenamiento | null>(null);
+  const [rutinasDelPlanModal, setRutinasDelPlanModal] = useState<Rutina[]>([]);
+  const [cargandoRutinasPlan, setCargandoRutinasPlan] = useState(false);
+  const [modalRutinasPlanVisible, setModalRutinasPlanVisible] = useState(false);
 
   // Notas estandarizadas y notas ad-hoc
   const [notasBiblioteca, setNotasBiblioteca] = useState<NotaEstandar[]>([]);
   const [nuevaNotaAdHoc, setNuevaNotaAdHoc] = useState('');
-  const [selectorPlanRutinaVisible, setSelectorPlanRutinaVisible] = useState(false);
 
   useEffect(() => {
     if (visible) {
       seguro(async () => {
-        const ruts = await listarRutinas();
-        setRutinas(ruts);
-        const nats = await obtenerNotasEstandar();
+        const [ruts, nats, pls] = await Promise.all([
+          listarRutinas(),
+          obtenerNotasEstandar(),
+          listarPlanes({ incluirArchivados: false }),
+        ]);
         setNotasBiblioteca(nats);
+        setRutinasSueltas(ruts.filter((r) => !r.plan_id));
+
+        // Ordenar planes: el activo SIEMPRE al principio
+        const ordenados = [...pls].sort((a, b) => {
+          if (a.activo && !b.activo) return -1;
+          if (!a.activo && b.activo) return 1;
+          return (a.orden || 0) - (b.orden || 0);
+        });
+        setPlanes(ordenados);
       });
     }
   }, [visible]);
@@ -165,19 +169,6 @@ export default function DiaDetalleModal({
   const ejerciciosExtras = registrosExtraSueltos
     .flatMap((r) => r.ejercicios_registro || [])
     .filter((e) => !e.nombre.startsWith('📌'));
-
-  const guardarActividadIndependiente = () =>
-    seguro(async () => {
-      if (!nombreActividad.trim()) return;
-      await agregarActividad(aISO(fecha), nombreActividad.trim(), num(series), num(reps), num(peso));
-      setNombreActividad('');
-      setSeries('');
-      setReps('');
-      setPeso('');
-      alCambiar();
-      setTab('actividad');
-      Alert.alert('Ejercicio añadido', `"${nombreActividad.trim()}" se agregó a la Actividad del Día.`);
-    });
 
   const quitarEjercicioSolo = (e: EjercicioRegistro) =>
     seguro(async () => {
@@ -205,18 +196,24 @@ export default function DiaDetalleModal({
         rutinaNombre: rutina.nombre,
       });
       alCambiar();
-      setSelectorPlanRutinaVisible(false);
+      setModalRutinasPlanVisible(false);
       setTab('actividad');
       Alert.alert('Éxito', `Rutina "${rutina.nombre}" agregada a tu día.`);
     });
 
-  const vincularEjercicioIndividual = (ejercicio: EjercicioRutina) =>
-    seguro(async () => {
-      await agregarActividad(aISO(fecha), ejercicio.nombre, ejercicio.series, ejercicio.repeticiones, ejercicio.peso);
-      alCambiar();
-      setTab('actividad');
-      Alert.alert('Agregado', `Ejercicio "${ejercicio.nombre}" añadido al día.`);
-    });
+  const abrirModalRutinasPlan = async (p: PlanEntrenamiento | null) => {
+    vibrarBoton();
+    setPlanParaVerRutinas(p);
+    setModalRutinasPlanVisible(true);
+    setCargandoRutinasPlan(true);
+    if (p) {
+      const ruts = await listarRutinasDePlan(p.id);
+      setRutinasDelPlanModal(ruts);
+    } else {
+      setRutinasDelPlanModal(rutinasSueltas);
+    }
+    setCargandoRutinasPlan(false);
+  };
 
   const vincularNotaEstandar = (n: NotaEstandar) =>
     seguro(async () => {
@@ -374,7 +371,7 @@ export default function DiaDetalleModal({
                     )}
                   </View>
 
-                  {/* ────── SECCIÓN: ENTRENAMIENTOS DEL DÍA (RESUMEN ESTÉTICO REUTILIZANDO MAINDAYCARD) ────── */}
+                  {/* ────── SECCIÓN: ENTRENAMIENTOS DEL DÍA (RESUMEN ESTÉTICO CON EFECTO GLOW BLANCO) ────── */}
                   <View style={{ gap: 12 }}>
                     <View style={styles.aestheticSectionHeaderRow}>
                       <View style={styles.cyberSectionBadge}>
@@ -471,119 +468,150 @@ export default function DiaDetalleModal({
                 </View>
               )}
 
-              {/* PANEL 2: + Rutina / Ejercicio Rápido */}
+              {/* PANEL 2: Planes de Entrenamiento (Stat Cards estilo RutinaLiveCard con Activo primero) */}
               {tab === 'rutina' && (
-                <View style={{ gap: 18 }}>
-                  <Text style={styles.sectionLabelText}>
-                    Añadir Ejercicio Rápido al Día
-                  </Text>
-                  <View style={styles.quickFormBox}>
-                    <TextInput
-                      placeholder="Nombre del ejercicio (ej. Sentadillas)"
-                      placeholderTextColor={colores.suave}
-                      value={nombreActividad}
-                      onChangeText={setNombreActividad}
-                      style={styles.inputBase}
-                    />
-                    <View style={{ flexDirection: 'row', gap: 6 }}>
-                      <TextInput
-                        placeholder="Series"
-                        placeholderTextColor={colores.suave}
-                        keyboardType="numeric"
-                        value={series}
-                        onChangeText={setSeries}
-                        style={styles.subInputBase}
-                      />
-                      <TextInput
-                        placeholder="Reps"
-                        placeholderTextColor={colores.suave}
-                        keyboardType="numeric"
-                        value={reps}
-                        onChangeText={setReps}
-                        style={styles.subInputBase}
-                      />
-                      <TextInput
-                        placeholder="Kg"
-                        placeholderTextColor={colores.suave}
-                        keyboardType="numeric"
-                        value={peso}
-                        onChangeText={setPeso}
-                        style={styles.subInputBase}
-                      />
+                <View style={{ gap: 16 }}>
+                  <View style={styles.aestheticSectionHeaderRow}>
+                    <View style={styles.cyberSectionBadge}>
+                      <Ionicons name="layers-outline" size={13} color={colores.primarioHover} />
+                      <Text style={styles.cyberSectionBadgeText}>PLANES DE ENTRENAMIENTO</Text>
+                      {planes.length > 0 && (
+                        <View style={styles.countChip}>
+                          <Text style={styles.countChipText}>{planes.length}</Text>
+                        </View>
+                      )}
                     </View>
-                    <BotonRutinia
-                      titulo="Guardar actividad"
-                      tamano="compacto"
-                      onPress={guardarActividadIndependiente}
-                      style={{ alignSelf: 'stretch' }}
-                    />
                   </View>
 
-                  <Text style={[styles.sectionLabelText, { marginTop: 6 }]}>
-                    Vincular Rutinas Preexistentes
+                  <Text style={styles.planSectionSubtext}>
+                    Toca un plan para explorar sus rutinas y asignar una a tu {nombreDia(fecha)}.
                   </Text>
 
-                  {/* Selector por Plan Jerárquico */}
-                  <View style={{ gap: 8, marginBottom: 6 }}>
-                    <BotonRutinia
-                      titulo="Explorar planes y rutinas"
-                      variante="principal"
-                      onPress={() => setSelectorPlanRutinaVisible(true)}
-                    />
-                  </View>
-
-                  {rutinas.length === 0 ? (
-                    <Text style={{ color: colores.suave, fontStyle: 'italic', fontFamily: fuentes.regular }}>
-                      No tienes rutinas creadas aún. Dirígete a la pestaña &apos;Rutinas&apos;.
-                    </Text>
+                  {planes.length === 0 ? (
+                    <View style={styles.emptyDashedBox}>
+                      <Ionicons name="folder-open-outline" size={26} color={colores.suave} />
+                      <Text style={styles.emptyDashedText}>
+                        No tienes planes de entrenamiento creados todavía. Ve a la pestaña &apos;Rutinas&apos; para crear uno.
+                      </Text>
+                    </View>
                   ) : (
-                    rutinas.map((rut) => {
-                      const estaExpandida = rutinaExpandida === rut.id;
+                    planes.map((p) => {
+                      const esActivo = Boolean(p.activo);
+                      const colorTema = p.color || colores.primarioHover;
                       return (
-                        <View key={rut.id} style={styles.routineAccordionCard}>
-                          <View style={{ padding: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Pressable onPress={() => setRutinaExpandida(estaExpandida ? null : rut.id)} style={{ flex: 1 }}>
-                              <Text style={{ color: colores.texto, fontSize: 16, fontFamily: fuentes.black }}>{rut.nombre}</Text>
-                              <Text style={{ color: colores.suave, fontSize: 11, marginTop: 2, fontFamily: fuentes.regular }}>
-                                {rut.ejercicios_rutina?.length || 0} ejercicios • Toca para desplegar
+                        <Pressable
+                          key={p.id}
+                          onPress={() => abrirModalRutinasPlan(p)}
+                          style={({ pressed }) => [
+                            styles.planStatCard,
+                            esActivo && styles.planStatCardActivo,
+                            pressed && { opacity: 0.88, transform: [{ scale: 0.985 }] },
+                          ]}
+                        >
+                          {/* 1. Header con Badge de Plan y Estado Activo */}
+                          <View style={styles.planCardHeaderRow}>
+                            <View
+                              style={[
+                                styles.planCardTagBadge,
+                                {
+                                  backgroundColor: `${colorTema}18`,
+                                  borderColor: `${colorTema}40`,
+                                },
+                              ]}
+                            >
+                              <Ionicons name={(p.icono as any) || 'barbell'} size={11} color={colorTema} />
+                              <Text
+                                numberOfLines={1}
+                                style={[styles.planCardTagText, { color: colorTema }]}
+                              >
+                                {p.nombre.toUpperCase()}
                               </Text>
-                            </Pressable>
-                            <GlowButton
-                              title="+ Toda"
-                              onPress={() => vincularRutinaEntera(rut)}
-                              variant="primary"
-                              size="sm"
-                              shape="pill"
-                            />
+                            </View>
+
+                            {esActivo ? (
+                              <View style={styles.planCardBadgeActivo}>
+                                <View style={styles.dotLiveGreenPulse} />
+                                <Text style={styles.planCardBadgeActivoText}>PLAN ACTIVO</Text>
+                              </View>
+                            ) : (
+                              <View style={styles.planCardBadgeSecundario}>
+                                <Text style={styles.planCardBadgeSecundarioText}>DISPONIBLE</Text>
+                              </View>
+                            )}
                           </View>
 
-                          {estaExpandida && (
-                            <View style={styles.accordionBody}>
-                              <Text style={{ color: colores.suave, fontSize: 10.5, fontFamily: fuentes.bold, textTransform: 'uppercase' }}>
-                                Seleccionar ejercicio individual:
-                              </Text>
-                              {rut.ejercicios_rutina.map((ej) => (
-                                <View key={ej.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <View style={{ flex: 1 }}>
-                                    <Text style={{ color: colores.texto, fontSize: 13.5, fontFamily: fuentes.bold }}>{ej.nombre}</Text>
-                                    <Text style={{ color: colores.suave, fontSize: 11, fontFamily: fuentes.regular }}>
-                                      {ej.series && ej.repeticiones ? `${ej.series}×${ej.repeticiones}` : ''} {ej.peso ? `• ${ej.peso}kg` : ''}
-                                    </Text>
-                                  </View>
-                                  <GlowButton
-                                    title="+ Solo este"
-                                    onPress={() => vincularEjercicioIndividual(ej)}
-                                    variant="outline"
-                                    size="sm"
-                                    shape="pill"
-                                  />
-                                </View>
-                              ))}
-                            </View>
+                          {/* 2. Título y Objetivo / Descripción */}
+                          <Text numberOfLines={1} style={styles.planCardTitle}>
+                            {p.nombre}
+                          </Text>
+
+                          {Boolean(p.descripcion || p.objetivo) && (
+                            <Text numberOfLines={2} style={styles.planCardSubtitle}>
+                              {p.descripcion || p.objetivo}
+                            </Text>
                           )}
-                        </View>
+
+                          {/* 3. Métricas y Botón de Acción */}
+                          <View style={styles.planCardFooterRow}>
+                            <View style={styles.planMetricChipsContainer}>
+                              <View style={styles.planMetricChip}>
+                                <Ionicons name="barbell-outline" size={12} color={colores.suave} />
+                                <Text style={styles.planMetricChipText}>{p.totalRutinas || 0} rutinas</Text>
+                              </View>
+
+                              {Boolean(p.diasPorSemana) && (
+                                <View style={styles.planMetricChip}>
+                                  <Ionicons name="calendar-outline" size={12} color={colores.suave} />
+                                  <Text style={styles.planMetricChipText}>{p.diasPorSemana} días/sem</Text>
+                                </View>
+                              )}
+                            </View>
+
+                            <View style={[styles.planCardActionBtn, esActivo && styles.planCardActionBtnActivo]}>
+                              <Text style={[styles.planCardActionBtnText, esActivo && styles.planCardActionBtnTextActivo]}>
+                                Ver Rutinas
+                              </Text>
+                              <Ionicons
+                                name="chevron-forward"
+                                size={13}
+                                color={esActivo ? '#FFFFFF' : colores.suave}
+                              />
+                            </View>
+                          </View>
+                        </Pressable>
                       );
                     })
+                  )}
+
+                  {/* Rutinas Sueltas / Independientes (si existen) */}
+                  {rutinasSueltas.length > 0 && (
+                    <Pressable
+                      onPress={() => abrirModalRutinasPlan(null)}
+                      style={({ pressed }) => [
+                        styles.planStatCard,
+                        { borderColor: 'rgba(255, 255, 255, 0.08)' },
+                        pressed && { opacity: 0.88, transform: [{ scale: 0.985 }] },
+                      ]}
+                    >
+                      <View style={styles.planCardHeaderRow}>
+                        <View style={[styles.planCardTagBadge, { backgroundColor: 'rgba(255, 255, 255, 0.08)', borderColor: 'rgba(255, 255, 255, 0.15)' }]}>
+                          <Ionicons name="folder-outline" size={11} color={colores.suave} />
+                          <Text style={[styles.planCardTagText, { color: colores.suave }]}>INDEPENDIENTES</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.planCardTitle}>Rutinas sin Plan Asignado</Text>
+                      <Text style={styles.planCardSubtitle}>Colección de rutinas sueltas o personalizadas</Text>
+                      <View style={styles.planCardFooterRow}>
+                        <View style={styles.planMetricChip}>
+                          <Ionicons name="barbell-outline" size={12} color={colores.suave} />
+                          <Text style={styles.planMetricChipText}>{rutinasSueltas.length} rutinas</Text>
+                        </View>
+                        <View style={styles.planCardActionBtn}>
+                          <Text style={styles.planCardActionBtnText}>Ver Rutinas</Text>
+                          <Ionicons name="chevron-forward" size={13} color={colores.suave} />
+                        </View>
+                      </View>
+                    </Pressable>
                   )}
                 </View>
               )}
@@ -652,14 +680,138 @@ export default function DiaDetalleModal({
         </ScreenBackground>
       </KeyboardAvoidingView>
 
-      {/* Selector jerárquico de Plan y Rutina */}
-      <SelectorPlanRutina
-        visible={selectorPlanRutinaVisible}
-        fecha={fecha}
-        onClose={() => setSelectorPlanRutinaVisible(false)}
-        onSeleccionarRutina={(rut, plan) => vincularRutinaEntera(rut, plan)}
-        onSeleccionarEjercicioIndividual={(ej) => vincularEjercicioIndividual(ej)}
-      />
+      {/* MODAL DE RUTINAS ASOCIADAS AL PLAN SELECCIONADO */}
+      <Modal
+        visible={modalRutinasPlanVisible}
+        animationType="slide"
+        transparent
+        statusBarTranslucent
+        onRequestClose={() => setModalRutinasPlanVisible(false)}
+      >
+        <ScreenBackground>
+          <View
+            style={{
+              flex: 1,
+              width: '100%',
+              maxWidth: contentMaxWidth,
+              alignSelf: 'center',
+              paddingTop: Math.max(12, topInset),
+              paddingBottom: Math.max(12, bottomInset),
+              paddingLeft: Math.max(gutter, leftInset),
+              paddingRight: Math.max(gutter, rightInset),
+              gap: 16,
+            }}
+          >
+            {/* Top Bar con Grab Handle y Cerrar */}
+            <View style={styles.smartTopBar}>
+              <View style={styles.sheetHandlePill} />
+              <Pressable
+                onPress={() => {
+                  vibrarBoton();
+                  setModalRutinasPlanVisible(false);
+                }}
+                hitSlop={12}
+                style={({ pressed }) => [
+                  styles.smartCloseButton,
+                  pressed && { opacity: 0.7, transform: [{ scale: 0.94 }] },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar modal de rutinas"
+              >
+                <Ionicons name="close" size={19} color="#FFFFFF" />
+              </Pressable>
+            </View>
+
+            {/* Cabecera del Plan */}
+            <View style={{ gap: 4 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View
+                  style={[
+                    styles.planCardTagBadge,
+                    {
+                      backgroundColor: `${planParaVerRutinas?.color || colores.primarioHover}18`,
+                      borderColor: `${planParaVerRutinas?.color || colores.primarioHover}40`,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={(planParaVerRutinas?.icono as any) || 'barbell'}
+                    size={11}
+                    color={planParaVerRutinas?.color || colores.primarioHover}
+                  />
+                  <Text
+                    style={[
+                      styles.planCardTagText,
+                      { color: planParaVerRutinas?.color || colores.primarioHover },
+                    ]}
+                  >
+                    {planParaVerRutinas ? (planParaVerRutinas.activo ? 'PLAN ACTIVO' : 'PLAN') : 'INDEPENDIENTES'}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={{ color: '#FFFFFF', fontSize: 22, fontFamily: fuentes.black }}>
+                {planParaVerRutinas?.nombre || 'Rutinas Independientes'}
+              </Text>
+              <Text style={{ color: colores.suave, fontSize: 13, fontFamily: fuentes.regular }}>
+                Selecciona una rutina para vincular a tu {nombreDia(fecha)}
+              </Text>
+            </View>
+
+            {/* Lista de Rutinas del Plan */}
+            <ScrollView
+              contentContainerStyle={{ gap: 12, paddingBottom: 50 }}
+              showsVerticalScrollIndicator={false}
+            >
+              {cargandoRutinasPlan ? (
+                <View style={styles.emptyDashedBox}>
+                  <Text style={styles.emptyDashedText}>Cargando rutinas del plan...</Text>
+                </View>
+              ) : rutinasDelPlanModal.length === 0 ? (
+                <View style={styles.emptyDashedBox}>
+                  <Ionicons name="barbell-outline" size={26} color={colores.suave} />
+                  <Text style={styles.emptyDashedText}>No hay rutinas creadas en este plan todavía.</Text>
+                </View>
+              ) : (
+                rutinasDelPlanModal.map((rut) => {
+                  const numEjs = rut.ejercicios_rutina?.length || 0;
+                  const diaSemanaIndex = fecha ? (fecha.getDay() === 0 ? 6 : fecha.getDay() - 1) : null;
+                  const esSugeridoHoy = rut.dia_sugerido !== null && rut.dia_sugerido === diaSemanaIndex;
+                  const totalSeries = (rut.ejercicios_rutina || []).reduce((acc, ej) => acc + (ej.series || 3), 0);
+
+                  return (
+                    <View key={rut.id} style={styles.modalRoutineItemCard}>
+                      <View style={{ flex: 1, gap: 4 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={{ color: '#FFFFFF', fontSize: 16, fontFamily: fuentes.black }}>
+                            {rut.nombre}
+                          </Text>
+                          {esSugeridoHoy && (
+                            <View style={styles.sugeridoBadge}>
+                              <Text style={styles.sugeridoBadgeText}>HOY</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={{ color: colores.suave, fontSize: 12, fontFamily: fuentes.regular }}>
+                          {numEjs} ejercicios {totalSeries ? `· ${totalSeries} series` : ''}
+                        </Text>
+                      </View>
+
+                      <GlowButton
+                        title="+ Añadir al Día"
+                        onPress={() => vincularRutinaEntera(rut, planParaVerRutinas)}
+                        variant="primary"
+                        size="sm"
+                        shape="pill"
+                      />
+                    </View>
+                  );
+                })
+              )}
+            </ScrollView>
+          </View>
+        </ScreenBackground>
+      </Modal>
     </Modal>
   );
 }
@@ -897,34 +1049,6 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     fontFamily: fuentes.regular,
   },
-  subInputBase: {
-    backgroundColor: 'rgba(10, 12, 18, 0.75)',
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 6,
-    paddingVertical: 8,
-    color: colores.texto,
-    fontSize: 13,
-    textAlign: 'center',
-    flex: 1,
-    minWidth: 0,
-    fontFamily: fuentes.regular,
-  },
-  routineAccordionCard: {
-    backgroundColor: 'rgba(20, 20, 26, 0.85)',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    overflow: 'hidden',
-  },
-  accordionBody: {
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
-    backgroundColor: 'rgba(10, 12, 18, 0.60)',
-    padding: 14,
-    gap: 10,
-  },
   libraryNoteCard: {
     backgroundColor: 'rgba(20, 20, 26, 0.85)',
     borderRadius: 16,
@@ -942,5 +1066,178 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
+  },
+  planSectionSubtext: {
+    color: 'rgba(255, 255, 255, 0.65)',
+    fontSize: 12.5,
+    fontFamily: fuentes.regular,
+    lineHeight: 17,
+  },
+  planStatCard: {
+    backgroundColor: 'rgba(20, 20, 26, 0.90)',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    gap: 10,
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  planStatCardActivo: {
+    backgroundColor: 'rgba(24, 24, 30, 0.96)',
+    borderColor: 'rgba(255, 255, 255, 0.22)',
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.32,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  planCardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  planCardTagBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 7,
+    borderWidth: 1,
+  },
+  planCardTagText: {
+    fontFamily: fuentes.bold,
+    fontSize: 9.5,
+    letterSpacing: 0.6,
+  },
+  planCardBadgeActivo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+  },
+  dotLiveGreenPulse: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+  },
+  planCardBadgeActivoText: {
+    fontFamily: fuentes.bold,
+    fontSize: 9.5,
+    color: '#10B981',
+    letterSpacing: 0.5,
+  },
+  planCardBadgeSecundario: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  planCardBadgeSecundarioText: {
+    fontFamily: fuentes.bold,
+    fontSize: 9.5,
+    color: colores.suave,
+    letterSpacing: 0.5,
+  },
+  planCardTitle: {
+    fontFamily: fuentes.black,
+    fontSize: 18,
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
+  planCardSubtitle: {
+    fontFamily: fuentes.regular,
+    fontSize: 12,
+    color: colores.suave,
+    lineHeight: 17,
+  },
+  planCardFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 4,
+    gap: 8,
+  },
+  planMetricChipsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  planMetricChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  planMetricChipText: {
+    fontFamily: fuentes.medium,
+    fontSize: 11,
+    color: colores.suave,
+  },
+  planCardActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.09)',
+  },
+  planCardActionBtnActivo: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  planCardActionBtnText: {
+    fontFamily: fuentes.bold,
+    fontSize: 11,
+    color: colores.suave,
+  },
+  planCardActionBtnTextActivo: {
+    color: '#FFFFFF',
+  },
+  modalRoutineItemCard: {
+    backgroundColor: 'rgba(20, 20, 26, 0.90)',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 10,
+  },
+  sugeridoBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.16)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+  },
+  sugeridoBadgeText: {
+    color: '#10B981',
+    fontFamily: fuentes.black,
+    fontSize: 9,
   },
 });
