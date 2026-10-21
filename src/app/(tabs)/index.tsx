@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, View, StyleSheet } from 'react-native';
+import { Text, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useIsFocused } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { addDays, addWeeks, isSameDay, isSameWeek, parseISO } from 'date-fns';
+import { addDays, parseISO } from 'date-fns';
 import { colores, fuentes } from '../../constants/colores';
 import { supabase } from '../../lib/supabase';
 import DiaDetalleModal from '../../components/DiaDetalleModal';
@@ -12,17 +12,18 @@ import ModalPartidaEnCurso from '../../components/ModalPartidaEnCurso';
 import EncabezadoSeccion from '../../components/EncabezadoSeccion';
 import ScreenBackground from '../../components/ScreenBackground';
 import MainDayCard from '../../components/MainDayCard';
+import Semana3DCarousel from '../../components/Semana3DCarousel';
 import { LiquidMetalButton } from '../../components/LiquidMetalButton';
 import { registrosDeRango } from '../../services/registros';
 import { listarPlanes } from '../../services/planes';
-import { aISO, diasDeSemana, nombreDia, rangoSemana } from '../../utils/fechas';
+import { aISO, diasDeSemana } from '../../utils/fechas';
 import { seguro } from '../../utils/errores';
 import { EjercicioRegistro, PlanEntrenamiento, Registro } from '../../types';
 import { SesionActivaInfo, obtenerSesionActivaInfo, obtenerBorradorSesion } from '../../utils/sesionActiva';
 import { useLayout } from '../../hooks/useLayout';
 
 export default function Semana() {
-  const { gutter, contentMaxWidth, isLandscape, isCompact, bottomInset, safeBottom } = useLayout();
+  const { gutter, contentMaxWidth, isLandscape, bottomInset, safeBottom } = useLayout();
   const tabBottomPadding = isLandscape ? 56 + Math.max(bottomInset, 4) : 74 + safeBottom;
   const isFocused = useIsFocused();
   const [ref, setRef] = useState(new Date());
@@ -45,7 +46,6 @@ export default function Semana() {
   const dias = useMemo(() => diasDeSemana(ref), [ref]);
   const inicioSemanaISO = useMemo(() => aISO(dias[0]), [dias]);
   const finSemanaISO = useMemo(() => aISO(dias[6]), [dias]);
-  const esSemanaActual = useMemo(() => isSameWeek(ref, new Date(), { weekStartsOn: 1 }), [ref]);
 
   const cargar = useCallback(() => {
     return seguro(async () => {
@@ -138,9 +138,6 @@ export default function Semana() {
     }, 150);
   };
 
-  const esDiaHoy = (d: Date) => isSameDay(d, new Date());
-  const esDiaSeleccionado = (d: Date) => isSameDay(d, diaActivo);
-
   // Registros del Día Activo
   const registrosDelDia = registros.filter((r) => r.fecha === aISO(diaActivo));
   const todosEjercicios: EjercicioRegistro[] = registrosDelDia.flatMap((r) => r.ejercicios_registro || []);
@@ -224,136 +221,14 @@ export default function Semana() {
             </View>
           )}
 
-          {/* NAVEGADOR ENTRE SEMANAS */}
-          <View style={[styles.weekNavigatorCard, isLandscape && { paddingVertical: 6 }]}>
-
-            <Pressable
-              onPress={() => {
-                const prev = addWeeks(ref, -1);
-                setRef(prev);
-                setDiaActivo(diasDeSemana(prev)[0]);
-              }}
-              style={({ pressed }) => [
-                styles.navChevronButton,
-                pressed && { opacity: 0.7 },
-              ]}
-              hitSlop={10}
-            >
-              <Ionicons name="chevron-back" size={18} color={colores.primarioHover} />
-            </Pressable>
-
-            <Pressable
-              onPress={() => {
-                const hoy = new Date();
-                setRef(hoy);
-                setDiaActivo(hoy);
-              }}
-              style={{ alignItems: 'center', flex: 1 }}
-            >
-              <Text style={styles.rangoSemanaText}>
-                {rangoSemana(ref)}
-              </Text>
-              {!esSemanaActual ? (
-                <View style={styles.subtextSemanaBadge}>
-                  <Text style={styles.subtextSemanaBadgeText}>
-                    • Toca para ir a Semana Actual
-                  </Text>
-                </View>
-              ) : (
-                <Text style={styles.subtextSemanaCurrent}>
-                  Semana en curso
-                </Text>
-              )}
-            </Pressable>
-
-            <Pressable
-              onPress={() => {
-                const next = addWeeks(ref, 1);
-                setRef(next);
-                setDiaActivo(diasDeSemana(next)[0]);
-              }}
-              style={({ pressed }) => [
-                styles.navChevronButton,
-                pressed && { opacity: 0.7 },
-              ]}
-              hitSlop={10}
-            >
-              <Ionicons name="chevron-forward" size={18} color={colores.primarioHover} />
-            </Pressable>
-          </View>
-
-          {/* 7 DÍAS EN FILA HORIZONTAL FIJA CON BOTONES DE IMPACTO */}
-          <View style={{ flexDirection: 'row', gap: isCompact ? 3 : 6, justifyContent: 'space-between' }}>
-            {dias.map((d) => {
-              const esHoy = esDiaHoy(d);
-              const esSel = esDiaSeleccionado(d);
-              const regsDia = registros.filter((r) => r.fecha === aISO(d));
-              const ejsAll = regsDia.flatMap((r) => r.ejercicios_registro || []);
-              const ejsPuros = ejsAll.filter((e) => !e.nombre.startsWith('📌'));
-              const notas = ejsAll.filter((e) => e.nombre.startsWith('📌'));
-              const completo = ejsPuros.length > 0 && ejsPuros.every((e) => e.completado);
-
-              return (
-                <Pressable
-                  key={aISO(d)}
-                  onPress={() => setDiaActivo(d)}
-                  style={({ pressed }) => [
-                    styles.dayPillButton,
-                    {
-                      paddingVertical: isCompact ? 6 : 9,
-                      paddingHorizontal: 2,
-                      backgroundColor: esSel
-                        ? colores.primarioHover
-                        : esHoy
-                        ? 'rgba(217, 119, 6, 0.16)'
-                        : colores.tarjeta,
-                      borderColor: esSel
-                        ? '#FFFFFF'
-                        : esHoy
-                        ? colores.hoy
-                        : colores.borde,
-                      opacity: pressed ? 0.82 : 1,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.dayNameShort,
-                      {
-                        fontSize: isCompact ? 8.5 : 10,
-                        color: esSel ? '#FFF' : esHoy ? colores.hoy : colores.suave,
-                      },
-                    ]}
-                  >
-                    {nombreDia(d).substring(0, 3)}
-                  </Text>
-
-                  <Text
-                    style={[
-                      styles.dayNumberText,
-                      {
-                        fontSize: isCompact ? 13 : 15,
-                        color: esSel ? '#FFF' : colores.texto,
-                      },
-                    ]}
-                  >
-                    {d.getDate()}
-                  </Text>
-
-                  <View style={{ height: 6, flexDirection: 'row', gap: 3, alignItems: 'center' }}>
-                    {completo ? (
-                      <Ionicons name="checkmark-circle" size={10} color={esSel ? '#FFF' : colores.exito} />
-                    ) : ejsPuros.length > 0 ? (
-                      <View style={[styles.statusDot, { backgroundColor: esSel ? '#FFF' : colores.primarioHover }]} />
-                    ) : null}
-                    {notas.length > 0 && (
-                      <View style={[styles.statusDot, { backgroundColor: esSel ? '#FFF' : colores.hoy }]} />
-                    )}
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
+          {/* CARRUSEL 3D CILÍNDRICO UNIFICADO (ReactICX 3D Carousel + Flechas en extremos) */}
+          <Semana3DCarousel
+            fechaReferencia={ref}
+            diaActivo={diaActivo}
+            registros={registros}
+            onCambiarDia={setDiaActivo}
+            onCambiarSemana={setRef}
+          />
 
           {/* TARJETA PRINCIPAL DEL DÍA SELECCIONADO (Estilo Uiverse one-div glow) */}
           <MainDayCard
