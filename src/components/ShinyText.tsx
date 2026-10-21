@@ -1,13 +1,5 @@
 import React, { useEffect } from 'react';
-import {
-  Platform,
-  StyleProp,
-  StyleSheet,
-  Text,
-  TextStyle,
-  View,
-  ViewStyle,
-} from 'react-native';
+import { StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedProps,
@@ -26,43 +18,43 @@ import { fuentes } from '../constants/colores';
 const AnimatedLinearGradient = Animated.createAnimatedComponent(SvgLinearGradient);
 
 export interface ShinyTextProps {
-  text: string;
+  text?: string;
+  children?: React.ReactNode;
   color?: string;
   shineColor?: string;
-  speed?: number; // en segundos
-  fontSize?: number;
-  letterSpacing?: number;
-  glow?: boolean;
-  style?: StyleProp<ViewStyle>;
-  textStyle?: StyleProp<TextStyle>;
+  speed?: number;
+  delay?: number;
+  angle?: number;
+  shineWidth?: number;
+  softness?: number;
+  bands?: number;
+  glow?: number;
+  direction?: 'left' | 'right';
+  className?: string;
+  style?: StyleProp<ViewStyle | TextStyle>;
 }
 
 export default function ShinyText({
   text,
-  color = '#8A8F98',
-  shineColor = '#FFFFFF',
-  speed = 2.8,
-  fontSize = 26,
-  letterSpacing = 2.5,
-  glow = true,
-  style,
-  textStyle,
+  children,
+  color = '#b5b5b5',
+  shineColor = '#ffffff',
+  speed = 2,
+  glow = 0,
 }: ShinyTextProps) {
-  const isWeb = Platform.OS === 'web';
+  const content = text ?? (typeof children === 'string' ? children : '');
   const progress = useSharedValue(-1);
 
   useEffect(() => {
-    if (!isWeb) {
-      progress.value = withRepeat(
-        withTiming(2, {
-          duration: speed * 1000,
-          easing: Easing.inOut(Easing.cubic),
-        }),
-        -1,
-        false
-      );
-    }
-  }, [isWeb, speed, progress]);
+    progress.value = withRepeat(
+      withTiming(2, {
+        duration: speed * 1000,
+        easing: Easing.inOut(Easing.cubic),
+      }),
+      -1,
+      false
+    );
+  }, [speed, progress]);
 
   const animatedProps = useAnimatedProps(() => {
     return {
@@ -73,71 +65,25 @@ export default function ShinyText({
     };
   });
 
-  if (isWeb) {
-    const webGradient = `linear-gradient(115deg, ${color} 0%, ${color} 35%, ${shineColor} 50%, ${color} 65%, ${color} 100%)`;
-
-    return (
-      <View style={[styles.container, style]}>
-        {glow && (
-          <Text
-            style={[
-              styles.glowText,
-              {
-                fontSize,
-                letterSpacing,
-                fontFamily: fuentes.black,
-                color: shineColor,
-                opacity: 0.18,
-              },
-            ]}
-            aria-hidden={true}
-          >
-            {text}
-          </Text>
-        )}
-        <Text
-          // @ts-ignore - CSS web text-clip properties
-          style={[
-            styles.webText,
-            {
-              fontSize,
-              letterSpacing,
-              fontFamily: fuentes.black,
-              backgroundImage: webGradient,
-              animationDuration: `${speed}s`,
-            },
-            textStyle,
-          ]}
-          className="shiny-text-web"
-        >
-          {text}
-        </Text>
-      </View>
-    );
-  }
-
-  // Native (iOS / Android) usando react-native-svg con LinearGradient animado
-  const charWidth = fontSize * 0.72;
-  const estimatedWidth = Math.max(text.length * (charWidth + letterSpacing) + 20, 160);
+  const fontSize = 32;
+  const estimatedWidth = Math.max(content.length * (fontSize * 0.6) + 30, 160);
   const estimatedHeight = fontSize * 1.4;
 
   return (
-    <View style={[styles.container, style]}>
-      {glow && (
+    <View style={styles.container}>
+      {glow > 0 && (
         <Text
           style={[
             styles.glowText,
             {
               fontSize,
-              letterSpacing,
-              fontFamily: fuentes.black,
+              fontFamily: fuentes.semiBold,
               color: shineColor,
-              opacity: 0.15,
+              opacity: glow * 0.4,
             },
           ]}
-          aria-hidden={true}
         >
-          {text}
+          {content}
         </Text>
       )}
       <Svg width={estimatedWidth} height={estimatedHeight}>
@@ -147,9 +93,9 @@ export default function ShinyText({
             animatedProps={animatedProps}
           >
             <Stop offset="0%" stopColor={color} stopOpacity="1" />
-            <Stop offset="36%" stopColor={color} stopOpacity="1" />
+            <Stop offset="35%" stopColor={color} stopOpacity="1" />
             <Stop offset="50%" stopColor={shineColor} stopOpacity="1" />
-            <Stop offset="64%" stopColor={color} stopOpacity="1" />
+            <Stop offset="65%" stopColor={color} stopOpacity="1" />
             <Stop offset="100%" stopColor={color} stopOpacity="1" />
           </AnimatedLinearGradient>
         </Defs>
@@ -159,11 +105,10 @@ export default function ShinyText({
           textAnchor="middle"
           alignmentBaseline="central"
           fontSize={fontSize}
-          fontFamily={fuentes.black}
-          letterSpacing={letterSpacing}
+          fontFamily={fuentes.semiBold}
           fill="url(#shinyTextGradient)"
         >
-          {text}
+          {content}
         </SvgText>
       </Svg>
     </View>
@@ -179,13 +124,8 @@ const styles = StyleSheet.create({
   glowText: {
     position: 'absolute',
     textAlign: 'center',
-    textShadowColor: 'rgba(255, 255, 255, 0.5)',
+    textShadowColor: 'rgba(255, 255, 255, 0.4)',
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 14,
-  },
-  webText: {
-    textAlign: 'center',
-    fontWeight: '900',
-    textTransform: 'uppercase',
+    textShadowRadius: 10,
   },
 });

@@ -186,12 +186,16 @@ export default function Semana() {
           ]}
         >
           <ShinyText
-            text="DISCIPLINE"
-            fontSize={isLandscape ? 20 : 24}
-            letterSpacing={3.5}
-            speed={2.8}
-            color="#8A8F98"
-            shineColor="#FFFFFF"
+            text="Discipline"
+            speed={2}
+            color="#b5b5b5"
+            shineColor="#ffffff"
+            // @ts-ignore
+            style={{
+              fontSize: isLandscape ? '24px' : '32px',
+              fontWeight: 600,
+              letterSpacing: '-0.02em',
+            }}
           />
           {/* Botón flotante discreto de cerrar sesión */}
           <Pressable
