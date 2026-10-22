@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 229, 255, 0.025)',
     ...(Platform.OS === 'web'
       ? {
-          background: 'radial-gradient(circle, rgba(0, 229, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 40%, transparent 70%)',
+          backgroundImage: 'radial-gradient(circle, rgba(0, 229, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 40%, transparent 70%)',
           filter: 'blur(40px)',
         }
       : {}),
