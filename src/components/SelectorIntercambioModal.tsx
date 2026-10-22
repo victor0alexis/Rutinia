@@ -15,6 +15,8 @@ import { useLayout } from '../hooks/useLayout';
 import { EjercicioCatalogo } from '../types';
 import { listarEjerciciosCatalogo, crearEjercicioCatalogo } from '../services/catalogo';
 import { seguro } from '../utils/errores';
+import SelectorBibliotecaModal from './SelectorBibliotecaModal';
+import { obtenerGifEjercicio } from '../services/ejerciciosGifs';
 
 type Props = {
   visible: boolean;
@@ -38,6 +40,7 @@ export default function SelectorIntercambioModal({
   const [busqueda, setBusqueda] = useState('');
   const [catalogo, setCatalogo] = useState<EjercicioCatalogo[]>([]);
   const [creando, setCreando] = useState(false);
+  const [bibliotecaVisible, setBibliotecaVisible] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
@@ -159,6 +162,28 @@ export default function SelectorIntercambioModal({
               </Pressable>
             )}
           </View>
+
+          {/* Botón Acceso Rápido a Biblioteca Anatómica con GIFs */}
+          <Pressable
+            onPress={() => setBibliotecaVisible(true)}
+            style={({ pressed }) => [
+              styles.btnExplorarBiblioteca,
+              pressed && { opacity: 0.85 },
+            ]}
+          >
+            <View style={styles.iconBoxBiblioIntercambio}>
+              <Ionicons name="albums" size={15} color="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.btnBiblioIntercambioTitle}>
+                Explorar Biblioteca Completa (1.300+ Ejercicios)
+              </Text>
+              <Text style={styles.btnBiblioIntercambioSub}>
+                Filtrar por músculo con animaciones y técnica
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colores.suave} />
+          </Pressable>
 
           {/* Lista de Ejercicios */}
           <ScrollView
@@ -315,6 +340,19 @@ export default function SelectorIntercambioModal({
           </ScrollView>
         </View>
       </View>
+
+      {/* Selector de Biblioteca con filtro anatómico precargado */}
+      <SelectorBibliotecaModal
+        visible={bibliotecaVisible}
+        onClose={() => setBibliotecaVisible(false)}
+        onSeleccionar={(sel) => {
+          setBibliotecaVisible(false);
+          onSeleccionar(sel.nombre, modo);
+        }}
+        grupoMuscularInicial={obtenerGifEjercicio(ejercicioActualNombre).muscle}
+        titulo="Sustituir Ejercicio"
+        subtitulo={`Alternativas anatómicas para ${ejercicioActualNombre}`}
+      />
     </Modal>
   );
 }
@@ -481,5 +519,36 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fuentes.regular,
     textAlign: 'center',
+  },
+  btnExplorarBiblioteca: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(158, 28, 48, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(158, 28, 48, 0.35)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    gap: 10,
+  },
+  iconBoxBiblioIntercambio: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: colores.primario,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnBiblioIntercambioTitle: {
+    color: colores.texto,
+    fontSize: 12,
+    fontFamily: fuentes.bold,
+  },
+  btnBiblioIntercambioSub: {
+    color: colores.suave,
+    fontSize: 10,
+    fontFamily: fuentes.regular,
   },
 });

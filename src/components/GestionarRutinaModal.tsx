@@ -10,10 +10,13 @@ import {
   Platform,
   StyleSheet,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { colores, DIAS_SEMANA_ABREV, DIAS_SEMANA_NOMBRES, fuentes } from '../constants/colores';
 import GlowButton from './GlowButton';
 import BotonRutinia from './BotonRutinia';
+import SelectorBibliotecaModal, { EjercicioSeleccionadoBiblioteca } from './SelectorBibliotecaModal';
+import { obtenerGifEjercicio } from '../services/ejerciciosGifs';
 import { crearRutina, eliminarRutina, actualizarRutina } from '../services/rutinas';
 import { seguro, confirmarAccion, mostrarMensaje } from '../utils/errores';
 import { parsearEjercicioInfo } from '../utils/ejercicios';
@@ -39,6 +42,9 @@ type EjercicioInput = {
   nombre: string;
   esUnilateral: boolean;
   series: SerieInput[];
+  grupoMuscular?: string;
+  equipo?: string;
+  gifUrl?: string;
 };
 
 type Props = {
@@ -82,6 +88,63 @@ export default function GestionarRutinaModal({
   const [planesDisponibles, setPlanesDisponibles] = useState<PlanEntrenamiento[]>([]);
   const [ejercicios, setEjercicios] = useState<EjercicioInput[]>([nuevoEjercicioVacio()]);
   const [notasExpandidas, setNotasExpandidas] = useState<Record<string, boolean>>({});
+
+  // Modal selector de biblioteca de ejercicios
+  const [modalBibliotecaVisible, setModalBibliotecaVisible] = useState(false);
+  const [indiceEjercicioParaBiblioteca, setIndiceEjercicioParaBiblioteca] = useState<number | null>(null);
+
+  const abrirBibliotecaParaEjercicio = (idx: number) => {
+    setIndiceEjercicioParaBiblioteca(idx);
+    setModalBibliotecaVisible(true);
+  };
+
+  const abrirBibliotecaNuevo = () => {
+    setIndiceEjercicioParaBiblioteca(null);
+    setModalBibliotecaVisible(true);
+  };
+
+  const handleSeleccionEjercicioBiblioteca = (sel: EjercicioSeleccionadoBiblioteca) => {
+    if (indiceEjercicioParaBiblioteca !== null) {
+      setEjercicios((prev) =>
+        prev.map((ej, idx) => {
+          if (idx !== indiceEjercicioParaBiblioteca) return ej;
+          return {
+            ...ej,
+            nombre: sel.nombre,
+            grupoMuscular: sel.grupoMuscular,
+            equipo: sel.equipo,
+            gifUrl: sel.gifUrl,
+          };
+        })
+      );
+    } else {
+      setEjercicios((prev) => {
+        if (prev.length === 1 && !prev[0].nombre.trim()) {
+          return [
+            {
+              ...prev[0],
+              nombre: sel.nombre,
+              grupoMuscular: sel.grupoMuscular,
+              equipo: sel.equipo,
+              gifUrl: sel.gifUrl,
+            },
+          ];
+        }
+        return [
+          ...prev,
+          {
+            id: Date.now().toString() + Math.random().toString(),
+            nombre: sel.nombre,
+            esUnilateral: false,
+            series: [nuevaSerieVacia()],
+            grupoMuscular: sel.grupoMuscular,
+            equipo: sel.equipo,
+            gifUrl: sel.gifUrl,
+          },
+        ];
+      });
+    }
+  };
 
   const alternarNotaSerie = (sId: string) => {
     setNotasExpandidas((prev) => ({ ...prev, [sId]: !prev[sId] }));
@@ -129,11 +192,16 @@ export default function GestionarRutinaModal({
             };
           });
 
+          const gifInfo = obtenerGifEjercicio(parsed.nombreLimpio);
+
           return {
             id: e.id,
             nombre: parsed.nombreLimpio,
             esUnilateral: parsed.esUnilateral,
             series: seriesArray,
+            grupoMuscular: gifInfo.muscle,
+            equipo: gifInfo.equipment,
+            gifUrl: gifInfo.gifUrl,
           };
         });
 
@@ -537,14 +605,80 @@ export default function GestionarRutinaModal({
                   </View>
                 </View>
 
-                {/* Nombre del Ejercicio */}
-                <TextInput
-                  placeholder="Nombre del Ejercicio (ej. Remo Unilateral, Press Mancuerna)"
-                  placeholderTextColor={colores.suave}
-                  value={ej.nombre}
-                  onChangeText={(val) => cambiarNombreEjercicio(ejIdx, val)}
-                  style={styles.inputBase}
-                />
+                {/* Header / Banner con GIF y metadatos si tiene nombre */}
+                {ej.nombre.trim().length > 0 ? (
+                  <View style={styles.exercisePreviewBanner}>
+                    <View style={styles.exerciseGifContainer}>
+                      <Image
+                        source={{ uri: ej.gifUrl || obtenerGifEjercicio(ej.nombre).gifUrl }}
+                        style={styles.exerciseGifPreview}
+                        contentFit="contain"
+                        cachePolicy="disk"
+                        autoplay
+                      />
+                    </View>
+
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <TextInput
+                        placeholder="Nombre del Ejercicio"
+                        placeholderTextColor={colores.suave}
+                        value={ej.nombre}
+                        onChangeText={(val) => cambiarNombreEjercicio(ejIdx, val)}
+                        style={[styles.inputBase, { fontSize: 13, paddingVertical: 5, paddingHorizontal: 8 }]}
+                      />
+
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <View style={styles.bannerTagMusculo}>
+                          <Text style={styles.bannerTagMusculoText}>
+                            {(ej.grupoMuscular || obtenerGifEjercicio(ej.nombre).muscle || 'Cuerpo').toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={styles.bannerTagEquipo}>
+                          <Text style={styles.bannerTagEquipoText}>
+                            {(ej.equipo || obtenerGifEjercicio(ej.nombre).equipment || 'Libre').toUpperCase()}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    <Pressable
+                      onPress={() => abrirBibliotecaParaEjercicio(ejIdx)}
+                      style={styles.btnCambiarEjercicio}
+                      hitSlop={6}
+                    >
+                      <Ionicons name="swap-horizontal" size={13} color={colores.primarioHover} />
+                      <Text style={styles.btnCambiarEjercicioText}>Cambiar</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <View style={{ gap: 8 }}>
+                    <Pressable
+                      onPress={() => abrirBibliotecaParaEjercicio(ejIdx)}
+                      style={styles.btnAbrirBibliotecaCard}
+                    >
+                      <View style={styles.iconBoxBiblioteca}>
+                        <Ionicons name="barbell" size={18} color="#FFFFFF" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.btnAbrirBibliotecaTitle}>
+                          Seleccionar de la Biblioteca
+                        </Text>
+                        <Text style={styles.btnAbrirBibliotecaSub}>
+                          1.300+ ejercicios con técnica y animaciones GIF
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color={colores.suave} />
+                    </Pressable>
+
+                    <TextInput
+                      placeholder="O escribe un nombre manual..."
+                      placeholderTextColor={colores.suave}
+                      value={ej.nombre}
+                      onChangeText={(val) => cambiarNombreEjercicio(ejIdx, val)}
+                      style={[styles.inputBase, { fontSize: 13 }]}
+                    />
+                  </View>
+                )}
 
                 {/* Tabla de Series (Bilateral vs Unilateral D/I) */}
                 {ej.esUnilateral ? (
@@ -765,16 +899,36 @@ export default function GestionarRutinaModal({
               </View>
             ))}
 
-            {/* Botón + Añadir Otro Ejercicio */}
-            <GlowButton
-              title="+ Añadir Otro Ejercicio"
-              icon="add-circle-outline"
-              onPress={agregarEjercicio}
-              variant="outline"
-              size="md"
-              shape="rounded"
-              fullWidth
-            />
+            {/* Botones para Añadir Ejercicios */}
+            <View style={{ gap: 8, marginTop: 4 }}>
+              <Pressable
+                onPress={abrirBibliotecaNuevo}
+                style={({ pressed }) => [
+                  styles.addFromLibraryButton,
+                  pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] },
+                ]}
+              >
+                <View style={styles.libraryButtonIconBox}>
+                  <Ionicons name="barbell" size={18} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.addFromLibraryButtonText}>+ Añadir desde Biblioteca</Text>
+                  <Text style={styles.addFromLibrarySubtext}>Explorar por músculo con GIFs oscuros</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.7)" />
+              </Pressable>
+
+              <Pressable
+                onPress={agregarEjercicio}
+                style={({ pressed }) => [
+                  styles.addCustomButton,
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <Ionicons name="create-outline" size={15} color={colores.suave} />
+                <Text style={styles.addCustomButtonText}>+ Añadir ejercicio manual</Text>
+              </Pressable>
+            </View>
 
             {/* Botón Guardar / Actualizar */}
             <BotonRutinia
@@ -785,6 +939,13 @@ export default function GestionarRutinaModal({
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Modal de Exploración y Selección de la Biblioteca de Ejercicios */}
+      <SelectorBibliotecaModal
+        visible={modalBibliotecaVisible}
+        onClose={() => setModalBibliotecaVisible(false)}
+        onSeleccionar={handleSeleccionEjercicioBiblioteca}
+      />
     </Modal>
   );
 }
@@ -932,6 +1093,147 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: colores.primarioHover,
     marginTop: 2,
+  },
+  // Estilos de Integración de Biblioteca
+  exercisePreviewBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 14,
+    padding: 8,
+    gap: 10,
+  },
+  exerciseGifContainer: {
+    width: 52,
+    height: 52,
+    borderRadius: 10,
+    backgroundColor: '#06070B',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exerciseGifPreview: {
+    width: '100%',
+    height: '100%',
+  },
+  bannerTagMusculo: {
+    backgroundColor: 'rgba(158, 28, 48, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(158, 28, 48, 0.35)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 5,
+  },
+  bannerTagMusculoText: {
+    color: colores.primarioHover,
+    fontSize: 9,
+    fontFamily: fuentes.bold,
+  },
+  bannerTagEquipo: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 5,
+  },
+  bannerTagEquipoText: {
+    color: colores.suave,
+    fontSize: 9,
+    fontFamily: fuentes.medium,
+  },
+  btnCambiarEjercicio: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(158, 28, 48, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(158, 28, 48, 0.3)',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  btnCambiarEjercicioText: {
+    color: colores.primarioHover,
+    fontSize: 10,
+    fontFamily: fuentes.bold,
+  },
+  btnAbrirBibliotecaCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(158, 28, 48, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(158, 28, 48, 0.35)',
+    borderRadius: 14,
+    padding: 10,
+    gap: 10,
+  },
+  iconBoxBiblioteca: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: colores.primario,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnAbrirBibliotecaTitle: {
+    color: colores.texto,
+    fontSize: 13,
+    fontFamily: fuentes.bold,
+  },
+  btnAbrirBibliotecaSub: {
+    color: colores.suave,
+    fontSize: 11,
+    fontFamily: fuentes.regular,
+  },
+  addFromLibraryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#821425',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  libraryButtonIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addFromLibraryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontFamily: fuentes.bold,
+  },
+  addFromLibrarySubtext: {
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontSize: 10,
+    fontFamily: fuentes.regular,
+  },
+  addCustomButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: colores.borde,
+    borderRadius: 12,
+    paddingVertical: 10,
+  },
+  addCustomButtonText: {
+    color: colores.suave,
+    fontSize: 12,
+    fontFamily: fuentes.medium,
   },
 });
 
