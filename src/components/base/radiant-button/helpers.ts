@@ -23,15 +23,15 @@ const createDotShaderSource = <T extends number, D extends number>(
     float spacing = ${spacing.toFixed(1)};
     float dotR = ${dotRadius.toFixed(2)};
 
-    float2 grid = fragCoord - spacing * floor(fragCoord / spacing);
+    float2 grid = mod(fragCoord, spacing);
     float d = length(grid - float2(spacing * 0.5, spacing * 0.5));
     float dot = 1.0 - smoothstep(dotR - 0.3, dotR + 0.1, d);
 
     float2 center = iResolution * 0.5;
     float2 dir = fragCoord - center;
     float a = atan(dir.y, dir.x);
-    float norm = (a + 3.1415926535) / 6.283185307;
-    float rot = fract(norm - angle / 6.283185307 - 0.125);
+    float norm = (a + 3.14159265) / 6.28318530;
+    float rot = fract(norm - angle / 6.28318530 - 0.125);
 
     float mask = (1.0 - smoothstep(0.0, 0.12, rot)) + smoothstep(0.88, 1.0, rot);
 

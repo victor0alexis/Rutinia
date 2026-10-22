@@ -324,6 +324,10 @@ export default function Semana() {
             atendidoPartidaRef.current = true;
             cargar();
           }}
+          onVolver={() => {
+            setModalPartidaVisible(false);
+            atendidoPartidaRef.current = true;
+          }}
         />
       </SafeAreaView>
     </ScreenBackground>
