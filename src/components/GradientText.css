@@ -34,6 +34,17 @@
   display: inline-block;
 }
 
+.gradient-text__inner,
+.gradient-text__content,
+.gradient-text__glow {
+  font-family: inherit;
+  font-size: inherit;
+  font-style: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+}
+
 .gradient-text__content {
   display: inline-block;
   background-image: var(--gt-gradient);

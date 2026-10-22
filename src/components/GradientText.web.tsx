@@ -238,6 +238,13 @@ export default function GradientText({
   }, []);
 
   const loop = [...palette, palette[0]];
+  const normalizedStyle: CSSProperties = { ...style };
+
+  // React Native uses px numbers for `lineHeight`, while raw CSS treats a
+  // unitless line-height as a multiplier. Normalize it before rendering the DOM.
+  if (typeof normalizedStyle.lineHeight === 'number') {
+    normalizedStyle.lineHeight = `${normalizedStyle.lineHeight}px`;
+  }
 
   return (
     <span
@@ -248,7 +255,7 @@ export default function GradientText({
           '--gt-gradient': `linear-gradient(${direction ? (ANGLES[direction] ?? angle) : angle}deg, ${loop.join(', ')})`,
           '--gt-border': `${borderWidth}px`,
           '--gt-glow': clamp(glow, 0, 1),
-          ...style,
+          ...normalizedStyle,
         } as CSSProperties
       }
     >
