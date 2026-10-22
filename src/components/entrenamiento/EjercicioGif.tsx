@@ -1,23 +1,21 @@
-import React, { useEffect, useState } from 'react';
-import {
-  StyleSheet,
-  View,
-  type LayoutChangeEvent,
-} from 'react-native';
+/* eslint-disable react-hooks/immutability */
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { Image } from 'expo-image';
 import {
   Canvas,
   ColorMatrix,
   Image as SkiaImage,
   useAnimatedImage,
   useImage,
+  type SkImage,
 } from '@shopify/react-native-skia';
-import type { SkImage } from '@shopify/react-native-skia';
-import { useFrameCallback, useSharedValue } from 'react-native-reanimated';
+import { useSharedValue, useFrameCallback } from 'react-native-reanimated';
 import type { EjercicioGifProps } from './EjercicioGif.types';
 
 /**
- * Inversión óptica equivalente al filtro web:
- * invert(1) contrast(1.1) brightness(0.96)
+ * Inversión óptica para Dark Mode:
+ * Convierte el fondo blanco en negro profundo preservando el rojo muscular.
  */
 const INVERT_MATRIX = [
   -1.056, 0, 0, 0, 1.008,
@@ -35,9 +33,11 @@ export default function EjercicioGif({
   animated,
   paused = false,
   accessibilityLabel,
+  transition,
 }: EjercicioGifProps) {
   const [size, setSize] = useState({ width: 0, height: 0 });
-  const isAnimated = animated ?? GIF_RE.test(uri);
+  const [skiaFallo, setSkiaFallo] = useState(false);
+  const isAnimated = animated ?? GIF_RE.test(uri || '');
 
   const handleLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -48,6 +48,8 @@ export default function EjercicioGif({
     );
   };
 
+  if (!uri) return null;
+
   return (
     <View
       style={[styles.container, style]}
@@ -56,7 +58,8 @@ export default function EjercicioGif({
       accessibilityRole={accessibilityLabel ? 'image' : undefined}
       accessibilityLabel={accessibilityLabel}
     >
-      {size.width > 0 && size.height > 0 ? (
+      {/* 1. Capa Skia con ColorMatrix para Dark Mode nativo */}
+      {!skiaFallo && size.width > 0 && size.height > 0 ? (
         isAnimated ? (
           <AnimatedGif
             uri={uri}
@@ -64,6 +67,7 @@ export default function EjercicioGif({
             height={size.height}
             contentFit={contentFit}
             paused={paused}
+            onError={() => setSkiaFallo(true)}
           />
         ) : (
           <StaticGif
@@ -71,9 +75,23 @@ export default function EjercicioGif({
             width={size.width}
             height={size.height}
             contentFit={contentFit}
+            onError={() => setSkiaFallo(true)}
           />
         )
       ) : null}
+
+      {/* 2. Fallback de expo-image nativo para asegurar que siempre sea visible */}
+      {skiaFallo && (
+        <Image
+          source={{ uri }}
+          style={StyleSheet.absoluteFill}
+          contentFit={contentFit}
+          autoplay={!paused}
+          cachePolicy="disk"
+          transition={transition}
+          accessibilityLabel={accessibilityLabel}
+        />
+      )}
     </View>
   );
 }
@@ -83,10 +101,13 @@ interface FrameProps {
   width: number;
   height: number;
   contentFit: 'contain' | 'cover';
+  onError?: () => void;
 }
 
-function StaticGif({ uri, width, height, contentFit }: FrameProps) {
-  const image = useImage(uri, () => {});
+function StaticGif({ uri, width, height, contentFit, onError }: FrameProps) {
+  const image = useImage(uri, () => {
+    onError?.();
+  });
 
   if (!image) {
     return null;
@@ -107,35 +128,27 @@ function AnimatedGif({
   height,
   contentFit,
   paused,
+  onError,
 }: FrameProps & { paused: boolean }) {
-  const frame = useSafeAnimatedImage(uri, paused);
-
-  return (
-    <Canvas style={[styles.canvas, { width, height }]} pointerEvents="none">
-      <SkiaImage image={frame} x={0} y={0} width={width} height={height} fit={contentFit}>
-        <ColorMatrix matrix={INVERT_MATRIX} />
-      </SkiaImage>
-    </Canvas>
-  );
-}
-
-/**
- * Versión segura de `useAnimatedImageValue`: si el GIF no carga, deja el
- * lienzo vacío en lugar de lanzar una excepción.
- */
-function useSafeAnimatedImage(uri: string, paused: boolean) {
-  const animatedImage = useAnimatedImage(uri, () => {});
+  const animatedImage = useAnimatedImage(uri, () => {
+    onError?.();
+  });
   const frame = useSharedValue<SkImage | null>(null);
   const lastTimestamp = useSharedValue(-1);
-  const isPaused = useSharedValue(paused);
   const frameDuration = animatedImage?.currentFrameDuration() ?? 60;
 
   useEffect(() => {
-    isPaused.value = paused;
-  }, [isPaused, paused]);
+    if (animatedImage) {
+      try {
+        frame.value = animatedImage.getCurrentFrame();
+      } catch {
+        onError?.();
+      }
+    }
+  }, [animatedImage, frame, onError]);
 
   useFrameCallback(({ timestamp }) => {
-    if (!animatedImage || isPaused.value) {
+    if (!animatedImage || paused) {
       return;
     }
 
@@ -148,20 +161,32 @@ function useSafeAnimatedImage(uri: string, paused: boolean) {
       return;
     }
 
-    animatedImage.decodeNextFrame();
-    const previousFrame = frame.value;
-    frame.value = animatedImage.getCurrentFrame();
-    previousFrame?.dispose();
-    lastTimestamp.value = timestamp;
+    try {
+      animatedImage.decodeNextFrame();
+      const previousFrame = frame.value;
+      frame.value = animatedImage.getCurrentFrame();
+      previousFrame?.dispose();
+      lastTimestamp.value = timestamp;
+    } catch {
+      // Ignorar errores puntuales entre frames
+    }
   });
 
-  return frame;
+  return (
+    <Canvas style={[styles.canvas, { width, height }]} pointerEvents="none">
+      <SkiaImage image={frame} x={0} y={0} width={width} height={height} fit={contentFit}>
+        <ColorMatrix matrix={INVERT_MATRIX} />
+      </SkiaImage>
+    </Canvas>
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     overflow: 'hidden',
     backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   canvas: {
     position: 'absolute',

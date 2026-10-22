@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colores, fuentes } from '../../constants/colores';
 import { vibrarBoton } from '../../utils/haptics';
 import { EjercicioGifInfo, obtenerGifEjercicio } from '../../services/ejerciciosGifs';
+import { parsearEjercicioInfo } from '../../utils/ejercicios';
 import EjercicioGif from './EjercicioGif';
 
 interface Props {
@@ -33,7 +34,9 @@ export default function HeroEjercicioActivo({
   tieneHistorialPrevio,
 }: Props) {
   const [modalTutorialVisible, setModalTutorialVisible] = useState(false);
-  const gifInfo: EjercicioGifInfo = obtenerGifEjercicio(nombreEjercicio);
+  const infoParsed = parsearEjercicioInfo({ nombre: nombreEjercicio });
+  const nombreParaBuscar = infoParsed.nombreLimpio || nombreEjercicio;
+  const gifInfo: EjercicioGifInfo = obtenerGifEjercicio(nombreParaBuscar);
 
   const equipamientoTexto = gifInfo.equipment ? gifInfo.equipment.toUpperCase() : 'PESO LIBRE';
   const grupoMuscular = (gifInfo.muscle || 'Cuerpo').toUpperCase();

@@ -104,10 +104,14 @@ export default function Root({ children }: PropsWithChildren) {
 
           /* Inversión estética para GIFs y miniaturas anatómicas de ejercicios (Dark Mode) */
           img[src*="JahelCuadrado"],
+          img[src*="ExerciseGymGifsDB"],
           img[src*="exercises"],
           img[src*=".thumb.webp"],
-          img[src*=".gif"] {
-            filter: invert(1) contrast(1.1) brightness(0.96) !important;
+          img[src*=".gif"],
+          [data-dark-gif="true"] img,
+          .rutinia-dark-gif img {
+            filter: invert(1) hue-rotate(180deg) contrast(1.15) brightness(0.95) !important;
+            -webkit-filter: invert(1) hue-rotate(180deg) contrast(1.15) brightness(0.95) !important;
             background-color: transparent !important;
           }
 

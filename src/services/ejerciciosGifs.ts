@@ -12,8 +12,8 @@ export interface EjercicioGifInfo {
   thumbUrl: string;
 }
 
-const CDN_BASE = 'https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@main';
-const STORAGE_KEY = '@rutinia_gym_gifs_cache_v1';
+const CDN_BASE = 'https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0';
+const STORAGE_KEY = '@rutinia_gym_gifs_cache_v2';
 
 /**
  * Mapeo curado de alta prioridad para ejercicios comunes en Rutinia.
@@ -185,7 +185,11 @@ export async function cargarCatalogoCompleto(): Promise<EjercicioGifInfo[]> {
       if (guardado) {
         const parsed = JSON.parse(guardado) as EjercicioGifInfo[];
         if (Array.isArray(parsed) && parsed.length > 0) {
-          catalogoCompleto = parsed;
+          catalogoCompleto = parsed.map((ex) => ({
+            ...ex,
+            gifUrl: ex.gifUrl || `${CDN_BASE}/${ex.id}.gif`,
+            thumbUrl: ex.thumbUrl || `${CDN_BASE}/${ex.id}.thumb.webp`,
+          }));
           return catalogoCompleto;
         }
       }
@@ -194,8 +198,19 @@ export async function cargarCatalogoCompleto(): Promise<EjercicioGifInfo[]> {
       const res = await fetch(`${CDN_BASE}/api/es/exercises.json`);
       if (res.ok) {
         const data = await res.json();
-        const lista = (data.exercises || []) as EjercicioGifInfo[];
-        if (lista.length > 0) {
+        const listaRaw = (data.exercises || []) as any[];
+        if (listaRaw.length > 0) {
+          const lista: EjercicioGifInfo[] = listaRaw.map((ex) => ({
+            id: ex.id,
+            slug: ex.slug || ex.id.split('/')[1] || ex.id,
+            name: ex.name,
+            muscle: ex.muscle,
+            bodyPart: ex.bodyPart || ex.muscle,
+            equipment: ex.equipment || 'bodyweight',
+            instructions: Array.isArray(ex.instructions) ? ex.instructions : [],
+            gifUrl: ex.gifUrl || `${CDN_BASE}/${ex.id}.gif`,
+            thumbUrl: ex.thumbUrl || `${CDN_BASE}/${ex.id}.thumb.webp`,
+          }));
           catalogoCompleto = lista;
           AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(lista)).catch(() => {});
           return catalogoCompleto;
@@ -272,7 +287,11 @@ export function obtenerGifEjercicio(nombreEjercicio: string): EjercicioGifInfo {
     }
 
     if (mejorMatch && mejorPuntuacion > 10) {
-      return mejorMatch;
+      return {
+        ...mejorMatch,
+        gifUrl: mejorMatch.gifUrl || `${CDN_BASE}/${mejorMatch.id}.gif`,
+        thumbUrl: mejorMatch.thumbUrl || `${CDN_BASE}/${mejorMatch.id}.thumb.webp`,
+      };
     }
   }
 
