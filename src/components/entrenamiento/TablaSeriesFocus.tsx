@@ -37,10 +37,10 @@ interface Props {
   activo?: boolean;
   focusCampoActivo?: {
     sIdx: number;
-    campo: 'kg' | 'reps' | 'rir';
+    campo: 'kg' | 'reps' | 'rir' | 'parciales';
     dropIdx?: number;
   } | null;
-  onFocusCampo: (sIdx: number, campo: 'kg' | 'reps' | 'rir', dropIdx?: number) => void;
+  onFocusCampo: (sIdx: number, campo: 'kg' | 'reps' | 'rir' | 'parciales', dropIdx?: number) => void;
   onToggleCompletado: (sIdx: number, dropIdx?: number) => void;
   onAnadirSerie: () => void;
   onEliminarSerie: (sIdx: number) => void;
@@ -95,9 +95,31 @@ export default function TablaSeriesFocus({
   const handleToggleParciales = () => {
     if (menuSerieIdx === null || !serieSeleccionada) return;
     const actual = serieSeleccionada.repsParciales || 0;
+    const nuevo = actual > 0 ? 0 : 3;
     onActualizarSerie(menuSerieIdx, {
-      repsParciales: actual > 0 ? 0 : 3,
+      repsParciales: nuevo,
     });
+    if (nuevo > 0) {
+      onFocusCampo(menuSerieIdx, 'parciales');
+      cerrarMenu();
+    }
+  };
+
+  const handleCambiarParciales = (delta: number) => {
+    if (menuSerieIdx === null || !serieSeleccionada) return;
+    const actual = serieSeleccionada.repsParciales || 3;
+    const nuevo = Math.max(1, actual + delta);
+    onActualizarSerie(menuSerieIdx, {
+      repsParciales: nuevo,
+    });
+  };
+
+  const handleSeleccionarParcialesDirecto = (cant: number) => {
+    if (menuSerieIdx === null || !serieSeleccionada) return;
+    onActualizarSerie(menuSerieIdx, {
+      repsParciales: cant,
+    });
+    onFocusCampo(menuSerieIdx, 'parciales');
     cerrarMenu();
   };
 
@@ -136,6 +158,7 @@ export default function TablaSeriesFocus({
         {series.map((s, sIdx) => {
           const esFocusKg = focusCampoActivo?.sIdx === sIdx && focusCampoActivo?.campo === 'kg' && focusCampoActivo?.dropIdx === undefined;
           const esFocusReps = focusCampoActivo?.sIdx === sIdx && focusCampoActivo?.campo === 'reps' && focusCampoActivo?.dropIdx === undefined;
+          const esFocusParciales = focusCampoActivo?.sIdx === sIdx && focusCampoActivo?.campo === 'parciales' && focusCampoActivo?.dropIdx === undefined;
           const esFocusRir = focusCampoActivo?.sIdx === sIdx && focusCampoActivo?.campo === 'rir' && focusCampoActivo?.dropIdx === undefined;
           const tieneParciales = Boolean(s.repsParciales && s.repsParciales > 0);
 
@@ -170,18 +193,41 @@ export default function TablaSeriesFocus({
                   </Text>
                 </Pressable>
 
-                {/* INPUT REPS */}
-                <Pressable
-                  onPress={() => onFocusCampo(sIdx, 'reps')}
-                  style={[styles.inputBox, esFocusReps && styles.inputBoxActivo]}
+                {/* INPUT REPS + PARCIALES INTERACTIVO */}
+                <View
+                  style={[
+                    styles.inputBox,
+                    styles.inputBoxRepsGroup,
+                    (esFocusReps || esFocusParciales) && styles.inputBoxActivo,
+                    esFocusParciales && styles.inputBoxParcialesActivo,
+                  ]}
                 >
-                  <Text style={[styles.inputText, !s.reps && styles.inputPlaceholder]}>
-                    {s.reps || '0'}
-                    {tieneParciales && (
-                      <Text style={styles.parcialesTag}>+{s.repsParciales}p</Text>
-                    )}
-                  </Text>
-                </Pressable>
+                  <Pressable
+                    onPress={() => onFocusCampo(sIdx, 'reps')}
+                    style={styles.repsTouchArea}
+                    hitSlop={2}
+                  >
+                    <Text style={[styles.inputText, !s.reps && styles.inputPlaceholder, esFocusReps && { color: '#7CF3FF' }]}>
+                      {s.reps || '0'}
+                    </Text>
+                  </Pressable>
+
+                  {tieneParciales && (
+                    <Pressable
+                      onPress={() => onFocusCampo(sIdx, 'parciales')}
+                      style={({ pressed }) => [
+                        styles.parcialesBadgeTouch,
+                        esFocusParciales && styles.parcialesBadgeTouchActivo,
+                        pressed && { opacity: 0.7 },
+                      ]}
+                      hitSlop={5}
+                    >
+                      <Text style={[styles.parcialesTag, esFocusParciales && styles.parcialesTagActivo]}>
+                        +{s.repsParciales}p
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
 
                 {/* INPUT RIR */}
                 <Pressable
@@ -315,15 +361,80 @@ export default function TablaSeriesFocus({
               </View>
             </Pressable>
 
-            <Pressable style={styles.menuOption} onPress={handleToggleParciales}>
-              <Ionicons name="flash-outline" size={19} color="#F59E0B" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.menuOptionText}>
-                  {serieSeleccionada?.repsParciales ? 'Quitar Reps Parciales' : 'Añadir Reps Parciales (+p)'}
-                </Text>
-                <Text style={styles.menuOptionSub}>Repeticiones tras el fallo muscular</Text>
+            {/* Opción Reps Parciales Configurable */}
+            <View style={styles.menuConfigBox}>
+              <View style={styles.menuConfigHeader}>
+                <Ionicons name="flash-outline" size={19} color="#F59E0B" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.menuOptionText}>
+                    {serieSeleccionada?.repsParciales ? `Reps Parciales (+${serieSeleccionada.repsParciales}p)` : 'Añadir Reps Parciales (+p)'}
+                  </Text>
+                  <Text style={styles.menuOptionSub}>Repeticiones tras el fallo muscular</Text>
+                </View>
+                <Pressable
+                  onPress={handleToggleParciales}
+                  style={[
+                    styles.switchBadge,
+                    serieSeleccionada?.repsParciales ? styles.switchBadgeActivo : styles.switchBadgeInactivo,
+                  ]}
+                >
+                  <Text style={[
+                    styles.switchBadgeText,
+                    Boolean(serieSeleccionada?.repsParciales) && styles.switchBadgeTextActivo,
+                  ]}>
+                    {serieSeleccionada?.repsParciales ? 'ACTIVADO' : 'AÑADIR'}
+                  </Text>
+                </Pressable>
               </View>
-            </Pressable>
+
+              {Boolean(serieSeleccionada?.repsParciales && serieSeleccionada.repsParciales > 0) && (
+                <View style={styles.parcialesConfigRow}>
+                  {/* Stepper +/- */}
+                  <View style={styles.parcialesStepper}>
+                    <Pressable
+                      onPress={() => handleCambiarParciales(-1)}
+                      style={styles.stepperBtn}
+                      hitSlop={6}
+                    >
+                      <Ionicons name="remove" size={16} color="#FFFFFF" />
+                    </Pressable>
+                    <Text style={styles.stepperValue}>
+                      +{serieSeleccionada?.repsParciales}p
+                    </Text>
+                    <Pressable
+                      onPress={() => handleCambiarParciales(1)}
+                      style={styles.stepperBtn}
+                      hitSlop={6}
+                    >
+                      <Ionicons name="add" size={16} color="#FFFFFF" />
+                    </Pressable>
+                  </View>
+
+                  {/* Chips rápidos 1, 2, 3, 4, 5 */}
+                  <View style={styles.parcialesChipsRow}>
+                    {[1, 2, 3, 4, 5].map((num) => (
+                      <Pressable
+                        key={num}
+                        onPress={() => handleSeleccionarParcialesDirecto(num)}
+                        style={[
+                          styles.chipParcial,
+                          serieSeleccionada?.repsParciales === num && styles.chipParcialActivo,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.chipParcialText,
+                            serieSeleccionada?.repsParciales === num && styles.chipParcialTextActivo,
+                          ]}
+                        >
+                          +{num}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
 
             <Pressable style={styles.menuOption} onPress={handleToggleCalentamiento}>
               <Ionicons name="flame-outline" size={19} color="#93C5FD" />
@@ -458,9 +569,42 @@ const styles = StyleSheet.create({
   inputPlaceholder: {
     color: 'rgba(255, 255, 255, 0.25)',
   },
+  inputBoxRepsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  inputBoxParcialesActivo: {
+    borderColor: '#F59E0B',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+  },
+  repsTouchArea: {
+    paddingHorizontal: 3,
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  parcialesBadgeTouch: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 3,
+  },
+  parcialesBadgeTouchActivo: {
+    backgroundColor: 'rgba(245, 158, 11, 0.35)',
+    borderColor: '#F59E0B',
+  },
   parcialesTag: {
     color: '#F59E0B',
     fontSize: 11,
+    fontFamily: fuentes.black,
+  },
+  parcialesTagActivo: {
+    color: '#FCD34D',
     fontFamily: fuentes.black,
   },
   rirBox: {
@@ -584,5 +728,101 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255, 255, 255, 0.08)',
     marginTop: 6,
     paddingTop: 16,
+  },
+  menuConfigBox: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    gap: 10,
+  },
+  menuConfigHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  switchBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  switchBadgeActivo: {
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    borderColor: '#F59E0B',
+  },
+  switchBadgeInactivo: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  switchBadgeText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontFamily: fuentes.bold,
+    fontSize: 10.5,
+  },
+  switchBadgeTextActivo: {
+    color: '#F59E0B',
+  },
+  parcialesConfigRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  parcialesStepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    paddingHorizontal: 4,
+    paddingVertical: 3,
+    gap: 8,
+  },
+  stepperBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 7,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperValue: {
+    color: '#F59E0B',
+    fontFamily: fuentes.black,
+    fontSize: 15,
+    minWidth: 36,
+    textAlign: 'center',
+  },
+  parcialesChipsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  chipParcial: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  chipParcialActivo: {
+    backgroundColor: 'rgba(245, 158, 11, 0.25)',
+    borderColor: '#F59E0B',
+  },
+  chipParcialText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontFamily: fuentes.bold,
+    fontSize: 12,
+  },
+  chipParcialTextActivo: {
+    color: '#F59E0B',
   },
 });

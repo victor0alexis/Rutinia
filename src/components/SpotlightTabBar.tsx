@@ -15,7 +15,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-import { colores, fuentes } from '../constants/colores';
+import { fuentes, noir } from '../constants/colores';
 import { vibrarBoton } from '../utils/haptics';
 import { useLayout } from '../hooks/useLayout';
 
@@ -67,6 +67,7 @@ export default function SpotlightTabBar({
 }: BottomTabBarProps) {
   const { isLandscape, isCompact } = useLayout();
   const [containerWidth, setContainerWidth] = useState(0);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const activeIndex = state.index;
   const numTabs = state.routes.length;
@@ -198,6 +199,8 @@ export default function SpotlightTabBar({
               <Pressable
                 key={route.key}
                 onPress={onPress}
+                onHoverIn={() => setHoveredIndex(index)}
+                onHoverOut={() => setHoveredIndex(null)}
                 style={({ pressed }) => [
                   styles.tabItem,
                   pressed && { opacity: 0.75, transform: [{ scale: 0.96 }] },
@@ -209,7 +212,13 @@ export default function SpotlightTabBar({
                 <Ionicons
                   name={isFocused ? meta.iconFocused : meta.iconOutline}
                   size={isLandscape ? 19 : isCompact ? 19 : 21}
-                  color={isFocused ? '#FFFFFF' : colores.suave}
+                  color={
+                    isFocused
+                      ? '#FFFFFF'
+                      : hoveredIndex === index
+                      ? '#E8EDF4'
+                      : noir.muted
+                  }
                 />
                 {!isLandscape && (
                   <Text
@@ -217,7 +226,12 @@ export default function SpotlightTabBar({
                     style={[
                       styles.tabLabel,
                       {
-                        color: isFocused ? '#FFFFFF' : colores.suave,
+                        color:
+                          isFocused
+                            ? '#FFFFFF'
+                            : hoveredIndex === index
+                            ? '#E8EDF4'
+                            : noir.muted,
                         fontFamily: isFocused ? fuentes.extraBold : fuentes.medium,
                       },
                     ]}
@@ -290,6 +304,13 @@ const styles = StyleSheet.create({
     width: 44,
     height: 2,
     zIndex: 10,
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.55,
+    shadowRadius: 4,
+    elevation: 4,
+    // @ts-ignore
+    boxShadow: '0 0 8px rgba(255, 255, 255, 0.55)',
   },
   itemsRow: {
     flex: 1,

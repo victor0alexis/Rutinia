@@ -38,6 +38,8 @@ export interface LiquidMetalButtonProps {
   tamano?: 'normal' | 'compacto' | 'lg';
   /** Alto explícito del botón. Si se omite, se usa el alto de `tamano`. */
   height?: number;
+  /** Radio de borde explícito. Si se omite, se usa una cápsula (alto / 2). */
+  borderRadius?: number;
   /** Configuración personalizada del shader de metal */
   metalConfig?: LiquidMetalShaderConfig;
   /** Etiqueta accesible. Si se omite, se usa `titulo`. */
@@ -56,6 +58,7 @@ export const LiquidMetalButton = memo(function LiquidMetalButton({
   borderWidth = 4,
   tamano = 'normal',
   height,
+  borderRadius,
   metalConfig,
   accessibilityLabel,
   style,
@@ -66,7 +69,7 @@ export const LiquidMetalButton = memo(function LiquidMetalButton({
   const altoDefecto =
     height ?? (tamano === 'compacto' ? 44 : tamano === 'lg' ? 56 : 52);
   const altoFinal = dimensiones.alto > 0 ? dimensiones.alto : altoDefecto;
-  const borderRadius = altoFinal / 2;
+  const radioBorde = borderRadius ?? altoFinal / 2;
 
   const estiloAnimado = useAnimatedStyle(() => ({
     transform: [{ scale: 1 - 0.025 * presionado.value }],
@@ -108,7 +111,7 @@ export const LiquidMetalButton = memo(function LiquidMetalButton({
           styles.pressableWrapper,
           {
             height: altoDefecto,
-            borderRadius,
+            borderRadius: radioBorde,
             opacity: disabled ? 0.5 : 1,
           },
         ]}
@@ -117,7 +120,7 @@ export const LiquidMetalButton = memo(function LiquidMetalButton({
         <LiquidMetalShader
           width={dimensiones.ancho}
           height={altoFinal}
-          borderRadius={borderRadius}
+          borderRadius={radioBorde}
           borderWidth={borderWidth}
           colorBack={metalConfig?.colorBack}
           colorTint={metalConfig?.colorTint}
@@ -141,7 +144,7 @@ export const LiquidMetalButton = memo(function LiquidMetalButton({
               left: borderWidth,
               right: borderWidth,
               bottom: borderWidth,
-              borderRadius: Math.max(0, borderRadius - borderWidth),
+              borderRadius: Math.max(0, radioBorde - borderWidth),
               paddingHorizontal: tamano === 'compacto' ? 14 : 22,
             },
           ]}

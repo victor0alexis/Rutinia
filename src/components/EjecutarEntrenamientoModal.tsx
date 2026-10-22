@@ -524,7 +524,7 @@ export default function EjecutarEntrenamientoModal({
     });
   };
 
-  const toggleRepsParciales = (ejIndex: number, sIndex: number) => {
+  const toggleRepsParciales = (ejIndex: number, sIndex: number, valorDirecto?: number) => {
     setEjerciciosState((prev) => {
       const next = prev.map((ej, i) => {
         if (i !== ejIndex) return ej;
@@ -532,11 +532,19 @@ export default function EjecutarEntrenamientoModal({
           ...ej,
           series: ej.series.map((s, sj) => {
             if (sj !== sIndex) return s;
-            const nuevoTiene = !s.tieneParciales;
+            const nuevoTiene = valorDirecto !== undefined ? valorDirecto > 0 : !s.tieneParciales;
+            const repsParcialesFinal =
+              valorDirecto !== undefined
+                ? valorDirecto
+                : nuevoTiene && (!s.repsParciales || s.repsParciales <= 0)
+                ? 3
+                : nuevoTiene
+                ? s.repsParciales
+                : 0;
             return {
               ...s,
               tieneParciales: nuevoTiene,
-              repsParciales: nuevoTiene && (!s.repsParciales || s.repsParciales <= 0) ? 3 : s.repsParciales,
+              repsParciales: repsParcialesFinal,
             };
           }),
         };
@@ -665,6 +673,13 @@ export default function EjecutarEntrenamientoModal({
       } else if (campo === 'pesoI') {
         setFocusTeclado({ ejIdx, sIdx, campo: 'repsI' });
       } else if (campo === 'repsI') {
+        const serie = ej.series[sIdx];
+        if (serie?.tieneParciales || (serie?.repsParciales && serie.repsParciales > 0)) {
+          setFocusTeclado({ ejIdx, sIdx, campo: 'parciales' });
+        } else {
+          setFocusTeclado({ ejIdx, sIdx, campo: 'rir' });
+        }
+      } else if (campo === 'parciales') {
         setFocusTeclado({ ejIdx, sIdx, campo: 'rir' });
       } else {
         pasarASiguienteSerie(ejIdx, sIdx);
@@ -675,6 +690,13 @@ export default function EjecutarEntrenamientoModal({
     if (campo === 'peso') {
       setFocusTeclado({ ejIdx, sIdx, campo: 'reps' });
     } else if (campo === 'reps') {
+      const serie = ej.series[sIdx];
+      if (serie?.tieneParciales || (serie?.repsParciales && serie.repsParciales > 0)) {
+        setFocusTeclado({ ejIdx, sIdx, campo: 'parciales' });
+      } else {
+        setFocusTeclado({ ejIdx, sIdx, campo: 'rir' });
+      }
+    } else if (campo === 'parciales') {
       setFocusTeclado({ ejIdx, sIdx, campo: 'rir' });
     } else {
       const serie = ej.series[sIdx];
@@ -699,6 +721,10 @@ export default function EjecutarEntrenamientoModal({
     const serie = ejerciciosState[ejIdx]?.series[sIdx];
     if (!serie) return '';
 
+    if (campo === 'parciales') {
+      return serie.repsParciales ? String(serie.repsParciales) : '';
+    }
+
     if (dropIdx !== undefined) {
       const drop = serie.drops[dropIdx];
       if (!drop) return '';
@@ -710,7 +736,7 @@ export default function EjecutarEntrenamientoModal({
 
     if (campo === 'pesoI') return serie.pesoI !== undefined ? serie.pesoI : serie.peso;
     if (campo === 'repsI') return serie.repsI !== undefined ? serie.repsI : serie.reps;
-    return serie[campo] || '';
+    return (serie as any)[campo] || '';
   };
 
   const obtenerValorPrevioSugerido = (): string | undefined => {
@@ -740,6 +766,30 @@ export default function EjecutarEntrenamientoModal({
   const actualizarValorDesdeTeclado = (nuevoValor: string) => {
     if (!focusTeclado) return;
     const { ejIdx, sIdx, campo, dropIdx } = focusTeclado;
+
+    if (campo === 'parciales') {
+      const numVal = parseInt(nuevoValor, 10);
+      const finalReps = isNaN(numVal) || numVal < 0 ? 0 : numVal;
+      setEjerciciosState((prev) => {
+        const next = prev.map((ej, i) => {
+          if (i !== ejIdx) return ej;
+          return {
+            ...ej,
+            series: ej.series.map((s, sj) => {
+              if (sj !== sIdx) return s;
+              return {
+                ...s,
+                repsParciales: finalReps,
+                tieneParciales: finalReps > 0,
+              };
+            }),
+          };
+        });
+        guardarDraftAuto(next);
+        return next;
+      });
+      return;
+    }
 
     if (dropIdx !== undefined) {
       const campoDrop = campo === 'peso' ? 'kg' : campo;
@@ -1571,31 +1621,97 @@ export default function EjecutarEntrenamientoModal({
                     </Text>
                   </View>
 
-                  {/* Toggle Reps Parciales */}
-                  <Pressable
-                    onPress={() => {
-                      toggleRepsParciales(serieMenu.ejIdx, serieMenu.sIdx);
-                      setSerieMenu(null);
-                    }}
-                    style={styles.sheetOption}
-                  >
-                    <View style={[styles.sheetIconBox, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
-                      <Ionicons name="flash" size={18} color="#F59E0B" />
+                  {/* Configuración de Reps Parciales */}
+                  <View style={styles.sheetConfigBox}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <View style={[styles.sheetIconBox, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+                        <Ionicons name="flash" size={18} color="#F59E0B" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.sheetOptionText}>
+                          {currentSerie.tieneParciales
+                            ? `Reps Parciales: +${currentSerie.repsParciales || 3}p`
+                            : 'Activar reps parciales (+p)'}
+                        </Text>
+                        <Text style={styles.sheetOptionSubtext}>
+                          {currentSerie.tieneParciales ? 'Ajusta la cifra tras el fallo muscular' : 'Repeticiones extras tras el fallo'}
+                        </Text>
+                      </View>
+                      <Pressable
+                        onPress={() => {
+                          const activando = !currentSerie.tieneParciales;
+                          toggleRepsParciales(serieMenu.ejIdx, serieMenu.sIdx);
+                          if (activando) {
+                            setFocusTeclado({ ejIdx: serieMenu.ejIdx, sIdx: serieMenu.sIdx, campo: 'parciales' });
+                            setSerieMenu(null);
+                          }
+                        }}
+                        style={[
+                          styles.switchBadgeMini,
+                          currentSerie.tieneParciales ? styles.switchBadgeMiniActivo : styles.switchBadgeMiniInactivo,
+                        ]}
+                      >
+                        <Text style={[
+                          styles.switchBadgeMiniText,
+                          currentSerie.tieneParciales && { color: '#F59E0B' },
+                        ]}>
+                          {currentSerie.tieneParciales ? 'QUITAR' : 'ACTIVAR'}
+                        </Text>
+                      </Pressable>
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.sheetOptionText}>
-                        {currentSerie.tieneParciales ? 'Desactivar reps parciales' : 'Activar reps parciales'}
-                      </Text>
-                      <Text style={styles.sheetOptionSubtext}>
-                        {currentSerie.tieneParciales ? 'Ocultar conteo de parciales' : 'Añadir repeticiones parciales al fallo'}
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name={currentSerie.tieneParciales ? "checkmark-circle" : "ellipse-outline"}
-                      size={22}
-                      color={currentSerie.tieneParciales ? "#F59E0B" : colores.suave}
-                    />
-                  </Pressable>
+
+                    {Boolean(currentSerie.tieneParciales) && (
+                      <View style={styles.sheetConfigRow}>
+                        <View style={styles.sheetStepperContainer}>
+                          <Pressable
+                            onPress={() => {
+                              const actual = currentSerie.repsParciales || 3;
+                              toggleRepsParciales(serieMenu.ejIdx, serieMenu.sIdx, Math.max(1, actual - 1));
+                            }}
+                            style={styles.stepperBtn}
+                            hitSlop={6}
+                          >
+                            <Ionicons name="remove" size={16} color="#FFFFFF" />
+                          </Pressable>
+                          <Text style={styles.stepperValText}>+{currentSerie.repsParciales || 3}p</Text>
+                          <Pressable
+                            onPress={() => {
+                              const actual = currentSerie.repsParciales || 3;
+                              toggleRepsParciales(serieMenu.ejIdx, serieMenu.sIdx, actual + 1);
+                            }}
+                            style={styles.stepperBtn}
+                            hitSlop={6}
+                          >
+                            <Ionicons name="add" size={16} color="#FFFFFF" />
+                          </Pressable>
+                        </View>
+
+                        <View style={styles.quickChipsRow}>
+                          {[1, 2, 3, 4, 5].map((num) => (
+                            <Pressable
+                              key={num}
+                              onPress={() => {
+                                toggleRepsParciales(serieMenu.ejIdx, serieMenu.sIdx, num);
+                              }}
+                              style={[
+                                styles.quickChip,
+                                currentSerie.repsParciales === num && styles.quickChipActivo,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.quickChipText,
+                                  currentSerie.repsParciales === num && styles.quickChipTextActivo,
+                                ]}
+                              >
+                                +{num}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      </View>
+                    )}
+                  </View>
 
                   {/* Toggle Dropset */}
                   <Pressable
@@ -2609,6 +2725,86 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: fuentes.medium,
     marginTop: 1,
+  },
+  sheetConfigBox: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    padding: 12,
+    gap: 10,
+  },
+  switchBadgeMini: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  switchBadgeMiniActivo: {
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    borderColor: '#F59E0B',
+  },
+  switchBadgeMiniInactivo: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  switchBadgeMiniText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontFamily: fuentes.bold,
+    fontSize: 10,
+  },
+  sheetConfigRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  sheetStepperContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    gap: 6,
+  },
+  stepperValText: {
+    color: '#F59E0B',
+    fontFamily: fuentes.black,
+    fontSize: 13,
+    minWidth: 32,
+    textAlign: 'center',
+  },
+  quickChipsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  quickChip: {
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  quickChipActivo: {
+    backgroundColor: 'rgba(245, 158, 11, 0.25)',
+    borderColor: '#F59E0B',
+  },
+  quickChipText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontFamily: fuentes.bold,
+    fontSize: 11,
+  },
+  quickChipTextActivo: {
+    color: '#F59E0B',
   },
 
   /* DIALOG CARD */

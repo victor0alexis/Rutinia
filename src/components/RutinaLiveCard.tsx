@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   Canvas,
   Box,
@@ -16,7 +17,17 @@ import {
   rect,
   rrect,
 } from '@shopify/react-native-skia';
-import { colores, fuentes } from '../constants/colores';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
+import { colores, fuentes, noir } from '../constants/colores';
 import { Registro } from '../types';
 import {
   SesionActivaInfo,
@@ -39,6 +50,8 @@ export interface RutinaLiveCardProps {
   onDescartar?: (registro: Registro) => void;
   permitirDesplegarEjercicios?: boolean;
   conEfectoGlowBlanco?: boolean;
+  /** La variante `home` usa Noir Pearl sin alterar el estilo del modal. */
+  variant?: 'default' | 'home';
 }
 
 export default function RutinaLiveCard({
@@ -51,7 +64,9 @@ export default function RutinaLiveCard({
   onDescartar,
   permitirDesplegarEjercicios = false,
   conEfectoGlowBlanco = false,
+  variant = 'default',
 }: RutinaLiveCardProps) {
+  const esHome = variant === 'home';
   const [ejerciciosDesplegados, setEjerciciosDesplegados] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
@@ -68,6 +83,35 @@ export default function RutinaLiveCard({
   );
   const estaFinalizada = Boolean(registro.completado && !estaEnProceso);
   const estaPendiente = !estaFinalizada && !estaEnProceso;
+
+  // Pulso del indicador "En proceso": el mismo gesto del prototipo, aplicado
+  // solo al halo para no alterar el tamaño del badge.
+  const reduceMotion = useReducedMotion();
+  const livePulso = useSharedValue(0);
+
+  useEffect(() => {
+    cancelAnimation(livePulso);
+    if (!estaEnProceso || reduceMotion) {
+      livePulso.value = 0;
+      return;
+    }
+
+    livePulso.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 1200, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
+    );
+
+    return () => cancelAnimation(livePulso);
+  }, [estaEnProceso, livePulso, reduceMotion]);
+
+  const livePulseStyle = useAnimatedStyle(() => ({
+    opacity: 0.38 + livePulso.value * 0.28,
+    transform: [{ scale: 1 + livePulso.value * 1.15 }],
+  }));
 
   // Cronómetro en vivo si está en proceso
   const [segundosDelta, setSegundosDelta] = useState(0);
@@ -227,10 +271,11 @@ export default function RutinaLiveCard({
       onLayout={handleLayout}
       style={[
         styles.cardContainer,
+        esHome && styles.cardContainerHome,
         conEfectoGlowBlanco && styles.cardContainerGlowBase,
         conEfectoGlowBlanco && isWeb && styles.cardContainerGlowWeb,
-        estaEnProceso && styles.cardContainerEnProceso,
-        estaFinalizada && styles.cardContainerFinalizada,
+        !esHome && estaEnProceso && styles.cardContainerEnProceso,
+        !esHome && estaFinalizada && styles.cardContainerFinalizada,
       ]}
     >
       {/* Fondo Skia en plataformas nativas para el efecto Uiverse con Outer Glow e Inset Glow */}
@@ -240,19 +285,19 @@ export default function RutinaLiveCard({
             box={rrect(rect(0, 0, dimensions.width, dimensions.height), 20, 20)}
             color="rgb(15, 15, 15)"
           >
-            {/* Outer Glow blanco/plateado difuso (box-shadow: 0 0 50px 0px white) */}
+            {/* Outer Glow perla frío difuso */}
             <BoxShadow
               dx={0}
               dy={0}
               blur={28}
-              color="rgba(255, 255, 255, 0.70)"
+              color="rgba(226, 239, 255, 0.52)"
             />
-            {/* Inset Glow blanco desde los bordes hacia el centro (inset 0 0 90px 0px white) */}
+            {/* Inset Glow perla desde los bordes hacia el centro */}
             <BoxShadow
               dx={0}
               dy={0}
               blur={50}
-              color="rgba(255, 255, 255, 0.40)"
+              color="rgba(226, 239, 255, 0.24)"
               inner
             />
           </Box>
@@ -262,159 +307,402 @@ export default function RutinaLiveCard({
       {/* 1. Header con Badge de Plan y Estado */}
       <View style={styles.headerRow}>
         {nombrePlan ? (
-          <View
-            style={[
-              styles.planBadge,
-              {
-                backgroundColor: `${planColor}18`,
-                borderColor: `${planColor}40`,
-              },
-            ]}
-          >
-            <View style={[styles.planBadgeDot, { backgroundColor: planColor }]} />
-            <Text
-              numberOfLines={1}
-              style={[styles.planBadgeText, { color: planColor }]}
+          esHome ? (
+            <LinearGradient
+              colors={[
+                'rgba(92, 200, 255, 0.24)',
+                'rgba(92, 200, 255, 0.075)',
+              ]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.planBadgeHome}
             >
-              {nombrePlan.toUpperCase()}
-            </Text>
-          </View>
+              <View style={styles.planBadgeDotHome} />
+              <Text numberOfLines={1} style={styles.planBadgeTextHome}>
+                {nombrePlan.toUpperCase()}
+              </Text>
+            </LinearGradient>
+          ) : (
+            <View
+              style={[
+                styles.planBadge,
+                {
+                  backgroundColor: `${planColor}18`,
+                  borderColor: `${planColor}40`,
+                },
+              ]}
+            >
+              <View style={[styles.planBadgeDot, { backgroundColor: planColor }]} />
+              <Text
+                numberOfLines={1}
+                style={[styles.planBadgeText, { color: planColor }]}
+              >
+                {nombrePlan.toUpperCase()}
+              </Text>
+            </View>
+          )
         ) : (
           <View style={styles.planBadgePlaceholder} />
         )}
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <View style={styles.headerActions}>
           {/* Badge de Estado */}
-          {estaEnProceso && (
-            <View style={styles.badgeEnProceso}>
-              <View style={styles.dotLivePulse} />
-              <Text style={styles.badgeEnProcesoText}>EN PROCESO</Text>
-            </View>
-          )}
+          {estaEnProceso &&
+            (esHome ? (
+              <LinearGradient
+                colors={[
+                  'rgba(63, 242, 176, 0.22)',
+                  'rgba(63, 242, 176, 0.06)',
+                ]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.badgeLiveHome}
+              >
+                <View style={styles.liveDotWrap}>
+                  <Animated.View
+                    pointerEvents="none"
+                    style={[styles.liveDotHalo, livePulseStyle]}
+                  />
+                  <View style={styles.liveDotCore} />
+                </View>
+                <Text style={styles.badgeLiveTextHome}>EN PROCESO</Text>
+              </LinearGradient>
+            ) : (
+              <View style={styles.badgeEnProceso}>
+                <View style={styles.dotLivePulse} />
+                <Text style={styles.badgeEnProcesoText}>EN PROCESO</Text>
+              </View>
+            ))}
 
           {/* Botón discreto de descartar sesión en proceso */}
           {estaEnProceso && (
             <Pressable
               onPress={handleDescartarSesion}
               hitSlop={8}
-              style={styles.discardLiveBtn}
+              style={[styles.discardLiveBtn, esHome && styles.iconButtonHome]}
               accessibilityRole="button"
               accessibilityLabel="Descartar entrenamiento en curso"
             >
-              <Ionicons name="trash-outline" size={13} color="rgba(248, 113, 113, 0.9)" />
+              <Ionicons
+                name="trash-outline"
+                size={13}
+                color={esHome ? noir.muted : 'rgba(248, 113, 113, 0.9)'}
+              />
             </Pressable>
           )}
 
-          {estaFinalizada && (
-            <View style={styles.badgeFinalizada}>
-              <Ionicons name="checkmark-circle" size={12} color={colores.exito} />
-              <Text style={styles.badgeFinalizadaText}>FINALIZADA</Text>
-            </View>
-          )}
+          {estaFinalizada &&
+            (esHome ? (
+              <LinearGradient
+                colors={[
+                  'rgba(63, 242, 176, 0.18)',
+                  'rgba(63, 242, 176, 0.05)',
+                ]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.badgeDoneHome}
+              >
+                <Ionicons name="checkmark-circle" size={11} color={noir.mint} />
+                <Text style={styles.badgeDoneTextHome}>FINALIZADA</Text>
+              </LinearGradient>
+            ) : (
+              <View style={styles.badgeFinalizada}>
+                <Ionicons name="checkmark-circle" size={12} color={colores.exito} />
+                <Text style={styles.badgeFinalizadaText}>FINALIZADA</Text>
+              </View>
+            ))}
 
-          {estaPendiente && (
-            <View style={styles.badgePendiente}>
-              <Text style={styles.badgePendienteText}>POR INICIAR</Text>
-            </View>
-          )}
+          {estaPendiente &&
+            (esHome ? (
+              <LinearGradient
+                colors={[
+                  'rgba(92, 200, 255, 0.18)',
+                  'rgba(92, 200, 255, 0.045)',
+                ]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.badgePendingHome}
+              >
+                <Text style={styles.badgePendingTextHome}>POR INICIAR</Text>
+              </LinearGradient>
+            ) : (
+              <View style={styles.badgePendiente}>
+                <Text style={styles.badgePendienteText}>POR INICIAR</Text>
+              </View>
+            ))}
 
           {/* Botón discreto de desvincular */}
           {Boolean(onDesvincular) && (
             <Pressable
               onPress={() => onDesvincular && onDesvincular(registro)}
               hitSlop={8}
-              style={styles.unlinkGlassBtn}
+              style={[styles.unlinkGlassBtn, esHome && styles.iconButtonHome]}
             >
-              <Ionicons name="trash-outline" size={13} color="rgba(248, 113, 113, 0.85)" />
+              <Ionicons
+                name="trash-outline"
+                size={13}
+                color={esHome ? noir.muted : 'rgba(248, 113, 113, 0.85)'}
+              />
             </Pressable>
           )}
         </View>
       </View>
 
       {/* 2. Título de la Rutina */}
-      <Text numberOfLines={1} style={styles.tituloRutina}>
+      <Text
+        numberOfLines={1}
+        style={[styles.tituloRutina, esHome && styles.tituloRutinaHome]}
+      >
         {nombreRutina}
       </Text>
 
       {/* 3. Indicador de Tiempo / Cronómetro / Series */}
-      <View style={styles.timerRow}>
-        {estaEnProceso && (
-          <View style={styles.timerSectionLive}>
-            <View style={styles.timerPillsRowLive}>
-              <View style={styles.timerBoxLive}>
-                <Ionicons name="time" size={14} color="#F59E0B" />
-                <Text style={styles.timerTextLive}>
-                  {formatearTiempo(segundosEnVivo)}
-                </Text>
-                <Text style={styles.timerLabelLive}>CRONÓMETRO EN VIVO</Text>
+      {esHome ? (
+        <View style={styles.timerRowHome}>
+          {estaEnProceso && (
+            <View style={styles.timerSectionLive}>
+              <View style={styles.timerPillsRowLive}>
+                <LinearGradient
+                  colors={[
+                    'rgba(255, 209, 102, 0.14)',
+                    'rgba(255, 209, 102, 0.035)',
+                  ]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.timerBoxHome}
+                >
+                  <Ionicons name="time" size={13} color={noir.champagne} />
+                  <Text style={styles.timerTextHome}>
+                    {formatearTiempo(segundosEnVivo)}
+                  </Text>
+                  <Text style={styles.timerLabelHome}>CRONÓMETRO EN VIVO</Text>
+                </LinearGradient>
+
+                {totalSeriesLive > 0 && (
+                  <LinearGradient
+                    colors={[
+                      'rgba(179, 148, 255, 0.20)',
+                      'rgba(179, 148, 255, 0.05)',
+                    ]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.seriesPillHome}
+                  >
+                    <Ionicons
+                      name="checkmark-circle-outline"
+                      size={12}
+                      color={noir.lavender}
+                    />
+                    <Text style={styles.seriesTextHome}>
+                      {seriesCompletadasLive}/{totalSeriesLive} series
+                    </Text>
+                    {porcentajeLive > 0 && (
+                      <Text style={styles.seriesPctHome}>
+                        ({porcentajeLive}%)
+                      </Text>
+                    )}
+                  </LinearGradient>
+                )}
               </View>
 
+              {/* Barra de progreso de series completadas */}
               {totalSeriesLive > 0 && (
-                <View style={styles.seriesProgressPillLive}>
-                  <Ionicons name="checkmark-circle-outline" size={12} color="#10B981" />
-                  <Text style={styles.seriesProgressTextLive}>
-                    {seriesCompletadasLive}/{totalSeriesLive} series
-                  </Text>
-                  {porcentajeLive > 0 && (
-                    <Text style={styles.seriesProgressPctLive}>
-                      ({porcentajeLive}%)
+                <View style={styles.liveProgressBarContainer}>
+                  <LinearGradient
+                    colors={['#5CC8FF', '#B394FF', '#F2EEFF']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[
+                      styles.liveProgressBarFill,
+                      { width: `${Math.max(porcentajeLive, 4)}%` },
+                    ]}
+                  />
+                </View>
+              )}
+
+              {/* Snapshot inteligente: Próximo ejercicio */}
+              {Boolean(proximoEjercicioNombre) && (
+                <LinearGradient
+                  colors={[
+                    'rgba(92, 200, 255, 0.11)',
+                    'rgba(92, 200, 255, 0.02)',
+                  ]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.nextRowHome}
+                >
+                  <Ionicons name="bookmark" size={11} color={noir.info} />
+                  <Text style={styles.nextTextHome} numberOfLines={1}>
+                    Siguiente:{' '}
+                    <Text style={styles.nextNameHome}>
+                      {proximoEjercicioNombre}
                     </Text>
-                  )}
+                    {proximaSerieIndice > 0 ? (
+                      <Text style={styles.nextSerieHome}>
+                        {` (Serie ${proximaSerieIndice})`}
+                      </Text>
+                    ) : null}
+                  </Text>
+                </LinearGradient>
+              )}
+            </View>
+          )}
+
+          {estaFinalizada && (
+            <LinearGradient
+              colors={[
+                'rgba(255, 209, 102, 0.14)',
+                'rgba(255, 209, 102, 0.035)',
+              ]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.timerBoxHome}
+            >
+              <Ionicons name="trophy-outline" size={13} color={noir.champagne} />
+              <Text style={styles.timerTextHome}>
+                {duracionFinalSegs
+                  ? formatearTiempoTexto(duracionFinalSegs)
+                  : `${totalSeries * 2.5} min aprox`}
+              </Text>
+              <Text style={styles.timerLabelHome}>TIEMPO DE EJECUCIÓN</Text>
+            </LinearGradient>
+          )}
+
+          {estaPendiente && (
+            <View style={styles.timerBoxPendingHome}>
+              <Ionicons
+                name="stopwatch-outline"
+                size={13}
+                color={noir.info}
+              />
+              <Text style={styles.timerTextPendingHome}>
+                ~{Math.max(25, Math.round(totalSeries * 2.5))} min estimados
+              </Text>
+            </View>
+          )}
+        </View>
+      ) : (
+        <View style={styles.timerRow}>
+          {estaEnProceso && (
+            <View style={styles.timerSectionLive}>
+              <View style={styles.timerPillsRowLive}>
+                <View style={styles.timerBoxLive}>
+                  <Ionicons name="time" size={14} color="#F59E0B" />
+                  <Text style={styles.timerTextLive}>
+                    {formatearTiempo(segundosEnVivo)}
+                  </Text>
+                  <Text style={styles.timerLabelLive}>CRONÓMETRO EN VIVO</Text>
+                </View>
+
+                {totalSeriesLive > 0 && (
+                  <View style={styles.seriesProgressPillLive}>
+                    <Ionicons
+                      name="checkmark-circle-outline"
+                      size={12}
+                      color="#10B981"
+                    />
+                    <Text style={styles.seriesProgressTextLive}>
+                      {seriesCompletadasLive}/{totalSeriesLive} series
+                    </Text>
+                    {porcentajeLive > 0 && (
+                      <Text style={styles.seriesProgressPctLive}>
+                        ({porcentajeLive}%)
+                      </Text>
+                    )}
+                  </View>
+                )}
+              </View>
+
+              {/* Barra de progreso de series completadas */}
+              {totalSeriesLive > 0 && (
+                <View style={styles.liveProgressBarContainer}>
+                  <View
+                    style={[
+                      styles.liveProgressBarFill,
+                      { width: `${Math.max(porcentajeLive, 4)}%` },
+                    ]}
+                  />
+                </View>
+              )}
+
+              {/* Snapshot inteligente: Próximo ejercicio */}
+              {Boolean(proximoEjercicioNombre) && (
+                <View style={styles.proximoEjercicioRow}>
+                  <Ionicons name="bookmark" size={11} color="#F59E0B" />
+                  <Text style={styles.proximoEjercicioText} numberOfLines={1}>
+                    Siguiente:{' '}
+                    <Text style={styles.proximoEjercicioNombre}>
+                      {proximoEjercicioNombre}
+                    </Text>
+                    {proximaSerieIndice > 0
+                      ? ` (Serie ${proximaSerieIndice})`
+                      : ''}
+                  </Text>
                 </View>
               )}
             </View>
+          )}
 
-            {/* Barra de progreso de series completadas */}
-            {totalSeriesLive > 0 && (
-              <View style={styles.liveProgressBarContainer}>
-                <View
-                  style={[
-                    styles.liveProgressBarFill,
-                    { width: `${Math.max(porcentajeLive, 4)}%` },
-                  ]}
-                />
-              </View>
-            )}
+          {estaFinalizada && (
+            <View style={styles.timerBoxDone}>
+              <Ionicons name="trophy-outline" size={13} color={colores.exito} />
+              <Text style={styles.timerTextDone}>
+                {duracionFinalSegs
+                  ? formatearTiempoTexto(duracionFinalSegs)
+                  : `${totalSeries * 2.5} min aprox`}
+              </Text>
+              <Text style={styles.timerLabelDone}>TIEMPO DE EJECUCIÓN</Text>
+            </View>
+          )}
 
-            {/* Snapshot inteligente: Próximo ejercicio */}
-            {Boolean(proximoEjercicioNombre) && (
-              <View style={styles.proximoEjercicioRow}>
-                <Ionicons name="bookmark" size={11} color="#F59E0B" />
-                <Text style={styles.proximoEjercicioText} numberOfLines={1}>
-                  Siguiente:{' '}
-                  <Text style={styles.proximoEjercicioNombre}>
-                    {proximoEjercicioNombre}
-                  </Text>
-                  {proximaSerieIndice > 0 ? ` (Serie ${proximaSerieIndice})` : ''}
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {estaFinalizada && (
-          <View style={styles.timerBoxDone}>
-            <Ionicons name="trophy-outline" size={13} color={colores.exito} />
-            <Text style={styles.timerTextDone}>
-              {duracionFinalSegs
-                ? formatearTiempoTexto(duracionFinalSegs)
-                : `${totalSeries * 2.5} min aprox`}
-            </Text>
-            <Text style={styles.timerLabelDone}>TIEMPO DE EJECUCIÓN</Text>
-          </View>
-        )}
-
-        {estaPendiente && (
-          <View style={styles.timerBoxPending}>
-            <Ionicons name="stopwatch-outline" size={13} color={colores.suave} />
-            <Text style={styles.timerTextPending}>
-              ~{Math.max(25, Math.round(totalSeries * 2.5))} min estimados
-            </Text>
-          </View>
-        )}
-      </View>
+          {estaPendiente && (
+            <View style={styles.timerBoxPending}>
+              <Ionicons
+                name="stopwatch-outline"
+                size={13}
+                color={colores.suave}
+              />
+              <Text style={styles.timerTextPending}>
+                ~{Math.max(25, Math.round(totalSeries * 2.5))} min estimados
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
 
       {/* 4. Métricas Compactas y Botón de Acción */}
+      {esHome ? (
+        <View style={styles.footerRowHome}>
+          <View style={styles.metricChipsHome}>
+            <View style={styles.metricChipExHome}>
+              <Ionicons name="barbell-outline" size={11} color={noir.info} />
+              <Text style={styles.metricChipExTextHome}>
+                {totalEjercicios} ejercicios
+              </Text>
+            </View>
+
+            <View style={styles.metricChipSeriesHome}>
+              <Ionicons name="repeat-outline" size={11} color={noir.lavender} />
+              <Text style={styles.metricChipSeriesTextHome}>
+                {estaEnProceso
+                  ? `${seriesCompletadasLive}/${totalSeriesLive} series`
+                  : `${totalSeries} series`}
+              </Text>
+            </View>
+          </View>
+
+          <RoutineActionButton
+            estado={
+              estaEnProceso
+                ? 'proceso'
+                : estaFinalizada
+                ? 'finalizada'
+                : 'pendiente'
+            }
+            onPress={handlePressAccion}
+          />
+        </View>
+      ) : (
       <View style={styles.footerRow}>
         <View style={styles.metricChipsContainer}>
           <View style={styles.metricChip}>
@@ -465,6 +753,7 @@ export default function RutinaLiveCard({
           )}
         </Pressable>
       </View>
+      )}
 
       {/* 5. Desglose colapsable opcional de ejercicios */}
       {permitirDesplegarEjercicios && totalEjercicios > 0 && (
@@ -526,6 +815,74 @@ export default function RutinaLiveCard({
   );
 }
 
+type RoutineActionEstado = 'proceso' | 'finalizada' | 'pendiente';
+
+function RoutineActionButton({
+  estado,
+  onPress,
+}: {
+  estado: RoutineActionEstado;
+  onPress: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+
+  const config =
+    estado === 'finalizada'
+      ? {
+          label: 'Ver Resumen',
+          icon: 'eye-outline' as keyof typeof Ionicons.glyphMap,
+          iconColor: noir.lavender,
+          colors: ['#FFFFFF', '#FBF8FF', '#EFE8FF', '#DED2FF'] as const,
+        }
+      : estado === 'pendiente'
+      ? {
+          label: 'Iniciar',
+          icon: 'play' as keyof typeof Ionicons.glyphMap,
+          iconColor: noir.info,
+          colors: ['#FFFFFF', '#F5FCFF', '#E6F5FF', '#CDEBFF'] as const,
+        }
+      : {
+          label: 'Reanudar',
+          icon: 'play' as keyof typeof Ionicons.glyphMap,
+          iconColor: noir.pearl,
+          colors: ['#FFFFFF', '#F4FBFF', '#E4F2FF', '#E6DDFF'] as const,
+        };
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      style={({ pressed }) => [
+        styles.actionButtonHome,
+        hovered && styles.actionButtonHomeHover,
+        pressed && styles.actionButtonHomePressed,
+        Platform.OS === 'web' && styles.actionButtonHomeWeb,
+        hovered && Platform.OS === 'web' && styles.actionButtonHomeHoverWeb,
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={config.label}
+    >
+      <LinearGradient
+        colors={config.colors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.actionButtonHomeGradient}
+      >
+        <LinearGradient
+          colors={['#1B2230', '#080A0E']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.actionIconHome}
+        >
+          <Ionicons name={config.icon} size={10} color={config.iconColor} />
+        </LinearGradient>
+        <Text style={styles.actionButtonHomeText}>{config.label}</Text>
+      </LinearGradient>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   cardContainer: {
     backgroundColor: '#18181B',
@@ -553,9 +910,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.18)',
-    shadowColor: '#FFFFFF',
+    shadowColor: '#E2EFFF',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.65,
+    shadowOpacity: 0.52,
     shadowRadius: 22,
     elevation: 12,
     marginVertical: 6,
@@ -565,7 +922,7 @@ const styles = StyleSheet.create({
   cardContainerGlowWeb: {
     // @ts-ignore
     boxShadow:
-      '0 0 50px 0px rgba(255, 255, 255, 0.70), inset 0 0 90px 0px rgba(255, 255, 255, 0.45)',
+      '0 0 50px 0px rgba(226, 239, 255, 0.52), inset 0 0 90px 0px rgba(226, 239, 255, 0.24)',
     borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   headerRow: {
@@ -923,6 +1280,341 @@ const styles = StyleSheet.create({
     fontFamily: fuentes.bold,
     fontSize: 9,
     color: '#A1A1AA',
+  },
+
+  // ── Variante Noir Pearl para la pantalla principal ──────────────
+  cardContainerHome: {
+    backgroundColor: noir.routine,
+    borderRadius: 18,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: noir.line,
+    gap: 9,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 0,
+  },
+  planBadgeHome: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: 'rgba(92, 200, 255, 0.58)',
+    flexShrink: 1,
+    shadowColor: noir.info,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 9,
+    elevation: 2,
+  },
+  planBadgeDotHome: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: noir.info,
+    shadowColor: noir.info,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  planBadgeTextHome: {
+    color: '#EAF7FF',
+    fontFamily: fuentes.bold,
+    fontSize: 9,
+    letterSpacing: 0.5,
+    flexShrink: 1,
+  },
+  badgeLiveHome: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(63, 242, 176, 0.58)',
+    shadowColor: noir.mint,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  liveDotWrap: {
+    width: 9,
+    height: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  liveDotHalo: {
+    position: 'absolute',
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: noir.mint,
+  },
+  liveDotCore: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: noir.mint,
+    shadowColor: noir.mint,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.95,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  badgeLiveTextHome: {
+    color: '#EAFFF8',
+    fontFamily: fuentes.bold,
+    fontSize: 9,
+    letterSpacing: 0.54,
+  },
+  iconButtonHome: {
+    backgroundColor: noir.glass,
+    borderColor: noir.line,
+  },
+  badgeDoneHome: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(63, 242, 176, 0.45)',
+  },
+  badgeDoneTextHome: {
+    color: '#EAFFF8',
+    fontFamily: fuentes.bold,
+    fontSize: 9,
+    letterSpacing: 0.5,
+  },
+  badgePendingHome: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(92, 200, 255, 0.42)',
+  },
+  badgePendingTextHome: {
+    color: '#D9F0FF',
+    fontFamily: fuentes.medium,
+    fontSize: 9,
+    letterSpacing: 0.4,
+  },
+  tituloRutinaHome: {
+    fontFamily: fuentes.extraBold,
+    fontSize: 17,
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+  },
+  timerRowHome: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  timerBoxHome: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 209, 102, 0.48)',
+    shadowColor: noir.champagne,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.1,
+    shadowRadius: 7,
+    elevation: 1,
+  },
+  timerTextHome: {
+    fontFamily: fuentes.bold,
+    fontSize: 13.5,
+    color: '#FFFFFF',
+    letterSpacing: 0.1,
+  },
+  timerLabelHome: {
+    fontFamily: fuentes.semiBold,
+    fontSize: 8,
+    color: 'rgba(255, 231, 174, 0.88)',
+    letterSpacing: 0.56,
+    textTransform: 'uppercase',
+  },
+  seriesPillHome: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(179, 148, 255, 0.55)',
+    shadowColor: noir.lavender,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
+    elevation: 1,
+  },
+  seriesTextHome: {
+    fontFamily: fuentes.bold,
+    fontSize: 10.5,
+    color: '#F0EBFF',
+  },
+  seriesPctHome: {
+    fontFamily: fuentes.regular,
+    fontSize: 9.5,
+    color: 'rgba(214, 201, 255, 0.82)',
+  },
+  nextRowHome: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(92, 200, 255, 0.14)',
+    borderLeftWidth: 2,
+    borderLeftColor: 'rgba(92, 200, 255, 0.85)',
+    borderRadius: 8,
+  },
+  nextTextHome: {
+    flex: 1,
+    fontFamily: fuentes.medium,
+    fontSize: 10.5,
+    color: '#DBE9FB',
+    lineHeight: 14,
+  },
+  nextNameHome: {
+    fontFamily: fuentes.bold,
+    color: '#FFFFFF',
+  },
+  nextSerieHome: {
+    fontFamily: fuentes.regular,
+    color: '#8E98A8',
+  },
+  timerBoxPendingHome: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  timerTextPendingHome: {
+    fontFamily: fuentes.regular,
+    fontSize: 12,
+    color: noir.platinum,
+  },
+  footerRowHome: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 2,
+    gap: 8,
+  },
+  metricChipsHome: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  metricChipExHome: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(92, 200, 255, 0.15)',
+  },
+  metricChipExTextHome: {
+    fontFamily: fuentes.medium,
+    fontSize: 10,
+    color: '#E3F3FF',
+  },
+  metricChipSeriesHome: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(179, 148, 255, 0.15)',
+  },
+  metricChipSeriesTextHome: {
+    fontFamily: fuentes.medium,
+    fontSize: 10,
+    color: '#EDE9FF',
+  },
+  actionButtonHome: {
+    flexShrink: 0,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    shadowColor: noir.info,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.38,
+    shadowRadius: 13,
+    elevation: 8,
+  },
+  actionButtonHomeHover: {
+    transform: [{ translateY: -1 }],
+    shadowOpacity: 0.46,
+    shadowRadius: 16,
+  },
+  actionButtonHomePressed: {
+    transform: [{ scale: 0.97 }],
+    opacity: 0.94,
+  },
+  actionButtonHomeWeb: {
+    // @ts-ignore
+    boxShadow:
+      '0 8px 26px rgba(92,200,255,.38), 0 0 24px rgba(179,148,255,.16), 0 0 0 1px rgba(255,255,255,.12)',
+  },
+  actionButtonHomeHoverWeb: {
+    // @ts-ignore
+    boxShadow:
+      '0 11px 32px rgba(92,200,255,.46), 0 0 30px rgba(179,148,255,.22), 0 0 0 1px rgba(255,255,255,.16)',
+  },
+  actionButtonHomeGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingLeft: 5,
+    paddingRight: 11,
+    paddingVertical: 4,
+    borderRadius: 13,
+  },
+  actionIconHome: {
+    width: 21,
+    height: 21,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: noir.info,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.24,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  actionButtonHomeText: {
+    fontFamily: fuentes.bold,
+    fontSize: 11.5,
+    color: '#080A0E',
+    letterSpacing: 0.1,
   },
 });
 

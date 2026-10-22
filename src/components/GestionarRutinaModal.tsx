@@ -10,13 +10,13 @@ import {
   Platform,
   StyleSheet,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { colores, DIAS_SEMANA_ABREV, DIAS_SEMANA_NOMBRES, fuentes } from '../constants/colores';
 import GlowButton from './GlowButton';
 import BotonRutinia from './BotonRutinia';
 import SelectorBibliotecaModal, { EjercicioSeleccionadoBiblioteca } from './SelectorBibliotecaModal';
 import { obtenerGifEjercicio } from '../services/ejerciciosGifs';
+import EjercicioGif from './entrenamiento/EjercicioGif';
 import { crearRutina, eliminarRutina, actualizarRutina } from '../services/rutinas';
 import { seguro, confirmarAccion, mostrarMensaje } from '../utils/errores';
 import { parsearEjercicioInfo } from '../utils/ejercicios';
@@ -615,12 +615,11 @@ export default function GestionarRutinaModal({
                 {ej.nombre.trim().length > 0 ? (
                   <View style={styles.exercisePreviewBanner}>
                     <View style={styles.exerciseGifContainer}>
-                      <Image
-                        source={{ uri: ej.gifUrl || obtenerGifEjercicio(ej.nombre).gifUrl }}
+                      <EjercicioGif
+                        uri={ej.gifUrl || obtenerGifEjercicio(ej.nombre).gifUrl}
                         style={styles.exerciseGifPreview}
                         contentFit="contain"
-                        cachePolicy="disk"
-                        autoplay
+                        animated={false}
                       />
                     </View>
 

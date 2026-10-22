@@ -1,5 +1,7 @@
 import { tema } from './tema';
 
+export { noir } from './noir';
+
 export const colores = {
   // Fondos y Capas (Base tokens de tema.ts)
   fondo: tema.colores.fondo,

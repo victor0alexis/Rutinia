@@ -20,8 +20,9 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { addWeeks, isSameDay } from 'date-fns';
-import { colores, fuentes } from '../constants/colores';
+import { fuentes, noir } from '../constants/colores';
 import { Registro } from '../types';
 import { aISO, diasDeSemana, nombreDia } from '../utils/fechas';
 import { vibrarBoton } from '../utils/haptics';
@@ -158,8 +159,8 @@ export default function Semana3DCarousel({
   };
 
   const maxSpan = Math.min(Math.max(containerWidth - 84, 220) * 0.46, 128);
-  const cardWidth = isCompact ? 44 : 48;
-  const cardHeight = isCompact ? 60 : 66;
+  const cardWidth = isCompact ? 40 : 44;
+  const cardHeight = isCompact ? 54 : 58;
 
   return (
     <View style={styles.outerContainer} onLayout={handleLayout}>
@@ -175,7 +176,7 @@ export default function Semana3DCarousel({
           hitSlop={12}
           accessibilityLabel="Semana anterior"
         >
-          <Ionicons name="chevron-back" size={18} color={colores.primarioHover} />
+          <Ionicons name="chevron-back" size={18} color={noir.platinum} />
         </Pressable>
 
         {/* Carrusel Cilíndrico de Días (Área de Gestos con los 7 días visibles) */}
@@ -228,7 +229,7 @@ export default function Semana3DCarousel({
           hitSlop={12}
           accessibilityLabel="Semana siguiente"
         >
-          <Ionicons name="chevron-forward" size={18} color={colores.primarioHover} />
+          <Ionicons name="chevron-forward" size={18} color={noir.platinum} />
         </Pressable>
       </View>
     </View>
@@ -302,6 +303,12 @@ function Carousel3DDayFace({
 
     // Rotación 3D en el eje Y siguiendo la curvatura
     const rotateY = `${sign * Math.min(absNorm * 0.28, 38)}deg`;
+    const translateY = interpolate(
+      absNorm,
+      [0, 51.43],
+      [-2, 0],
+      Extrapolation.CLAMP
+    );
 
     // zIndex: la tarjeta más cercana al centro siempre tiene prioridad de capa
     const zIndex = Math.round(200 - absNorm);
@@ -312,6 +319,7 @@ function Carousel3DDayFace({
       transform: [
         { perspective: 700 },
         { translateX },
+        { translateY },
         { rotateY },
         { scale },
       ],
@@ -342,10 +350,26 @@ function Carousel3DDayFace({
           pressed && { opacity: 0.82 },
         ]}
       >
+        {esSel && (
+          <LinearGradient
+            pointerEvents="none"
+            colors={['#FFFFFF', '#EDF2F9', '#C9D4E3']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={[StyleSheet.absoluteFill, { borderRadius: 14 }]}
+          />
+        )}
+
         <Text
           style={[
             styles.dayShortName,
-            { color: esSel ? '#FFFFFF' : esHoy ? colores.hoy : colores.suave },
+            {
+              color: esSel
+                ? 'rgba(9, 12, 18, 0.56)'
+                : esHoy
+                ? noir.info
+                : noir.muted,
+            },
           ]}
         >
           {nombreDia(date).substring(0, 3)}
@@ -354,7 +378,7 @@ function Carousel3DDayFace({
         <Text
           style={[
             styles.dayNumber,
-            { color: esSel ? '#FFFFFF' : colores.texto },
+            { color: esSel ? '#090B0F' : '#F0F3F8' },
           ]}
         >
           {date.getDate()}
@@ -366,13 +390,17 @@ function Carousel3DDayFace({
             <Ionicons
               name="checkmark-circle"
               size={9}
-              color={esSel ? '#FFFFFF' : colores.exito}
+              color={esSel ? 'rgba(9, 12, 18, 0.62)' : noir.mint}
             />
           ) : tieneEjercicios ? (
             <View
               style={[
                 styles.statusDot,
-                { backgroundColor: esSel ? '#FFFFFF' : colores.primarioHover },
+                {
+                  backgroundColor: esSel
+                    ? 'rgba(9, 12, 18, 0.62)'
+                    : noir.info,
+                },
               ]}
             />
           ) : null}
@@ -380,7 +408,11 @@ function Carousel3DDayFace({
             <View
               style={[
                 styles.statusDot,
-                { backgroundColor: esSel ? '#FFFFFF' : colores.hoy },
+                {
+                  backgroundColor: esSel
+                    ? 'rgba(9, 12, 18, 0.62)'
+                    : noir.champagne,
+                },
               ]}
             />
           )}
@@ -395,14 +427,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#121215',
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+    borderColor: noir.line,
+    paddingVertical: 7,
+    paddingHorizontal: 7,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
-    shadowRadius: 14,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 11,
+    elevation: 6,
   },
   carouselRow: {
     flexDirection: 'row',
@@ -416,7 +448,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: noir.line,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 20,
@@ -438,35 +470,37 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderWidth: 1,
     gap: 2,
   },
   dayPillNormal: {
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: noir.line,
   },
   dayPillToday: {
-    backgroundColor: 'rgba(217, 119, 6, 0.16)',
-    borderColor: colores.hoy,
+    backgroundColor: 'rgba(92, 200, 255, 0.16)',
+    borderColor: noir.info,
   },
   dayPillSelected: {
-    backgroundColor: colores.primarioHover,
-    borderColor: '#FFFFFF',
-    shadowColor: colores.primarioHover,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderColor: 'rgba(255, 255, 255, 0.82)',
+    shadowColor: '#CEE1F7',
+    shadowOffset: { width: 0, height: 9 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
     elevation: 6,
   },
   dayShortName: {
-    fontSize: 9,
+    fontSize: 8,
     fontFamily: fuentes.bold,
     textTransform: 'uppercase',
+    letterSpacing: 0.64,
   },
   dayNumber: {
-    fontSize: 13.5,
-    fontFamily: fuentes.black,
+    fontSize: 14,
+    fontFamily: fuentes.extraBold,
+    letterSpacing: -0.28,
   },
   dotsRow: {
     height: 5,

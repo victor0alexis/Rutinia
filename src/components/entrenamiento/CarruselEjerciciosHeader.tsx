@@ -1,15 +1,14 @@
 import React, { useRef, useEffect } from 'react';
 import {
-  Platform,
   ScrollView,
   Pressable,
   View,
   StyleSheet,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { vibrarBoton } from '../../utils/haptics';
 import { obtenerGifEjercicio } from '../../services/ejerciciosGifs';
+import EjercicioGif from './EjercicioGif';
 
 export interface EjercicioCarruselItem {
   id: string;
@@ -74,17 +73,12 @@ export default function CarruselEjerciciosHeader({
                   !esActivo && !estaCompletado && styles.avatarRingInactivo,
                 ]}
               >
-                <Image
-                  source={{ uri: gifInfo.thumbUrl }}
-                  style={[
-                    styles.avatarImage,
-                    Platform.OS === 'web' && ({
-                      filter: 'invert(1) contrast(1.1) brightness(0.96)',
-                    } as any),
-                  ]}
+                <EjercicioGif
+                  uri={gifInfo.thumbUrl}
+                  style={styles.avatarImage}
                   contentFit="contain"
+                  animated={false}
                   transition={200}
-                  cachePolicy="disk"
                 />
               </View>
 

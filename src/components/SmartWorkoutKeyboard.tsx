@@ -12,7 +12,7 @@ import { vibrarBoton } from '../utils/haptics';
 import { calcular1RMEstimado, calcularDiscosPorLado } from '../utils/calculadoraFuerza';
 import { useLayout } from '../hooks/useLayout';
 
-export type CampoEntrenamiento = 'peso' | 'reps' | 'rir' | 'pesoI' | 'repsI';
+export type CampoEntrenamiento = 'peso' | 'reps' | 'rir' | 'pesoI' | 'repsI' | 'parciales';
 
 type Props = {
   visible: boolean;
@@ -53,6 +53,7 @@ export default function SmartWorkoutKeyboard({
   // Determinar si el campo activo admite decimales
   const esDecimal = modo === 'peso' || modo === 'pesoI';
   const esRIR = modo === 'rir';
+  const esParciales = modo === 'parciales';
 
   // 1RM estimado en tiempo real
   const estimacion1RM = useMemo(() => {
@@ -77,10 +78,11 @@ export default function SmartWorkoutKeyboard({
         onChangeValor(d);
         return;
       }
+      if (esParciales && valorActual.length >= 2) return; // Limitar reps parciales a 2 dígitos
       if (valorActual.length >= 6) return; // Limitar longitud
       onChangeValor(valorActual + d);
     },
-    [valorActual, onChangeValor]
+    [valorActual, esParciales, onChangeValor]
   );
 
   const presionarPunto = useCallback(() => {
@@ -174,6 +176,8 @@ export default function SmartWorkoutKeyboard({
         return 'REPS IZQUIERDO';
       case 'rir':
         return 'REPS EN RESERVA (RIR)';
+      case 'parciales':
+        return 'REPETICIONES PARCIALES (+p)';
       default:
         return 'VALOR';
     }
@@ -387,6 +391,35 @@ export default function SmartWorkoutKeyboard({
                     ]}
                   >
                     {r === '0' ? '0 (Fallo)' : r}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+
+          {/* MODO PARCIALES: Selector directo de repeticiones tras el fallo */}
+          {esParciales && (
+            <View style={styles.chipsRepsRow}>
+              {[1, 2, 3, 4, 5, 6].map((num) => (
+                <Pressable
+                  key={num}
+                  onPress={() => seleccionarRepsRapidas(num)}
+                  style={({ pressed }) => [
+                    styles.chipRep,
+                    valorActual === num.toString() && {
+                      backgroundColor: 'rgba(245, 158, 11, 0.25)',
+                      borderColor: '#F59E0B',
+                    },
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.chipRepText,
+                      valorActual === num.toString() && { color: '#F59E0B', fontFamily: fuentes.extraBold },
+                    ]}
+                  >
+                    +{num}p
                   </Text>
                 </Pressable>
               ))}

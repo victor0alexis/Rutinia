@@ -1,11 +1,13 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Pressable, View, StyleSheet } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Pressable, Text, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useIsFocused } from 'expo-router';
 import Head from 'expo-router/head';
 import { Ionicons } from '@expo/vector-icons';
-import { addDays, parseISO } from 'date-fns';
-import { colores, fuentes } from '../../constants/colores';
+import { LinearGradient } from 'expo-linear-gradient';
+import { addDays, format, isSameDay, parseISO } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { fuentes, noir } from '../../constants/colores';
 import { supabase } from '../../lib/supabase';
 import DiaDetalleModal from '../../components/DiaDetalleModal';
 import EjecutarEntrenamientoModal from '../../components/EjecutarEntrenamientoModal';
@@ -21,15 +23,30 @@ import { EjercicioRegistro, Registro } from '../../types';
 import { SesionActivaInfo, obtenerSesionActivaInfo, obtenerBorradorSesion } from '../../utils/sesionActiva';
 import { useLayout } from '../../hooks/useLayout';
 
-// React Bits gradient palette. The original #000000 disappears on the app's
-// near-black background (1.04:1), so it is replaced by a light lavender and the
-// magenta/violet stops are lifted while keeping their hue. All stops stay above
-// 3.7:1 contrast against #050608.
-const TITLE_GRADIENT_COLORS = ['#F3E8F4', '#C44B83', '#7551D6'];
+// Noir Pearl wordmark: perla -> platino -> perla. El barrido conserva el
+// GradientText original, pero ahora pertenece a la familia monocroma.
+const TITLE_GRADIENT_COLORS = [
+  '#FFFFFF',
+  '#EDF3FB',
+  '#AAB5C6',
+  '#EAF1FA',
+  '#FFFFFF',
+];
 
 export default function Semana() {
-  const { gutter, contentMaxWidth, isLandscape, bottomInset, safeBottom } = useLayout();
-  const tabBottomPadding = isLandscape ? 56 + Math.max(bottomInset, 4) : 74 + safeBottom;
+  const {
+    gutter,
+    contentMaxWidth,
+    isLandscape,
+    isCompact,
+    bottomInset,
+    safeBottom,
+  } = useLayout();
+  // La barra flota sobre el contenido. Reservamos su alto + un respiro corto
+  // (el mockup deja 6-8 px entre "Administrar" y el navbar).
+  const tabBottomPadding = isLandscape
+    ? 56 + Math.max(bottomInset, 8) + 6
+    : 64 + safeBottom;
   const isFocused = useIsFocused();
   const [ref, setRef] = useState(new Date());
   const [diaActivo, setDiaActivo] = useState(new Date());
@@ -44,6 +61,38 @@ export default function Semana() {
   // Partida en curso / Entrenamiento activo
   const [sesionActivaInfo, setSesionActivaInfo] = useState<SesionActivaInfo | null>(null);
   const [modoReanudar, setModoReanudar] = useState(false);
+
+  // Cabecera editorial: identidad discreta y menú de cuenta detrás del avatar.
+  const [avatarInicial, setAvatarInicial] = useState('A');
+  const [emailCuenta, setEmailCuenta] = useState('');
+  const [menuCuentaVisible, setMenuCuentaVisible] = useState(false);
+
+  useEffect(() => {
+    let activo = true;
+
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!activo) return;
+        const user = data.session?.user;
+        const nombre =
+          user?.user_metadata?.full_name ||
+          user?.user_metadata?.nombre ||
+          user?.email ||
+          '';
+        if (typeof nombre === 'string' && nombre.trim().length > 0) {
+          setAvatarInicial(nombre.trim().charAt(0).toUpperCase());
+        }
+        setEmailCuenta(user?.email ?? '');
+      })
+      .catch(() => {
+        // La cabecera funciona igual con el avatar de respaldo.
+      });
+
+    return () => {
+      activo = false;
+    };
+  }, []);
 
   const dias = useMemo(() => diasDeSemana(ref), [ref]);
   const inicioSemanaISO = useMemo(() => aISO(dias[0]), [dias]);
@@ -142,6 +191,39 @@ export default function Semana() {
     .flatMap((r) => r.ejercicios_registro || [])
     .filter((e) => !e.nombre.startsWith('📌'));
 
+  const esHoy = isSameDay(diaActivo, new Date());
+  const fechaTitulo = useMemo(() => {
+    const texto = format(diaActivo, "EEEE, d 'de' MMMM", { locale: es });
+    return texto.charAt(0).toUpperCase() + texto.slice(1);
+  }, [diaActivo]);
+
+  const minutosRutinas = registrosConRutina.reduce((total, r) => {
+    const series = (r.ejercicios_registro || [])
+      .filter((e) => !e.nombre.startsWith('📌'))
+      .reduce((acc, e) => acc + (e.series || 3), 0);
+    return total + Math.max(25, Math.round(series * 2.5));
+  }, 0);
+
+  const resumenDia = {
+    actividades: registrosConRutina.length + ejerciciosExtras.length,
+    notas: notasDelDia.length,
+    minutos: minutosRutinas + ejerciciosExtras.length * 10,
+  };
+
+  const minutosTexto = (() => {
+    const { minutos } = resumenDia;
+    if (minutos <= 0) return '0 min';
+    const horas = Math.floor(minutos / 60);
+    const resto = minutos % 60;
+    if (horas === 0) return `${resto} min`;
+    return resto > 0 ? `${horas} h ${resto} min` : `${horas} h`;
+  })();
+
+  const cerrarSesion = () => {
+    setMenuCuentaVisible(false);
+    supabase.auth.signOut();
+  };
+
   const irDiaAnterior = () => {
     setDiaActivo(addDays(diaActivo, -1));
   };
@@ -170,45 +252,14 @@ export default function Semana() {
         <title>Semana · Rutinia</title>
       </Head>
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-        {/* CABECERA ESTÉTICA CON GRADIENT TEXT ANIMADO: MYLIFE */}
-        <View
-          style={[
-            styles.topHeaderBar,
-            {
-              paddingHorizontal: gutter,
-              paddingTop: isLandscape ? 4 : 8,
-              paddingBottom: isLandscape ? 4 : 6,
-            },
-          ]}
-        >
-          <GradientText
-            colors={TITLE_GRADIENT_COLORS}
-            animationSpeed={8}
-            direction="horizontal"
-            scale={3}
-            style={{
-              fontSize: isLandscape ? 26 : 32,
-              lineHeight: 45,
-              fontFamily: fuentes.bold,
-              letterSpacing: -0.7,
-            }}
-          >
-            myLife
-          </GradientText>
-          {/* Botón flotante discreto de cerrar sesión */}
+        {/* Capa que cierra el menú de cuenta al tocar fuera del avatar. */}
+        {menuCuentaVisible && (
           <Pressable
-            onPress={() => supabase.auth.signOut()}
-            style={({ pressed }) => [
-              styles.topLogoutButton,
-              { right: gutter },
-              pressed && { opacity: 0.6, transform: [{ scale: 0.94 }] },
-            ]}
-            hitSlop={12}
-            accessibilityLabel="Cerrar sesión"
-          >
-            <Ionicons name="log-out-outline" size={17} color={colores.suave} />
-          </Pressable>
-        </View>
+            style={styles.accountScrim}
+            onPress={() => setMenuCuentaVisible(false)}
+            accessibilityLabel="Cerrar menú de cuenta"
+          />
+        )}
 
         {/* CONTENIDO PRINCIPAL */}
         <View
@@ -219,17 +270,161 @@ export default function Semana() {
             alignSelf: 'center',
             paddingHorizontal: gutter,
             paddingBottom: tabBottomPadding,
-            gap: isLandscape ? 6 : 10,
           }}
         >
+          {/* CABECERA EDITORIAL: MARCA + AVATAR */}
+          <View
+            style={[
+              styles.headerWrap,
+              {
+                paddingTop: isLandscape ? 2 : 4,
+                marginBottom: isLandscape ? 4 : 14,
+              },
+            ]}
+          >
+            <View style={styles.brandLockup}>
+              <LinearGradient
+                colors={[
+                  'rgba(255,255,255,0.30)',
+                  'rgba(255,255,255,0.16)',
+                  'rgba(255,255,255,0.045)',
+                ]}
+                start={{ x: 0.15, y: 0.05 }}
+                end={{ x: 0.85, y: 0.95 }}
+                style={styles.brandMark}
+              >
+                <Text style={styles.brandMarkText}>m</Text>
+              </LinearGradient>
+
+              <View style={styles.brandWordmark}>
+                <GradientText
+                  colors={TITLE_GRADIENT_COLORS}
+                  animationSpeed={8}
+                  direction="horizontal"
+                  scale={3}
+                  style={{
+                    fontSize: isCompact ? 19 : 21,
+                    lineHeight: 24,
+                    fontFamily: fuentes.extraBold,
+                    letterSpacing: -0.55,
+                  }}
+                >
+                  myLife
+                </GradientText>
+                <View style={styles.brandDotSmall} />
+              </View>
+            </View>
+
+            <View style={styles.avatarWrap}>
+              <Pressable
+                onPress={() => setMenuCuentaVisible((visible) => !visible)}
+                style={({ pressed }) => [
+                  styles.avatarButton,
+                  pressed && { opacity: 0.82, transform: [{ scale: 0.94 }] },
+                ]}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Abrir menú de cuenta"
+              >
+                <LinearGradient
+                  colors={['#232631', '#13151B']}
+                  start={{ x: 0.3, y: 0.1 }}
+                  end={{ x: 0.7, y: 0.95 }}
+                  style={styles.avatarGradient}
+                >
+                  <Text style={styles.avatarText}>{avatarInicial}</Text>
+                </LinearGradient>
+              </Pressable>
+              <View pointerEvents="none" style={styles.avatarStatus} />
+            </View>
+
+            {menuCuentaVisible && (
+              <View style={styles.accountMenu}>
+                <Text style={styles.accountMenuLabel}>CUENTA</Text>
+                <Text numberOfLines={1} style={styles.accountMenuEmail}>
+                  {emailCuenta || 'Sesión activa'}
+                </Text>
+                <View style={styles.accountMenuDivider} />
+                <Pressable
+                  onPress={cerrarSesion}
+                  style={({ pressed }) => [
+                    styles.accountMenuLogout,
+                    pressed && { opacity: 0.68 },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cerrar sesión"
+                >
+                  <Ionicons
+                    name="log-out-outline"
+                    size={15}
+                    color={noir.platinum}
+                  />
+                  <Text style={styles.accountMenuLogoutText}>Cerrar sesión</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+
+          {/* SALUDO EDITORIAL: HOY + FECHA + RESUMEN REAL DEL DÍA */}
+          <View
+            style={[
+              styles.greeting,
+              { marginBottom: isLandscape ? 6 : 12 },
+            ]}
+          >
+            <View style={styles.eyebrowRow}>
+              <View style={styles.eyebrowDot} />
+              <Text style={styles.eyebrowText}>
+                {esHoy ? 'HOY' : 'DÍA SELECCIONADO'}
+              </Text>
+            </View>
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.greetingTitle,
+                {
+                  fontSize: isLandscape ? 20 : isCompact ? 21 : 24,
+                  lineHeight: isLandscape ? 23 : 27,
+                },
+              ]}
+            >
+              {fechaTitulo}
+            </Text>
+            <Text style={styles.greetingStats} numberOfLines={1}>
+              {resumenDia.actividades > 0 ? (
+                <>
+                  <Text style={styles.greetingStatsStrong}>
+                    {resumenDia.actividades}{' '}
+                    {resumenDia.actividades === 1 ? 'actividad' : 'actividades'}
+                  </Text>
+                  <Text style={styles.greetingSep}> · </Text>
+                  {minutosTexto} planificadas
+                </>
+              ) : resumenDia.notas > 0 ? (
+                <>
+                  <Text style={styles.greetingStatsStrong}>
+                    {resumenDia.notas}{' '}
+                    {resumenDia.notas === 1 ? 'nota' : 'notas'}
+                  </Text>
+                  <Text style={styles.greetingSep}> · </Text>
+                  sin entrenamientos
+                </>
+              ) : (
+                'Sin actividades planificadas'
+              )}
+            </Text>
+          </View>
+
           {/* CARRUSEL 3D CILÍNDRICO UNIFICADO (ReactICX 3D Carousel + Flechas en extremos) */}
-          <Semana3DCarousel
-            fechaReferencia={ref}
-            diaActivo={diaActivo}
-            registros={registros}
-            onCambiarDia={setDiaActivo}
-            onCambiarSemana={setRef}
-          />
+          <View style={styles.carouselWrap}>
+            <Semana3DCarousel
+              fechaReferencia={ref}
+              diaActivo={diaActivo}
+              registros={registros}
+              onCambiarDia={setDiaActivo}
+              onCambiarSemana={setRef}
+            />
+          </View>
 
           {/* TARJETA PRINCIPAL DEL DÍA SELECCIONADO (Estilo Uiverse one-div glow) */}
           <MainDayCard
@@ -256,15 +451,31 @@ export default function Semana() {
           />
 
           {/* BOTÓN PRINCIPAL LIQUID METAL ENTRE MAINDAYCARD Y BOTTOMTABBAR */}
-          <View style={{ paddingTop: 4, width: '100%' }}>
+          <View style={styles.myDiaWrap}>
             <LiquidMetalButton
-              titulo="MyDia"
+              titulo="Administrar"
               onPress={() => setModalVisible(true)}
               activo={
                 isFocused &&
                 !modalVisible &&
                 !modalEjecutarVisible
               }
+              height={54}
+              borderRadius={16}
+              borderWidth={2}
+              tamano="lg"
+              metalConfig={{
+                colorBack: '#8F9AAC',
+                colorTint: '#F4F8FE',
+                speed: 0.28,
+                repetition: 3.4,
+                distortion: 0.12,
+                softness: 0.12,
+                shiftRed: 0.06,
+                shiftBlue: -0.06,
+                angle: 115,
+                contour: 0.36,
+              }}
               style={{ alignSelf: 'stretch' }}
             />
           </View>
@@ -313,232 +524,211 @@ export default function Semana() {
 }
 
 const styles = StyleSheet.create({
-  weekNavigatorCard: {
+  headerWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colores.tarjeta,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    height: 30,
+    position: 'relative',
+    zIndex: 60,
+  },
+  brandLockup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    minWidth: 0,
+  },
+  brandMark: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
     borderWidth: 1,
-    borderColor: colores.borde,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  navChevronButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: 'rgba(10, 12, 18, 0.60)',
-    borderWidth: 1,
-    borderColor: colores.borde,
-  },
-  rangoSemanaText: {
-    fontSize: 15,
-    fontFamily: fuentes.black,
-    color: colores.texto,
-    letterSpacing: 0.3,
-  },
-  subtextSemanaBadge: {
-    backgroundColor: colores.primarioSuave,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginTop: 2,
-  },
-  subtextSemanaBadgeText: {
-    fontSize: 10,
-    color: colores.primarioHover,
-    fontFamily: fuentes.bold,
-  },
-  subtextSemanaCurrent: {
-    fontSize: 10,
-    color: colores.suave,
-    fontFamily: fuentes.bold,
-    marginTop: 1,
-  },
-  dayPillButton: {
-    flex: 1,
-    paddingVertical: 9,
-    borderRadius: 14,
+    borderColor: 'rgba(255, 255, 255, 0.24)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    gap: 3,
+    shadowColor: '#E2EFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  dayNameShort: {
-    fontSize: 10,
-    fontFamily: fuentes.bold,
-    textTransform: 'uppercase',
-  },
-  dayNumberText: {
+  brandMarkText: {
+    color: '#F8FBFF',
+    fontFamily: fuentes.extraBold,
     fontSize: 15,
-    fontFamily: fuentes.black,
+    letterSpacing: -1.2,
+    paddingBottom: 1,
   },
-  statusDot: {
+  brandWordmark: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 4,
+    minWidth: 0,
+  },
+  brandDotSmall: {
     width: 4,
     height: 4,
     borderRadius: 2,
+    backgroundColor: noir.pearl,
+    marginBottom: 4,
+    shadowColor: '#E2EFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.65,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  mainDayCard: {
-    flex: 1,
-    backgroundColor: colores.tarjeta,
-    borderRadius: 22,
-    borderWidth: 1.2,
-    padding: 18,
-    gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  selectedDayTitle: {
-    fontSize: 20,
-    fontFamily: fuentes.black,
-    color: colores.texto,
-    textTransform: 'capitalize',
-  },
-  hoyBadge: {
-    backgroundColor: 'rgba(217, 119, 6, 0.20)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(217, 119, 6, 0.40)',
-  },
-  hoyBadgeText: {
-    color: colores.hoy,
-    fontSize: 10,
-    fontFamily: fuentes.black,
-  },
-  selectedDaySubdate: {
-    fontSize: 12,
-    color: colores.suave,
-    fontFamily: fuentes.bold,
-    marginTop: 1,
-  },
-  emptyDayContainer: {
-    paddingVertical: 36,
-    alignItems: 'center',
-    gap: 8,
-  },
-  emptyDayIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(10, 12, 18, 0.60)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colores.borde,
-  },
-  emptyDayTitle: {
-    color: colores.texto,
-    fontFamily: fuentes.bold,
-    fontSize: 15,
-  },
-  emptyDaySubtext: {
-    color: colores.suave,
-    textAlign: 'center',
-    fontSize: 12,
-    paddingHorizontal: 20,
-    fontFamily: fuentes.regular,
-  },
-  noteCard: {
-    backgroundColor: 'rgba(10, 12, 18, 0.60)',
-    borderRadius: 14,
-    padding: 12,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: colores.borde,
-    borderLeftWidth: 4,
-  },
-  noteCategoryBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  noteCategoryText: {
-    fontSize: 10,
-    fontFamily: fuentes.bold,
-    textTransform: 'uppercase',
-  },
-  noteTitle: {
-    color: colores.texto,
-    fontSize: 14,
-    fontFamily: fuentes.bold,
-    flex: 1,
-  },
-  noteBody: {
-    color: colores.suave,
-    fontSize: 12,
-    lineHeight: 17,
-    paddingLeft: 2,
-    fontFamily: fuentes.regular,
-  },
-  routineBox: {
-    backgroundColor: 'rgba(10, 12, 18, 0.60)',
-    borderRadius: 14,
-    padding: 14,
-    gap: 10,
-    borderWidth: 1,
-    borderLeftWidth: 4,
-  },
-  routineBoxTitle: {
-    fontFamily: fuentes.black,
-    fontSize: 15,
-  },
-  fillRegistroBadge: {
-    backgroundColor: colores.primarioSuave,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderWidth: 1,
-    borderColor: colores.primarioGlow,
-  },
-  fillRegistroBadgeText: {
-    color: colores.primarioHover,
-    fontFamily: fuentes.bold,
-    fontSize: 11,
-  },
-  extraExercisesCard: {
-    backgroundColor: 'rgba(10, 12, 18, 0.60)',
-    borderRadius: 14,
-    padding: 14,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: colores.borde,
-    borderLeftWidth: 4,
-    borderLeftColor: colores.exito,
-  },
-  topHeaderBar: {
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
+  avatarWrap: {
     position: 'relative',
+    width: 32,
+    height: 32,
+    flexShrink: 0,
   },
-  topLogoutButton: {
-    position: 'absolute',
-    top: 6,
+  avatarButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.13)',
+  },
+  avatarGradient: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarText: {
+    color: '#E8EDF5',
+    fontFamily: fuentes.semiBold,
+    fontSize: 11,
+  },
+  avatarStatus: {
+    position: 'absolute',
+    right: -1,
+    bottom: -1,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: noir.mint,
+    borderWidth: 2,
+    borderColor: '#06070A',
+    shadowColor: noir.mint,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.55,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  accountScrim: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 50,
+  },
+  accountMenu: {
+    position: 'absolute',
+    top: 40,
+    right: 0,
+    width: 218,
+    padding: 10,
+    borderRadius: 14,
+    backgroundColor: 'rgba(18, 20, 26, 0.98)',
+    borderWidth: 1,
+    borderColor: noir.lineStrong,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.55,
+    shadowRadius: 24,
+    elevation: 18,
+    zIndex: 61,
+  },
+  accountMenuLabel: {
+    color: noir.muted2,
+    fontFamily: fuentes.bold,
+    fontSize: 8.5,
+    letterSpacing: 1.2,
+    paddingHorizontal: 4,
+    paddingTop: 2,
+  },
+  accountMenuEmail: {
+    color: noir.text,
+    fontFamily: fuentes.medium,
+    fontSize: 12,
+    paddingHorizontal: 4,
+    paddingTop: 4,
+  },
+  accountMenuDivider: {
+    height: 1,
+    backgroundColor: noir.line,
+    marginVertical: 8,
+  },
+  accountMenuLogout: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  accountMenuLogoutText: {
+    color: noir.platinum,
+    fontFamily: fuentes.semiBold,
+    fontSize: 12,
+  },
+  greeting: {
+    paddingHorizontal: 1,
+    flexShrink: 0,
+  },
+  eyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  eyebrowDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: noir.pearl,
+    shadowColor: '#E2EFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.55,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  eyebrowText: {
+    color: noir.muted,
+    fontFamily: fuentes.semiBold,
+    fontSize: 9,
+    letterSpacing: 1.3,
+  },
+  greetingTitle: {
+    color: noir.text,
+    fontFamily: fuentes.bold,
+    letterSpacing: -0.84,
+    marginTop: 7,
+  },
+  greetingStats: {
+    color: noir.muted,
+    fontFamily: fuentes.regular,
+    fontSize: 11.5,
+    lineHeight: 16,
+    marginTop: 6,
+  },
+  greetingStatsStrong: {
+    color: '#DCE3EC',
+    fontFamily: fuentes.semiBold,
+  },
+  greetingSep: {
+    color: 'rgba(255, 255, 255, 0.18)',
+  },
+  carouselWrap: {
+    flexShrink: 0,
+    marginBottom: 8,
+  },
+  myDiaWrap: {
+    width: '100%',
+    paddingTop: 8,
+    flexShrink: 0,
   },
 });
 

@@ -11,11 +11,11 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { colores, fuentes } from '../constants/colores';
 import { useLayout } from '../hooks/useLayout';
 import { vibrarBoton } from '../utils/haptics';
+import EjercicioGif from './entrenamiento/EjercicioGif';
 import {
   EjercicioBiblioteca,
   GRUPOS_MUSCULARES,
@@ -290,12 +290,11 @@ export default function SelectorBibliotecaModal({
                   >
                     {/* GIF Box oscuro */}
                     <View style={styles.gifBox}>
-                      <Image
-                        source={{ uri: item.gifUrl }}
+                      <EjercicioGif
+                        uri={item.gifUrl}
                         style={styles.gifImage}
                         contentFit="contain"
-                        cachePolicy="disk"
-                        autoplay
+                        animated={false}
                       />
                     </View>
 
@@ -414,12 +413,11 @@ export default function SelectorBibliotecaModal({
                 >
                   {/* GIF Grande de Demostración */}
                   <View style={styles.tutorialGifContainer}>
-                    <Image
-                      source={{ uri: ejercicioTutorial.gifUrl }}
+                    <EjercicioGif
+                      uri={ejercicioTutorial.gifUrl}
                       style={styles.tutorialGif}
                       contentFit="contain"
-                      cachePolicy="disk"
-                      autoplay
+                      accessibilityLabel={ejercicioTutorial.name}
                     />
                   </View>
 

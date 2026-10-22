@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
 import {
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { colores, fuentes } from '../../constants/colores';
 import { vibrarBoton } from '../../utils/haptics';
 import { EjercicioGifInfo, obtenerGifEjercicio } from '../../services/ejerciciosGifs';
+import EjercicioGif from './EjercicioGif';
 
 interface Props {
   nombreEjercicio: string;
@@ -44,17 +43,12 @@ export default function HeroEjercicioActivo({
     <View style={styles.container}>
       {/* Visualizador Hero Anatómico (GIF Animado sin marco blanco) */}
       <View style={styles.heroBox}>
-        <Image
-          source={{ uri: gifInfo.gifUrl }}
-          style={[
-            styles.gifImage,
-            Platform.OS === 'web' && ({
-              filter: 'invert(1) contrast(1.1) brightness(0.96)',
-            } as any),
-          ]}
+        <EjercicioGif
+          uri={gifInfo.gifUrl}
+          style={styles.gifImage}
           contentFit="contain"
-          autoplay
-          cachePolicy="disk"
+          paused={modalTutorialVisible}
+          accessibilityLabel={`Demostración de ${gifInfo.name || nombreEjercicio}`}
         />
 
         {/* Badge 'R' de Rutinia en esquina inferior derecha */}
@@ -158,16 +152,12 @@ export default function HeroEjercicioActivo({
             >
               {/* Animación en grande */}
               <View style={styles.modalBigGifBox}>
-                <Image
-                  source={{ uri: gifInfo.gifUrl }}
-                  style={[
-                    styles.modalBigGif,
-                    Platform.OS === 'web' && ({
-                      filter: 'invert(1) contrast(1.1) brightness(0.96)',
-                    } as any),
-                  ]}
+                <EjercicioGif
+                  uri={gifInfo.gifUrl}
+                  style={styles.modalBigGif}
                   contentFit="contain"
-                  autoplay
+                  paused={!modalTutorialVisible}
+                  accessibilityLabel={`Demostración de ${gifInfo.name || nombreEjercicio}`}
                 />
               </View>
 

@@ -23,14 +23,14 @@ export default function FondoNegroGradiente({ children, style }: Props) {
       {/* Capa Base: Degradado Lineal Inteligente */}
       <LinearGradient
         colors={[
-          '#080A0F', // Tope: obsidiana sutil
-          '#040508', // Transición
-          '#000000', // Zona de avatares (negro puro)
-          '#000000', // Zona de GIF hero (negro puro sin recuadro)
-          '#020306', // Inicio de tabla de series
-          '#06080E', // Base: solidez visual inferior
+          '#07090D', // Tope: obsidiana sutil
+          '#040507', // Zona de cabecera editorial
+          '#040507', // Centro: negro perla
+          '#040507', // Zona de tarjetas
+          '#05070A', // Inicio de la base
+          '#080A0F', // Base: solidez visual inferior
         ]}
-        locations={[0, 0.12, 0.24, 0.62, 0.82, 1.0]}
+        locations={[0, 0.12, 0.3, 0.64, 0.84, 1.0]}
         style={StyleSheet.absoluteFill}
       />
 
@@ -46,23 +46,24 @@ export default function FondoNegroGradiente({ children, style }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#040507',
     position: 'relative',
     overflow: 'hidden',
   },
   specularAura: {
     position: 'absolute',
-    top: 120,
+    top: 96,
     left: '50%',
-    width: 340,
-    height: 340,
-    marginLeft: -170,
-    borderRadius: 170,
-    backgroundColor: 'rgba(0, 229, 255, 0.025)',
+    width: 360,
+    height: 360,
+    marginLeft: -180,
+    borderRadius: 180,
+    backgroundColor: 'rgba(220, 235, 255, 0.022)',
     ...(Platform.OS === 'web'
       ? {
-          backgroundImage: 'radial-gradient(circle, rgba(0, 229, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 40%, transparent 70%)',
-          filter: 'blur(40px)',
+          backgroundImage:
+            'radial-gradient(circle, rgba(220, 235, 255, 0.045) 0%, rgba(255, 255, 255, 0.012) 40%, transparent 70%)',
+          filter: 'blur(44px)',
         }
       : {}),
   },
