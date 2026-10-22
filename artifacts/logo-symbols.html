@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rutinia · Símbolos, no letras</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap');
+
+  :root{
+    --bg:#050608; --ink:#F2F6FC; --muted:#98A1AF; --dim:#666E7C;
+    --line:rgba(255,255,255,.075); --line-strong:rgba(255,255,255,.14);
+    --pearl:#E8EEF8; --crimson:#E0334F;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html{ background:var(--bg); }
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(900px 520px at 10% -8%, rgba(124,92,255,.10), transparent 62%),
+      radial-gradient(760px 460px at 90% 2%, rgba(34,211,238,.06), transparent 60%),
+      radial-gradient(720px 440px at 50% 102%, rgba(224,51,79,.07), transparent 62%),
+      var(--bg);
+    color:var(--ink);
+    font-family:'Outfit', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  body::before{
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image:radial-gradient(rgba(255,255,255,.10) .5px, transparent .5px);
+    background-size:26px 26px; opacity:.22;
+    mask-image:linear-gradient(to bottom, #000 0%, transparent 55%);
+  }
+  .page{ position:relative; z-index:1; width:min(1420px, calc(100% - 72px)); margin:0 auto; padding:76px 0 100px; }
+
+  .masthead{ display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:48px; padding-bottom:42px; border-bottom:1px solid var(--line); }
+  .masthead > *, .concept > *, .copy, .apps, .apps > div{ min-width:0; }
+  .eyebrow{ display:flex; align-items:center; gap:12px; font-size:11px; font-weight:500; letter-spacing:.28em; text-transform:uppercase; color:var(--muted); margin-bottom:26px; }
+  .eyebrow .dot{ width:5px; height:5px; border-radius:50%; background:var(--crimson); box-shadow:0 0 10px rgba(224,51,79,.8); }
+  h1{ font-size:clamp(46px, 6.2vw, 90px); font-weight:200; letter-spacing:-.045em; line-height:.98; max-width:1050px; }
+  h1 .pearl{ background:linear-gradient(115deg,#fff 4%,#DCE9FF 30%,#8F9AAE 56%,#F7FAFF 82%); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  h1 .crimson{ color:var(--crimson); }
+  .lede{ margin-top:28px; max-width:660px; font-size:16px; line-height:1.65; font-weight:300; color:var(--muted); }
+  .lede b{ color:var(--ink); font-weight:400; }
+  .meta{ text-align:right; font-size:10px; line-height:1.9; letter-spacing:.2em; text-transform:uppercase; color:var(--dim); white-space:nowrap; padding-bottom:8px; }
+  .meta strong{ display:block; color:var(--ink); font-weight:500; letter-spacing:.24em; }
+
+  .concept{ display:grid; grid-template-columns:minmax(300px, 360px) minmax(0,1fr) minmax(250px, 310px); gap:clamp(28px, 4vw, 64px); padding:64px 0 68px; border-bottom:1px solid var(--line); }
+  .stage{ position:relative; display:flex; align-items:center; justify-content:center; min-height:360px; }
+  .stage::before{ content:''; position:absolute; width:350px; height:350px; border-radius:50%; background:radial-gradient(circle, rgba(220,233,255,.13), rgba(220,233,255,.03) 46%, transparent 70%); filter:blur(2px); }
+  .stage::after{ content:''; position:absolute; bottom:42px; left:50%; transform:translateX(-50%); width:200px; height:22px; border-radius:50%; background:radial-gradient(ellipse, rgba(0,0,0,.85), transparent 72%); filter:blur(8px); }
+  .appicon{ position:relative; width:272px; height:272px; border-radius:64px; overflow:hidden; box-shadow:0 40px 80px -30px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.10), inset 0 1px 0 rgba(255,255,255,.12); transform:translateZ(0); }
+  .appicon.hero-icon{ width:300px; height:300px; border-radius:70px; }
+  .appicon svg{ display:block; width:100%; height:100%; }
+  .appicon::after{ content:''; position:absolute; inset:0; background:linear-gradient(145deg, rgba(255,255,255,.15), transparent 30%), linear-gradient(to top, rgba(0,0,0,.20), transparent 34%); pointer-events:none; }
+
+  .copy{ padding-top:8px; }
+  .num{ font-size:10px; font-weight:500; letter-spacing:.3em; color:var(--dim); display:block; margin-bottom:18px; }
+  .concept h2{ font-size:clamp(30px, 3vw, 44px); font-weight:300; letter-spacing:-.035em; line-height:1; }
+  .tag{ margin-top:12px; font-size:11px; font-weight:500; letter-spacing:.22em; text-transform:uppercase; color:var(--pearl); }
+  .tag .sep{ color:var(--dim); margin:0 8px; }
+  .tag .rec{ color:var(--crimson); }
+  .desc{ margin-top:26px; font-size:14.5px; line-height:1.7; font-weight:300; color:var(--muted); max-width:470px; }
+  .desc strong{ color:var(--ink); font-weight:400; }
+  .notes{ margin-top:26px; display:grid; gap:10px; max-width:470px; }
+  .note{ display:grid; grid-template-columns:18px 1fr; gap:10px; font-size:12.5px; line-height:1.55; font-weight:300; color:var(--muted); }
+  .note i{ font-style:normal; color:var(--crimson); font-size:10px; line-height:1.8; }
+  .note b{ color:var(--ink); font-weight:400; }
+
+  .apps{ display:flex; flex-direction:column; gap:20px; padding-top:6px; }
+  .app-label{ font-size:9px; font-weight:500; letter-spacing:.26em; text-transform:uppercase; color:var(--dim); margin-bottom:10px; }
+  .lockup{ display:flex; align-items:center; gap:12px; min-height:64px; padding:12px 16px; border:1px solid var(--line); border-radius:14px; background:linear-gradient(150deg, rgba(255,255,255,.035), rgba(255,255,255,.008)); }
+  .lockup .lk-mark{ width:48px; height:48px; flex:none; }
+  .lockup .lk-word{ font-size:20px; font-weight:300; letter-spacing:.32em; margin-right:-.32em; line-height:1; color:var(--ink); white-space:nowrap; text-transform:uppercase; }
+
+  .size-strip{ display:flex; align-items:flex-end; gap:16px; padding:16px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.018); }
+  .size{ display:flex; flex-direction:column; align-items:center; gap:8px; color:var(--dim); font-size:8px; letter-spacing:.14em; }
+  .size .mini{ display:block; border-radius:22%; overflow:hidden; box-shadow:0 0 0 1px rgba(255,255,255,.09); }
+  .size .mini svg{ display:block; width:100%; height:100%; }
+
+  .states{ display:flex; gap:8px; padding:12px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.018); }
+  .state{ flex:1; display:flex; flex-direction:column; align-items:center; gap:7px; padding:8px 4px; border-radius:10px; background:rgba(255,255,255,.02); border:1px solid rgba(255,255,255,.05); }
+  .state svg{ width:70px; height:70px; border-radius:22%; display:block; box-shadow:0 0 0 1px rgba(255,255,255,.08); }
+  .state span{ font-size:8px; letter-spacing:.14em; color:var(--dim); text-transform:uppercase; }
+
+  .swatches{ display:flex; gap:8px; }
+  .swatch{ flex:1; height:38px; border-radius:8px; border:1px solid rgba(255,255,255,.09); position:relative; overflow:hidden; }
+  .swatch span{ position:absolute; left:7px; bottom:5px; font-size:7px; letter-spacing:.08em; color:rgba(255,255,255,.55); font-family:ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  .system{ margin-top:76px; display:grid; grid-template-columns:1.08fr .92fr; gap:clamp(32px,5vw,80px); align-items:start; padding-top:52px; border-top:1px solid var(--line-strong); }
+  .system .kicker{ font-size:10px; font-weight:500; letter-spacing:.3em; text-transform:uppercase; color:var(--dim); margin-bottom:22px; }
+  .system h2{ font-size:clamp(32px,3.6vw,52px); font-weight:200; letter-spacing:-.04em; line-height:1.02; }
+  .system h2 em{ font-style:normal; color:var(--crimson); }
+  .system p{ margin-top:22px; max-width:580px; font-size:14.5px; line-height:1.75; font-weight:300; color:var(--muted); }
+  .rules{ display:grid; gap:0; border-top:1px solid var(--line); }
+  .rule{ display:grid; grid-template-columns:34px 1fr; gap:14px; padding:18px 0; border-bottom:1px solid var(--line); font-size:13px; line-height:1.6; font-weight:300; color:var(--muted); }
+  .rule b{ color:var(--ink); font-weight:400; }
+  .rule .rnum{ font-size:10px; letter-spacing:.18em; color:var(--dim); padding-top:3px; }
+  .rule .rnum.crimson{ color:var(--crimson); }
+
+  .footer{ margin-top:64px; display:flex; justify-content:space-between; align-items:center; gap:24px; font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--dim); padding-top:24px; border-top:1px solid var(--line); }
+  .footer .mini-lockup{ display:flex; align-items:center; gap:10px; color:var(--muted); letter-spacing:.24em; }
+  .footer .mini-lockup svg{ width:24px; height:24px; }
+
+  @media (max-width: 1080px){
+    .concept{ grid-template-columns:300px 1fr; }
+    .apps{ grid-column:1 / -1; flex-direction:row; flex-wrap:wrap; align-items:stretch; }
+    .apps > div{ flex:1 1 240px; }
+    .system{ grid-template-columns:1fr; }
+  }
+  @media (max-width: 760px){
+    .page{ width:calc(100% - 40px); padding-top:48px; }
+    .masthead{ grid-template-columns:minmax(0,1fr); gap:24px; }
+    .meta{ text-align:left; }
+    .eyebrow{ flex-wrap:wrap; font-size:9px; letter-spacing:.18em; }
+    .concept{ grid-template-columns:minmax(0,1fr); gap:28px; padding:48px 0 52px; }
+    .lockup .lk-word{ font-size:17px; letter-spacing:.24em; margin-right:-.24em; }
+    .states{ gap:6px; padding:8px; }
+    .state svg{ width:64px; height:64px; }
+    .stage{ min-height:310px; }
+    .appicon{ width:240px; height:240px; border-radius:56px; }
+    .appicon.hero-icon{ width:258px; height:258px; border-radius:60px; }
+    .apps{ flex-direction:column; }
+    .footer{ flex-direction:column; align-items:flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" aria-hidden="true" style="position:absolute;overflow:hidden">
+  <defs>
+    <linearGradient id="pearl" gradientUnits="userSpaceOnUse" x1="56" y1="42" x2="196" y2="204">
+      <stop offset="0" stop-color="#FFFFFF"/><stop offset=".32" stop-color="#EDF3FF"/>
+      <stop offset=".58" stop-color="#B6C1D3"/><stop offset=".78" stop-color="#DCE6F4"/>
+      <stop offset="1" stop-color="#FFFFFF"/>
+    </linearGradient>
+    <linearGradient id="chrome" gradientUnits="userSpaceOnUse" x1="48" y1="30" x2="222" y2="212">
+      <stop offset="0" stop-color="#FFFFFF"/><stop offset=".18" stop-color="#E7EEF9"/>
+      <stop offset=".42" stop-color="#AFBACB"/><stop offset=".5" stop-color="#8D99AB"/>
+      <stop offset=".56" stop-color="#F4F8FF"/><stop offset=".74" stop-color="#BBC6D6"/>
+      <stop offset="1" stop-color="#FFFFFF"/>
+    </linearGradient>
+    <linearGradient id="crimson" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F45A72"/><stop offset=".45" stop-color="#E0334F"/><stop offset="1" stop-color="#9E1C30"/>
+    </linearGradient>
+    <linearGradient id="tile" x1="0" y1="0" x2=".85" y2="1">
+      <stop offset="0" stop-color="#181B26"/><stop offset=".48" stop-color="#0A0C12"/><stop offset="1" stop-color="#050608"/>
+    </linearGradient>
+    <radialGradient id="tileGlow" cx=".5" cy=".38" r=".72">
+      <stop offset="0" stop-color="#283044" stop-opacity=".55"/><stop offset="1" stop-color="#050608" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="sphere" cx=".36" cy=".26" r=".84">
+      <stop offset="0" stop-color="#FFFFFF"/><stop offset=".25" stop-color="#EDF3FC"/>
+      <stop offset=".55" stop-color="#C3CDDB"/><stop offset=".8" stop-color="#7E899B"/>
+      <stop offset="1" stop-color="#4B5464"/>
+    </radialGradient>
+    <radialGradient id="sphereShade" cx=".72" cy=".86" r=".72">
+      <stop offset="0" stop-color="#0A0C12" stop-opacity=".55"/><stop offset=".55" stop-color="#0A0C12" stop-opacity=".10"/>
+      <stop offset="1" stop-color="#0A0C12" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="stone" gradientUnits="userSpaceOnUse" x1="60" y1="60" x2="190" y2="196">
+      <stop offset="0" stop-color="#FFFFFF"/><stop offset=".28" stop-color="#E9EFF9"/>
+      <stop offset=".55" stop-color="#B1BCCD"/><stop offset=".72" stop-color="#798496"/>
+      <stop offset=".9" stop-color="#D7E0EC"/><stop offset="1" stop-color="#F7FAFF"/>
+    </linearGradient>
+    <filter id="softGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="blur8" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="8"/></filter>
+
+    <!-- SIETE · anillo de siete piezas -->
+    <g id="m-siete-ring">
+      <circle cx="120" cy="120" r="88" fill="none" stroke="rgba(220,233,255,.10)" stroke-width="1"/>
+      <circle cx="120" cy="120" r="70" fill="none" stroke="url(#chrome)" stroke-width="14.5"
+              pathLength="100" stroke-dasharray="13.286 1" transform="rotate(-113.91 120 120)"/>
+      <circle cx="120" cy="120" r="60.5" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="1"/>
+    </g>
+    <g id="m-siete">
+      <use href="#m-siete-ring"/>
+      <circle cx="120" cy="50" r="7" fill="url(#crimson)" stroke="rgba(255,255,255,.45)" stroke-width="1.1" filter="url(#softGlow)"/>
+      <circle cx="117.4" cy="47.3" r="2" fill="#FFFFFF" opacity=".55"/>
+    </g>
+
+    <!-- ÓRBITA -->
+    <g id="m-orbita">
+      <circle cx="120" cy="120" r="81" fill="none" stroke="rgba(220,233,255,.10)" stroke-width="1"/>
+      <ellipse cx="120" cy="120" rx="94" ry="27" transform="rotate(-24 120 120)" fill="none" stroke="rgba(220,233,255,.30)" stroke-width="1.4"/>
+      <ellipse cx="120" cy="120" rx="103" ry="34" transform="rotate(-24 120 120)" fill="none" stroke="rgba(220,233,255,.08)" stroke-width="1"/>
+      <circle cx="120" cy="120" r="58" fill="url(#sphere)"/>
+      <circle cx="120" cy="120" r="58" fill="url(#sphereShade)"/>
+      <ellipse cx="120" cy="120" rx="23" ry="58" fill="none" stroke="rgba(8,10,16,.30)" stroke-width="1.6"/>
+      <ellipse cx="120" cy="120" rx="45" ry="58" fill="none" stroke="rgba(8,10,16,.16)" stroke-width="1.2"/>
+      <ellipse cx="120" cy="120" rx="58" ry="17" fill="none" stroke="rgba(8,10,16,.20)" stroke-width="1.2"/>
+      <ellipse cx="120" cy="120" rx="94" ry="27" transform="rotate(-24 120 120)" fill="none" stroke="rgba(240,246,255,.78)" stroke-width="2" clip-path="url(#orbitFront)"/>
+      <circle cx="199" cy="95" r="8.5" fill="#07080C"/>
+      <circle cx="199" cy="95" r="4.4" fill="url(#crimson)" filter="url(#softGlow)"/>
+      <path d="M88 88 A46 46 0 0 1 128 70" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="2" stroke-linecap="round" opacity=".45"/>
+    </g>
+    <clipPath id="orbitFront">
+      <rect x="10" y="120" width="220" height="42" transform="rotate(-24 120 120)"/>
+    </clipPath>
+
+    <!-- CAIRN -->
+    <g id="m-cairn">
+      <ellipse cx="120" cy="194" rx="68" ry="8" fill="rgba(0,0,0,.55)" filter="url(#blur8)"/>
+      <g transform="rotate(-4 120 140)">
+        <path d="M48 174 L60 160 L88 154 L146 153 L176 158 L190 170 L184 182 L148 189 L92 189 L58 184 Z"
+              fill="url(#stone)" stroke="rgba(5,6,8,.9)" stroke-width="2.5" stroke-linejoin="round"/>
+        <path d="M74 140 L88 126 L112 120 L146 120 L162 128 L166 138 L150 146 L112 148 L86 146 Z"
+              fill="url(#stone)" stroke="rgba(5,6,8,.9)" stroke-width="2.5" stroke-linejoin="round"/>
+        <path d="M106 110 L113 100 L126 97 L138 100 L145 107 L142 113 L129 116 L113 115 Z"
+              fill="url(#crimson)" stroke="rgba(5,6,8,.9)" stroke-width="2.5" stroke-linejoin="round"/>
+        <path d="M64 166 L92 158 L148 157 L172 162" fill="none" stroke="rgba(255,255,255,.38)" stroke-width="1.5" stroke-linecap="round" opacity=".5"/>
+        <path d="M88 132 L110 124 L150 124 L158 129" fill="none" stroke="rgba(255,255,255,.34)" stroke-width="1.2" stroke-linecap="round" opacity=".45"/>
+        <path d="M115 102 L126 99 L137 102" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.1" stroke-linecap="round" opacity=".55"/>
+      </g>
+    </g>
+
+    <!-- MAREA -->
+    <g id="m-marea">
+      <g transform="rotate(32 120 120)" fill="none" stroke="url(#pearl)" stroke-linecap="round">
+        <path d="M102.8 95.4 A30 30 0 1 1 102.8 144.6" stroke-width="2.4" opacity=".95"/>
+        <path d="M90.2 77.4 A52 52 0 1 1 90.2 162.6" stroke-width="2" opacity=".55"/>
+        <path d="M77.5 59.4 A74 74 0 1 1 77.5 180.6" stroke-width="1.6" opacity=".28"/>
+        <path d="M66 42 A94 94 0 1 1 66 198" stroke-width="1.2" opacity=".12"/>
+      </g>
+      <circle cx="120" cy="120" r="7" fill="url(#crimson)" filter="url(#softGlow)"/>
+      <circle cx="117.8" cy="117.8" r="1.8" fill="#FFFFFF" opacity=".55"/>
+    </g>
+  </defs>
+</svg>
+
+<main class="page">
+  <header class="masthead">
+    <div>
+      <div class="eyebrow"><span class="dot"></span> Rutinia · Identidad visual · Exploración 03</div>
+      <h1>Sin una letra.<br>Con una <span class="pearl">idea</span><span class="crimson">.</span></h1>
+      <p class="lede">
+        El nombre ya está en la app; el símbolo tiene que decir algo por sí solo. Cuatro marcas nacen del producto
+        —<b>la semana, el ciclo, el equilibrio, la propagación</b>— y ninguna depende de una R. La recomendada
+        convierte el logo en un pequeño tracker.
+      </p>
+    </div>
+    <div class="meta">
+      <strong>Rutinia</strong>
+      Octubre 2026<br>
+      Símbolo / App icon<br>
+      4 direcciones
+    </div>
+  </header>
+
+  <!-- ══════════════════ 01 SIETE ══════════════════ -->
+  <section class="concept" id="s1">
+    <div class="stage">
+      <div class="appicon hero-icon">
+        <svg viewBox="0 0 240 240">
+          <rect width="240" height="240" fill="url(#tile)"/>
+          <rect width="240" height="240" fill="url(#tileGlow)"/>
+          <use href="#m-siete"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="copy">
+      <span class="num">01 / 04</span>
+      <h2>Siete</h2>
+      <p class="tag">La semana, en un anillo <span class="sep">·</span> <span class="rec">Recomendada</span></p>
+      <p class="desc">
+        Siete piezas de plata forman un anillo. Una <strong>cuenta carmesí</strong> ocupa una de ellas: el hoy.
+        No es una letra; es el producto: la semana que la app te ayuda a habitar. En la app, la cuenta puede
+        avanzar con el día o iluminar los días completados.
+      </p>
+      <div class="notes">
+        <div class="note"><i>●</i><span><b>Por qué funciona:</b> es el único que convierte el logo en un mini-tracker. A 20 px queda anillo + punto; a 1024 px se ve la orfebrería.</span></div>
+        <div class="note"><i>●</i><span><b>Personalidad:</b> orden, ritmo, joyería. Se lee como un brazalete, no como un badge de app.</span></div>
+        <div class="note"><i>●</i><span><b>Innovación:</b> el símbolo puede moverse y contar datos sin dejar de ser el logo. La marca y la interfaz comparten el mismo lenguaje.</span></div>
+        <div class="note"><i>●</i><span><b>Riesgo:</b> bajo. La única decisión es la simplificación por debajo de 24 px.</span></div>
+      </div>
+    </div>
+
+    <div class="apps">
+      <div>
+        <div class="app-label">Marca + nombre</div>
+        <div class="lockup">
+          <svg class="lk-mark" viewBox="0 0 240 240"><use href="#m-siete"/></svg>
+          <span class="lk-word">Rutinia</span>
+        </div>
+      </div>
+      <div>
+        <div class="app-label">Escalabilidad</div>
+        <div class="size-strip">
+          <div class="size"><span class="mini" style="width:64px;height:64px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-siete"/></svg></span>64</div>
+          <div class="size"><span class="mini" style="width:44px;height:44px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-siete"/></svg></span>44</div>
+          <div class="size"><span class="mini" style="width:30px;height:30px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-siete"/></svg></span>30</div>
+          <div class="size"><span class="mini" style="width:20px;height:20px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-siete"/></svg></span>20</div>
+        </div>
+      </div>
+      <div>
+        <div class="app-label">Variante viva · la cuenta avanza</div>
+        <div class="states">
+          <div class="state">
+            <svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-siete-ring"/><circle cx="120" cy="50" r="7" fill="url(#crimson)" stroke="rgba(255,255,255,.45)" stroke-width="1.1"/></svg>
+            <span>Lun</span>
+          </div>
+          <div class="state">
+            <svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-siete-ring"/><circle cx="150.4" cy="183.1" r="7" fill="url(#crimson)" stroke="rgba(255,255,255,.45)" stroke-width="1.1"/></svg>
+            <span>Jue</span>
+          </div>
+          <div class="state">
+            <svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-siete-ring"/><circle cx="65.2" cy="76.5" r="7" fill="url(#crimson)" stroke="rgba(255,255,255,.45)" stroke-width="1.1"/></svg>
+            <span>Dom</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="app-label">Paleta de marca</div>
+        <div class="swatches">
+          <div class="swatch" style="background:linear-gradient(145deg,#181B26,#050608)"><span>#07080C</span></div>
+          <div class="swatch" style="background:linear-gradient(135deg,#fff,#8D99AB 52%,#F4F8FF)"><span style="color:#1a1d26">CHROME</span></div>
+          <div class="swatch" style="background:linear-gradient(135deg,#F45A72,#E0334F 45%,#9E1C30)"><span>#E0334F</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ 02 ÓRBITA ══════════════════ -->
+  <section class="concept" id="s2">
+    <div class="stage">
+      <div class="appicon">
+        <svg viewBox="0 0 240 240">
+          <rect width="240" height="240" fill="url(#tile)"/>
+          <rect width="240" height="240" fill="url(#tileGlow)"/>
+          <use href="#m-orbita"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="copy">
+      <span class="num">02 / 04</span>
+      <h2>Órbita</h2>
+      <p class="tag">El ciclo <span class="sep">·</span> Piedra y trayectoria</p>
+      <p class="desc">
+        Una esfera de plata líquida, con meridianos grabados, y un satélite carmesí que la rodea. La rutina como
+        un cuerpo celeste: <strong>cada día vuelve a pasar por el mismo punto</strong>, pero tú ya no estás en el
+        mismo lugar. El ciclo no se repite; se acumula.
+      </p>
+      <div class="notes">
+        <div class="note"><i>●</i><span><b>Por qué funciona:</b> el anillo orbital da movimiento y profundidad a una silueta circular, y el satélite da la escala y el acento.</span></div>
+        <div class="note"><i>●</i><span><b>Personalidad:</b> cósmica, serena, tecnológica. Dialoga con el fondo oscuro y los glows que ya tiene la app.</span></div>
+        <div class="note"><i>●</i><span><b>Riesgo:</b> medio. Sin los meridianos puede leerse como Saturno genérico; el grabado es lo que la vuelve Rutinia.</span></div>
+      </div>
+    </div>
+
+    <div class="apps">
+      <div>
+        <div class="app-label">Marca + nombre</div>
+        <div class="lockup">
+          <svg class="lk-mark" viewBox="0 0 240 240"><use href="#m-orbita"/></svg>
+          <span class="lk-word">Rutinia</span>
+        </div>
+      </div>
+      <div>
+        <div class="app-label">Escalabilidad</div>
+        <div class="size-strip">
+          <div class="size"><span class="mini" style="width:64px;height:64px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-orbita"/></svg></span>64</div>
+          <div class="size"><span class="mini" style="width:44px;height:44px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-orbita"/></svg></span>44</div>
+          <div class="size"><span class="mini" style="width:30px;height:30px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-orbita"/></svg></span>30</div>
+          <div class="size"><span class="mini" style="width:20px;height:20px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-orbita"/></svg></span>20</div>
+        </div>
+      </div>
+      <div>
+        <div class="app-label">Paleta de marca</div>
+        <div class="swatches">
+          <div class="swatch" style="background:linear-gradient(145deg,#181B26,#050608)"><span>#07080C</span></div>
+          <div class="swatch" style="background:radial-gradient(circle at 34% 26%,#fff,#C3CDDB 52%,#4B5464)"><span style="color:#1a1d26">PEARL</span></div>
+          <div class="swatch" style="background:linear-gradient(135deg,#F45A72,#E0334F 45%,#9E1C30)"><span>#E0334F</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ 03 CAIRN ══════════════════ -->
+  <section class="concept" id="s3">
+    <div class="stage">
+      <div class="appicon">
+        <svg viewBox="0 0 240 240">
+          <rect width="240" height="240" fill="url(#tile)"/>
+          <rect width="240" height="240" fill="url(#tileGlow)"/>
+          <use href="#m-cairn"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="copy">
+      <span class="num">03 / 04</span>
+      <h2>Cairn</h2>
+      <p class="tag">Piedra sobre piedra <span class="sep">·</span> Equilibrio</p>
+      <p class="desc">
+        Tres piedras pulidas se sostienen en equilibrio. El hábito como una construcción manual: no hay un salto,
+        hay <strong>una piedra más</strong>. La piedra superior es carmesí: el día que estás colocando
+        ahora mismo.
+      </p>
+      <div class="notes">
+        <div class="note"><i>●</i><span><b>Por qué funciona:</b> es una silueta humana y táctil, imposible de confundir con otra app de fitness. El apilado cuenta la historia sin texto.</span></div>
+        <div class="note"><i>●</i><span><b>Personalidad:</b> calma, ritual, permanencia. Una marca de hábitos, no solo de entrenamiento.</span></div>
+        <div class="note"><i>●</i><span><b>Riesgo:</b> medio. Puede deslizarse hacia el wellness; el cromo y el negro la mantienen del lado del producto.</span></div>
+      </div>
+    </div>
+
+    <div class="apps">
+      <div>
+        <div class="app-label">Marca + nombre</div>
+        <div class="lockup">
+          <svg class="lk-mark" viewBox="0 0 240 240"><use href="#m-cairn"/></svg>
+          <span class="lk-word">Rutinia</span>
+        </div>
+      </div>
+      <div>
+        <div class="app-label">Escalabilidad</div>
+        <div class="size-strip">
+          <div class="size"><span class="mini" style="width:64px;height:64px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-cairn"/></svg></span>64</div>
+          <div class="size"><span class="mini" style="width:44px;height:44px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-cairn"/></svg></span>44</div>
+          <div class="size"><span class="mini" style="width:30px;height:30px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-cairn"/></svg></span>30</div>
+          <div class="size"><span class="mini" style="width:20px;height:20px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-cairn"/></svg></span>20</div>
+        </div>
+      </div>
+      <div>
+        <div class="app-label">Paleta de marca</div>
+        <div class="swatches">
+          <div class="swatch" style="background:linear-gradient(145deg,#181B26,#050608)"><span>#07080C</span></div>
+          <div class="swatch" style="background:linear-gradient(135deg,#fff,#B1BCCD 55%,#798496)"><span style="color:#1a1d26">STONE</span></div>
+          <div class="swatch" style="background:linear-gradient(135deg,#F45A72,#E0334F 45%,#9E1C30)"><span>#E0334F</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ 04 MAREA ══════════════════ -->
+  <section class="concept" id="s4">
+    <div class="stage">
+      <div class="appicon">
+        <svg viewBox="0 0 240 240">
+          <rect width="240" height="240" fill="url(#tile)"/>
+          <rect width="240" height="240" fill="url(#tileGlow)"/>
+          <use href="#m-marea"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="copy">
+      <span class="num">04 / 04</span>
+      <h2>Marea</h2>
+      <p class="tag">Lo pequeño que se propaga <span class="sep">·</span> Impacto</p>
+      <p class="desc">
+        Un punto carmesí y tres ondas de plata. Cada acción mínima —una serie, una nota, un día— deja una marea
+        que vuelve. El progreso no es una línea: es <strong>una propagación</strong>. La marca más silenciosa de
+        las cuatro, y la que mejor respira a cualquier tamaño.
+      </p>
+      <div class="notes">
+        <div class="note"><i>●</i><span><b>Por qué funciona:</b> punto + arcos se lee a cualquier escala; la apertura diagonal evita el aire de radar o de spinner.</span></div>
+        <div class="note"><i>●</i><span><b>Personalidad:</b> calmada, orgánica, matemática. Una marca de constancia, no de intensidad.</span></div>
+        <div class="note"><i>●</i><span><b>Riesgo:</b> medio. Las ondas concéntricas son un lugar común; la asimetría y el corte son lo que la hacen propia.</span></div>
+      </div>
+    </div>
+
+    <div class="apps">
+      <div>
+        <div class="app-label">Marca + nombre</div>
+        <div class="lockup">
+          <svg class="lk-mark" viewBox="0 0 240 240"><use href="#m-marea"/></svg>
+          <span class="lk-word">Rutinia</span>
+        </div>
+      </div>
+      <div>
+        <div class="app-label">Escalabilidad</div>
+        <div class="size-strip">
+          <div class="size"><span class="mini" style="width:64px;height:64px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-marea"/></svg></span>64</div>
+          <div class="size"><span class="mini" style="width:44px;height:44px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-marea"/></svg></span>44</div>
+          <div class="size"><span class="mini" style="width:30px;height:30px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-marea"/></svg></span>30</div>
+          <div class="size"><span class="mini" style="width:20px;height:20px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-marea"/></svg></span>20</div>
+        </div>
+      </div>
+      <div>
+        <div class="app-label">Paleta de marca</div>
+        <div class="swatches">
+          <div class="swatch" style="background:linear-gradient(145deg,#181B26,#050608)"><span>#07080C</span></div>
+          <div class="swatch" style="background:linear-gradient(135deg,#fff,#DCE6F4 52%,#B6C1D3)"><span style="color:#1a1d26">PEARL</span></div>
+          <div class="swatch" style="background:linear-gradient(135deg,#F45A72,#E0334F 45%,#9E1C30)"><span>#E0334F</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="system">
+    <div>
+      <div class="kicker">Dirección recomendada</div>
+      <h2>La marca es<br>la <em>semana</em>.</h2>
+      <p>
+        <b>Siete</b> es el único concepto que no ilustra la rutina: la contiene. Siete piezas iguales, una cuenta
+        carmesí y un comportamiento que puede quedarse quieto o moverse con el día. Funciona como icono, como
+        sello, como indicador de progreso y como animación. Las otras tres direcciones son buenas, pero son
+        metáforas; esta es el producto.
+      </p>
+      <p>
+        Órbita puede vivir como sistema de ilustración; Cairn, en campañas sobre constancia; Marea, en las
+        pantallas de progreso. La marca principal no necesita más que el anillo y su cuenta.
+      </p>
+    </div>
+    <div class="rules">
+      <div class="rule"><span class="rnum">01</span><span><b>Siete piezas. Una cuenta.</b> El anillo no lleva letras dentro, ni iniciales, ni un segundo punto. La cuenta es el único carmesí.</span></div>
+      <div class="rule"><span class="rnum">02</span><span><b>La cuenta es el hoy.</b> En reposo vive arriba. En la app puede recorrer el anillo o marcar los días completados. Nunca hay dos cuentas.</span></div>
+      <div class="rule"><span class="rnum">03</span><span><b>La plata es el cuerpo.</b> Degradados fríos, un brillo puntual, negro profundo. El carmesí es una joya, no una superficie.</span></div>
+      <div class="rule"><span class="rnum crimson">04</span><span><b>Primero el símbolo.</b> Debe leerse a 20 px. Por debajo de 24 px, el anillo se simplifica a una banda continua y la cuenta se queda sola.</span></div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="mini-lockup">
+      <svg viewBox="0 0 240 240"><use href="#m-siete"/></svg>
+      RUTINIA · IDENTIDAD 03 · SÍMBOLO
+    </div>
+    <span>Conceptos para revisión · no son archivos finales</span>
+  </footer>
+</main>
+</body>
+</html>

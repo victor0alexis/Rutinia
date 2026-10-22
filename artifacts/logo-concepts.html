@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rutinia · Direcciones de logo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap');
+
+  :root{
+    --bg:#050608;
+    --ink:#F2F6FC;
+    --muted:#98A1AF;
+    --dim:#666E7C;
+    --line:rgba(255,255,255,.075);
+    --line-strong:rgba(255,255,255,.14);
+    --pearl:#E8EEF8;
+    --crimson:#E0334F;
+    --crimson-deep:#9E1C30;
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+
+  html{ background:var(--bg); }
+
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(900px 520px at 12% -6%, rgba(124,92,255,.10), transparent 62%),
+      radial-gradient(760px 460px at 88% 4%, rgba(34,211,238,.07), transparent 60%),
+      radial-gradient(680px 420px at 50% 104%, rgba(224,51,79,.08), transparent 62%),
+      var(--bg);
+    color:var(--ink);
+    font-family:'Outfit', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+
+  body::before{
+    content:'';
+    position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image:radial-gradient(rgba(255,255,255,.10) .5px, transparent .5px);
+    background-size:26px 26px;
+    opacity:.22;
+    mask-image:linear-gradient(to bottom, #000 0%, transparent 55%);
+  }
+
+  .page{
+    position:relative; z-index:1;
+    width:min(1420px, calc(100% - 72px));
+    margin:0 auto;
+    padding:76px 0 100px;
+  }
+
+  /* ─────────────────────────  MASTHEAD  ───────────────────────── */
+  .masthead{
+    display:grid;
+    grid-template-columns:1fr auto;
+    align-items:end;
+    gap:48px;
+    padding-bottom:42px;
+    border-bottom:1px solid var(--line);
+  }
+  .eyebrow{
+    display:flex; align-items:center; gap:12px;
+    font-size:11px; font-weight:500;
+    letter-spacing:.28em; text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom:26px;
+  }
+  .eyebrow .dot{
+    width:5px; height:5px; border-radius:50%;
+    background:var(--crimson);
+    box-shadow:0 0 10px rgba(224,51,79,.8);
+  }
+  h1{
+    font-size:clamp(46px, 6.4vw, 92px);
+    font-weight:200;
+    letter-spacing:-.045em;
+    line-height:.98;
+    max-width:1050px;
+  }
+  h1 .pearl{
+    background:linear-gradient(115deg,#fff 4%,#DCE9FF 30%,#8F9AAE 56%,#F7FAFF 82%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  h1 .crimson{ color:var(--crimson); }
+  .lede{
+    margin-top:28px;
+    max-width:640px;
+    font-size:16px; line-height:1.65; font-weight:300;
+    color:var(--muted);
+  }
+  .lede b{ color:var(--ink); font-weight:400; }
+  .meta{
+    text-align:right;
+    font-size:10px; line-height:1.9;
+    letter-spacing:.2em; text-transform:uppercase;
+    color:var(--dim);
+    white-space:nowrap;
+    padding-bottom:8px;
+  }
+  .meta strong{ display:block; color:var(--ink); font-weight:500; letter-spacing:.24em; }
+
+  /* ─────────────────────────  CONCEPT ROW  ───────────────────────── */
+  .concept{
+    display:grid;
+    grid-template-columns:minmax(300px, 360px) minmax(0,1fr) minmax(250px, 310px);
+    gap:clamp(28px, 4vw, 64px);
+    padding:64px 0 68px;
+    border-bottom:1px solid var(--line);
+  }
+
+  .stage{
+    position:relative;
+    display:flex; align-items:center; justify-content:center;
+    min-height:340px;
+  }
+  .stage::before{
+    content:'';
+    position:absolute;
+    width:330px; height:330px; border-radius:50%;
+    background:radial-gradient(circle, rgba(220,233,255,.13), rgba(220,233,255,.03) 46%, transparent 70%);
+    filter:blur(2px);
+  }
+  .stage::after{
+    content:'';
+    position:absolute; bottom:38px; left:50%; transform:translateX(-50%);
+    width:190px; height:22px; border-radius:50%;
+    background:radial-gradient(ellipse, rgba(0,0,0,.85), transparent 72%);
+    filter:blur(8px);
+  }
+
+  .appicon{
+    position:relative;
+    width:272px; height:272px;
+    border-radius:64px;
+    overflow:hidden;
+    box-shadow:
+      0 40px 80px -30px rgba(0,0,0,.9),
+      0 0 0 1px rgba(255,255,255,.10),
+      inset 0 1px 0 rgba(255,255,255,.12);
+    transform:translateZ(0);
+  }
+  .appicon svg{ display:block; width:100%; height:100%; }
+  .appicon::after{
+    content:'';
+    position:absolute; inset:0;
+    background:
+      linear-gradient(145deg, rgba(255,255,255,.16), transparent 30%),
+      linear-gradient(to top, rgba(0,0,0,.20), transparent 34%);
+    pointer-events:none;
+  }
+
+  /* copy column */
+  .copy{ padding-top:8px; }
+  .num{
+    font-size:10px; font-weight:500;
+    letter-spacing:.3em; color:var(--dim);
+    display:block; margin-bottom:18px;
+  }
+  .concept h2{
+    font-size:clamp(30px, 3vw, 44px);
+    font-weight:300;
+    letter-spacing:-.035em;
+    line-height:1;
+  }
+  .tag{
+    margin-top:12px;
+    font-size:11px; font-weight:500;
+    letter-spacing:.22em; text-transform:uppercase;
+    color:var(--pearl);
+  }
+  .tag .sep{ color:var(--dim); margin:0 8px; }
+  .tag .rec{ color:var(--crimson); }
+  .desc{
+    margin-top:26px;
+    font-size:14.5px; line-height:1.7; font-weight:300;
+    color:var(--muted);
+    max-width:460px;
+  }
+  .desc strong{ color:var(--ink); font-weight:400; }
+  .notes{
+    margin-top:26px;
+    display:grid; gap:10px;
+    max-width:460px;
+  }
+  .note{
+    display:grid;
+    grid-template-columns:18px 1fr;
+    gap:10px;
+    font-size:12.5px; line-height:1.55; font-weight:300;
+    color:var(--muted);
+  }
+  .note i{
+    font-style:normal;
+    color:var(--crimson);
+    font-size:10px;
+    line-height:1.8;
+  }
+  .note b{ color:var(--ink); font-weight:400; }
+
+  /* applications column */
+  .apps{
+    display:flex; flex-direction:column; gap:22px;
+    padding-top:6px;
+  }
+  .app-label{
+    font-size:9px; font-weight:500;
+    letter-spacing:.26em; text-transform:uppercase;
+    color:var(--dim);
+    margin-bottom:11px;
+  }
+  .lockup{
+    display:flex; align-items:center; gap:12px;
+    min-height:64px;
+    padding:12px 16px;
+    border:1px solid var(--line);
+    border-radius:14px;
+    background:linear-gradient(150deg, rgba(255,255,255,.035), rgba(255,255,255,.008));
+  }
+  .lockup .lk-mark{ width:46px; height:46px; flex:none; }
+  .lockup .lk-word{
+    font-size:33px; font-weight:300;
+    letter-spacing:.01em;
+    line-height:1;
+    color:var(--ink);
+    white-space:nowrap;
+  }
+  .lockup.editorial .lk-word{
+    font-size:21px; font-weight:300;
+    letter-spacing:.34em;
+    margin-right:-.34em;
+    text-transform:uppercase;
+  }
+  .lockup .lk-dot{
+    width:5px; height:5px; border-radius:50%;
+    background:var(--crimson);
+    align-self:flex-end;
+    margin:0 0 9px -4px;
+    box-shadow:0 0 8px rgba(224,51,79,.75);
+  }
+
+  .size-strip{
+    display:flex; align-items:flex-end; gap:16px;
+    padding:18px 16px;
+    border:1px solid var(--line);
+    border-radius:14px;
+    background:rgba(255,255,255,.018);
+  }
+  .size{
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    color:var(--dim);
+    font-size:8px; letter-spacing:.14em;
+  }
+  .size .mini{
+    display:block;
+    border-radius:22%;
+    overflow:hidden;
+    box-shadow:0 0 0 1px rgba(255,255,255,.09);
+  }
+  .size .mini svg{ display:block; width:100%; height:100%; }
+
+  .swatches{ display:flex; gap:8px; }
+  .swatch{
+    flex:1;
+    height:40px;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,.09);
+    position:relative;
+    overflow:hidden;
+  }
+  .swatch span{
+    position:absolute; left:7px; bottom:5px;
+    font-size:7px; letter-spacing:.08em;
+    color:rgba(255,255,255,.55);
+    font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  /* ─────────────────────────  SYSTEM  ───────────────────────── */
+  .system{
+    margin-top:76px;
+    display:grid;
+    grid-template-columns:1.1fr .9fr;
+    gap:clamp(32px,5vw,80px);
+    align-items:start;
+    padding-top:52px;
+    border-top:1px solid var(--line-strong);
+  }
+  .system .kicker{
+    font-size:10px; font-weight:500;
+    letter-spacing:.3em; text-transform:uppercase;
+    color:var(--dim); margin-bottom:22px;
+  }
+  .system h2{
+    font-size:clamp(32px,3.6vw,52px);
+    font-weight:200; letter-spacing:-.04em; line-height:1.02;
+  }
+  .system h2 em{
+    font-style:normal;
+    color:var(--crimson);
+  }
+  .system p{
+    margin-top:22px; max-width:560px;
+    font-size:14.5px; line-height:1.75; font-weight:300;
+    color:var(--muted);
+  }
+  .rules{
+    display:grid; gap:0;
+    border-top:1px solid var(--line);
+  }
+  .rule{
+    display:grid; grid-template-columns:34px 1fr;
+    gap:14px;
+    padding:18px 0;
+    border-bottom:1px solid var(--line);
+    font-size:13px; line-height:1.6; font-weight:300;
+    color:var(--muted);
+  }
+  .rule b{ color:var(--ink); font-weight:400; }
+  .rule .rnum{
+    font-size:10px; letter-spacing:.18em; color:var(--dim);
+    padding-top:3px;
+  }
+  .rule .rnum.crimson{ color:var(--crimson); }
+
+  .footer{
+    margin-top:64px;
+    display:flex; justify-content:space-between; align-items:center; gap:24px;
+    font-size:10px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--dim);
+    padding-top:24px;
+    border-top:1px solid var(--line);
+  }
+  .footer .mini-lockup{ display:flex; align-items:center; gap:8px; color:var(--muted); letter-spacing:.24em; }
+  .footer .mini-lockup svg{ width:22px; height:22px; }
+
+  @media (max-width: 1080px){
+    .concept{ grid-template-columns:300px 1fr; }
+    .apps{ grid-column:1 / -1; flex-direction:row; flex-wrap:wrap; align-items:stretch; }
+    .apps > div{ flex:1 1 240px; }
+    .system{ grid-template-columns:1fr; }
+  }
+  @media (max-width: 760px){
+    .page{ width:calc(100% - 40px); padding-top:48px; }
+    .masthead{ grid-template-columns:1fr; gap:24px; }
+    .meta{ text-align:left; }
+    .concept{ grid-template-columns:1fr; gap:28px; padding:48px 0 52px; }
+    .stage{ min-height:290px; }
+    .appicon{ width:230px; height:230px; border-radius:54px; }
+    .apps{ flex-direction:column; }
+    .footer{ flex-direction:column; align-items:flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<!-- shared paint -->
+<svg width="0" height="0" aria-hidden="true" style="position:absolute;overflow:hidden">
+  <defs>
+    <linearGradient id="pearl" gradientUnits="userSpaceOnUse" x1="56" y1="42" x2="196" y2="204">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset=".32" stop-color="#EDF3FF"/>
+      <stop offset=".58" stop-color="#B6C1D3"/>
+      <stop offset=".78" stop-color="#DCE6F4"/>
+      <stop offset="1" stop-color="#FFFFFF"/>
+    </linearGradient>
+
+    <linearGradient id="chrome" gradientUnits="userSpaceOnUse" x1="48" y1="30" x2="222" y2="212">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset=".18" stop-color="#E7EEF9"/>
+      <stop offset=".42" stop-color="#AFBACB"/>
+      <stop offset=".5" stop-color="#8D99AB"/>
+      <stop offset=".56" stop-color="#F4F8FF"/>
+      <stop offset=".74" stop-color="#BBC6D6"/>
+      <stop offset="1" stop-color="#FFFFFF"/>
+    </linearGradient>
+
+    <linearGradient id="crimson" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F45A72"/>
+      <stop offset=".45" stop-color="#E0334F"/>
+      <stop offset="1" stop-color="#9E1C30"/>
+    </linearGradient>
+
+    <linearGradient id="tile" x1="0" y1="0" x2=".85" y2="1">
+      <stop offset="0" stop-color="#171A24"/>
+      <stop offset=".48" stop-color="#0A0C12"/>
+      <stop offset="1" stop-color="#050608"/>
+    </linearGradient>
+
+    <radialGradient id="tileGlow" cx=".5" cy=".36" r=".72">
+      <stop offset="0" stop-color="#242938" stop-opacity=".7"/>
+      <stop offset="1" stop-color="#050608" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="discSheen" cx=".34" cy=".24" r=".78">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".9"/>
+      <stop offset=".45" stop-color="#E9EFFA" stop-opacity=".2"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+
+    <filter id="softGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- ░░ 01 · MERIDIANO ░░ -->
+    <g id="m-meridiano">
+      <g fill="none" stroke="url(#pearl)" stroke-width="9.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M80 186 V57 H120 C154 57 176 72 176 93 C176 114 154 129 120 129 H80"/>
+        <path d="M120 129 C138 129 151 144 161 164 L176 186"/>
+      </g>
+      <circle cx="125" cy="93" r="7.5" fill="url(#crimson)" filter="url(#softGlow)"/>
+    </g>
+
+    <!-- ░░ 02 · ÓRBITA ░░ -->
+    <mask id="orbitaCut" maskUnits="userSpaceOnUse" x="0" y="0" width="240" height="240">
+      <circle cx="120" cy="120" r="57" fill="#fff"/>
+      <path d="M98 152 V88 H117 C135 88 144 95 144 103 C144 111 135 118 117 118 H98"
+            fill="none" stroke="#000" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M117 118 L144 152"
+            fill="none" stroke="#000" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+    </mask>
+    <g id="m-orbita">
+      <ellipse cx="120" cy="120" rx="88" ry="27" transform="rotate(-24 120 120)"
+               fill="none" stroke="rgba(220,233,255,.30)" stroke-width="1.3"/>
+      <ellipse cx="120" cy="120" rx="96" ry="33" transform="rotate(-24 120 120)"
+               fill="none" stroke="rgba(220,233,255,.10)" stroke-width="1"/>
+      <circle cx="120" cy="120" r="57" fill="url(#chrome)" mask="url(#orbitaCut)"/>
+      <circle cx="120" cy="120" r="56.5" fill="none" stroke="rgba(255,255,255,.34)" stroke-width=".9"/>
+      <path d="M83 98 A49 49 0 0 1 132 68" fill="none"
+            stroke="rgba(255,255,255,.55)" stroke-width="1.6" stroke-linecap="round" opacity=".5"/>
+      <circle cx="199" cy="95" r="8" fill="#07080C"/>
+      <circle cx="199" cy="95" r="4.3" fill="url(#crimson)" filter="url(#softGlow)"/>
+    </g>
+
+    <!-- ░░ 03 · REP ░░ -->
+    <mask id="repBands" maskUnits="userSpaceOnUse" x="0" y="0" width="240" height="240">
+      <rect width="240" height="240" fill="#fff"/>
+      <g fill="#000">
+        <rect x="0" y="99" width="240" height="5"/>
+        <rect x="0" y="151" width="240" height="5"/>
+      </g>
+    </mask>
+    <g id="m-rep">
+      <g mask="url(#repBands)">
+        <path fill-rule="evenodd" fill="url(#chrome)"
+              d="M72 184 V52 H120 C160 52 180 70 180 94 C180 118 160 134 120 134 H96 V184 Z
+                 M100 76 H116 C140 76 152 84 152 94 C152 104 140 112 116 112 H100 Z"/>
+        <path fill="url(#chrome)" d="M118 132 L151 132 L184 186 L149 186 Z"/>
+      </g>
+      <circle cx="124" cy="94" r="6" fill="url(#crimson)" filter="url(#softGlow)"/>
+    </g>
+
+    <!-- ░░ 04 · TRAZA ░░ -->
+    <g id="m-traza">
+      <g fill="none" stroke="url(#pearl)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M58 186 V58 H96 C130 58 152 72 152 93 C152 114 130 129 96 129 H58"/>
+        <path d="M96 129 C112 129 123 140 132 156 L143 186 H186"/>
+      </g>
+      <circle cx="192" cy="186" r="6.5" fill="url(#crimson)" filter="url(#softGlow)"/>
+    </g>
+  </defs>
+</svg>
+
+<main class="page">
+
+  <header class="masthead">
+    <div>
+      <div class="eyebrow"><span class="dot"></span> Rutinia · Identidad visual · Exploración 02</div>
+      <h1>El lujo de la <span class="pearl">constancia</span><span class="crimson">.</span></h1>
+      <p class="lede">
+        El carmesí deja de ser una superficie y se convierte en una joya: <b>un solo punto</b> que marca el hoy.
+        La base pasa a plata líquida, geometría propia y espacio negativo. Cuatro direcciones; una misma idea:
+        una marca con la misma disciplina visual que la app.
+      </p>
+    </div>
+    <div class="meta">
+      <strong>Rutinia</strong>
+      Octubre 2026<br>
+      Logo / App icon<br>
+      4 direcciones
+    </div>
+  </header>
+
+  <!-- ══════════════════ 01 MERIDIANO ══════════════════ -->
+  <section class="concept" id="c1">
+    <div class="stage">
+      <div class="appicon">
+        <svg viewBox="0 0 240 240">
+          <rect width="240" height="240" fill="url(#tile)"/>
+          <rect width="240" height="240" fill="url(#tileGlow)"/>
+          <use href="#m-meridiano"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="copy">
+      <span class="num">01 / 04</span>
+      <h2>Meridiano</h2>
+      <p class="tag">La R serena <span class="sep">·</span> <span class="rec">Recomendada</span></p>
+      <p class="desc">
+        Una R de línea fina, casi tipográfica, con el hueco ocupado por un <strong>punto carmesí</strong>.
+        El punto es el presente: la única parte de la rutina que realmente controlas. El resto es estructura.
+      </p>
+      <div class="notes">
+        <div class="note"><i>●</i><span><b>Por qué funciona:</b> se lee como una R a 24 px y como una joya a 1024 px. Sin efectos, sin dependencia de degradados complejos.</span></div>
+        <div class="note"><i>●</i><span><b>Personalidad:</b> disciplina, calma, precisión. Más relojería que gimnasio.</span></div>
+        <div class="note"><i>●</i><span><b>Riesgo:</b> bajo. Es la opción que envejece mejor y la más fácil de llevar a toda la app.</span></div>
+      </div>
+    </div>
+
+    <div class="apps">
+      <div>
+        <div class="app-label">Marca + nombre</div>
+        <div class="lockup">
+          <svg class="lk-mark" viewBox="0 0 240 240"><use href="#m-meridiano"/></svg>
+          <span class="lk-word">rutinia</span>
+  
+        </div>
+      </div>
+      <div>
+        <div class="app-label">Escalabilidad</div>
+        <div class="size-strip">
+          <div class="size"><span class="mini" style="width:64px;height:64px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-meridiano"/></svg></span>64</div>
+          <div class="size"><span class="mini" style="width:44px;height:44px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-meridiano"/></svg></span>44</div>
+          <div class="size"><span class="mini" style="width:30px;height:30px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-meridiano"/></svg></span>30</div>
+          <div class="size"><span class="mini" style="width:20px;height:20px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-meridiano"/></svg></span>20</div>
+        </div>
+      </div>
+      <div>
+        <div class="app-label">Paleta de marca</div>
+        <div class="swatches">
+          <div class="swatch" style="background:linear-gradient(145deg,#171A24,#050608)"><span>#07080C</span></div>
+          <div class="swatch" style="background:linear-gradient(135deg,#fff,#B6C1D3 55%,#fff)"><span style="color:#1a1d26">PEARL</span></div>
+          <div class="swatch" style="background:linear-gradient(135deg,#F45A72,#E0334F 45%,#9E1C30)"><span>#E0334F</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ 02 ÓRBITA ══════════════════ -->
+  <section class="concept" id="c2">
+    <div class="stage">
+      <div class="appicon">
+        <svg viewBox="0 0 240 240">
+          <rect width="240" height="240" fill="url(#tile)"/>
+          <rect width="240" height="240" fill="url(#tileGlow)"/>
+          <use href="#m-orbita"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="copy">
+      <span class="num">02 / 04</span>
+      <h2>Órbita</h2>
+      <p class="tag">El ciclo <span class="sep">·</span> Icono escultórico</p>
+      <p class="desc">
+        La R se convierte en un <strong>grabado negativo</strong> dentro de un disco de plata líquida. Un anillo
+        orbital la atraviesa y un pequeño satélite carmesí marca la posición del día. La rutina como sistema solar
+        personal: todo vuelve, todo avanza.
+      </p>
+      <div class="notes">
+        <div class="note"><i>●</i><span><b>Por qué funciona:</b> es el concepto más “icono de app”: alto contraste, silueta circular y un detalle de color a escala pequeña.</span></div>
+        <div class="note"><i>●</i><span><b>Personalidad:</b> cósmica, tecnológica, premium. Dialoga con el fondo estelar y los glows que ya existen.</span></div>
+        <div class="note"><i>●</i><span><b>Riesgo:</b> medio. El anillo y el disco piden control de espacio seguro en iOS; el grabado debe engordar en tamaños menores.</span></div>
+      </div>
+    </div>
+
+    <div class="apps">
+      <div>
+        <div class="app-label">Marca + nombre</div>
+        <div class="lockup">
+          <svg class="lk-mark" viewBox="0 0 240 240"><use href="#m-orbita"/></svg>
+          <span class="lk-word">rutinia</span>
+  
+        </div>
+      </div>
+      <div>
+        <div class="app-label">Escalabilidad</div>
+        <div class="size-strip">
+          <div class="size"><span class="mini" style="width:64px;height:64px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-orbita"/></svg></span>64</div>
+          <div class="size"><span class="mini" style="width:44px;height:44px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-orbita"/></svg></span>44</div>
+          <div class="size"><span class="mini" style="width:30px;height:30px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-orbita"/></svg></span>30</div>
+          <div class="size"><span class="mini" style="width:20px;height:20px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-orbita"/></svg></span>20</div>
+        </div>
+      </div>
+      <div>
+        <div class="app-label">Paleta de marca</div>
+        <div class="swatches">
+          <div class="swatch" style="background:linear-gradient(145deg,#171A24,#050608)"><span>#07080C</span></div>
+          <div class="swatch" style="background:linear-gradient(135deg,#fff,#8D99AB 52%,#F4F8FF)"><span style="color:#1a1d26">CHROME</span></div>
+          <div class="swatch" style="background:linear-gradient(135deg,#F45A72,#E0334F 45%,#9E1C30)"><span>#E0334F</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ 03 REP ══════════════════ -->
+  <section class="concept" id="c3">
+    <div class="stage">
+      <div class="appicon">
+        <svg viewBox="0 0 240 240">
+          <rect width="240" height="240" fill="url(#tile)"/>
+          <rect width="240" height="240" fill="url(#tileGlow)"/>
+          <use href="#m-rep"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="copy">
+      <span class="num">03 / 04</span>
+      <h2>Rep</h2>
+      <p class="tag">El ritmo <span class="sep">·</span> Serie y repetición</p>
+      <p class="desc">
+        Una R sólida atravesada por dos cortes horizontales. Las bandas leen como <strong>series, repeticiones,
+        capas de trabajo</strong>. Es la dirección más atlética y la que mejor aguanta un uso editorial, merchandising
+        o una futura versión “performance”.
+      </p>
+      <div class="notes">
+        <div class="note"><i>●</i><span><b>Por qué funciona:</b> silueta inconfundible y muy física; el carmesí vuelve como el punto que atraviesa la estructura.</span></div>
+        <div class="note"><i>●</i><span><b>Personalidad:</b> energía, progreso, entrenamiento. Más gimnasio, menos relojería.</span></div>
+        <div class="note"><i>●</i><span><b>Riesgo:</b> alto en tamaños pequeños. El corte inferior debe desaparecer por debajo de 24 px.</span></div>
+      </div>
+    </div>
+
+    <div class="apps">
+      <div>
+        <div class="app-label">Marca + nombre</div>
+        <div class="lockup">
+          <svg class="lk-mark" viewBox="0 0 240 240"><use href="#m-rep"/></svg>
+          <span class="lk-word">rutinia</span>
+  
+        </div>
+      </div>
+      <div>
+        <div class="app-label">Escalabilidad</div>
+        <div class="size-strip">
+          <div class="size"><span class="mini" style="width:64px;height:64px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-rep"/></svg></span>64</div>
+          <div class="size"><span class="mini" style="width:44px;height:44px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-rep"/></svg></span>44</div>
+          <div class="size"><span class="mini" style="width:30px;height:30px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-rep"/></svg></span>30</div>
+          <div class="size"><span class="mini" style="width:20px;height:20px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-rep"/></svg></span>20</div>
+        </div>
+      </div>
+      <div>
+        <div class="app-label">Paleta de marca</div>
+        <div class="swatches">
+          <div class="swatch" style="background:linear-gradient(145deg,#171A24,#050608)"><span>#07080C</span></div>
+          <div class="swatch" style="background:linear-gradient(135deg,#fff,#AFBACB 48%,#F4F8FF)"><span style="color:#1a1d26">CHROME</span></div>
+          <div class="swatch" style="background:linear-gradient(135deg,#F45A72,#E0334F 45%,#9E1C30)"><span>#E0334F</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ 04 TRAZA ══════════════════ -->
+  <section class="concept" id="c4">
+    <div class="stage">
+      <div class="appicon">
+        <svg viewBox="0 0 240 240">
+          <rect width="240" height="240" fill="url(#tile)"/>
+          <rect width="240" height="240" fill="url(#tileGlow)"/>
+          <use href="#m-traza"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="copy">
+      <span class="num">04 / 04</span>
+      <h2>Traza</h2>
+      <p class="tag">La trayectoria <span class="sep">·</span> Sistema editorial</p>
+      <p class="desc">
+        La pata de la R se prolonga en una <strong>línea de horizonte</strong> que termina en el punto carmesí.
+        La marca deja de ser un símbolo cerrado y se vuelve una firma: el nombre y el trazo comparten la misma
+        línea de base. La versión más editorial y madura.
+      </p>
+      <div class="notes">
+        <div class="note"><i>●</i><span><b>Por qué funciona:</b> el wordmark se integra al símbolo; ideal para web, splash, prensa y cabeceras de la app.</span></div>
+        <div class="note"><i>●</i><span><b>Personalidad:</b> calma, amplitud, confianza. Una marca de hábitos, no solo de entrenamiento.</span></div>
+        <div class="note"><i>●</i><span><b>Riesgo:</b> bajo en wordmark, medio en icono. La línea necesita respirar y no debe competir con el marco del icono.</span></div>
+      </div>
+    </div>
+
+    <div class="apps">
+      <div>
+        <div class="app-label">Marca + nombre</div>
+        <div class="lockup editorial">
+          <svg class="lk-mark" viewBox="0 0 240 240"><use href="#m-traza"/></svg>
+          <span class="lk-word">Rutinia</span>
+  
+        </div>
+      </div>
+      <div>
+        <div class="app-label">Escalabilidad</div>
+        <div class="size-strip">
+          <div class="size"><span class="mini" style="width:64px;height:64px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-traza"/></svg></span>64</div>
+          <div class="size"><span class="mini" style="width:44px;height:44px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-traza"/></svg></span>44</div>
+          <div class="size"><span class="mini" style="width:30px;height:30px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-traza"/></svg></span>30</div>
+          <div class="size"><span class="mini" style="width:20px;height:20px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#tile)"/><use href="#m-traza"/></svg></span>20</div>
+        </div>
+      </div>
+      <div>
+        <div class="app-label">Paleta de marca</div>
+        <div class="swatches">
+          <div class="swatch" style="background:linear-gradient(145deg,#171A24,#050608)"><span>#07080C</span></div>
+          <div class="swatch" style="background:linear-gradient(135deg,#fff,#B6C1D3 55%,#fff)"><span style="color:#1a1d26">PEARL</span></div>
+          <div class="swatch" style="background:linear-gradient(135deg,#F45A72,#E0334F 45%,#9E1C30)"><span>#E0334F</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ SYSTEM ══════════════════ -->
+  <section class="system">
+    <div>
+      <div class="kicker">Dirección recomendada</div>
+      <h2>Menos rojo.<br>Más <em>peso</em>.</h2>
+      <p>
+        La app ya tiene una identidad muy fuerte en movimiento: vidrio, glows, plata líquida. El logo debe ser
+        el punto de calma que ordena todo eso. Mi recomendación es <b>Meridiano</b> como marca base,
+        <b>Órbita</b> como composición del icono de la app y <b>Traza</b> como sistema de wordmark.
+        El carmesí sobrevive en un solo punto; el resto es plata.
+      </p>
+    </div>
+    <div class="rules">
+      <div class="rule"><span class="rnum">01</span><span><b>Un solo acento.</b> El punto carmesí es el único color de la marca. Nunca dos puntos, nunca un fondo rojo.</span></div>
+      <div class="rule"><span class="rnum">02</span><span><b>La R manda.</b> El símbolo debe funcionar solo, sin el nombre, desde 20 px hasta una valla.</span></div>
+      <div class="rule"><span class="rnum">03</span><span><b>Plata, no gris.</b> Los degradados deben tener temperatura fría y un brillo puntual; el plateado plano mata la sofisticación.</span></div>
+      <div class="rule"><span class="rnum crimson">04</span><span><b>El color vuelve al dato.</b> Verde, ámbar y violeta siguen siendo semánticos dentro de la app; el carmesí ya no compite con ellos.</span></div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="mini-lockup">
+      <svg viewBox="0 0 240 240"><use href="#m-meridiano"/></svg>
+      RUTINIA · IDENTIDAD 02
+    </div>
+    <span>Conceptos para revisión · no son archivos finales</span>
+  </footer>
+
+</main>
+</body>
+</html>
