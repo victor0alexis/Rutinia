@@ -18,10 +18,15 @@ import {
 } from '@shopify/react-native-skia';
 import { colores, fuentes } from '../constants/colores';
 import { Registro } from '../types';
-import { SesionActivaInfo } from '../utils/sesionActiva';
+import {
+  SesionActivaInfo,
+  obtenerBorradorSesion,
+  limpiarSesionActiva,
+  BorradorSesion,
+} from '../utils/sesionActiva';
 import { formatearTiempo, formatearTiempoTexto } from '../utils/timer';
 import { vibrarBoton } from '../utils/haptics';
-
+import { confirmarAccion } from '../utils/errores';
 import { parsearEjercicioInfo } from '../utils/ejercicios';
 
 export interface RutinaLiveCardProps {
@@ -31,6 +36,7 @@ export interface RutinaLiveCardProps {
   onReanudar: (registro: Registro) => void;
   onVerResumen: (registro: Registro) => void;
   onDesvincular?: (registro: Registro) => void;
+  onDescartar?: (registro: Registro) => void;
   permitirDesplegarEjercicios?: boolean;
   conEfectoGlowBlanco?: boolean;
 }
@@ -42,6 +48,7 @@ export default function RutinaLiveCard({
   onReanudar,
   onVerResumen,
   onDesvincular,
+  onDescartar,
   permitirDesplegarEjercicios = false,
   conEfectoGlowBlanco = false,
 }: RutinaLiveCardProps) {
@@ -124,6 +131,85 @@ export default function RutinaLiveCard({
     return ejsPuros.reduce((acc, ej) => acc + (ej.series || 3), 0);
   }, [ejsPuros]);
 
+  // Borrador persistente de la sesión activa para extraer detalles inteligentes
+  const [borrador, setBorrador] = useState<BorradorSesion | null>(null);
+
+  useEffect(() => {
+    if (!estaEnProceso) return;
+    let activo = true;
+    obtenerBorradorSesion(registro.id).then((b) => {
+      if (activo) {
+        setBorrador(b);
+      }
+    });
+    return () => {
+      activo = false;
+    };
+  }, [estaEnProceso, registro.id]);
+
+  const borradorActivo = estaEnProceso ? borrador : null;
+
+  // Desglose inteligente de series y próximo ejercicio
+  const { seriesCompletadasLive, totalSeriesLive, proximoEjercicioNombre, proximaSerieIndice } =
+    useMemo(() => {
+      let comps = sesionActivaInfo?.seriesCompletadas || 0;
+      let tots = sesionActivaInfo?.totalSeries || totalSeries;
+      let nextName = '';
+      let nextSet = 0;
+
+      if (borradorActivo?.ejerciciosState && borradorActivo.ejerciciosState.length > 0) {
+        let bComps = 0;
+        let bTots = 0;
+        let foundNext = false;
+
+        for (const ej of borradorActivo.ejerciciosState) {
+          bTots += ej.series.length;
+          const c = ej.series.filter((s) => s.completado).length;
+          bComps += c;
+
+          if (!foundNext) {
+            const nextIdx = ej.series.findIndex((s) => !s.completado);
+            if (nextIdx !== -1) {
+              nextName = ej.nombre;
+              nextSet = nextIdx + 1;
+              foundNext = true;
+            }
+          }
+        }
+
+        if (bTots > 0) {
+          tots = bTots;
+          comps = bComps;
+        }
+      }
+
+      return {
+        seriesCompletadasLive: comps,
+        totalSeriesLive: tots,
+        proximoEjercicioNombre: nextName,
+        proximaSerieIndice: nextSet,
+      };
+    }, [borradorActivo, sesionActivaInfo, totalSeries]);
+
+  const porcentajeLive =
+    totalSeriesLive > 0
+      ? Math.round((seriesCompletadasLive / totalSeriesLive) * 100)
+      : 0;
+
+  const handleDescartarSesion = () => {
+    confirmarAccion(
+      'Descartar Entrenamiento',
+      '¿Estás seguro de que deseas cancelar la sesión en curso? Se perderán las series de este borrador.',
+      async () => {
+        await limpiarSesionActiva(registro.id);
+        if (onDescartar) {
+          onDescartar(registro);
+        }
+      },
+      'Descartar'
+    );
+  };
+
   // Manejo de la acción según estado
   const handlePressAccion = () => {
     vibrarBoton();
@@ -185,7 +271,7 @@ export default function RutinaLiveCard({
               },
             ]}
           >
-            <Ionicons name="barbell" size={11} color={planColor} />
+            <View style={[styles.planBadgeDot, { backgroundColor: planColor }]} />
             <Text
               numberOfLines={1}
               style={[styles.planBadgeText, { color: planColor }]}
@@ -204,6 +290,19 @@ export default function RutinaLiveCard({
               <View style={styles.dotLivePulse} />
               <Text style={styles.badgeEnProcesoText}>EN PROCESO</Text>
             </View>
+          )}
+
+          {/* Botón discreto de descartar sesión en proceso */}
+          {estaEnProceso && (
+            <Pressable
+              onPress={handleDescartarSesion}
+              hitSlop={8}
+              style={styles.discardLiveBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Descartar entrenamiento en curso"
+            >
+              <Ionicons name="trash-outline" size={13} color="rgba(248, 113, 113, 0.9)" />
+            </Pressable>
           )}
 
           {estaFinalizada && (
@@ -237,15 +336,59 @@ export default function RutinaLiveCard({
         {nombreRutina}
       </Text>
 
-      {/* 3. Indicador de Tiempo / Cronómetro */}
+      {/* 3. Indicador de Tiempo / Cronómetro / Series */}
       <View style={styles.timerRow}>
         {estaEnProceso && (
-          <View style={styles.timerBoxLive}>
-            <Ionicons name="time" size={14} color={colores.hoy} />
-            <Text style={styles.timerTextLive}>
-              {formatearTiempo(segundosEnVivo)}
-            </Text>
-            <Text style={styles.timerLabelLive}>CRONÓMETRO EN VIVO</Text>
+          <View style={styles.timerSectionLive}>
+            <View style={styles.timerPillsRowLive}>
+              <View style={styles.timerBoxLive}>
+                <Ionicons name="time" size={14} color="#F59E0B" />
+                <Text style={styles.timerTextLive}>
+                  {formatearTiempo(segundosEnVivo)}
+                </Text>
+                <Text style={styles.timerLabelLive}>CRONÓMETRO EN VIVO</Text>
+              </View>
+
+              {totalSeriesLive > 0 && (
+                <View style={styles.seriesProgressPillLive}>
+                  <Ionicons name="checkmark-circle-outline" size={12} color="#10B981" />
+                  <Text style={styles.seriesProgressTextLive}>
+                    {seriesCompletadasLive}/{totalSeriesLive} series
+                  </Text>
+                  {porcentajeLive > 0 && (
+                    <Text style={styles.seriesProgressPctLive}>
+                      ({porcentajeLive}%)
+                    </Text>
+                  )}
+                </View>
+              )}
+            </View>
+
+            {/* Barra de progreso de series completadas */}
+            {totalSeriesLive > 0 && (
+              <View style={styles.liveProgressBarContainer}>
+                <View
+                  style={[
+                    styles.liveProgressBarFill,
+                    { width: `${Math.max(porcentajeLive, 4)}%` },
+                  ]}
+                />
+              </View>
+            )}
+
+            {/* Snapshot inteligente: Próximo ejercicio */}
+            {Boolean(proximoEjercicioNombre) && (
+              <View style={styles.proximoEjercicioRow}>
+                <Ionicons name="bookmark" size={11} color="#F59E0B" />
+                <Text style={styles.proximoEjercicioText} numberOfLines={1}>
+                  Siguiente:{' '}
+                  <Text style={styles.proximoEjercicioNombre}>
+                    {proximoEjercicioNombre}
+                  </Text>
+                  {proximaSerieIndice > 0 ? ` (Serie ${proximaSerieIndice})` : ''}
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -281,7 +424,11 @@ export default function RutinaLiveCard({
 
           <View style={styles.metricChip}>
             <Ionicons name="repeat-outline" size={12} color={colores.suave} />
-            <Text style={styles.metricChipText}>{totalSeries} series</Text>
+            <Text style={styles.metricChipText}>
+              {estaEnProceso
+                ? `${seriesCompletadasLive}/${totalSeriesLive} series`
+                : `${totalSeries} series`}
+            </Text>
           </View>
         </View>
 
@@ -430,11 +577,16 @@ const styles = StyleSheet.create({
   planBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingVertical: 3.5,
+    borderRadius: 7,
     borderWidth: 1,
+  },
+  planBadgeDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
   },
   planBadgePlaceholder: {
     height: 18,
@@ -589,6 +741,80 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colores.suave,
   },
+  discardLiveBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(248, 113, 113, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(248, 113, 113, 0.28)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timerSectionLive: {
+    width: '100%',
+    gap: 7,
+  },
+  timerPillsRowLive: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  seriesProgressPillLive: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.28)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  seriesProgressTextLive: {
+    fontFamily: fuentes.bold,
+    fontSize: 11.5,
+    color: '#10B981',
+  },
+  seriesProgressPctLive: {
+    fontFamily: fuentes.regular,
+    fontSize: 11,
+    color: 'rgba(16, 185, 129, 0.85)',
+  },
+  liveProgressBarContainer: {
+    width: '100%',
+    height: 3.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  liveProgressBarFill: {
+    height: '100%',
+    backgroundColor: '#F59E0B',
+    borderRadius: 2,
+  },
+  proximoEjercicioRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.18)',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  proximoEjercicioText: {
+    fontFamily: fuentes.medium,
+    fontSize: 11.5,
+    color: '#D4D4D8',
+    flex: 1,
+  },
+  proximoEjercicioNombre: {
+    fontFamily: fuentes.bold,
+    color: '#FFFFFF',
+  },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -598,17 +824,23 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   actionButtonLive: {
-    backgroundColor: colores.primarioHover,
-    shadowColor: colores.primarioHover,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 3,
+    backgroundColor: '#C22240',
+    borderColor: 'rgba(255, 255, 255, 0.22)',
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 12,
+    shadowColor: '#C22240',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 5,
   },
   actionButtonTextLive: {
     fontFamily: fuentes.bold,
-    fontSize: 12,
+    fontSize: 13,
     color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
   actionButtonDone: {
     backgroundColor: 'rgba(16, 185, 129, 0.12)',

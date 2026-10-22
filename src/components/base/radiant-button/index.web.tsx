@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from "react";
+import React, { Component, lazy, Suspense } from "react";
 import { LoadSkiaWeb } from "@shopify/react-native-skia/lib/module/web";
 import RadiantButtonFallback from "./radiant-button-fallback.web";
 import type { IRadiantButton } from "./types";
@@ -8,8 +8,7 @@ import type { IRadiantButton } from "./types";
  * Así se ejecuta exactamente el mismo shader SkSL que en iOS/Android, sin
  * reimplementar el efecto con CSS.
  */
-const CANVASKIT_VERSION = "0.41.0";
-const CANVASKIT_CDN = `https://cdn.jsdelivr.net/npm/canvaskit-wasm@${CANVASKIT_VERSION}/bin/full`;
+const CANVASKIT_WASM_PATH = "/canvaskit.wasm";
 
 type RadiantButtonModule = {
   default: React.ComponentType<IRadiantButton>;
@@ -21,7 +20,8 @@ function loadRadiantButton(): Promise<RadiantButtonModule> {
   if (!componentPromise) {
     componentPromise = (async () => {
       await LoadSkiaWeb({
-        locateFile: (file: string) => `${CANVASKIT_CDN}/${file}`,
+        locateFile: (file: string) =>
+          file.endsWith(".wasm") ? CANVASKIT_WASM_PATH : `/${file}`,
       });
 
       // Otros componentes de la app (BotonRutinia, MainDayCard, etc.)
@@ -36,17 +36,57 @@ function loadRadiantButton(): Promise<RadiantButtonModule> {
       Object.assign(Skia, JsiSkApi(globalThis.CanvasKit));
 
       return import("./radiant-button-skia");
-    })();
+    })().catch((error) => {
+      // Permite reintentar si CanvasKit no pudo cargar (por ejemplo, offline).
+      componentPromise = null;
+      throw error;
+    });
   }
   return componentPromise;
 }
 
 const LazyRadiantButton = lazy(loadRadiantButton);
 
+interface SkiaErrorBoundaryProps {
+  fallback: React.ReactNode;
+  children: React.ReactNode;
+}
+
+interface SkiaErrorBoundaryState {
+  failed: boolean;
+}
+
+class SkiaErrorBoundary extends Component<
+  SkiaErrorBoundaryProps,
+  SkiaErrorBoundaryState
+> {
+  constructor(props: SkiaErrorBoundaryProps) {
+    super(props);
+    this.state = { failed: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: unknown) {
+    console.warn("RadiantButton web render error caught:", error);
+  }
+
+  render() {
+    if (this.state.failed) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
+
 const RadiantButtonWeb: React.FC<IRadiantButton> = (props) => (
-  <Suspense fallback={<RadiantButtonFallback {...props} />}>
-    <LazyRadiantButton {...props} />
-  </Suspense>
+  <SkiaErrorBoundary fallback={<RadiantButtonFallback {...props} />}>
+    <Suspense fallback={<RadiantButtonFallback {...props} />}>
+      <LazyRadiantButton {...props} />
+    </Suspense>
+  </SkiaErrorBoundary>
 );
 
 RadiantButtonWeb.displayName = "RadiantButtonWeb";

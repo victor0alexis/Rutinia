@@ -45,3 +45,6 @@ example
 
 .env
 scratch/
+
+# CanvasKit (se copia desde node_modules en install/build)
+public/canvaskit.wasm

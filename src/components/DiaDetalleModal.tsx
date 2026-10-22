@@ -54,16 +54,6 @@ type Props = {
   onVerResumenRutina?: (r: Registro) => void;
 };
 
-const PALETA_NOTAS = [
-  { border: '#6366F1', bg: 'rgba(99,102,241,0.12)' },
-  { border: '#10B981', bg: 'rgba(16,185,129,0.12)' },
-  { border: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
-  { border: '#EC4899', bg: 'rgba(236,72,153,0.12)' },
-  { border: '#3B82F6', bg: 'rgba(59,130,246,0.12)' },
-  { border: '#A855F7', bg: 'rgba(168,85,247,0.12)' },
-  { border: '#14B8A6', bg: 'rgba(20,184,166,0.12)' },
-];
-
 // Helper para parsear la nota e identificador visual inteligente
 export function parsearNotaInteligente(rawText: string) {
   let textoLimpio = rawText.replace('📌 ', '').trim();
@@ -79,10 +69,10 @@ export function parsearNotaInteligente(rawText: string) {
 
   const partes = textoLimpio.split(/:\s*(.+)/);
   if (partes.length > 1) {
-    titulo = partes[0];
+    titulo = partes[0].replace(/:\s*$/, '').trim();
     cuerpo = partes[1];
   } else {
-    titulo = textoLimpio;
+    titulo = textoLimpio.replace(/:\s*$/, '').trim() || 'Nota del Día';
     cuerpo = '';
   }
 
@@ -520,7 +510,6 @@ export default function DiaDetalleModal({
 
   // 1. NOTAS
   const notasDelDia = todosEjercicios.filter((e) => e.nombre.startsWith('📌'));
-  const ejerciciosPure = todosEjercicios.filter((e) => !e.nombre.startsWith('📌'));
 
   // 2. RUTINAS CON REGISTRO ASIGNADO
   const registrosConRutina = registros.filter((r) => Boolean(r.rutina_id || r.rutinas?.nombre));
@@ -530,6 +519,10 @@ export default function DiaDetalleModal({
   const ejerciciosExtras = registrosExtraSueltos
     .flatMap((r) => r.ejercicios_registro || [])
     .filter((e) => !e.nombre.startsWith('📌'));
+
+  // Bloques de entrenamiento mostrados en Actividad: rutinas + bloque de sueltos
+  const totalEntrenamientosDelDia =
+    registrosConRutina.length + (ejerciciosExtras.length > 0 ? 1 : 0);
 
   const quitarEjercicioSolo = (e: EjercicioRegistro) =>
     seguro(async () => {
@@ -641,12 +634,12 @@ export default function DiaDetalleModal({
               </Pressable>
             </View>
 
-            {/* 2. BARRA DE PESTAÑAS: SPOTLIGHT TAB BAR REUTILIZABLE (SIN EMOJIS) */}
+            {/* 2. BARRA DE PESTAÑAS: SPOTLIGHT TAB BAR (TIPOGRAFÍA, SIN ICONOS) */}
             <SpotlightSegmentedTabs
               tabs={[
-                { id: 'actividad', label: 'Actividad', iconFocused: 'flash', iconOutline: 'flash-outline' },
-                { id: 'rutina', label: '+ Rutina', iconFocused: 'barbell', iconOutline: 'barbell-outline' },
-                { id: 'notas', label: 'Notas', iconFocused: 'document-text', iconOutline: 'document-text-outline' },
+                { id: 'actividad', label: 'Actividad' },
+                { id: 'rutina', label: '+ Rutina' },
+                { id: 'notas', label: 'Notas' },
               ]}
               activeTab={tab}
               onChangeTab={(newTab) => setTab(newTab as any)}
@@ -663,13 +656,13 @@ export default function DiaDetalleModal({
                 <View style={{ gap: 24 }}>
                   {/* ────── SECCIÓN: NOTAS DEL DÍA ────── */}
                   <View style={{ gap: 12 }}>
-                    <View style={styles.aestheticSectionHeaderRow}>
-                      <View style={styles.cyberSectionBadge}>
-                        <Ionicons name="document-text-outline" size={13} color="#10B981" />
-                        <Text style={styles.cyberSectionBadgeText}>NOTAS</Text>
+                    <View style={styles.activitySectionHeader}>
+                      <View style={styles.activitySectionTitleGroup}>
+                        <View style={[styles.activitySectionAccent, { backgroundColor: '#10B981' }]} />
+                        <Text style={styles.activitySectionTitle}>NOTAS</Text>
                         {notasDelDia.length > 0 && (
-                          <View style={styles.countChip}>
-                            <Text style={styles.countChipText}>{notasDelDia.length}</Text>
+                          <View style={styles.activitySectionCount}>
+                            <Text style={styles.activitySectionCountText}>{notasDelDia.length}</Text>
                           </View>
                         )}
                       </View>
@@ -693,17 +686,21 @@ export default function DiaDetalleModal({
                         <Text style={styles.emptyDashedText}>Sin notas registradas para este día.</Text>
                       </View>
                     ) : (
-                      notasDelDia.map((n, idx) => {
-                        const { categoria, titulo, cuerpo, iconName } = parsearNotaInteligente(n.nombre);
-                        const pal = PALETA_NOTAS[idx % PALETA_NOTAS.length];
+                      notasDelDia.map((n) => {
+                        const { categoria, titulo, cuerpo, colorBadge, bgBadge } = parsearNotaInteligente(n.nombre);
                         return (
-                          <View key={n.id} style={styles.obsidianNoteCard}>
+                          <View
+                            key={n.id}
+                            style={[
+                              styles.obsidianNoteCard,
+                              { borderLeftColor: colorBadge, borderLeftWidth: 2.5 },
+                            ]}
+                          >
                             <View style={styles.noteTopRow}>
                               <View style={styles.noteMetaLeft}>
-                                <View style={[styles.noteCategoryIndicator, { backgroundColor: pal.border }]} />
-                                <View style={[styles.noteCategoryPill, { backgroundColor: pal.border + '18' }]}>
-                                  <Ionicons name={iconName} size={11} color={pal.border} />
-                                  <Text style={[styles.noteCategoryPillText, { color: pal.border }]}>
+                                <View style={[styles.noteCategoryPill, { backgroundColor: bgBadge, borderColor: `${colorBadge}30` }]}>
+                                  <View style={[styles.noteCategoryDot, { backgroundColor: colorBadge }]} />
+                                  <Text style={[styles.noteCategoryPillText, { color: colorBadge }]}>
                                     {categoria}
                                   </Text>
                                 </View>
@@ -740,13 +737,13 @@ export default function DiaDetalleModal({
 
                   {/* ────── SECCIÓN: ENTRENAMIENTOS DEL DÍA (RESUMEN ESTÉTICO CON EFECTO GLOW BLANCO) ────── */}
                   <View style={{ gap: 12 }}>
-                    <View style={styles.aestheticSectionHeaderRow}>
-                      <View style={styles.cyberSectionBadge}>
-                        <Ionicons name="barbell-outline" size={13} color={colores.primarioHover} />
-                        <Text style={styles.cyberSectionBadgeText}>ENTRENAMIENTOS</Text>
-                        {ejerciciosPure.length > 0 && (
-                          <View style={styles.countChip}>
-                            <Text style={styles.countChipText}>{ejerciciosPure.length}</Text>
+                    <View style={styles.activitySectionHeader}>
+                      <View style={styles.activitySectionTitleGroup}>
+                        <View style={[styles.activitySectionAccent, { backgroundColor: colores.primarioHover }]} />
+                        <Text style={styles.activitySectionTitle}>ENTRENAMIENTOS</Text>
+                        {totalEntrenamientosDelDia > 0 && (
+                          <View style={styles.activitySectionCount}>
+                            <Text style={styles.activitySectionCountText}>{totalEntrenamientosDelDia}</Text>
                           </View>
                         )}
                       </View>
@@ -767,7 +764,6 @@ export default function DiaDetalleModal({
 
                     {registrosConRutina.length === 0 && ejerciciosExtras.length === 0 ? (
                       <View style={styles.emptyDashedBox}>
-                        <Ionicons name="barbell-outline" size={26} color={colores.suave} />
                         <Text style={styles.emptyDashedText}>No hay entrenamientos asignados a este día.</Text>
                         <Pressable
                           onPress={() => {
@@ -801,6 +797,7 @@ export default function DiaDetalleModal({
                               if (onVerResumenRutina) onVerResumenRutina(reg);
                             }}
                             onDesvincular={() => desvincularRutinaCompleta(r)}
+                            onDescartar={() => alCambiar()}
                             permitirDesplegarEjercicios={true}
                           />
                         ))}
@@ -809,7 +806,7 @@ export default function DiaDetalleModal({
                         {ejerciciosExtras.length > 0 && (
                           <View style={styles.extraExercisesContainer}>
                             <View style={styles.extraExercisesHeader}>
-                              <Ionicons name="flash-outline" size={12} color={colores.exito} />
+                              <View style={styles.extraExercisesDot} />
                               <Text style={styles.extraExercisesHeaderText}>EJERCICIOS SUELTOS</Text>
                             </View>
                             {ejerciciosExtras.map((e) => (
@@ -861,11 +858,6 @@ export default function DiaDetalleModal({
                         <Text style={styles.radiantHeaderText}>
                           PLANES DE ENTRENAMIENTO
                         </Text>
-                        {planes.length > 0 && (
-                          <View style={styles.radiantCountChip}>
-                            <Text style={styles.radiantCountChipText}>{planes.length}</Text>
-                          </View>
-                        )}
                       </View>
                     </RadiantButton>
                   </View>
@@ -1206,19 +1198,50 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.45,
     shadowRadius: 8,
     elevation: 4,
-    // @ts-ignore
-    ...(Platform.OS === 'web'
-      ? {
-          boxShadow:
-            'inset 0px 1px 1px rgba(255, 255, 255, 0.22), inset 0px 2px 2px rgba(255, 255, 255, 0.14), inset 0px 4px 4px rgba(255, 255, 255, 0.08), 0px 2px 6px rgba(0, 0, 0, 0.45)',
-        }
-      : {}),
   },
   aestheticSectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 2,
+  },
+  activitySectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  activitySectionTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  activitySectionAccent: {
+    width: 2,
+    height: 14,
+    borderRadius: 1,
+  },
+  activitySectionTitle: {
+    color: '#E4E4E7',
+    fontSize: 10.5,
+    fontFamily: fuentes.extraBold,
+    letterSpacing: 1.2,
+  },
+  activitySectionCount: {
+    minWidth: 18,
+    height: 17,
+    paddingHorizontal: 5,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activitySectionCountText: {
+    color: '#8A8A93',
+    fontSize: 9.5,
+    fontFamily: fuentes.bold,
   },
   cyberSectionBadge: {
     flexDirection: 'row',
@@ -1252,25 +1275,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    paddingHorizontal: 11,
+    backgroundColor: 'rgba(255, 255, 255, 0.025)',
+    paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.09)',
+    borderColor: 'rgba(255, 255, 255, 0.07)',
   },
   addSectionBtnText: {
-    color: colores.suave,
-    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.55)',
+    fontSize: 10.5,
     fontFamily: fuentes.bold,
   },
   obsidianNoteCard: {
-    backgroundColor: 'rgba(20, 20, 26, 0.85)',
+    backgroundColor: 'rgba(16, 17, 23, 0.92)',
     borderRadius: 18,
     padding: 14,
-    gap: 8,
+    gap: 9,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.07)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    elevation: 2,
   },
   noteTopRow: {
     flexDirection: 'row',
@@ -1283,76 +1311,77 @@ const styles = StyleSheet.create({
     gap: 8,
     flex: 1,
   },
-  noteCategoryIndicator: {
-    width: 3,
-    height: 14,
-    borderRadius: 2,
+  noteCategoryDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
   },
   noteCategoryPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
     paddingHorizontal: 8,
-    paddingVertical: 2.5,
-    borderRadius: 8,
+    paddingVertical: 3,
+    borderRadius: 7,
+    borderWidth: 1,
   },
   noteCategoryPillText: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontFamily: fuentes.bold,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0.85,
   },
   deleteNoteBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   noteCardTitle: {
     color: '#F4F4F5',
-    fontSize: 14.5,
-    fontFamily: fuentes.bold,
-    lineHeight: 19,
+    fontSize: 15,
+    fontFamily: fuentes.extraBold,
+    lineHeight: 20,
   },
   noteCardBody: {
-    color: colores.suave,
+    color: 'rgba(255, 255, 255, 0.58)',
     fontSize: 12.5,
-    lineHeight: 18,
+    lineHeight: 19,
     fontFamily: fuentes.regular,
   },
   emptyDashedBox: {
-    backgroundColor: 'rgba(15, 15, 20, 0.5)',
-    padding: 22,
-    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderStyle: 'dashed',
+    borderColor: 'rgba(255, 255, 255, 0.055)',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 10,
   },
   emptyDashedText: {
-    color: colores.suave,
-    fontStyle: 'italic',
+    color: 'rgba(255, 255, 255, 0.42)',
     fontSize: 12.5,
+    lineHeight: 18,
     fontFamily: fuentes.regular,
     textAlign: 'center',
   },
   emptyActionBtn: {
-    marginTop: 4,
+    marginTop: 2,
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   emptyActionBtnText: {
-    color: '#FFFFFF',
+    color: 'rgba(255, 255, 255, 0.82)',
     fontSize: 11.5,
     fontFamily: fuentes.bold,
   },
@@ -1367,16 +1396,22 @@ const styles = StyleSheet.create({
   extraExercisesHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingBottom: 4,
+    gap: 7,
+    paddingBottom: 5,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
+  extraExercisesDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: colores.exito,
+  },
   extraExercisesHeaderText: {
     color: colores.exito,
-    fontSize: 10.5,
+    fontSize: 10,
     fontFamily: fuentes.bold,
-    letterSpacing: 0.8,
+    letterSpacing: 1,
   },
   extraExerciseMinimalRow: {
     flexDirection: 'row',
@@ -1857,16 +1892,5 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontFamily: fuentes.bold,
     letterSpacing: 0.8,
-  },
-  radiantCountChip: {
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  radiantCountChipText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontFamily: fuentes.bold,
   },
 });

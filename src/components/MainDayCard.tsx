@@ -30,6 +30,7 @@ export interface MainDayCardProps {
   onIniciarRutina: (r: Registro) => void;
   onReanudarRutina: (r: Registro) => void;
   onVerResumenRutina: (r: Registro) => void;
+  onDescartarRutina?: (r: Registro) => void;
   // Props opcionales para retrocompatibilidad
   diaActivo?: Date;
   esDiaHoy?: boolean;
@@ -45,6 +46,7 @@ export default function MainDayCard({
   onIniciarRutina,
   onReanudarRutina,
   onVerResumenRutina,
+  onDescartarRutina,
 }: MainDayCardProps) {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
@@ -108,7 +110,7 @@ export default function MainDayCard({
             </View>
             <Text style={styles.emptyTitle}>Sin actividades programadas</Text>
             <Text style={styles.emptySubtext}>
-              Usa el botón &quot;+ Administrar / Gestionar Día&quot; para añadir rutinas, ejercicios o notas.
+              Usa el botón &quot;MyDia&quot; para añadir rutinas, ejercicios o notas.
             </Text>
           </View>
         ) : (
@@ -122,6 +124,7 @@ export default function MainDayCard({
                 onIniciar={onIniciarRutina}
                 onReanudar={onReanudarRutina}
                 onVerResumen={onVerResumenRutina}
+                onDescartar={onDescartarRutina}
               />
             ))}
 

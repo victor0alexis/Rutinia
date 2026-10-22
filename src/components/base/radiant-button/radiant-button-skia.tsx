@@ -1,5 +1,6 @@
-import React, { memo, useEffect, useMemo, useState } from "react";
+import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Platform,
   Pressable,
   StyleSheet,
   View,
@@ -158,12 +159,50 @@ const RadiantButtonSkia: React.FC<IRadiantButton> = memo(
       breathe,
     ]);
 
+    const buttonRef = useRef<View>(null);
+
     const handleLayout = (e: LayoutChangeEvent) => {
       const { width: w, height: h } = e.nativeEvent.layout;
-      if (w !== layout.width || h !== layout.height) {
+      if (w > 0 && h > 0 && (w !== layout.width || h !== layout.height)) {
         setLayout({ width: w, height: h });
       }
     };
+
+    // En web, cuando el botón se monta dentro de un modal que todavía está
+    // animándose, el primer onLayout puede llegar con 0x0 y no repetirse.
+    // Medimos el Pressable tras el montaje para asegurar que el canvas Skia
+    // reciba su tamaño real y pinte el efecto.
+    useEffect(() => {
+      if (Platform.OS !== "web") return;
+
+      let cancelled = false;
+      let attempts = 0;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+
+      const measure = () => {
+        if (cancelled) return;
+        const node = buttonRef.current;
+        if (!node || typeof node.measure !== "function") return;
+        node.measure((_x, _y, w, h) => {
+          if (cancelled) return;
+          if (w > 0 && h > 0) {
+            setLayout((prev) =>
+              prev.width === w && prev.height === h
+                ? prev
+                : { width: w, height: h },
+            );
+          } else if (attempts++ < 12) {
+            timer = setTimeout(measure, 120);
+          }
+        });
+      };
+
+      timer = setTimeout(measure, 250);
+      return () => {
+        cancelled = true;
+        if (timer) clearTimeout(timer);
+      };
+    }, []);
 
     const { width, height } = layout;
     const cx = width / 2;
@@ -239,6 +278,20 @@ const RadiantButtonSkia: React.FC<IRadiantButton> = memo(
     const shimmerSize = Math.max(width, height) * 1.5;
     const hasLayout = width > 0 && height > 0;
 
+    // En web, el canvas de Skia puede montarse durante la transición del
+    // modal y quedarse con su tamaño HTML por defecto (300x150) porque su
+    // onLayout no llega. Un remontaje corto, ya con el layout estable, hace
+    // que el renderer se inicialice con el tamaño correcto.
+    const [canvasGeneration, setCanvasGeneration] = useState(0);
+
+    useEffect(() => {
+      if (Platform.OS !== "web" || !hasLayout) return;
+      const timer = setTimeout(() => {
+        setCanvasGeneration((generation) => generation + 1);
+      }, 300);
+      return () => clearTimeout(timer);
+    }, [hasLayout]);
+
     const renderChildren = () => {
       if (typeof children === "string") {
         return (
@@ -253,6 +306,7 @@ const RadiantButtonSkia: React.FC<IRadiantButton> = memo(
     return (
       <Animated.View style={animatedPressStyle}>
         <Pressable
+          ref={buttonRef}
           onPress={onPress}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
@@ -270,7 +324,7 @@ const RadiantButtonSkia: React.FC<IRadiantButton> = memo(
           ]}
         >
           {hasLayout && innerClip && (
-            <Canvas style={StyleSheet.absoluteFill}>
+            <Canvas key={canvasGeneration} style={StyleSheet.absoluteFill}>
               {borderGlowShader && (
                 <Group>
                   <Rect x={0} y={0} width={width} height={height}>

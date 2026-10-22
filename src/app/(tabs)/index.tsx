@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useIsFocused } from 'expo-router';
@@ -9,11 +9,10 @@ import { colores, fuentes } from '../../constants/colores';
 import { supabase } from '../../lib/supabase';
 import DiaDetalleModal from '../../components/DiaDetalleModal';
 import EjecutarEntrenamientoModal from '../../components/EjecutarEntrenamientoModal';
-import ModalPartidaEnCurso from '../../components/ModalPartidaEnCurso';
 import ScreenBackground from '../../components/ScreenBackground';
 import MainDayCard from '../../components/MainDayCard';
 import Semana3DCarousel from '../../components/Semana3DCarousel';
-import ShinyText from '../../components/ShinyText';
+import GradientText from '../../components/GradientText';
 import { LiquidMetalButton } from '../../components/LiquidMetalButton';
 import { registrosDeRango } from '../../services/registros';
 import { aISO, diasDeSemana } from '../../utils/fechas';
@@ -21,6 +20,12 @@ import { seguro } from '../../utils/errores';
 import { EjercicioRegistro, Registro } from '../../types';
 import { SesionActivaInfo, obtenerSesionActivaInfo, obtenerBorradorSesion } from '../../utils/sesionActiva';
 import { useLayout } from '../../hooks/useLayout';
+
+// React Bits gradient palette. The original #000000 disappears on the app's
+// near-black background (1.04:1), so it is replaced by a light lavender and the
+// magenta/violet stops are lifted while keeping their hue. All stops stay above
+// 3.7:1 contrast against #050608.
+const TITLE_GRADIENT_COLORS = ['#F3E8F4', '#C44B83', '#7551D6'];
 
 export default function Semana() {
   const { gutter, contentMaxWidth, isLandscape, bottomInset, safeBottom } = useLayout();
@@ -38,9 +43,7 @@ export default function Semana() {
 
   // Partida en curso / Entrenamiento activo
   const [sesionActivaInfo, setSesionActivaInfo] = useState<SesionActivaInfo | null>(null);
-  const [modalPartidaVisible, setModalPartidaVisible] = useState(false);
   const [modoReanudar, setModoReanudar] = useState(false);
-  const atendidoPartidaRef = useRef(false);
 
   const dias = useMemo(() => diasDeSemana(ref), [ref]);
   const inicioSemanaISO = useMemo(() => aISO(dias[0]), [dias]);
@@ -56,25 +59,16 @@ export default function Semana() {
   useFocusEffect(
     useCallback(() => {
       cargar();
-      if (atendidoPartidaRef.current) return;
       seguro(async () => {
         const active = await obtenerSesionActivaInfo();
-        if (active && !atendidoPartidaRef.current) {
-          setSesionActivaInfo(active);
-          setModalPartidaVisible(true);
-        }
+        setSesionActivaInfo(active);
       });
     }, [cargar])
   );
 
-
   const reanudarPartidaEnCurso = () => {
     if (!sesionActivaInfo) return;
-    atendidoPartidaRef.current = true;
     const targetSesion = sesionActivaInfo;
-
-    // 1. Cerrar el modal de partida en curso
-    setModalPartidaVisible(false);
     setModoReanudar(true);
 
     // 2. Esperar al desmonte del modal y luego buscar el registro
@@ -121,13 +115,11 @@ export default function Semana() {
           setModalEjecutarVisible(true);
         } else {
           console.warn('[Rutinia] No se encontró el registro para reanudar:', targetSesion.registroId);
-          atendidoPartidaRef.current = false;
           setModoReanudar(false);
           setSesionActivaInfo(null);
         }
       } catch (err) {
         console.warn('[Rutinia] Error al reanudar entrenamiento:', err);
-        atendidoPartidaRef.current = false;
         setModoReanudar(false);
         setSesionActivaInfo(null);
       }
@@ -189,18 +181,20 @@ export default function Semana() {
             },
           ]}
         >
-          <ShinyText
-            text="Discipline"
-            speed={2}
-            color="#b5b5b5"
-            shineColor="#ffffff"
-            // @ts-ignore
+          <GradientText
+            colors={TITLE_GRADIENT_COLORS}
+            animationSpeed={8}
+            direction="horizontal"
+            scale={3}
             style={{
-              fontSize: isLandscape ? '24px' : '32px',
-              fontWeight: 600,
-              letterSpacing: '-0.02em',
+              fontSize: isLandscape ? 26 : 32,
+              lineHeight: 45,
+              fontFamily: fuentes.bold,
+              letterSpacing: -0.7,
             }}
-          />
+          >
+            myLife
+          </GradientText>
           {/* Botón flotante discreto de cerrar sesión */}
           <Pressable
             onPress={() => supabase.auth.signOut()}
@@ -255,18 +249,21 @@ export default function Semana() {
               }
             }}
             onVerResumenRutina={abrirEjecutarRutina}
+            onDescartarRutina={async () => {
+              setSesionActivaInfo(null);
+              cargar();
+            }}
           />
 
           {/* BOTÓN PRINCIPAL LIQUID METAL ENTRE MAINDAYCARD Y BOTTOMTABBAR */}
           <View style={{ paddingTop: 4, width: '100%' }}>
             <LiquidMetalButton
-              titulo="+ Administrar / Gestionar Día"
+              titulo="MyDia"
               onPress={() => setModalVisible(true)}
               activo={
                 isFocused &&
                 !modalVisible &&
-                !modalEjecutarVisible &&
-                !modalPartidaVisible
+                !modalEjecutarVisible
               }
               style={{ alignSelf: 'stretch' }}
             />
@@ -303,30 +300,11 @@ export default function Semana() {
           onClose={() => {
             setModalEjecutarVisible(false);
             setModoReanudar(false);
-            atendidoPartidaRef.current = false;
           }}
           onGuardado={() => {
             setModalEjecutarVisible(false);
             setModoReanudar(false);
-            atendidoPartidaRef.current = false;
             cargar();
-          }}
-        />
-
-        {/* Modal de Partida en Curso (Borrador Activo) */}
-        <ModalPartidaEnCurso
-          visible={modalPartidaVisible}
-          sesionInfo={sesionActivaInfo}
-          onReanudar={reanudarPartidaEnCurso}
-          onDescartar={() => {
-            setModalPartidaVisible(false);
-            setSesionActivaInfo(null);
-            atendidoPartidaRef.current = true;
-            cargar();
-          }}
-          onVolver={() => {
-            setModalPartidaVisible(false);
-            atendidoPartidaRef.current = true;
           }}
         />
       </SafeAreaView>

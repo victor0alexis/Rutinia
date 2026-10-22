@@ -52,7 +52,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build:web": "npx expo export -p web && node scripts/post-export.js",
+    "postinstall": "node scripts/setup-canvaskit.js",
+    "build:web": "node scripts/setup-canvaskit.js && npx expo export -p web && node scripts/post-export.js",
     "lint": "expo lint"
   },
   "private": true

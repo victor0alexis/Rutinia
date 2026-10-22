@@ -22,8 +22,9 @@ import { vibrarBoton } from '../utils/haptics';
 export interface SpotlightTabItem<T extends string = string> {
   id: T;
   label: string;
-  iconFocused: keyof typeof Ionicons.glyphMap;
-  iconOutline: keyof typeof Ionicons.glyphMap;
+  /** Opcional: la barra también funciona como selector tipográfico sin iconos. */
+  iconFocused?: keyof typeof Ionicons.glyphMap;
+  iconOutline?: keyof typeof Ionicons.glyphMap;
 }
 
 export interface SpotlightSegmentedTabsProps<T extends string = string> {
@@ -139,6 +140,8 @@ export default function SpotlightSegmentedTabs<T extends string = string>({
             onChangeTab(item.id);
           };
 
+          const iconName = isFocused ? item.iconFocused : item.iconOutline;
+
           return (
             <Pressable
               key={item.id}
@@ -151,11 +154,13 @@ export default function SpotlightSegmentedTabs<T extends string = string>({
               accessibilityRole="tab"
               accessibilityState={isFocused ? { selected: true } : {}}
             >
-              <Ionicons
-                name={isFocused ? item.iconFocused : item.iconOutline}
-                size={16}
-                color={isFocused ? '#FFFFFF' : colores.suave}
-              />
+              {iconName ? (
+                <Ionicons
+                  name={iconName}
+                  size={16}
+                  color={isFocused ? '#FFFFFF' : colores.suave}
+                />
+              ) : null}
               <Text
                 numberOfLines={1}
                 style={[
@@ -235,7 +240,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   tabLabel: {
-    fontSize: 12,
-    letterSpacing: 0.3,
+    fontSize: 12.5,
+    letterSpacing: 0.45,
   },
 });

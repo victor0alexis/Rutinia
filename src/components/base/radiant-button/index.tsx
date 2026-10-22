@@ -1,6 +1,6 @@
 import React, { Component } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import RadiantButtonSkia from "./radiant-button-skia";
+import { RadiantButtonSkia } from "./radiant-button-skia";
 import type { IRadiantButton } from "./types";
 
 interface ErrorBoundaryState {
