@@ -170,7 +170,7 @@ export default function Semana() {
         <title>Semana · Rutinia</title>
       </Head>
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-        {/* CABECERA ESTÉTICA CON SHINYTEXT ANIMADO: DISCIPLINE */}
+        {/* CABECERA ESTÉTICA CON GRADIENT TEXT ANIMADO: MYLIFE */}
         <View
           style={[
             styles.topHeaderBar,
