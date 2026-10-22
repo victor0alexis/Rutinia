@@ -24,10 +24,10 @@
     --ice:#dce9ff;
     --glow:rgba(226,239,255,.34);
     --glow-soft:rgba(226,239,255,.12);
-    --mint:#a7e3c8;
-    --champagne:#e8cf9f;
-    --info:#b6ccf0;
-    --lavender:#c3c7ef;
+    --mint:#3ff2b0;
+    --champagne:#ffd166;
+    --info:#5cc8ff;
+    --lavender:#b394ff;
     --radius-s:10px;
     --radius-m:14px;
     --radius-l:18px;
@@ -405,27 +405,42 @@
     z-index:10;
     display:flex;
     flex-direction:column;
-    gap:10px;
-    padding:54px 20px 82px;
+    padding:48px 20px 76px;
     overflow:hidden;
   }
 
-  /* ── Title ────────────────────────────────────────────────── */
+  /* ── Top bar + editorial header ───────────────────────────── */
   .app-header{
-    display:grid;
-    grid-template-columns:32px 1fr 32px;
+    display:flex;
     align-items:center;
-    height:45px;
+    justify-content:space-between;
+    height:30px;
     flex:none;
+    margin-bottom:14px;
   }
+  .brand-lockup{display:flex;align-items:center;gap:9px;min-width:0}
+  .brand-mark{
+    width:30px;height:30px;
+    flex:none;
+    display:grid;place-items:center;
+    border:1px solid rgba(255,255,255,.24);
+    border-radius:9px;
+    background:
+      radial-gradient(120% 120% at 18% 8%,rgba(255,255,255,.3),transparent 44%),
+      linear-gradient(145deg,rgba(255,255,255,.16),rgba(255,255,255,.045));
+    color:#f8fbff;
+    font-size:15px;
+    font-weight:800;
+    letter-spacing:-.08em;
+    padding-bottom:1px;
+    box-shadow:0 0 20px rgba(226,239,255,.14),inset 0 1px 0 rgba(255,255,255,.22);
+  }
+  .brand-wordmark{display:flex;align-items:flex-end;gap:4px;min-width:0}
   .app-title{
-    justify-self:center;
-    max-width:100%;
-    font-size:31px;
-    line-height:45px;
+    font-size:21px;
+    line-height:1.15;
     font-weight:700;
-    letter-spacing:-.7px;
-    text-align:center;
+    letter-spacing:-.55px;
     white-space:nowrap;
     background:linear-gradient(100deg,#ffffff 0%,#edf3fb 20%,#aab5c6 48%,#eaf1fa 72%,#ffffff 100%);
     background-size:280% 100%;
@@ -433,37 +448,84 @@
     background-clip:text;
     color:transparent;
     -webkit-text-fill-color:transparent;
-    filter:drop-shadow(0 0 16px rgba(226,239,255,.18));
+    filter:drop-shadow(0 0 12px rgba(226,239,255,.18));
     animation:titleSweep 8s ease-in-out infinite alternate;
   }
   @keyframes titleSweep{
     from{background-position:0% 50%}
     to{background-position:100% 50%}
   }
-  .logout-btn{
-    justify-self:end;
+  .brand-dot-small{
+    width:4px;height:4px;
+    flex:none;
+    border-radius:50%;
+    background:#f2f6fc;
+    box-shadow:0 0 8px rgba(226,239,255,.65);
+    margin-bottom:4px;
+  }
+  .avatar-wrap{position:relative;width:32px;height:32px;flex:none}
+  .avatar{
     width:32px;height:32px;
     display:grid;place-items:center;
-    padding:0;
-    border:0;
+    border:1px solid rgba(255,255,255,.13);
     border-radius:50%;
-    background:transparent;
-    color:#a2a9b5;
-    cursor:pointer;
-    transition:color .16s ease,background .16s ease,transform .16s ease;
+    background:
+      radial-gradient(90% 90% at 30% 20%,rgba(255,255,255,.14),transparent 55%),
+      linear-gradient(145deg,#232631,#13151b);
+    color:#e8edf5;
+    font-size:11px;
+    font-weight:600;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.09);
   }
-  .logout-btn:hover{color:#f2f6fc;background:rgba(255,255,255,.05)}
-  .logout-btn:active{transform:scale(.94)}
-  .logout-btn .icon{width:17px;height:17px}
+  .avatar-status{
+    position:absolute;
+    right:-1px;bottom:-1px;
+    width:9px;height:9px;
+    border-radius:50%;
+    background:var(--mint);
+    border:2px solid #06070a;
+    box-shadow:0 0 0 1px rgba(63,242,176,.25),0 0 7px rgba(63,242,176,.55);
+  }
+
+  .greeting{flex:none;padding:0 1px;margin-bottom:12px}
+  .greeting .eyebrow{
+    display:flex;align-items:center;gap:7px;
+    color:var(--muted);
+    font-size:9px;font-weight:600;
+    letter-spacing:.145em;text-transform:uppercase;line-height:1;
+  }
+  .greeting .eyebrow .dot{
+    width:4px;height:4px;border-radius:50%;
+    background:#f2f6fc;
+    box-shadow:0 0 8px rgba(226,239,255,.55);
+  }
+  .greeting h1{
+    margin:7px 0 0;
+    color:var(--text);
+    font-size:24px;
+    font-weight:700;
+    line-height:1.12;
+    letter-spacing:-.035em;
+  }
+  .greeting p{
+    margin:6px 0 0;
+    color:var(--muted);
+    font-size:11.5px;
+    font-weight:400;
+    line-height:1.4;
+  }
+  .greeting p b{color:#dce3ec;font-weight:600}
+  .greeting p .sep{color:rgba(255,255,255,.18);margin:0 5px}
 
   /* ── Week carousel (3D preserved) ─────────────────────────── */
   .week-card{
     flex:none;
-    height:98px;
+    height:90px;
     display:flex;
     align-items:center;
-    gap:6px;
-    padding:8px;
+    gap:5px;
+    padding:7px;
+    margin-bottom:8px;
     border:1px solid var(--line);
     border-radius:22px;
     background:#121215;
@@ -489,7 +551,7 @@
     position:relative;
     flex:1;
     min-width:0;
-    height:80px;
+    height:74px;
     display:flex;
     align-items:center;
     justify-content:center;
@@ -500,7 +562,7 @@
     position:relative;
     flex:none;
     width:42px;
-    height:60px;
+    height:56px;
     margin:0 -5px;
     display:flex;
     flex-direction:column;
@@ -534,9 +596,9 @@
   }
   .carousel-dots{height:5px;display:flex;align-items:center;justify-content:center;gap:3px}
   .carousel-dot{width:4px;height:4px;border-radius:50%;display:block;background:rgba(255,255,255,.12)}
-  .dot-done{background:var(--mint);box-shadow:0 0 7px rgba(167,227,200,.25)}
-  .dot-plan{background:var(--ice);box-shadow:0 0 7px rgba(220,233,255,.25)}
-  .dot-note{background:var(--champagne);box-shadow:0 0 7px rgba(232,207,159,.22)}
+  .dot-done{background:var(--mint);box-shadow:0 0 8px rgba(63,242,176,.70)}
+  .dot-plan{background:var(--info);box-shadow:0 0 8px rgba(92,200,255,.70)}
+  .dot-note{background:var(--champagne);box-shadow:0 0 8px rgba(255,209,102,.65)}
   .carousel-day:nth-child(1){transform:perspective(800px) rotateY(25deg) scale(.78);opacity:.38;z-index:1}
   .carousel-day:nth-child(2){transform:perspective(800px) rotateY(15deg) scale(.86);opacity:.62;z-index:2}
   .carousel-day:nth-child(3){transform:perspective(800px) rotateY(7deg) scale(.94);opacity:.84;z-index:3}
@@ -565,7 +627,8 @@
     position:relative;
     flex:1;
     min-height:0;
-    padding:16px;
+    padding:14px;
+    margin-bottom:8px;
     border:1px solid rgba(255,255,255,.15);
     border-radius:20px;
     background:rgb(15,15,15);
@@ -577,7 +640,7 @@
   .main-day-card::before{
     content:'';
     position:absolute;
-    top:0;left:16px;right:16px;
+    top:0;left:14px;right:14px;
     height:1px;
     background:linear-gradient(90deg,transparent,rgba(255,255,255,.16),transparent);
     pointer-events:none;
@@ -588,8 +651,8 @@
     height:100%;
     display:flex;
     flex-direction:column;
-    gap:11px;
-    padding:5px 0;
+    gap:10px;
+    padding:4px 0;
     overflow:hidden;
   }
   .mdc-empty{
@@ -625,33 +688,50 @@
     align-items:center;
     gap:6px;
     padding:3.5px 8px;
-    border:1px solid rgba(220,233,255,.17);
+    border:1px solid rgba(92,200,255,.58);
     border-radius:7px;
-    background:rgba(220,233,255,.07);
-    color:#d8e7fb;
+    background:linear-gradient(145deg,rgba(92,200,255,.24),rgba(92,200,255,.075));
+    color:#eaf7ff;
     font-size:9px;
     font-weight:700;
     letter-spacing:.05em;
     text-transform:uppercase;
     white-space:nowrap;
+    box-shadow:0 0 18px rgba(92,200,255,.20),inset 0 1px 0 rgba(255,255,255,.16);
   }
-  .plan-dot{width:5px;height:5px;border-radius:50%;background:var(--ice);box-shadow:0 0 8px rgba(220,233,255,.5)}
+  .plan-dot{
+    width:5px;height:5px;
+    border-radius:50%;
+    background:var(--info);
+    box-shadow:0 0 0 2px rgba(92,200,255,.18),0 0 11px rgba(92,200,255,.9);
+  }
   .live-badge{
     display:inline-flex;
     align-items:center;
-    gap:5px;
+    gap:6px;
     padding:3px 8px;
-    border:1px solid rgba(255,255,255,.13);
+    border:1px solid rgba(63,242,176,.58);
     border-radius:8px;
-    background:rgba(255,255,255,.055);
-    color:#edf3fb;
+    background:linear-gradient(145deg,rgba(63,242,176,.22),rgba(63,242,176,.06));
+    color:#eafff8;
     font-size:9px;
     font-weight:700;
     letter-spacing:.06em;
     text-transform:uppercase;
     white-space:nowrap;
+    box-shadow:0 0 20px rgba(63,242,176,.20),inset 0 1px 0 rgba(255,255,255,.15);
   }
-  .live-dot{width:5px;height:5px;border-radius:50%;background:#fff;box-shadow:0 0 8px rgba(255,255,255,.8)}
+  .live-dot{
+    width:5px;height:5px;
+    border-radius:50%;
+    background:var(--mint);
+    box-shadow:0 0 0 2px rgba(63,242,176,.16),0 0 11px rgba(63,242,176,.95);
+    animation:livePulse 2.4s ease-in-out infinite;
+  }
+  @keyframes livePulse{
+    0%,100%{box-shadow:0 0 0 2px rgba(63,242,176,.14),0 0 9px rgba(63,242,176,.72)}
+    50%{box-shadow:0 0 0 5px rgba(63,242,176,.035),0 0 15px rgba(63,242,176,1)}
+  }
   .routine-title{
     margin:0;
     color:#fff;
@@ -666,15 +746,20 @@
     align-items:center;
     gap:6px;
     padding:5px 9px;
-    border:1px solid rgba(255,255,255,.1);
+    border:1px solid rgba(255,209,102,.48);
     border-radius:10px;
-    background:rgba(255,255,255,.045);
+    background:linear-gradient(145deg,rgba(255,209,102,.14),rgba(255,209,102,.035));
     color:#fff;
+    box-shadow:0 0 14px rgba(255,209,102,.10),inset 0 1px 0 rgba(255,255,255,.09);
   }
-  .timer-pill .icon{width:13px;height:13px;color:#dfe8f5}
+  .timer-pill .icon{
+    width:13px;height:13px;
+    color:var(--champagne);
+    filter:drop-shadow(0 0 5px rgba(255,209,102,.55));
+  }
   .timer-pill b{font-size:13.5px;font-weight:700;letter-spacing:.01em;line-height:1}
   .timer-pill span{
-    color:rgba(255,255,255,.52);
+    color:rgba(255,231,174,.88);
     font-size:8px;
     font-weight:600;
     letter-spacing:.07em;
@@ -686,17 +771,18 @@
     align-items:center;
     gap:5px;
     padding:5px 8px;
-    border:1px solid rgba(167,227,200,.18);
+    border:1px solid rgba(179,148,255,.55);
     border-radius:10px;
-    background:rgba(167,227,200,.075);
-    color:var(--mint);
+    background:linear-gradient(145deg,rgba(179,148,255,.20),rgba(179,148,255,.05));
+    color:#f0ebff;
     font-size:10.5px;
     font-weight:600;
     line-height:1;
     white-space:nowrap;
+    box-shadow:0 0 15px rgba(179,148,255,.14),inset 0 1px 0 rgba(255,255,255,.10);
   }
-  .series-pill .icon{width:12px;height:12px}
-  .series-pill em{font-style:normal;color:rgba(167,227,200,.66);font-size:9.5px;font-weight:500}
+  .series-pill .icon{width:12px;height:12px;color:var(--lavender);filter:drop-shadow(0 0 4px rgba(179,148,255,.45))}
+  .series-pill em{font-style:normal;color:rgba(214,201,255,.82);font-size:9.5px;font-weight:500}
   .progress-track{
     width:100%;
     height:3.5px;
@@ -708,22 +794,23 @@
     display:block;
     height:100%;
     border-radius:999px;
-    background:linear-gradient(90deg,#b9c6d9,#ffffff);
-    box-shadow:0 0 10px rgba(240,248,255,.42);
+    background:linear-gradient(90deg,#5cc8ff 0%,#b394ff 55%,#f2eeff 100%);
+    box-shadow:0 0 13px rgba(179,148,255,.65);
   }
   .next-row{
     display:flex;
     align-items:center;
     gap:5px;
     padding:4px 9px;
-    border:1px solid rgba(220,233,255,.1);
+    border:1px solid rgba(92,200,255,.14);
+    border-left:2px solid rgba(92,200,255,.85);
     border-radius:8px;
-    background:rgba(220,233,255,.035);
-    color:#cbd3df;
+    background:linear-gradient(90deg,rgba(92,200,255,.11),rgba(92,200,255,.02));
+    color:#dbe9fb;
     font-size:10.5px;
     line-height:1.25;
   }
-  .next-row .icon{width:11px;height:11px;color:var(--ice)}
+  .next-row .icon{width:11px;height:11px;color:var(--info)}
   .next-row b{color:#fff;font-weight:700}
   .next-row em{font-style:normal;color:#8e98a8}
   .routine-footer{
@@ -748,27 +835,54 @@
     white-space:nowrap;
   }
   .metric-chips .icon{width:11px;height:11px;color:#8f99a8}
+  .metric-chips .metric-ex{background:rgba(92,200,255,.15);color:#e3f3ff}
+  .metric-chips .metric-ex .icon{color:var(--info)}
+  .metric-chips .metric-series{background:rgba(179,148,255,.15);color:#ede9ff}
+  .metric-chips .metric-series .icon{color:var(--lavender)}
   .action-btn{
     display:inline-flex;
     align-items:center;
-    gap:5px;
-    padding:8px 14px;
-    border:1px solid rgba(255,255,255,.72);
-    border-radius:12px;
-    background:linear-gradient(135deg,#ffffff 0%,#dfe8f4 58%,#b9c6d7 100%);
-    color:#090b0f;
+    gap:7px;
+    padding:4px 11px 4px 5px;
+    border:1px solid rgba(255,255,255,.95);
+    border-radius:13px;
+    background:linear-gradient(135deg,#ffffff 0%,#f4fbff 26%,#e4f2ff 62%,#e6ddff 100%);
+    color:#080a0e;
     font-family:inherit;
     font-size:11.5px;
     font-weight:700;
     letter-spacing:.1px;
     cursor:pointer;
-    box-shadow:0 4px 14px rgba(226,239,255,.16),inset 0 1px 0 rgba(255,255,255,.9);
-    transition:filter .16s ease,transform .16s ease;
+    box-shadow:
+      0 8px 26px rgba(92,200,255,.38),
+      0 0 24px rgba(179,148,255,.16),
+      0 0 0 1px rgba(255,255,255,.12),
+      inset 0 1px 0 #fff,
+      inset 0 -1px 0 rgba(150,170,196,.24);
+    transition:filter .16s ease,transform .16s ease,box-shadow .16s ease;
     white-space:nowrap;
   }
-  .action-btn:hover{filter:brightness(1.05)}
+  .action-btn:hover{
+    filter:brightness(1.03);
+    transform:translateY(-1px);
+    box-shadow:
+      0 11px 32px rgba(92,200,255,.46),
+      0 0 30px rgba(179,148,255,.22),
+      0 0 0 1px rgba(255,255,255,.16),
+      inset 0 1px 0 #fff,
+      inset 0 -1px 0 rgba(150,170,196,.24);
+  }
   .action-btn:active{transform:scale(.97)}
-  .action-btn .icon{width:12px;height:12px;stroke-width:2.2}
+  .action-icon{
+    width:21px;height:21px;
+    display:grid;place-items:center;
+    flex:none;
+    border-radius:7px;
+    background:linear-gradient(145deg,#1b2230,#080a0e);
+    color:var(--pearl);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.20),0 0 10px rgba(92,200,255,.24);
+  }
+  .action-icon .icon{width:10px;height:10px;margin-left:1px;fill:var(--pearl);stroke:none;color:var(--pearl)}
 
   .mdc-notes{display:flex;flex-direction:column;gap:8px;margin-top:2px}
   .mdc-section-head{
@@ -779,8 +893,8 @@
     letter-spacing:.07em;text-transform:uppercase;line-height:1;
   }
   .mdc-section-head .icon{width:13px;height:13px;color:rgba(255,255,255,.58)}
-  .mdc-section-head.extras{color:var(--mint)}
-  .mdc-section-head.extras .icon{color:var(--mint)}
+  .mdc-section-head.extras{color:var(--champagne)}
+  .mdc-section-head.extras .icon{color:var(--champagne)}
   .mdc-note{
     padding:10px 11px;
     border:1px solid var(--line);
@@ -793,11 +907,12 @@
     display:inline-flex;align-items:center;gap:4px;
     padding:3px 6px;
     border-radius:6px;
-    background:rgba(182,204,240,.11);
-    color:#c8d9f2;
+    background:rgba(92,200,255,.18);
+    color:#d9f0ff;
     font-size:8px;font-weight:700;
     letter-spacing:.06em;text-transform:uppercase;line-height:1;
     white-space:nowrap;
+    box-shadow:0 0 10px rgba(92,200,255,.10);
   }
   .mdc-note-cat .icon{width:10px;height:10px}
   .mdc-note-head b{
@@ -822,7 +937,7 @@
     background:rgba(20,20,24,.82);
   }
   .extra-row{display:flex;align-items:center;gap:7px;color:#fff}
-  .extra-row .icon.check{width:14px;height:14px;color:var(--mint)}
+  .extra-row .icon.check{width:14px;height:14px;color:var(--mint);filter:drop-shadow(0 0 5px rgba(63,242,176,.35))}
   .extra-row span{flex:1;font-size:11.5px;font-weight:500;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .extra-row em{
     font-style:normal;
@@ -1034,6 +1149,26 @@
     line-height:1;
   }
   .semantic i{width:5px;height:5px;border-radius:50%;flex:none}
+  .micro-list{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+  .micro-item{
+    display:flex;align-items:center;gap:6px;
+    padding:6px 7px;
+    border:1px solid rgba(255,255,255,.055);
+    border-radius:8px;
+    background:rgba(255,255,255,.015);
+  }
+  .micro-item:last-child{grid-column:1/-1}
+  .micro-item i{width:6px;height:6px;border-radius:2px;flex:none;box-shadow:0 0 8px currentColor}
+  .micro-item b{color:#d3d9e2;font-size:7.5px;font-weight:600;line-height:1.2;white-space:nowrap}
+  .micro-item span{
+    margin-left:auto;
+    color:#626a78;
+    font-size:6.5px;
+    letter-spacing:.03em;
+    line-height:1;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    white-space:nowrap;
+  }
   .rule-list{display:flex;flex-direction:column;gap:7px}
   .rule{
     display:flex;gap:7px;
@@ -1162,8 +1297,9 @@
       <div class="brand-line"><span class="brand-dot"></span> myLife / home re-skin</div>
       <h1 class="board-title">Mismo ADN. Nueva <em>luz</em>.</h1>
       <p class="board-subtitle">
-        Conservamos la identidad del MainDayCard, el navbar y el título. Sustituimos el carmesí
-        por una paleta monocroma fría: negro neón, plata y blanco difuminado.
+        Conservamos la identidad del MainDayCard, el navbar y el título. Sumamos la cabecera
+        editorial de la referencia, damos a cada microcomponente un acento vivo y el CTA
+        pasa a “Administrar”: base monocroma fría, plata y blanco difuminado con destellos de color.
       </p>
     </div>
     <div class="board-meta">
@@ -1178,7 +1314,7 @@
     <aside class="panel">
       <div class="panel-kicker">01 · Se conserva</div>
       <h2>El ADN no se toca.</h2>
-      <p class="panel-intro">La propuesta cambia la luz, no la estructura de los componentes con identidad.</p>
+      <p class="panel-intro">La propuesta cambia la luz y suma la cabecera editorial; no rehace los componentes con identidad.</p>
 
       <ul class="preserve-list">
         <li class="preserve-item">
@@ -1199,14 +1335,14 @@
           <span class="preserve-num">03</span>
           <div>
             <strong>GradientText</strong>
-            <span>Misma composición centrada y sweep de 8 s; solo cambian los stops a perlado.</span>
+            <span>Se conserva como wordmark en la cabecera: mismo sweep de 8 s y stops perlados.</span>
           </div>
         </li>
         <li class="preserve-item">
           <span class="preserve-num">04</span>
           <div>
-            <strong>MyDia</strong>
-            <span>Misma posición y función. El metal líquido se tiñe de plata fría.</span>
+            <strong>Cabecera editorial</strong>
+            <span>Marca + avatar, HOY, fecha y resumen: la distribución de la referencia, en clave monocroma.</span>
           </div>
         </li>
         <li class="preserve-item">
@@ -1216,10 +1352,17 @@
             <span>Mismo carrusel y gesto; el día activo pasa de carmesí a blanco perla.</span>
           </div>
         </li>
+        <li class="preserve-item">
+          <span class="preserve-num">06</span>
+          <div>
+            <strong>Administrar</strong>
+            <span>El componente MyDia se mantiene —posición, altura y metal—; solo cambia el texto.</span>
+          </div>
+        </li>
       </ul>
 
       <div class="preserve-quote">
-        <strong>Regla:</strong> no rehacemos los componentes. Cambiamos la luz que los ilumina.
+        <strong>Regla:</strong> la cabecera suma la nueva distribución; el resto conserva su ADN.
       </div>
     </aside>
 
@@ -1249,12 +1392,24 @@
 
           <div class="screen-scroll">
             <header class="app-header">
-              <div></div>
-              <div class="app-title">myLife</div>
-              <button class="logout-btn" type="button" aria-label="Cerrar sesión">
-                <svg class="icon"><use href="#i-logout"/></svg>
-              </button>
+              <div class="brand-lockup">
+                <div class="brand-mark">m</div>
+                <div class="brand-wordmark">
+                  <span class="app-title">myLife</span>
+                  <span class="brand-dot-small"></span>
+                </div>
+              </div>
+              <div class="avatar-wrap" aria-label="Perfil de usuario">
+                <div class="avatar">A</div>
+                <span class="avatar-status"></span>
+              </div>
             </header>
+
+            <section class="greeting">
+              <div class="eyebrow"><span class="dot"></span> Hoy</div>
+              <h1>Jueves, 22 de octubre</h1>
+              <p><b>3 actividades</b> <span class="sep">·</span> 2 h 15 min planificadas</p>
+            </section>
 
             <section class="week-card" aria-label="Semana del 19 al 25 de octubre">
               <button class="week-arrow" type="button" aria-label="Semana anterior">
@@ -1307,11 +1462,12 @@
 
                   <div class="routine-footer">
                     <div class="metric-chips">
-                      <span><svg class="icon"><use href="#i-dumbbell"/></svg> 8 ejercicios</span>
-                      <span><svg class="icon"><use href="#i-repeat"/></svg> 6/17 series</span>
+                      <span class="metric-ex"><svg class="icon"><use href="#i-dumbbell"/></svg> 8 ejercicios</span>
+                      <span class="metric-series"><svg class="icon"><use href="#i-repeat"/></svg> 6/17 series</span>
                     </div>
                     <button class="action-btn" type="button">
-                      <svg class="icon"><use href="#i-play"/></svg> Reanudar
+                      <span class="action-icon"><svg class="icon"><use href="#i-play"/></svg></span>
+                      Reanudar
                     </button>
                   </div>
                 </article>
@@ -1353,12 +1509,12 @@
                   <svg class="icon"><use href="#i-dumbbell"/></svg>
                 </div>
                 <h2>Sin actividades programadas</h2>
-                <p>Usa el botón “MyDia” para añadir rutinas, ejercicios o notas.</p>
+                <p>Usa el botón “Administrar” para añadir rutinas, ejercicios o notas.</p>
               </div>
             </section>
 
             <button class="my-dia" type="button">
-              <span class="my-dia-inner">MyDia</span>
+              <span class="my-dia-inner">Administrar</span>
             </button>
           </div>
 
@@ -1415,7 +1571,7 @@
         <div class="system-label"><span>Título</span><span>GradientText</span></div>
         <div class="title-preview">
           <span class="title-preview-text">myLife</span>
-          <small>sweep horizontal · 8 s · mismo componente</small>
+          <small>wordmark · sweep 8 s · mismo componente</small>
         </div>
         <div class="stops">
           <i style="background:#ffffff"></i>
@@ -1429,10 +1585,21 @@
       <div class="system-block">
         <div class="system-label"><span>Semánticos</span><span>solo datos</span></div>
         <div class="semantic-row">
-          <span class="semantic"><i style="background:#a7e3c8"></i>Menta</span>
-          <span class="semantic"><i style="background:#e8cf9f"></i>Champagne</span>
-          <span class="semantic"><i style="background:#b6ccf0"></i>Hielo</span>
-          <span class="semantic"><i style="background:#c3c7ef"></i>Lavanda</span>
+          <span class="semantic"><i style="background:#3ff2b0"></i>Menta</span>
+          <span class="semantic"><i style="background:#ffd166"></i>Champagne</span>
+          <span class="semantic"><i style="background:#5cc8ff"></i>Hielo</span>
+          <span class="semantic"><i style="background:#b394ff"></i>Lavanda</span>
+        </div>
+      </div>
+
+      <div class="system-block">
+        <div class="system-label"><span>Microacentos</span><span>alto contraste</span></div>
+        <div class="micro-list">
+          <div class="micro-item"><i style="background:#5cc8ff;color:#5cc8ff"></i><b>Upper-Lower</b><span>hielo</span></div>
+          <div class="micro-item"><i style="background:#3ff2b0;color:#3ff2b0"></i><b>En proceso</b><span>menta</span></div>
+          <div class="micro-item"><i style="background:#ffd166;color:#ffd166"></i><b>Cronómetro</b><span>champagne</span></div>
+          <div class="micro-item"><i style="background:#b394ff;color:#b394ff"></i><b>Series</b><span>lavanda</span></div>
+          <div class="micro-item"><i style="background:#f2f6fc;color:#f2f6fc"></i><b>Reanudar</b><span>perla · acción</span></div>
         </div>
       </div>
 
@@ -1440,8 +1607,8 @@
         <div class="system-label"><span>Reglas</span><span>uso</span></div>
         <div class="rule-list">
           <div class="rule"><span class="mark">1</span><span><b>Blanco = acción.</b> Foco, selección y CTA. Nunca decoración.</span></div>
-          <div class="rule"><span class="mark">2</span><span><b>El neón es luz.</b> Halos, bordes y reflejos. Sin rellenos saturados.</span></div>
-          <div class="rule"><span class="mark">3</span><span><b>El color vive en los datos.</b> Menta, champagne, hielo y lavanda solo para estados.</span></div>
+          <div class="rule"><span class="mark">2</span><span><b>El acento es luz.</b> Vidrio tintado, borde y halo; nunca un bloque plano.</span></div>
+          <div class="rule"><span class="mark">3</span><span><b>El color identifica piezas.</b> Hielo = plan, menta = vivo, champagne = tiempo, lavanda = progreso.</span></div>
         </div>
       </div>
 
@@ -1472,12 +1639,12 @@
     <article class="principle">
       <div class="principle-num">03</div>
       <strong>El rojo se retira</strong>
-      <p>El carmesí desaparece de acciones y selección. El blanco difuminado toma el foco; el color semántico queda para los datos.</p>
+      <p>El carmesí desaparece de acciones y selección. El blanco difuminado toma el foco, el CTA pasa a “Administrar” y el color semántico queda para los datos.</p>
     </article>
   </section>
 
   <footer class="board-footer">
-    <span><b>myLife</b> · Re-skin monocromo / v2</span>
+    <span><b>myLife</b> · Re-skin monocromo / v2 · microacentos</span>
     <span>Semana 43 · Octubre 2026</span>
   </footer>
 </main>

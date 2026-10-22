@@ -435,6 +435,11 @@ function QuickNoteCardWithMainDayGlow({
         numberOfLines={3}
         value={texto}
         onChangeText={onChangeTexto}
+        inputMode="text"
+        keyboardType="default"
+        autoCapitalize="sentences"
+        autoCorrect={true}
+        textAlignVertical="top"
         style={styles.quickNoteTextInput}
       />
 

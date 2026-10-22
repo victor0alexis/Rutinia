@@ -244,6 +244,11 @@ export default function ResumenEntrenamientoModal({
                 numberOfLines={3}
                 value={notasSesion}
                 onChangeText={onChangeNotasSesion}
+                inputMode="text"
+                keyboardType="default"
+                autoCapitalize="sentences"
+                autoCorrect={true}
+                textAlignVertical="top"
                 style={styles.notesInput}
               />
             </View>

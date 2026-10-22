@@ -448,6 +448,12 @@ export default function GestionarRutinaModal({
                 placeholderTextColor={colores.suave}
                 value={nombreRutina}
                 onChangeText={setNombreRutina}
+                inputMode="text"
+                keyboardType="default"
+                autoCapitalize="sentences"
+                autoCorrect={false}
+                returnKeyType="done"
+                enterKeyHint="done"
                 style={[styles.inputBase, { fontSize: 15, fontFamily: fuentes.bold }]}
               />
             </View>
@@ -624,6 +630,12 @@ export default function GestionarRutinaModal({
                         placeholderTextColor={colores.suave}
                         value={ej.nombre}
                         onChangeText={(val) => cambiarNombreEjercicio(ejIdx, val)}
+                        inputMode="text"
+                        keyboardType="default"
+                        autoCapitalize="words"
+                        autoCorrect={false}
+                        returnKeyType="done"
+                        enterKeyHint="done"
                         style={[styles.inputBase, { fontSize: 13, paddingVertical: 5, paddingHorizontal: 8 }]}
                       />
 
@@ -675,6 +687,12 @@ export default function GestionarRutinaModal({
                       placeholderTextColor={colores.suave}
                       value={ej.nombre}
                       onChangeText={(val) => cambiarNombreEjercicio(ejIdx, val)}
+                      inputMode="text"
+                      keyboardType="default"
+                      autoCapitalize="words"
+                      autoCorrect={false}
+                      returnKeyType="done"
+                      enterKeyHint="done"
                       style={[styles.inputBase, { fontSize: 13 }]}
                     />
                   </View>
@@ -704,6 +722,10 @@ export default function GestionarRutinaModal({
                             placeholderTextColor={colores.suave}
                             keyboardType="decimal-pad"
                             inputMode="decimal"
+                            returnKeyType="next"
+                            enterKeyHint="next"
+                            autoCorrect={false}
+                            selectTextOnFocus
                             value={s.peso}
                             onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'peso', val)}
                             style={[styles.inputBase, styles.colInput, { flex: 1, paddingHorizontal: 2, fontSize: 11 }]}
@@ -713,6 +735,10 @@ export default function GestionarRutinaModal({
                             placeholderTextColor={colores.suave}
                             keyboardType="number-pad"
                             inputMode="numeric"
+                            returnKeyType="next"
+                            enterKeyHint="next"
+                            autoCorrect={false}
+                            selectTextOnFocus
                             value={s.reps}
                             onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'reps', val)}
                             style={[styles.inputBase, styles.colInput, { flex: 1, paddingHorizontal: 2, fontSize: 11 }]}
@@ -726,6 +752,10 @@ export default function GestionarRutinaModal({
                             placeholderTextColor={colores.suave}
                             keyboardType="decimal-pad"
                             inputMode="decimal"
+                            returnKeyType="next"
+                            enterKeyHint="next"
+                            autoCorrect={false}
+                            selectTextOnFocus
                             value={s.pesoI !== undefined ? s.pesoI : s.peso}
                             onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'pesoI', val)}
                             style={[styles.inputBase, styles.colInput, { flex: 1, paddingHorizontal: 2, fontSize: 11 }]}
@@ -735,6 +765,10 @@ export default function GestionarRutinaModal({
                             placeholderTextColor={colores.suave}
                             keyboardType="number-pad"
                             inputMode="numeric"
+                            returnKeyType="next"
+                            enterKeyHint="next"
+                            autoCorrect={false}
+                            selectTextOnFocus
                             value={s.repsI !== undefined ? s.repsI : s.reps}
                             onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'repsI', val)}
                             style={[styles.inputBase, styles.colInput, { flex: 1, paddingHorizontal: 2, fontSize: 11 }]}
@@ -746,6 +780,11 @@ export default function GestionarRutinaModal({
                           placeholderTextColor={colores.suave}
                           keyboardType="number-pad"
                           inputMode="numeric"
+                          maxLength={2}
+                          returnKeyType="next"
+                          enterKeyHint="next"
+                          autoCorrect={false}
+                          selectTextOnFocus
                           value={s.rir}
                           onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'rir', val)}
                           style={[styles.inputBase, styles.colInput, { flex: 1, paddingHorizontal: 2, fontSize: 11 }]}
@@ -793,6 +832,10 @@ export default function GestionarRutinaModal({
                               placeholderTextColor={colores.suave}
                               keyboardType="decimal-pad"
                               inputMode="decimal"
+                              returnKeyType="next"
+                              enterKeyHint="next"
+                              autoCorrect={false}
+                              selectTextOnFocus
                               value={s.peso}
                               onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'peso', val)}
                               style={[styles.inputBase, styles.colInput, { flex: 1.2 }]}
@@ -803,6 +846,10 @@ export default function GestionarRutinaModal({
                               placeholderTextColor={colores.suave}
                               keyboardType="number-pad"
                               inputMode="numeric"
+                              returnKeyType="next"
+                              enterKeyHint="next"
+                              autoCorrect={false}
+                              selectTextOnFocus
                               value={s.reps}
                               onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'reps', val)}
                               style={[styles.inputBase, styles.colInput, { flex: 1.2 }]}
@@ -813,6 +860,11 @@ export default function GestionarRutinaModal({
                               placeholderTextColor={colores.suave}
                               keyboardType="number-pad"
                               inputMode="numeric"
+                              maxLength={2}
+                              returnKeyType="next"
+                              enterKeyHint="next"
+                              autoCorrect={false}
+                              selectTextOnFocus
                               value={s.rir}
                               onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'rir', val)}
                               style={[styles.inputBase, styles.colInput, { flex: 1 }]}
@@ -822,6 +874,11 @@ export default function GestionarRutinaModal({
                               <TextInput
                                 placeholder="Fallo/Técnica"
                                 placeholderTextColor={colores.suave}
+                                inputMode="text"
+                                keyboardType="default"
+                                autoCapitalize="sentences"
+                                returnKeyType="done"
+                                enterKeyHint="done"
                                 value={s.nota}
                                 onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'nota', val)}
                                 style={[styles.inputBase, styles.colInput, { flex: 1.5, textAlign: 'left', paddingHorizontal: 8, fontSize: 12 }]}
@@ -865,6 +922,11 @@ export default function GestionarRutinaModal({
                               <TextInput
                                 placeholder="Nota de la serie (ej. Fallo -2, drop set, técnica...)"
                                 placeholderTextColor={colores.suave}
+                                inputMode="text"
+                                keyboardType="default"
+                                autoCapitalize="sentences"
+                                returnKeyType="done"
+                                enterKeyHint="done"
                                 value={s.nota}
                                 onChangeText={(val) => cambiarCampoSerie(ejIdx, sIdx, 'nota', val)}
                                 style={[

@@ -9,7 +9,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover, user-scalable=no"
+          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, shrink-to-fit=no"
         />
 
         {/* PWA / iOS Web App Meta Tags */}
@@ -42,33 +42,46 @@ export default function Root({ children }: PropsWithChildren) {
             -moz-osx-font-smoothing: grayscale;
           }
 
-          html, body, #root {
+          html, body {
             background-color: #000000;
             color: #F9FAFB;
-          }
-
-          html {
             width: 100%;
             height: 100%;
             height: -webkit-fill-available;
             height: 100dvh;
             margin: 0;
             padding: 0;
-            overflow-x: hidden;
+            overflow: hidden !important;
+            overscroll-behavior: none !important;
+            -webkit-overscroll-behavior: none !important;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            touch-action: pan-x pan-y;
+            -webkit-user-select: none;
+            user-select: none;
           }
 
-          body, #root {
+          #root {
             background-color: #000000;
             width: 100%;
-            min-height: 100%;
-            min-height: -webkit-fill-available;
-            min-height: 100dvh;
+            height: 100%;
+            height: -webkit-fill-available;
+            height: 100dvh;
             margin: 0;
             padding: 0;
-            overflow-x: hidden;
-            overflow-y: auto;
-            touch-action: manipulation;
-            -webkit-overflow-scrolling: touch;
+            overflow: hidden !important;
+            overscroll-behavior: none !important;
+            -webkit-overscroll-behavior: none !important;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
           }
 
           /* Aplicar Outfit por defecto a todo texto en la web salvo Ionicons */
@@ -80,6 +93,8 @@ export default function Root({ children }: PropsWithChildren) {
           input, textarea, select, button {
             font-family: 'Outfit', 'Outfit_400Regular', -apple-system, BlinkMacSystemFont, sans-serif;
             font-size: 16px !important;
+            -webkit-user-select: text !important;
+            user-select: text !important;
           }
 
           /* Garantizar que no haya scroll horizontal accidental */

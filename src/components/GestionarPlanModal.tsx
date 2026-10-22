@@ -159,6 +159,12 @@ export default function GestionarPlanModal({
                   setNombre(t);
                   if (errorMsg) setErrorMsg('');
                 }}
+                inputMode="text"
+                keyboardType="default"
+                autoCapitalize="words"
+                autoCorrect={false}
+                returnKeyType="next"
+                enterKeyHint="next"
                 style={styles.input}
               />
             </View>
@@ -171,6 +177,12 @@ export default function GestionarPlanModal({
                 placeholderTextColor={colores.suave}
                 value={objetivo}
                 onChangeText={setObjetivo}
+                inputMode="text"
+                keyboardType="default"
+                autoCapitalize="sentences"
+                autoCorrect={false}
+                returnKeyType="next"
+                enterKeyHint="next"
                 style={styles.input}
               />
             </View>
@@ -185,6 +197,11 @@ export default function GestionarPlanModal({
                 onChangeText={setDescripcion}
                 multiline
                 numberOfLines={2}
+                inputMode="text"
+                keyboardType="default"
+                autoCapitalize="sentences"
+                autoCorrect={true}
+                textAlignVertical="top"
                 style={[styles.input, { height: 60, textAlignVertical: 'top' }]}
               />
             </View>

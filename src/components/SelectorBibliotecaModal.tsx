@@ -170,8 +170,14 @@ export default function SelectorBibliotecaModal({
               placeholderTextColor={colores.suave}
               value={busqueda}
               onChangeText={setBusqueda}
-              style={styles.searchInput}
+              inputMode="search"
+              keyboardType="default"
+              returnKeyType="search"
+              enterKeyHint="search"
+              autoCorrect={false}
+              autoCapitalize="none"
               clearButtonMode="while-editing"
+              style={styles.searchInput}
             />
             {busqueda.length > 0 && (
               <Pressable onPress={() => setBusqueda('')} hitSlop={8}>

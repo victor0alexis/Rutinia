@@ -57,6 +57,17 @@ export default function RootLayout() {
           console.warn('No se pudo inyectar la fuente Ionicons en web:', e);
         }
       }
+      // Bloquear scroll elástico de la ventana en iOS Safari (PWA y navegador)
+      const preventElasticScroll = (e: TouchEvent) => {
+        if (e.target === document.body || e.target === document.documentElement) {
+          e.preventDefault();
+        }
+      };
+      document.addEventListener('touchmove', preventElasticScroll, { passive: false });
+      return () => {
+        subscription.unsubscribe();
+        document.removeEventListener('touchmove', preventElasticScroll);
+      };
     }
 
     return () => subscription.unsubscribe();
@@ -64,14 +75,14 @@ export default function RootLayout() {
 
   if (!fontsLoaded) {
     return (
-      <View style={{ flex: 1, backgroundColor: colores.fondo, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, width: '100%', height: '100%', backgroundColor: colores.fondo, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={colores.primarioHover} />
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, width: '100%', height: '100%', overflow: 'hidden' }}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
       </Stack>

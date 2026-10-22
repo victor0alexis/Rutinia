@@ -1471,6 +1471,11 @@ export default function EjecutarEntrenamientoModal({
                           numberOfLines={2}
                           value={notasSesion}
                           onChangeText={setNotasSesion}
+                          inputMode="text"
+                          keyboardType="default"
+                          autoCapitalize="sentences"
+                          autoCorrect={true}
+                          textAlignVertical="top"
                           style={styles.focusNotesInput}
                         />
                       </View>
@@ -1831,6 +1836,11 @@ export default function EjecutarEntrenamientoModal({
                   setModalNotaEjercicio({ ...modalNotaEjercicio, nota: val });
                 }
               }}
+              inputMode="text"
+              keyboardType="default"
+              autoCapitalize="sentences"
+              autoCorrect={true}
+              textAlignVertical="top"
               style={[styles.inputBase, { height: 75, textAlignVertical: 'top', marginVertical: 10 }]}
             />
             <View style={styles.dialogActions}>

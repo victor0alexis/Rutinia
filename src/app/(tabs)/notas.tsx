@@ -339,6 +339,12 @@ export default function Notas() {
                     placeholderTextColor={colores.suave}
                     value={tituloInput}
                     onChangeText={setTituloInput}
+                    inputMode="text"
+                    keyboardType="default"
+                    autoCapitalize="sentences"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                    enterKeyHint="next"
                     style={styles.modalInput}
                   />
                 </View>
@@ -382,6 +388,11 @@ export default function Notas() {
                     numberOfLines={6}
                     value={contenidoInput}
                     onChangeText={setContenidoInput}
+                    inputMode="text"
+                    keyboardType="default"
+                    autoCapitalize="sentences"
+                    autoCorrect={true}
+                    textAlignVertical="top"
                     style={[styles.modalInput, { height: 120, textAlignVertical: 'top' }]}
                   />
                 </View>

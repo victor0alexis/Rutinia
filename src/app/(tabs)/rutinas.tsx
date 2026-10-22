@@ -518,6 +518,13 @@ export default function RutinasScreen() {
               placeholderTextColor={colores.suave}
               value={busqueda}
               onChangeText={setBusqueda}
+              inputMode="search"
+              keyboardType="default"
+              returnKeyType="search"
+              enterKeyHint="search"
+              autoCorrect={false}
+              autoCapitalize="none"
+              clearButtonMode="while-editing"
               style={{
                 flex: 1,
                 color: colores.texto,

@@ -153,6 +153,13 @@ export default function SelectorIntercambioModal({
               placeholderTextColor={colores.suave}
               value={busqueda}
               onChangeText={setBusqueda}
+              inputMode="search"
+              keyboardType="default"
+              returnKeyType="search"
+              enterKeyHint="search"
+              autoCorrect={false}
+              autoCapitalize="none"
+              clearButtonMode="while-editing"
               style={styles.searchInput}
               autoFocus
             />
