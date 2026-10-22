@@ -186,7 +186,7 @@ export default function MainDayCard({
 
             {/* C. Sección de Ejercicios Extras Sueltos */}
             {ejerciciosExtras.length > 0 && (
-              <View style={styles.extraSection}>
+              <View style={styles.extrasSectionContainer}>
                 <View style={styles.sectionHeaderRow}>
                   <Ionicons name="flash-outline" size={13} color={noir.champagne} />
                   <Text style={[styles.sectionHeaderText, styles.extrasHeaderText]}>
@@ -194,38 +194,40 @@ export default function MainDayCard({
                   </Text>
                 </View>
 
-                {ejerciciosExtras.map((e) => {
-                  const parsed = parsearEjercicioInfo(e);
-                  return (
-                    <View key={e.id} style={styles.extraRow}>
-                      <Ionicons
-                        name={
-                          e.completado
-                            ? 'checkmark-circle'
-                            : 'ellipse-outline'
-                        }
-                        size={14}
-                        color={e.completado ? noir.mint : noir.muted}
-                      />
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.extraExerciseName,
-                          e.completado && { opacity: 0.7 },
-                        ]}
-                      >
-                        {parsed.nombreLimpio}
-                      </Text>
-                      {parsed.resumenVisual && (
-                        <View style={styles.extraBadge}>
-                          <Text style={styles.extraBadgeText}>
-                            {parsed.resumenVisual}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  );
-                })}
+                <View style={styles.extraSection}>
+                  {ejerciciosExtras.map((e) => {
+                    const parsed = parsearEjercicioInfo(e);
+                    return (
+                      <View key={e.id} style={styles.extraRow}>
+                        <Ionicons
+                          name={
+                            e.completado
+                              ? 'checkmark-circle'
+                              : 'ellipse-outline'
+                          }
+                          size={14}
+                          color={e.completado ? noir.mint : noir.muted}
+                        />
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.extraExerciseName,
+                            e.completado && { opacity: 0.7 },
+                          ]}
+                        >
+                          {parsed.nombreLimpio}
+                        </Text>
+                        {parsed.resumenVisual && (
+                          <View style={styles.extraBadge}>
+                            <Text style={styles.extraBadgeText}>
+                              {parsed.resumenVisual}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
               </View>
             )}
           </>
@@ -276,6 +278,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   notesSection: {
+    gap: 8,
+    marginTop: 2,
+  },
+  extrasSectionContainer: {
     gap: 8,
     marginTop: 2,
   },
@@ -397,6 +403,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.07,
     shadowRadius: 13,
     elevation: 2,
+    // @ts-ignore
+    boxShadow:
+      'inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 26px rgba(226, 239, 255, 0.07)',
   },
   emptyTitle: {
     color: '#FFFFFF',

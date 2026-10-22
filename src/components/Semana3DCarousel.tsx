@@ -416,6 +416,18 @@ function Carousel3DDayFace({
               ]}
             />
           )}
+          {!completo && !tieneEjercicios && !tieneNotas && (
+            <View
+              style={[
+                styles.statusDot,
+                {
+                  backgroundColor: esSel
+                    ? 'rgba(9, 12, 18, 0.45)'
+                    : 'rgba(255, 255, 255, 0.16)',
+                },
+              ]}
+            />
+          )}
         </View>
       </Pressable>
     </Animated.View>
@@ -490,6 +502,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 12,
     elevation: 6,
+    // @ts-ignore
+    boxShadow:
+      '0 9px 23px rgba(206, 225, 247, 0.25), 0 0 18px rgba(240, 248, 255, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
   },
   dayShortName: {
     fontSize: 8,
