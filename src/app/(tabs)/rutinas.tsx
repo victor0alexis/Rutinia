@@ -29,7 +29,7 @@ import DockPrincipal from '../../components/DockPrincipal';
 import ShinyText from '../../components/ShinyText';
 import YoungNewtButton from '../../components/YoungNewtButton';
 import GradientText from '../../components/GradientText';
-import RutiniaLogo from '../../components/RutiniaLogo';
+import { RutiniaLogo } from '../../components/RutiniaLogo';
 import { LiquidMetalButton } from '../../components/LiquidMetalButton';
 import GestionarPlanModal from '../../components/GestionarPlanModal';
 import EliminarPlanModal from '../../components/EliminarPlanModal';

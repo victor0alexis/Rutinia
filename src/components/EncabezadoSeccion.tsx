@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colores, fuentes } from '../constants/colores';
 import { useLayout } from '../hooks/useLayout';
 import GlowButton from './GlowButton';
-import RutiniaLogo from './RutiniaLogo';
+import { RutiniaLogo } from './RutiniaLogo';
 
 type Props = {
   badgeText?: string;

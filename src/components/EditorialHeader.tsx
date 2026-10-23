@@ -15,7 +15,7 @@ import { useLayout } from '../hooks/useLayout';
 import { supabase } from '../lib/supabase';
 import { vibrarBoton } from '../utils/haptics';
 import GradientText from './GradientText';
-import RutiniaLogo from './RutiniaLogo';
+import { RutiniaLogo } from './RutiniaLogo';
 
 const TITLE_GRADIENT_COLORS = [
   '#FFFFFF',
