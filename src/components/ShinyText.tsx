@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useId } from 'react';
 import { StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
 import Animated, {
   Easing,
@@ -31,6 +31,16 @@ export interface ShinyTextProps {
   glow?: number;
   direction?: 'left' | 'right';
   className?: string;
+  /** Tamaño de la tipografía. Por defecto conserva el valor original (32). */
+  fontSize?: number;
+  /** Familia tipográfica. Por defecto conserva la original. */
+  fontFamily?: string;
+  /** Alineación del texto dentro del SVG. */
+  align?: 'left' | 'center';
+  /** Ancho del SVG. Acepta número o porcentaje. */
+  width?: number | string;
+  /** Alto del SVG. Por defecto se calcula con el tamaño de letra. */
+  height?: number;
   style?: StyleProp<ViewStyle | TextStyle>;
 }
 
@@ -41,9 +51,15 @@ export default function ShinyText({
   shineColor = '#ffffff',
   speed = 2,
   glow = 0,
+  fontSize = 32,
+  fontFamily = fuentes.semiBold,
+  align = 'center',
+  width,
+  height,
 }: ShinyTextProps) {
   const content = text ?? (typeof children === 'string' ? children : '');
   const progress = useSharedValue(-1);
+  const gradientId = `shinyTextGradient-${useId().replace(/:/g, '')}`;
 
   useEffect(() => {
     progress.value = withRepeat(
@@ -65,31 +81,39 @@ export default function ShinyText({
     };
   });
 
-  const fontSize = 32;
   const estimatedWidth = Math.max(content.length * (fontSize * 0.6) + 30, 160);
-  const estimatedHeight = fontSize * 1.4;
+  const estimatedHeight = height ?? fontSize * 1.4;
+  const svgWidth = width ?? estimatedWidth;
+  const isLeft = align === 'left';
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        isLeft ? styles.containerLeft : styles.containerCenter,
+        width !== undefined ? { width: width as any } : null,
+      ]}
+    >
       {glow > 0 && (
         <Text
           style={[
             styles.glowText,
             {
               fontSize,
-              fontFamily: fuentes.semiBold,
+              fontFamily,
               color: shineColor,
               opacity: glow * 0.4,
+              textAlign: isLeft ? 'left' : 'center',
             },
           ]}
         >
           {content}
         </Text>
       )}
-      <Svg width={estimatedWidth} height={estimatedHeight}>
+      <Svg width={svgWidth as any} height={estimatedHeight}>
         <Defs>
           <AnimatedLinearGradient
-            id="shinyTextGradient"
+            id={gradientId}
             animatedProps={animatedProps}
           >
             <Stop offset="0%" stopColor={color} stopOpacity="1" />
@@ -100,13 +124,13 @@ export default function ShinyText({
           </AnimatedLinearGradient>
         </Defs>
         <SvgText
-          x="50%"
+          x={isLeft ? '0%' : '50%'}
           y="50%"
-          textAnchor="middle"
+          textAnchor={isLeft ? 'start' : 'middle'}
           alignmentBaseline="central"
           fontSize={fontSize}
-          fontFamily={fuentes.semiBold}
-          fill="url(#shinyTextGradient)"
+          fontFamily={fontFamily}
+          fill={`url(#${gradientId})`}
         >
           {content}
         </SvgText>
@@ -117,13 +141,19 @@ export default function ShinyText({
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
+  containerLeft: {
+    alignItems: 'flex-start',
+  },
+  containerCenter: {
+    alignItems: 'center',
+  },
   glowText: {
     position: 'absolute',
-    textAlign: 'center',
+    left: 0,
+    right: 0,
     textShadowColor: 'rgba(255, 255, 255, 0.4)',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 10,

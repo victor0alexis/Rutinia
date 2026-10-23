@@ -24,6 +24,8 @@ export interface YoungNewtButtonProps {
   onPress?: () => void;
   disabled?: boolean;
   highlightHue?: string;
+  /** Ocupa todo el ancho disponible. No altera animaciones, colores ni el tamaño por defecto. */
+  fullWidth?: boolean;
 }
 
 const AnimatedLetter = memo(function AnimatedLetter({
@@ -84,6 +86,7 @@ export default function YoungNewtButton({
   loading = false,
   onPress,
   disabled = false,
+  fullWidth = false,
 }: YoungNewtButtonProps) {
   const pressed = useSharedValue(0);
   const flicker = useSharedValue(1);
@@ -119,7 +122,7 @@ export default function YoungNewtButton({
   const letters = displayText.split('');
 
   return (
-    <Animated.View style={[styles.wrapper, animatedBtnStyle]}>
+    <Animated.View style={[styles.wrapper, fullWidth && styles.wrapperFull, animatedBtnStyle]}>
       <Pressable
         onPress={onPress}
         onPressIn={handlePressIn}
@@ -128,6 +131,7 @@ export default function YoungNewtButton({
         accessibilityRole="button"
         style={({ pressed: isPressed }) => [
           styles.button,
+          fullWidth && styles.buttonFull,
           isPressed && styles.buttonActive,
           disabled && { opacity: 0.5 },
         ]}
@@ -169,6 +173,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
+  wrapperFull: {
+    alignSelf: 'stretch',
+  },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -180,6 +187,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#101010',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.16)',
+  },
+  buttonFull: {
+    width: '100%',
   },
   buttonActive: {
     backgroundColor: 'rgba(28, 36, 52, 0.85)',

@@ -11,6 +11,8 @@ export interface YoungNewtButtonProps {
   onPress?: () => void;
   disabled?: boolean;
   highlightHue?: string; // e.g. "210deg" or "32deg"
+  /** Ocupa todo el ancho disponible. No altera la animación ni los colores originales. */
+  fullWidth?: boolean;
 }
 
 export default function YoungNewtButtonWeb({
@@ -20,6 +22,7 @@ export default function YoungNewtButtonWeb({
   onPress,
   disabled = false,
   highlightHue = '210deg',
+  fullWidth = false,
 }: YoungNewtButtonProps) {
   const uniqueId = useId().replace(/:/g, '');
   const scopeClass = `yn-btn-${uniqueId}`;
@@ -219,17 +222,21 @@ export default function YoungNewtButtonWeb({
   `;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, fullWidth && styles.containerFull]}>
       {/* Inyección de las reglas CSS exactas de Uiverse */}
       {/* @ts-ignore */}
       <style dangerouslySetInnerHTML={{ __html: css }} />
 
-      <div className={`${scopeClass}-wrapper`}>
+      <div
+        className={`${scopeClass}-wrapper`}
+        style={fullWidth ? { display: 'block', width: '100%' } : undefined}
+      >
         <button
           type="button"
           disabled={disabled}
           onClick={onPress}
           className={`${scopeClass}-btn`}
+          style={fullWidth ? { width: '100%' } : undefined}
         >
           <svg
             className={`${scopeClass}-svg`}
@@ -263,5 +270,9 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  containerFull: {
+    alignItems: 'stretch',
+    width: '100%',
   },
 });

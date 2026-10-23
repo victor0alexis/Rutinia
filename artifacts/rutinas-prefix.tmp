@@ -1,0 +1,462 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  BackHandler,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import type { LayoutChangeEvent, StyleProp, ViewStyle } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect, useIsFocused } from 'expo-router';
+import Head from 'expo-router/head';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Canvas, Box, BoxShadow, rect, rrect } from '@shopify/react-native-skia';
+import {
+  DIAS_SEMANA_ABREV,
+  DIAS_SEMANA_NOMBRES,
+  fuentes,
+  noir,
+} from '../../constants/colores';
+import ScreenBackground from '../../components/ScreenBackground';
+import DockPrincipal from '../../components/DockPrincipal';
+import ShinyText from '../../components/ShinyText';
+import YoungNewtButton from '../../components/YoungNewtButton';
+import GradientText from '../../components/GradientText';
+import { LiquidMetalButton } from '../../components/LiquidMetalButton';
+import GestionarPlanModal from '../../components/GestionarPlanModal';
+import EliminarPlanModal from '../../components/EliminarPlanModal';
+import AplicarPlanSemanaModal from '../../components/AplicarPlanSemanaModal';
+import GestionarRutinaModal from '../../components/GestionarRutinaModal';
+import { supabase } from '../../lib/supabase';
+import { subscribirCambioDatos } from '../../utils/sincronizacion';
+import { diasDeSemana } from '../../utils/fechas';
+import { vibrarBoton } from '../../utils/haptics';
+import {
+  archivarPlan,
+  crearPlan,
+  definirDiaSugerido,
+  definirPlanActivo,
+  duplicarRutinaEnPlan,
+  editarPlan,
+  eliminarPlan,
+  guardarUltimoPlanUsadoId,
+  listarPlanes,
+  listarRutinasDePlan,
+  moverRutina,
+  reordenarPlanes,
+} from '../../services/planes';
+import { eliminarRutina } from '../../services/rutinas';
+import { PlanEntrenamiento, Rutina } from '../../types';
+import { useLayout } from '../../hooks/useLayout';
+import { mostrarMensaje, seguro } from '../../utils/errores';
+
+const TITLE_GRADIENT_COLORS = ['#F2F6FC', '#C9D1DD', '#FFFFFF', '#C9D1DD', '#F2F6FC'];
+const DANGER = '#F08A9B';
+
+type IoniconName = keyof typeof Ionicons.glyphMap;
+
+type ActionSheetAction = {
+  label: string;
+  icon: IoniconName;
+  onPress: () => void;
+  danger?: boolean;
+  disabled?: boolean;
+};
+
+function truncarTexto(texto: string, max: number) {
+  if (texto.length <= max) return texto;
+  return `${texto.slice(0, max - 1).trimEnd()}…`;
+}
+
+function programarAccion(fn: () => void) {
+  setTimeout(fn, 160);
+}
+
+function PearlButton({
+  label,
+  onPress,
+  icon,
+  compact = false,
+  style,
+  accessibilityLabel,
+}: {
+  label: string;
+  onPress: () => void;
+  icon?: IoniconName;
+  compact?: boolean;
+  style?: StyleProp<ViewStyle>;
+  accessibilityLabel?: string;
+}) {
+  return (
+    <Pressable
+      onPress={() => {
+        vibrarBoton();
+        onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      style={({ pressed }) => [
+        styles.pearlButton,
+        compact && styles.pearlButtonCompact,
+        pressed && styles.pressedSoft,
+        style,
+      ]}
+    >
+      <LinearGradient
+        pointerEvents="none"
+        colors={['#FFFFFF', '#EDF3FA', '#DCE8F6']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={[StyleSheet.absoluteFill, styles.pearlButtonFill]}
+      />
+      {icon && !compact ? (
+        <View style={styles.pearlButtonOrb}>
+          <Ionicons name={icon} size={12} color={noir.pearl} />
+        </View>
+      ) : null}
+      <Text
+        numberOfLines={1}
+        style={[styles.pearlButtonText, compact && styles.pearlButtonTextCompact]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function IconGlassButton({
+  name,
+  onPress,
+  size = 34,
+  danger = false,
+  label,
+  style,
+}: {
+  name: IoniconName;
+  onPress: () => void;
+  size?: number;
+  danger?: boolean;
+  label: string;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const iconSize = size <= 26 ? 12 : size <= 31 ? 14 : 16;
+  return (
+    <Pressable
+      onPress={() => {
+        vibrarBoton();
+        onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={8}
+      style={({ pressed }) => [
+        styles.iconGlassButton,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+        },
+        danger && styles.iconGlassButtonDanger,
+        pressed && styles.pressedSoft,
+        style,
+      ]}
+    >
+      <Ionicons name={name} size={iconSize} color={danger ? DANGER : noir.platinum} />
+    </Pressable>
+  );
+}
+
+function GlassSurface({
+  children,
+  style,
+  contentStyle,
+  dashed = false,
+  hairline = true,
+}: {
+  children: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+  contentStyle?: StyleProp<ViewStyle>;
+  dashed?: boolean;
+  hairline?: boolean;
+}) {
+  return (
+    <View style={[styles.glassSurface, dashed && styles.glassSurfaceDashed, style]}>
+      <LinearGradient
+        pointerEvents="none"
+        colors={['rgba(18, 20, 26, 0.94)', 'rgba(10, 11, 15, 0.96)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      {hairline ? (
+        <LinearGradient
+          pointerEvents="none"
+          colors={['transparent', 'rgba(255, 255, 255, 0.12)', 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.glassHairline}
+        />
+      ) : null}
+      <View style={contentStyle}>{children}</View>
+    </View>
+  );
+}
+
+function PlanHeroShell({
+  children,
+  style,
+  contentStyle,
+}: {
+  children: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+  contentStyle?: StyleProp<ViewStyle>;
+}) {
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const isWeb = Platform.OS === 'web';
+
+  const handleLayout = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setDimensions((prev) =>
+      Math.abs(prev.width - width) < 1 && Math.abs(prev.height - height) < 1
+        ? prev
+        : { width, height }
+    );
+  };
+
+  return (
+    <View
+      onLayout={handleLayout}
+      style={[styles.planHeroBase, isWeb && styles.planHeroWeb, style]}
+    >
+      {!isWeb && dimensions.width > 0 && dimensions.height > 0 ? (
+        <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Box
+            box={rrect(rect(0, 0, dimensions.width, dimensions.height), 20, 20)}
+            color="rgb(15, 15, 15)"
+          >
+            <BoxShadow dx={0} dy={0} blur={28} color="rgba(226, 239, 255, 0.52)" />
+            <BoxShadow
+              dx={0}
+              dy={0}
+              blur={50}
+              color="rgba(226, 239, 255, 0.24)"
+              inner
+            />
+          </Box>
+        </Canvas>
+      ) : null}
+
+      <LinearGradient
+        pointerEvents="none"
+        colors={['transparent', 'rgba(255, 255, 255, 0.16)', 'transparent']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.planHeroHairline}
+      />
+
+      <View style={[styles.planHeroContent, contentStyle]}>{children}</View>
+    </View>
+  );
+}
+
+function StatStrip({ items }: { items: { value: string; label: string }[] }) {
+  return (
+    <View style={styles.statStrip}>
+      {items.map((item, index) => (
+        <React.Fragment key={`${item.label}-${index}`}>
+          {index > 0 ? <View style={styles.statDividerLine} /> : null}
+          <View style={styles.statItem}>
+            <Text style={styles.statValue} numberOfLines={1}>
+              {item.value}
+            </Text>
+            <Text style={styles.statLabel} numberOfLines={1}>
+              {item.label}
+            </Text>
+          </View>
+        </React.Fragment>
+      ))}
+    </View>
+  );
+}
+
+function PlanShinyTitle({ text, compact }: { text: string; compact: boolean }) {
+  const fontSize = compact ? 23 : 26;
+  const display = truncarTexto(text, compact ? 25 : 31);
+  const webStyle =
+    Platform.OS === 'web'
+      ? ({
+          width: '100%',
+          display: 'block',
+          fontSize,
+          fontFamily: fuentes.bold,
+          fontWeight: 700,
+          lineHeight: fontSize * 1.3,
+          letterSpacing: -0.5,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        } as any)
+      : undefined;
+
+  return (
+    <View style={[styles.planShinyTitleWrap, { height: fontSize * 1.4 }]}>
+      <ShinyText
+        text={display}
+        fontSize={fontSize}
+        fontFamily={fuentes.bold}
+        align="left"
+        width="100%"
+        height={fontSize * 1.4}
+        color={noir.platinum}
+        shineColor={noir.pearl}
+        speed={5.6}
+        style={webStyle}
+      />
+    </View>
+  );
+}
+
+function WeekStrip({
+  days,
+  plannedDays,
+  todayIndex,
+}: {
+  days: Date[];
+  plannedDays: Set<number>;
+  todayIndex: number;
+}) {
+  return (
+    <View style={styles.weekStrip}>
+      {days.map((day, index) => {
+        const active = index === todayIndex;
+        const planned = plannedDays.has(index);
+        const dayName = DIAS_SEMANA_NOMBRES[index].slice(0, 3).toUpperCase();
+        return (
+          <View
+            key={index}
+            accessible
+            accessibilityLabel={`${DIAS_SEMANA_NOMBRES[index]} ${day.getDate()}${
+              active ? ', hoy' : ''
+            }${planned ? ', día con rutina' : ''}`}
+            style={[
+              styles.weekDay,
+              planned && !active && styles.weekDayPlanned,
+              active && styles.weekDayActive,
+            ]}
+          >
+            {active ? (
+              <LinearGradient
+                pointerEvents="none"
+                colors={['#FFFFFF', '#EDF2F9', '#C9D4E3']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+                style={[StyleSheet.absoluteFill, styles.weekDayActiveFill]}
+              />
+            ) : null}
+            <Text style={[styles.weekDayName, active && styles.weekDayTextActive]}>
+              {dayName}
+            </Text>
+            <Text style={[styles.weekDayNumber, active && styles.weekDayTextActive]}>
+              {day.getDate()}
+            </Text>
+            <View
+              style={[
+                styles.weekDayDot,
+                planned && styles.weekDayDotPlanned,
+                active && styles.weekDayDotActive,
+              ]}
+            />
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function ActionSheetModal({
+  visible,
+  onClose,
+  title,
+  subtitle,
+  actions,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  title: string;
+  subtitle?: string;
+  actions: ActionSheetAction[];
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.modalBackdrop}>
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Cerrar menú"
+        />
+        <View style={styles.actionSheetCard}>
+          <View style={styles.actionSheetHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.actionSheetTitle}>{title}</Text>
+              {subtitle ? (
+                <Text style={styles.actionSheetSubtitle} numberOfLines={2}>
+                  {subtitle}
+                </Text>
+              ) : null}
+            </View>
+            <IconGlassButton name="close" size={31} onPress={onClose} label="Cerrar menú" />
+          </View>
+
+          <View style={styles.actionSheetList}>
+            {actions.map((action) => (
+              <Pressable
+                key={action.label}
+                disabled={action.disabled}
+                onPress={() => {
+                  if (action.disabled) return;
+                  vibrarBoton();
+                  action.onPress();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={action.label}
+                style={({ pressed }) => [
+                  styles.actionSheetRow,
+                  pressed && !action.disabled && styles.actionSheetRowPressed,
+                  action.disabled && styles.actionSheetRowDisabled,
+                ]}
+              >
+                <View
+                  style={[
+                    styles.actionSheetIcon,
+                    action.danger && styles.actionSheetIconDanger,
+                  ]}
+                >
+                  <Ionicons
+                    name={action.icon}
+                    size={16}
+                    color={action.danger ? DANGER : noir.platinum}
+                  />
+                </View>
+                <Text
+                  style={[styles.actionSheetLabel, action.danger && { color: DANGER }]}
+                >
+                  {action.label}
+                </Text>
+                <Ionicons name="chevron-forward" size={15} color={noir.muted2} />
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+

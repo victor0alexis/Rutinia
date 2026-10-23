@@ -1,0 +1,1091 @@
+  return (
+    <ScreenBackground>
+      <Head>
+        <title>
+          {planSeleccionado ? `${planSeleccionado.nombre} · Rutinia` : 'Planes & Rutinas · Rutinia'}
+        </title>
+      </Head>
+      <SafeAreaView edges={['top']} style={styles.screen}>
+        {menuCuentaVisible ? (
+          <Pressable
+            style={styles.accountScrim}
+            onPress={() => setMenuCuentaVisible(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Cerrar menú de cuenta"
+          />
+        ) : null}
+
+        {/* CABECERA: MARCA (SOLO EN DETALLE) + AVATAR */}
+        <View
+          style={[
+            styles.headerOuter,
+            {
+              paddingHorizontal: gutter,
+              maxWidth: contentMaxWidth,
+              marginBottom: isLandscape ? 6 : 12,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.headerWrap,
+              { justifyContent: planSeleccionado || viendoSinPlan ? 'space-between' : 'flex-end' },
+            ]}
+          >
+            {(planSeleccionado || viendoSinPlan) && (
+              <View style={styles.brandLockup}>
+                <LinearGradient
+                  colors={[
+                    'rgba(255,255,255,0.30)',
+                    'rgba(255,255,255,0.16)',
+                    'rgba(255,255,255,0.045)',
+                  ]}
+                  start={{ x: 0.15, y: 0.05 }}
+                  end={{ x: 0.85, y: 0.95 }}
+                  style={styles.brandMark}
+                >
+                  <Text style={styles.brandMarkText}>m</Text>
+                </LinearGradient>
+
+                <View style={styles.brandWordmark}>
+                  <GradientText
+                    colors={TITLE_GRADIENT_COLORS}
+                    animationSpeed={8}
+                    direction="horizontal"
+                    scale={3}
+                    style={{
+                      fontSize: isCompact ? 19 : 21,
+                      lineHeight: 24,
+                      fontFamily: fuentes.extraBold,
+                      letterSpacing: -0.55,
+                    }}
+                  >
+                    myLife
+                  </GradientText>
+                  <View style={styles.brandDotSmall} />
+                </View>
+              </View>
+            )}
+
+            <View style={styles.avatarWrap}>
+              <Pressable
+                onPress={() => setMenuCuentaVisible((visible) => !visible)}
+                style={({ pressed }) => [
+                  styles.avatarButton,
+                  pressed && { opacity: 0.82, transform: [{ scale: 0.94 }] },
+                ]}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Abrir menú de cuenta"
+              >
+                <LinearGradient
+                  colors={['#232631', '#13151B']}
+                  start={{ x: 0.3, y: 0.1 }}
+                  end={{ x: 0.7, y: 0.95 }}
+                  style={styles.avatarGradient}
+                >
+                  <Text style={styles.avatarText}>{avatarInicial}</Text>
+                </LinearGradient>
+              </Pressable>
+              <View pointerEvents="none" style={styles.avatarStatus} />
+            </View>
+
+            {menuCuentaVisible && (
+              <View style={styles.accountMenu}>
+                <Text style={styles.accountMenuLabel}>CUENTA</Text>
+                <Text numberOfLines={1} style={styles.accountMenuEmail}>
+                  {emailCuenta || 'Sesión activa'}
+                </Text>
+                <View style={styles.accountMenuDivider} />
+                <Pressable
+                  onPress={cerrarSesion}
+                  style={({ pressed }) => [
+                    styles.accountMenuLogout,
+                    pressed && { opacity: 0.68 },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cerrar sesión"
+                >
+                  <Ionicons name="log-out-outline" size={15} color={noir.platinum} />
+                  <Text style={styles.accountMenuLogoutText}>Cerrar sesión</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        </View>
+
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingHorizontal: gutter,
+              maxWidth: contentMaxWidth,
+              paddingBottom: (isLandscape ? 128 : 168) + safeBottom,
+            },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+        >
+          {!planSeleccionado && !viendoSinPlan ? (
+            <>
+              {/* SALUDO EDITORIAL */}
+              <View style={styles.greeting}>
+                <View style={styles.eyebrowRow}>
+                  <View style={styles.eyebrowDot} />
+                  <Text style={styles.eyebrowText}>SISTEMA DE ENTRENAMIENTO</Text>
+                </View>
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.greetingTitle,
+                    {
+                      fontSize: isLandscape ? 22 : isCompact ? 23 : 26,
+                      lineHeight: isLandscape ? 25 : isCompact ? 27 : 30,
+                    },
+                  ]}
+                >
+                  Planes & Rutinas
+                </Text>
+                <Text style={styles.greetingStats} numberOfLines={2}>
+                  <Text style={styles.greetingStatsStrong}>
+                    {planesNoArchivados.length}{' '}
+                    {planesNoArchivados.length === 1 ? 'plan' : 'planes'}
+                  </Text>
+                  <Text style={styles.greetingStatsDot}>  ·  </Text>
+                  <Text style={styles.greetingStatsStrong}>
+                    {totalRutinasGlobal} {totalRutinasGlobal === 1 ? 'rutina' : 'rutinas'}
+                  </Text>
+                  <Text style={styles.greetingStatsDot}>  ·  </Text>
+                  <Text style={styles.greetingStatsStrong}>
+                    {totalActivosGlobal}{' '}
+                    {totalActivosGlobal === 1 ? 'activo' : 'activos'}
+                  </Text>
+                </Text>
+              </View>
+
+              {/* BUSCADOR */}
+              <View style={styles.searchBarBox}>
+                <Ionicons name="search-outline" size={16} color={noir.muted} />
+                <TextInput
+                  placeholder="Buscar plan o rutina..."
+                  placeholderTextColor={noir.muted2}
+                  value={busqueda}
+                  onChangeText={setBusqueda}
+                  inputMode="search"
+                  keyboardType="default"
+                  returnKeyType="search"
+                  enterKeyHint="search"
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                  selectionColor={noir.ice}
+                  style={styles.searchInput}
+                />
+                {busqueda.length > 0 ? (
+                  <Pressable
+                    onPress={() => setBusqueda('')}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Limpiar búsqueda"
+                  >
+                    <Ionicons name="close-circle" size={17} color={noir.muted2} />
+                  </Pressable>
+                ) : null}
+              </View>
+
+              {cargando && planes.length === 0 ? (
+                <View style={styles.loadingState}>
+                  <ActivityIndicator size="small" color={noir.platinum} />
+                  <Text style={styles.loadingText}>Cargando planes...</Text>
+                </View>
+              ) : (
+                <>
+                  {planDestacado ? (
+                    <PlanHeroShell contentStyle={styles.planHeroStack}>
+                      <View style={styles.heroTopRow}>
+                        <LinearGradient
+                          colors={['rgba(92, 200, 255, 0.22)', 'rgba(92, 200, 255, 0.05)']}
+                          start={{ x: 0.2, y: 0.1 }}
+                          end={{ x: 0.8, y: 0.95 }}
+                          style={styles.heroIconTile}
+                        >
+                          <Ionicons
+                            name={(planDestacado.icono || 'barbell-outline') as IoniconName}
+                            size={isCompact ? 20 : 22}
+                            color={noir.info}
+                          />
+                        </LinearGradient>
+
+                        <View style={styles.heroTopCopy}>
+                          <View style={styles.heroMetaRow}>
+                            <View
+                              style={[
+                                styles.heroStatusDot,
+                                planDestacado.activo
+                                  ? styles.heroStatusDotActive
+                                  : styles.heroStatusDotIdle,
+                              ]}
+                            />
+                            <Text style={styles.heroKicker}>
+                              {planDestacado.activo ? 'PLAN ACTIVO' : 'PLAN'}
+                            </Text>
+                            {planDestacado.diasPorSemana > 0 ? (
+                              <>
+                                <Text style={styles.heroKickerDim}>·</Text>
+                                <Text style={styles.heroKicker}>
+                                  {planDestacado.diasPorSemana} DÍAS / SEM
+                                </Text>
+                              </>
+                            ) : null}
+                          </View>
+                        </View>
+
+                        <View style={styles.heroTopActions}>
+                          <IconGlassButton
+                            name="create-outline"
+                            size={31}
+                            onPress={() => abrirEditarPlan(planDestacado)}
+                            label={`Editar ${planDestacado.nombre}`}
+                          />
+                          <IconGlassButton
+                            name="ellipsis-horizontal"
+                            size={31}
+                            onPress={() => abrirAccionesPlan(planDestacado)}
+                            label={`Opciones de ${planDestacado.nombre}`}
+                          />
+                        </View>
+                      </View>
+
+                      <PlanShinyTitle text={planDestacado.nombre} compact={isCompact} />
+
+                      <Text style={styles.heroObjectiveLine} numberOfLines={2}>
+                        <Text style={styles.heroObjectiveStrong}>
+                          {planDestacado.objetivo || 'Entrenamiento estructurado'}
+                        </Text>
+                        <Text style={styles.heroObjectiveMuted}>
+                          {`  ·  ${planDestacado.totalRutinas || 0} ${
+                            (planDestacado.totalRutinas || 0) === 1 ? 'rutina' : 'rutinas'
+                          }`}
+                        </Text>
+                      </Text>
+
+                      <StatStrip
+                        items={[
+                          {
+                            value: String(planDestacado.totalRutinas || 0),
+                            label: 'Rutinas',
+                          },
+                          {
+                            value: planDestacado.diasPorSemana
+                              ? String(planDestacado.diasPorSemana)
+                              : '—',
+                            label: 'Días / sem',
+                          },
+                          {
+                            value: planDestacado.activo ? 'Activo' : 'Plan',
+                            label: 'Estado',
+                          },
+                        ]}
+                      />
+
+                      <View style={styles.heroOpenRow}>
+                        <PearlButton
+                          label="Abrir plan"
+                          icon="chevron-forward"
+                          onPress={() => seleccionarPlan(planDestacado)}
+                          style={styles.heroOpenButton}
+                        />
+                        {!planDestacado.activo ? (
+                          <PearlButton
+                            compact
+                            label="Activar"
+                            onPress={() => manejarDefinirActivo(planDestacado)}
+                          />
+                        ) : null}
+                      </View>
+                    </PlanHeroShell>
+                  ) : (
+                    <GlassSurface style={styles.emptyCard} contentStyle={styles.emptyCardContent}>
+                      <View style={styles.emptyIconCircle}>
+                        <Ionicons
+                          name={query ? 'search-outline' : 'calendar-outline'}
+                          size={24}
+                          color={noir.platinum}
+                        />
+                      </View>
+                      <Text style={styles.emptyTitle}>
+                        {query ? 'No encontramos planes' : 'Sin planes todavía'}
+                      </Text>
+                      <Text style={styles.emptySubtitle}>
+                        {query
+                          ? `No hay planes que coincidan con “${busqueda.trim()}”.`
+                          : 'Agrupa tus rutinas en planes con días sugeridos, objetivos y periodización.'}
+                      </Text>
+                      {!query ? (
+                        <PearlButton
+                          label="Crear mi primer plan"
+                          icon="add"
+                          onPress={abrirCrearPlan}
+                          style={{ marginTop: 4 }}
+                        />
+                      ) : null}
+                    </GlassSurface>
+                  )}
+
+                  {planesSecundarios.map((p) => {
+                    const rutsCount = p.totalRutinas || 0;
+                    const diasPorSemana = p.diasPorSemana || 0;
+                    const tag = p.activo
+                      ? 'Activo'
+                      : planDestacado?.activo
+                        ? 'Secundario'
+                        : 'Plan';
+
+                    return (
+                      <GlassSurface key={p.id} style={styles.compactPlan} contentStyle={styles.compactPlanContent}>
+                        <View style={styles.compactPlanRow}>
+                          <Pressable
+                            onPress={() => seleccionarPlan(p)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Abrir plan ${p.nombre}`}
+                            style={({ pressed }) => [
+                              styles.compactPlanMain,
+                              pressed && styles.pressedSoft,
+                            ]}
+                          >
+                            <View style={styles.compactPlanIcon}>
+                              <Ionicons
+                                name={(p.icono || 'barbell-outline') as IoniconName}
+                                size={18}
+                                color={noir.platinum}
+                              />
+                            </View>
+                            <View style={styles.compactPlanCopy}>
+                              <View style={styles.compactPlanNameRow}>
+                                <Text style={styles.compactPlanName} numberOfLines={1}>
+                                  {p.nombre}
+                                </Text>
+                                <Text style={styles.compactPlanTag}>{tag}</Text>
+                              </View>
+                              <Text style={styles.compactPlanMeta} numberOfLines={1}>
+                                {rutsCount} {rutsCount === 1 ? 'rutina' : 'rutinas'} ·{' '}
+                                {diasPorSemana > 0
+                                  ? `${diasPorSemana} días/sem`
+                                  : 'días flexibles'}
+                              </Text>
+                            </View>
+                          </Pressable>
+
+                          <View style={styles.compactPlanActions}>
+                            {!p.activo ? (
+                              <PearlButton
+                                compact
+                                label="Activar"
+                                onPress={() => manejarDefinirActivo(p)}
+                              />
+                            ) : null}
+                            <IconGlassButton
+                              name="ellipsis-horizontal"
+                              size={28}
+                              onPress={() => abrirAccionesPlan(p)}
+                              label={`Opciones de ${p.nombre}`}
+                            />
+                            <Pressable
+                              onPress={() => seleccionarPlan(p)}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Abrir plan ${p.nombre}`}
+                              hitSlop={8}
+                              style={({ pressed }) => [
+                                styles.compactChevron,
+                                pressed && styles.pressedSoft,
+                              ]}
+                            >
+                              <Ionicons name="chevron-forward" size={16} color={noir.muted} />
+                            </Pressable>
+                          </View>
+                        </View>
+                      </GlassSurface>
+                    );
+                  })}
+
+                  {rutinasSueltas.length > 0 ? (
+                    <GlassSurface dashed style={styles.orphanCard} contentStyle={styles.orphanContent}>
+                      <Pressable
+                        onPress={seleccionarSinPlan}
+                        accessibilityRole="button"
+                        accessibilityLabel="Abrir rutinas individuales"
+                        style={({ pressed }) => [
+                          styles.orphanPressable,
+                          pressed && styles.pressedSoft,
+                        ]}
+                      >
+                        <View style={styles.orphanIconBox}>
+                          <Ionicons name="folder-open-outline" size={18} color={noir.platinum} />
+                        </View>
+                        <View style={styles.orphanCopy}>
+                          <Text style={styles.orphanTitle}>Rutinas individuales</Text>
+                          <Text style={styles.orphanSubtitle} numberOfLines={2}>
+                            {rutinasSueltas.length}{' '}
+                            {rutinasSueltas.length === 1 ? 'rutina libre' : 'rutinas libres'} · Toca
+                            para verlas o moverlas a un plan
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={17} color={noir.muted} />
+                      </Pressable>
+                    </GlassSurface>
+                  ) : null}
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              {/* NAVEGACIÓN DE DETALLE */}
+              <View style={styles.detailNavRow}>
+                <Pressable
+                  onPress={volverATodosLosPlanes}
+                  accessibilityRole="button"
+                  accessibilityLabel="Volver a todos los planes"
+                  hitSlop={10}
+                  style={({ pressed }) => [
+                    styles.backPill,
+                    pressed && styles.pressedSoft,
+                  ]}
+                >
+                  <Ionicons name="chevron-back" size={16} color={noir.platinum} />
+                  <Text style={styles.backPillText}>Planes</Text>
+                </Pressable>
+
+                {planSeleccionado ? (
+                  <View style={styles.detailHeaderActions}>
+                    <IconGlassButton
+                      name="create-outline"
+                      size={31}
+                      onPress={() => abrirEditarPlan(planSeleccionado)}
+                      label="Editar plan"
+                    />
+                    <IconGlassButton
+                      name="archive-outline"
+                      size={31}
+                      onPress={() => manejarArchivarPlan(planSeleccionado)}
+                      label="Archivar plan"
+                    />
+                    <IconGlassButton
+                      name="trash-outline"
+                      size={31}
+                      danger
+                      onPress={() => confirmarEliminarPlan(planSeleccionado)}
+                      label="Eliminar plan"
+                    />
+                  </View>
+                ) : null}
+              </View>
+
+              {planSeleccionado ? (
+                <PlanHeroShell contentStyle={styles.planHeroStack}>
+                  <View style={styles.heroTopRow}>
+                    <LinearGradient
+                      colors={['rgba(92, 200, 255, 0.22)', 'rgba(92, 200, 255, 0.05)']}
+                      start={{ x: 0.2, y: 0.1 }}
+                      end={{ x: 0.8, y: 0.95 }}
+                      style={styles.heroIconTile}
+                    >
+                      <Ionicons
+                        name={(planSeleccionado.icono || 'barbell-outline') as IoniconName}
+                        size={isCompact ? 20 : 22}
+                        color={noir.info}
+                      />
+                    </LinearGradient>
+
+                    <View style={styles.heroTopCopy}>
+                      <View style={styles.heroMetaRow}>
+                        <View
+                          style={[
+                            styles.heroStatusDot,
+                            planSeleccionado.activo
+                              ? styles.heroStatusDotActive
+                              : styles.heroStatusDotIdle,
+                          ]}
+                        />
+                        <Text style={styles.heroKicker}>
+                          {planSeleccionado.activo ? 'PLAN ACTIVO' : 'PLAN'}
+                        </Text>
+                        <Text style={styles.heroKickerDim}>·</Text>
+                        <Text style={styles.heroKicker}>
+                          {diasDetalle > 0 ? `${diasDetalle} DÍAS / SEM` : 'DÍAS FLEXIBLES'}
+                        </Text>
+                      </View>
+                      <Text style={styles.heroKickerSoft}>PLAN DE ENTRENAMIENTO</Text>
+                    </View>
+                  </View>
+
+                  <PlanShinyTitle text={planSeleccionado.nombre} compact={isCompact} />
+
+                  <Text style={styles.heroObjectiveLine} numberOfLines={2}>
+                    <Text style={styles.heroObjectiveStrong}>
+                      {planSeleccionado.objetivo || 'Sin objetivo asignado'}
+                    </Text>
+                    <Text style={styles.heroObjectiveMuted}>
+                      {`  ·  ${rutinasDelPlan.length} ${
+                        rutinasDelPlan.length === 1 ? 'rutina' : 'rutinas'
+                      }`}
+                    </Text>
+                  </Text>
+
+                  {planSeleccionado.descripcion ? (
+                    <Text style={styles.planDescription} numberOfLines={3}>
+                      {planSeleccionado.descripcion}
+                    </Text>
+                  ) : null}
+
+                  <StatStrip
+                    items={[
+                      { value: String(rutinasDelPlan.length), label: 'Rutinas' },
+                      { value: diasDetalle > 0 ? String(diasDetalle) : '—', label: 'Días / sem' },
+                      { value: String(totalSeriesPlan), label: 'Series' },
+                    ]}
+                  />
+
+                  <WeekStrip
+                    days={diasSemanaActuales}
+                    plannedDays={diasPlanificados}
+                    todayIndex={hoyIdx}
+                  />
+
+                  <View style={styles.planHeroActionsRow}>
+                    <View style={styles.youngNewtWrap}>
+                      <YoungNewtButton
+                        title="Aplicar a mi semana"
+                        fullWidth
+                        onPress={() => setModalAplicarVisible(true)}
+                      />
+                    </View>
+                    <IconGlassButton
+                      name="ellipsis-horizontal"
+                      size={34}
+                      onPress={() => abrirAccionesPlan(planSeleccionado)}
+                      label="Opciones del plan"
+                    />
+                  </View>
+
+                  {!planSeleccionado.activo ? (
+                    <Pressable
+                      onPress={() => manejarDefinirActivo(planSeleccionado)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Hacer activo este plan"
+                      style={({ pressed }) => [
+                        styles.makeActiveLink,
+                        pressed && styles.pressedSoft,
+                      ]}
+                    >
+                      <Ionicons name="sparkles-outline" size={13} color={noir.info} />
+                      <Text style={styles.makeActiveLinkText}>Hacer activo</Text>
+                    </Pressable>
+                  ) : null}
+                </PlanHeroShell>
+              ) : (
+                <GlassSurface style={styles.freeHeroCard} contentStyle={styles.freeHeroContent}>
+                  <View style={styles.heroTopRow}>
+                    <View style={styles.freeHeroIcon}>
+                      <Ionicons name="folder-open-outline" size={21} color={noir.platinum} />
+                    </View>
+                    <View style={styles.heroTopCopy}>
+                      <View style={styles.heroMetaRow}>
+                        <View style={styles.heroStatusDotIdleSimple} />
+                        <Text style={styles.heroKicker}>SIN PLAN</Text>
+                      </View>
+                      <Text style={styles.freeHeroTitle}>Rutinas libres</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.freeHeroText}>
+                    Entrenamientos que no dependen de un plan. Muévelos a un plan cuando quieras.
+                  </Text>
+
+                  <StatStrip
+                    items={[
+                      { value: String(rutinasSueltas.length), label: 'Rutinas' },
+                      { value: String(totalSeriesSueltas), label: 'Series' },
+                      {
+                        value: diasPlanificados.size > 0 ? String(diasPlanificados.size) : '—',
+                        label: 'Días',
+                      },
+                    ]}
+                  />
+                </GlassSurface>
+              )}
+
+              <View style={styles.sectionHead}>
+                <Text style={styles.sectionHeadLabel}>
+                  {planSeleccionado ? 'RUTINAS DEL PLAN' : 'RUTINAS LIBRES'}
+                </Text>
+                <LinearGradient
+                  colors={['rgba(255, 255, 255, 0.16)', 'rgba(255, 255, 255, 0)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.sectionHeadLine}
+                />
+                <Text style={styles.sectionHeadCount}>
+                  {String(rutinasFiltradas.length).padStart(2, '0')}
+                </Text>
+                <Pressable
+                  onPress={toggleBusquedaDetalle}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    busquedaDetalleVisible ? 'Cerrar búsqueda de rutinas' : 'Buscar rutinas'
+                  }
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.sectionSearchButton,
+                    busquedaDetalleVisible && styles.sectionSearchButtonActive,
+                    pressed && styles.pressedSoft,
+                  ]}
+                >
+                  <Ionicons
+                    name={busquedaDetalleVisible ? 'close' : 'search-outline'}
+                    size={14}
+                    color={busquedaDetalleVisible ? noir.text : noir.muted}
+                  />
+                </Pressable>
+              </View>
+
+              {busquedaDetalleVisible ? (
+                <View style={styles.searchBarBox}>
+                  <Ionicons name="search-outline" size={16} color={noir.muted} />
+                  <TextInput
+                    placeholder={
+                      planSeleccionado
+                        ? `Buscar rutina en "${planSeleccionado.nombre}"...`
+                        : 'Buscar rutina...'
+                    }
+                    placeholderTextColor={noir.muted2}
+                    value={busqueda}
+                    onChangeText={setBusqueda}
+                    inputMode="search"
+                    keyboardType="default"
+                    returnKeyType="search"
+                    enterKeyHint="search"
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                    selectionColor={noir.ice}
+                    style={styles.searchInput}
+                  />
+                  {busqueda.length > 0 ? (
+                    <Pressable
+                      onPress={() => setBusqueda('')}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel="Limpiar búsqueda"
+                    >
+                      <Ionicons name="close-circle" size={17} color={noir.muted2} />
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {cargando && rutinasFiltradas.length === 0 ? (
+                <View style={styles.loadingState}>
+                  <ActivityIndicator size="small" color={noir.platinum} />
+                  <Text style={styles.loadingText}>Cargando rutinas...</Text>
+                </View>
+              ) : rutinasFiltradas.length === 0 ? (
+                <GlassSurface style={styles.emptyCard} contentStyle={styles.emptyCardContent}>
+                  <View style={styles.emptyIconCircle}>
+                    <Ionicons
+                      name={query ? 'search-outline' : 'barbell-outline'}
+                      size={24}
+                      color={noir.platinum}
+                    />
+                  </View>
+                  <Text style={styles.emptyTitle}>
+                    {query
+                      ? 'No hay rutinas que coincidan'
+                      : planSeleccionado
+                        ? 'Este plan aún no tiene rutinas'
+                        : 'Aún no tienes rutinas libres'}
+                  </Text>
+                  <Text style={styles.emptySubtitle}>
+                    {query
+                      ? `No encontramos coincidencias para “${busqueda.trim()}”.`
+                      : 'Añade tu primera rutina con ejercicios, series, cargas y día sugerido.'}
+                  </Text>
+                  {!query ? (
+                    <PearlButton
+                      label="Crear rutina"
+                      icon="add"
+                      onPress={abrirCrearRutinaEnPlan}
+                      style={{ marginTop: 4 }}
+                    />
+                  ) : null}
+                </GlassSurface>
+              ) : (
+                <View style={styles.routinesList}>
+                  {rutinasFiltradas.map((r, index) => {
+                    const ejs = r.ejercicios_rutina || [];
+                    const numEjercicios = ejs.length;
+                    const totalSeries = ejs.reduce((sum, e) => sum + (e.series || 1), 0);
+                    const primerosTres = ejs.slice(0, 3);
+                    const restantes = numEjercicios - 3;
+                    const dia = typeof r.dia_sugerido === 'number' ? r.dia_sugerido : null;
+                    const diaNombre =
+                      dia !== null
+                        ? DIAS_SEMANA_NOMBRES[dia].slice(0, 3)
+                        : null;
+                    const esDeHoy = dia === hoyIdx;
+                    const minutos = Math.max(25, Math.round(totalSeries * 2.5));
+
+                    return (
+                      <GlassSurface
+                        key={r.id}
+                        style={styles.routineCard}
+                        contentStyle={styles.routineCardContent}
+                      >
+                        <View style={styles.routineHead}>
+                          <View
+                            style={[
+                              styles.routineIndex,
+                              esDeHoy && styles.routineIndexActive,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.routineIndexText,
+                                esDeHoy && styles.routineIndexTextActive,
+                              ]}
+                            >
+                              {String(index + 1).padStart(2, '0')}
+                            </Text>
+                          </View>
+
+                          <View style={styles.routineHeadCopy}>
+                            <View style={styles.routineNameRow}>
+                              <Text style={styles.routineName} numberOfLines={1}>
+                                {r.nombre}
+                              </Text>
+                              {diaNombre ? (
+                                <View style={styles.routineDayBadge}>
+                                  <Text style={styles.routineDayBadgeText}>{diaNombre}</Text>
+                                </View>
+                              ) : null}
+                            </View>
+                            <Text style={styles.routineMeta} numberOfLines={1}>
+                              {numEjercicios}{' '}
+                              {numEjercicios === 1 ? 'ejercicio' : 'ejercicios'} · {totalSeries}{' '}
+                              series · ~{minutos} min
+                            </Text>
+                          </View>
+
+                          <View style={styles.routineActions}>
+                            <IconGlassButton
+                              name="create-outline"
+                              size={24}
+                              onPress={() => abrirEditarRutina(r)}
+                              label={`Editar ${r.nombre}`}
+                            />
+                            <IconGlassButton
+                              name="copy-outline"
+                              size={24}
+                              onPress={() => clonarRutina(r)}
+                              label={`Duplicar ${r.nombre}`}
+                            />
+                            <IconGlassButton
+                              name="ellipsis-horizontal"
+                              size={24}
+                              onPress={() => setRutinaParaAcciones(r)}
+                              label={`Más opciones de ${r.nombre}`}
+                            />
+                          </View>
+                        </View>
+
+                        <View style={styles.daySelectorRow}>
+                          <Text style={styles.daySelectorLabel}>Día sugerido</Text>
+                          <View style={styles.dayPills}>
+                            {DIAS_SEMANA_ABREV.map((letra, diaIdx) => {
+                              const asignado = dia === diaIdx;
+                              const esHoyPill = diaIdx === hoyIdx;
+                              return (
+                                <Pressable
+                                  key={diaIdx}
+                                  onPress={() => cambiarDiaSugeridoRutina(r, diaIdx)}
+                                  accessibilityRole="button"
+                                  accessibilityLabel={`Seleccionar ${
+                                    DIAS_SEMANA_NOMBRES[diaIdx]
+                                  } como día sugerido`}
+                                  accessibilityState={{ selected: asignado }}
+                                  style={[
+                                    styles.dayPill,
+                                    esHoyPill && !asignado && styles.dayPillToday,
+                                    asignado && styles.dayPillSelected,
+                                  ]}
+                                >
+                                  {asignado ? (
+                                    <LinearGradient
+                                      pointerEvents="none"
+                                      colors={['#FFFFFF', '#EDF2F9', '#C9D4E3']}
+                                      start={{ x: 0, y: 0 }}
+                                      end={{ x: 0, y: 1 }}
+                                      style={[StyleSheet.absoluteFill, styles.dayPillFill]}
+                                    />
+                                  ) : null}
+                                  <Text
+                                    style={[
+                                      styles.dayPillText,
+                                      esHoyPill && !asignado && styles.dayPillTextToday,
+                                      asignado && styles.dayPillTextSelected,
+                                    ]}
+                                  >
+                                    {letra}
+                                  </Text>
+                                </Pressable>
+                              );
+                            })}
+                          </View>
+                        </View>
+
+                        {numEjercicios > 0 ? (
+                          <View style={styles.exercisePreview}>
+                            {primerosTres.map((ej) => {
+                              const nombreLimpio = ej.nombre.replace(/\s*\(.*\)$/, '').trim();
+                              return (
+                                <View key={ej.id} style={styles.previewRow}>
+                                  <Ionicons
+                                    name="barbell-outline"
+                                    size={12}
+                                    color={noir.info}
+                                  />
+                                  <Text style={styles.previewExerciseText} numberOfLines={1}>
+                                    {nombreLimpio}
+                                  </Text>
+                                  <Text style={styles.previewExerciseSeries}>
+                                    {ej.series || 1}s
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                            {restantes > 0 ? (
+                              <Text style={styles.previewExerciseMore}>
+                                + {restantes}{' '}
+                                {restantes === 1 ? 'ejercicio más' : 'ejercicios más'}
+                              </Text>
+                            ) : null}
+                          </View>
+                        ) : null}
+
+                        <View style={styles.routineFoot}>
+                          <View style={styles.routineChips}>
+                            <View style={styles.routineChip}>
+                              <Ionicons name="layers-outline" size={11} color={noir.lavender} />
+                              <Text style={styles.routineChipText}>{totalSeries} series</Text>
+                            </View>
+                            <View style={styles.routineChip}>
+                              <Ionicons name="barbell-outline" size={11} color={noir.info} />
+                              <Text style={styles.routineChipText}>{numEjercicios} ej.</Text>
+                            </View>
+                          </View>
+                          <PearlButton
+                            compact
+                            label="Abrir rutina"
+                            onPress={() => abrirEditarRutina(r)}
+                          />
+                        </View>
+                      </GlassSurface>
+                    );
+                  })}
+                </View>
+              )}
+            </>
+          )}
+        </ScrollView>
+
+        <DockPrincipal>
+          <LiquidMetalButton
+            titulo={
+              planSeleccionado
+                ? '+ Nueva rutina en este plan'
+                : viendoSinPlan
+                  ? '+ Nueva rutina'
+                  : '+ Nuevo plan'
+            }
+            onPress={planSeleccionado || viendoSinPlan ? abrirCrearRutinaEnPlan : abrirCrearPlan}
+            activo={metalActivo}
+            height={52}
+            borderWidth={4}
+            style={{ alignSelf: 'stretch' }}
+          />
+        </DockPrincipal>
+
+        {/* MODAL CREAR / EDITAR PLAN */}
+        <GestionarPlanModal
+          visible={modalPlanVisible}
+          planParaEditar={planParaEditar}
+          onClose={() => setModalPlanVisible(false)}
+          onGuardar={guardarPlan}
+        />
+
+        {/* MODAL ELIMINAR PLAN (Con 3 opciones) */}
+        <EliminarPlanModal
+          visible={modalEliminarPlanVisible}
+          plan={planParaEliminar}
+          otrosPlanes={planes.filter((p) => p.id !== planParaEliminar?.id)}
+          onClose={() => setModalEliminarPlanVisible(false)}
+          onArchivarEnLugarDeEliminar={async (id) => {
+            const p = planes.find((x) => x.id === id);
+            if (p) await manejarArchivarPlan(p);
+          }}
+          onConfirmarEliminar={ejecutarEliminarPlan}
+        />
+
+        {/* MODAL APLICAR PLAN A LA SEMANA */}
+        <AplicarPlanSemanaModal
+          visible={modalAplicarVisible}
+          plan={planSeleccionado}
+          onClose={() => setModalAplicarVisible(false)}
+          onAplicado={(res) => {
+            mostrarMensaje(
+              '¡Plan Aplicado a tu Semana!',
+              `Se asignaron ${res.aplicadas} ${res.aplicadas === 1 ? 'rutina' : 'rutinas'} a tu calendario.${
+                res.omitidas > 0 ? ` (${res.omitidas} días conservaron su rutina previa)` : ''
+              }`
+            );
+          }}
+        />
+
+        {/* MODAL GESTIONAR RUTINA (Nivel 3) */}
+        <GestionarRutinaModal
+          visible={modalRutinaVisible}
+          rutinaParaEditar={rutinaParaEditar}
+          planIdInicial={planSeleccionado ? planSeleccionado.id : null}
+          onClose={() => setModalRutinaVisible(false)}
+          onGuardado={cargarDatos}
+        />
+
+        {/* MENÚ DE ACCIONES DEL PLAN */}
+        <ActionSheetModal
+          visible={!!planParaAcciones}
+          onClose={() => setPlanParaAcciones(null)}
+          title="Gestionar plan"
+          subtitle={planParaAcciones?.plan.nombre}
+          actions={accionesPlan}
+        />
+
+        {/* MENÚ DE ACCIONES DE LA RUTINA */}
+        <ActionSheetModal
+          visible={!!rutinaParaAcciones}
+          onClose={() => setRutinaParaAcciones(null)}
+          title="Acciones de la rutina"
+          subtitle={rutinaParaAcciones?.nombre}
+          actions={accionesRutina}
+        />
+
+        {/* MODAL MOVER RUTINA A OTRO PLAN */}
+        <Modal
+          visible={!!rutinaParaMover}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setRutinaParaMover(null)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={[styles.moverModalCard, { maxWidth: Math.min(contentMaxWidth, 420) }]}>
+              <View style={styles.moverHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.moverTitle}>Mover rutina a otro plan</Text>
+                  <Text style={styles.moverSubtext} numberOfLines={2}>
+                    Selecciona a qué plan deseas transferir &quot;{rutinaParaMover?.nombre}&quot;:
+                  </Text>
+                </View>
+                <Pressable onPress={() => setRutinaParaMover(null)} hitSlop={8}>
+                  <Ionicons name="close" size={20} color={noir.muted} />
+                </Pressable>
+              </View>
+
+              <ScrollView
+                style={styles.moverList}
+                contentContainerStyle={{ gap: 8 }}
+                showsVerticalScrollIndicator={false}
+              >
+                <Pressable
+                  onPress={() => rutinaParaMover && ejecutarMoverRutina(rutinaParaMover.id, null)}
+                  style={[
+                    styles.moverPlanOption,
+                    rutinaParaMover?.plan_id === null && styles.moverPlanOptionActive,
+                  ]}
+                >
+                  <Ionicons name="folder-outline" size={16} color={noir.muted} />
+                  <Text style={styles.moverPlanName}>Dejar sin plan (libre)</Text>
+                </Pressable>
+
+                {planesNoArchivados.map((p) => {
+                  const esActual = rutinaParaMover?.plan_id === p.id;
+                  return (
+                    <Pressable
+                      key={p.id}
+                      onPress={() => rutinaParaMover && ejecutarMoverRutina(rutinaParaMover.id, p.id)}
+                      style={[
+                        styles.moverPlanOption,
+                        esActual && styles.moverPlanOptionActive,
+                      ]}
+                    >
+                      <View style={styles.moverPlanDot} />
+                      <Text
+                        style={[
+                          styles.moverPlanName,
+                          esActual && {
+                            color: noir.text,
+                            fontFamily: fuentes.semiBold,
+                          },
+                        ]}
+                      >
+                        {p.nombre} {esActual ? '(Plan actual)' : ''}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* SNACKBAR DE DESHACER (6 SEGUNDOS) */}
+        {undoItem ? (
+          <View
+            pointerEvents="box-none"
+            style={[
+              styles.undoLayer,
+              { bottom: safeBottom + (isLandscape ? 112 : 146) },
+            ]}
+          >
+            <View
+              style={[
+                styles.undoSnackbarContainer,
+                { maxWidth: contentMaxWidth, width: '100%' },
+              ]}
+            >
+              <View style={styles.undoCopyRow}>
+                <Ionicons name="trash-bin-outline" size={18} color={DANGER} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.undoTitleText} numberOfLines={1}>
+                    Eliminando {undoItem.tipo} &quot;{undoItem.nombre}&quot;
+                  </Text>
+                  <Text style={styles.undoCountdownText}>
+                    Se confirmará en {segundosRestantesUndo}s
+                  </Text>
+                </View>
+              </View>
+
+              <Pressable
+                onPress={undoItem.cancelar}
+                style={({ pressed }) => [
+                  styles.undoButton,
+                  pressed && { opacity: 0.8 },
+                ]}
+                hitSlop={8}
+              >
+                <Text style={styles.undoButtonText}>DESHACER</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+      </SafeAreaView>
+    </ScreenBackground>
+  );
+}

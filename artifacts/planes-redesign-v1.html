@@ -159,6 +159,7 @@
   .screen-scroll{position:absolute;inset:0;padding:52px 16px 0;overflow:hidden;z-index:3}
   .screen-fade{position:absolute;left:0;right:0;bottom:0;height:186px;z-index:16;pointer-events:none;background:linear-gradient(180deg,transparent,rgba(5,6,9,.72) 42%,#050609 96%)}
   .app-header{display:flex;justify-content:space-between;align-items:center;height:30px;margin-bottom:13px;position:relative}
+  .app-header.avatar-only{justify-content:flex-end}
   .brand-lockup{display:flex;align-items:center;gap:9px;min-width:0}
   .brand-mark{
     width:29px;height:29px;border-radius:9px;display:grid;place-items:center;flex:none;
@@ -192,35 +193,6 @@
   .greeting-stats{font-size:11px;line-height:16px;color:var(--muted);margin:4px 0 0}
   .greeting-stats b{color:#dce3ec;font-weight:600}
   .greeting-stats .sep{color:rgba(255,255,255,.2);margin:0 3px}
-  .segmented{
-    position:relative;height:43px;border-radius:22px;display:flex;overflow:hidden;margin:0 0 8px;
-    background:rgba(17,17,21,.94);border:1px solid rgba(255,255,255,.09);
-    box-shadow:0 8px 22px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.11);
-  }
-  .seg-spotlight{
-    position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);border-radius:19px;
-    background:linear-gradient(180deg,rgba(255,255,255,.15),rgba(255,255,255,.045),transparent);
-    transition:transform .45s cubic-bezier(.2,.8,.2,1);
-  }
-  .segmented[data-active="archived"] .seg-spotlight{transform:translateX(100%)}
-  .seg-beam{
-    position:absolute;top:0;left:25%;width:44px;height:2px;border-radius:2px;
-    background:linear-gradient(90deg,transparent,#fff,transparent);
-    filter:drop-shadow(0 0 4px rgba(255,255,255,.65));
-    transition:left .45s cubic-bezier(.2,.8,.2,1);
-  }
-  .segmented[data-active="archived"] .seg-beam{left:75%}
-  .segmented button{
-    flex:1;position:relative;z-index:2;display:flex;align-items:center;justify-content:center;gap:5px;
-    border:0;background:none;color:var(--muted);font-family:inherit;font-size:11.5px;font-weight:500;
-    letter-spacing:.2px;cursor:pointer;
-  }
-  .segmented button.active{color:#fff;font-weight:700}
-  .seg-count{
-    font-size:8px;font-weight:700;line-height:1;padding:3px 5px;border-radius:999px;
-    background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.07);color:var(--muted);
-  }
-  .segmented button.active .seg-count{color:#fff;background:rgba(255,255,255,.12)}
   .search{
     height:37px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.025);
     display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--muted-2);
@@ -337,9 +309,6 @@
   .orphan div:nth-child(2){flex:1;min-width:0}
   .orphan b{display:block;font-size:10.5px;font-weight:600;color:var(--platinum)}
   .orphan span{display:block;font-size:8.5px;color:var(--muted-2);margin-top:1px}
-  .archived-row{display:flex;align-items:center;gap:7px;margin-top:8px;padding:7px 9px;border-radius:9px;border:1px solid rgba(255,255,255,.055);background:rgba(255,255,255,.014);color:var(--muted-2);font-size:8.5px}
-  .archived-row .dot{width:5px;height:5px;border-radius:50%;background:var(--muted-2);opacity:.6}
-  .archived-row span{margin-left:auto;font-size:8px;color:var(--muted-2)}
   .dock{position:absolute;left:16px;right:16px;bottom:82px;z-index:22}
   .liquid-btn{
     position:relative;width:100%;height:49px;border:0;border-radius:25px;overflow:hidden;cursor:pointer;
@@ -533,6 +502,572 @@
 </style>
 </head>
 <body>
-<!-- @@BODY_MORE@@ -->
+<svg class="sprite" aria-hidden="true">
+  <symbol id="i-dumbbell" viewBox="0 0 24 24"><path d="M14.4 14.4 9.6 9.6"/><path d="M18.7 21.5a2 2 0 1 1-2.8-2.8l-1.8 1.8a2 2 0 1 1-2.8-2.8l6.4-6.4a2 2 0 1 1 2.8 2.8l-1.8 1.8a2 2 0 1 1 2.8 2.8Z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.4 12.8a2 2 0 1 1-2.8-2.8l1.8-1.8a2 2 0 1 1-2.8-2.8l2.8-2.8a2 2 0 1 1 2.8 2.8l1.8-1.8a2 2 0 1 1 2.8 2.8Z"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></symbol>
+  <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+  <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v12h14V8M10 12h4"/></symbol>
+  <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="m12 3 1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7Z"/><path d="m19 16 .7 2.3L22 19l-2.3.7L19 22l-.7-2.3L16 19l2.3-.7Z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 10 6-10 6L2 8Z"/><path d="m2 12 10 6 10-6"/><path d="m2 16 10 6 10-6"/></symbol>
+  <symbol id="i-repeat" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M8.5 14.5A3.5 3.5 0 0 0 12 18a3.5 3.5 0 0 0 3.5-3.5c0-2.2-1.6-3.7-2.7-5.1C11.6 7.8 11.4 5.7 12 3c-2.7 1.3-6 4.4-6 8.4 0 1.2.3 2.2.8 3.1Z"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h5"/></symbol>
+  <symbol id="i-flash" viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 11-14h-7l1-6z"/></symbol>
+  <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+  <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v4a4 4 0 0 1-8 0Z"/><path d="M8 6H4v1a3 3 0 0 0 4 3M16 6h4v1a3 3 0 0 1-4 3M12 12v5M8 21h8M10 17h4"/></symbol>
+  <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5m-6 6 6-6 6 6"/></symbol>
+  <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14m-6-6 6 6 6-6"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1" fill="currentColor" stroke="none"/></symbol>
+</svg>
+
+<main class="board">
+  <header class="board-header">
+    <div>
+      <div class="brand-line"><span class="brand-dot"></span> myLife / planes & rutinas · re-skin</div>
+      <h1 class="board-title">El plan también <em>brilla.</em></h1>
+      <p class="board-subtitle">
+        La sección de entrenamiento adopta el ADN del Home: base Noir Pearl, vidrio, perla y metal.
+        Ningún componente nuevo: el hero de plan hereda el glow del <b>MainDayCard</b>, el CTA el borde
+        del <b>LiquidMetalButton</b>, el título el barrido del <b>ShinyText</b> y, en el detalle, los días
+        la selección blanca del carrusel semanal.
+      </p>
+    </div>
+    <div class="board-meta">
+      <strong>Propuesta visual · v1</strong>
+      <span>Rutinas / Planes · iOS + Android + Web</span>
+      <div class="rule"></div>
+      <span style="margin-top:10px">2 pantallas · 6 componentes reutilizados</span>
+    </div>
+  </header>
+
+  <section class="board-grid">
+    <aside class="panel">
+      <div class="panel-kicker">01 · ADN reutilizado</div>
+      <h2>Los mismos átomos.</h2>
+      <p class="panel-intro">
+        La calidad del Home no viene de más decoración: viene de repetir su luz y sus gestos.
+        Estas seis piezas se reutilizan tal cual o con una variante de color.
+      </p>
+
+      <ul class="preserve-list">
+        <li class="preserve-item">
+          <span class="preserve-num">01</span>
+          <div>
+            <strong>MainDayCard <span class="reuse-tag">shell</span></strong>
+            <p>Outer glow + inset glow, radio 20 y filo de luz superior. El plan activo es el único héroe de la pantalla.</p>
+          </div>
+        </li>
+        <li class="preserve-item">
+          <span class="preserve-num">02</span>
+          <div>
+            <strong>LiquidMetalButton <span class="reuse-tag metal">cta</span></strong>
+            <p>Borde metálico en movimiento, cuerpo obsidiana y presión con spring. Se queda en el dock inferior.</p>
+          </div>
+        </li>
+        <li class="preserve-item">
+          <span class="preserve-num">03</span>
+          <div>
+            <strong>YoungNewtButton <span class="reuse-tag">micro</span></strong>
+            <p>Chispa + letras escalonadas. Pasa a ser la acción secundaria “Aplicar a mi semana”.</p>
+          </div>
+        </li>
+        <li class="preserve-item">
+          <span class="preserve-num">04</span>
+          <div>
+            <strong>ShinyText <span class="reuse-tag">título</span></strong>
+            <p>Barrido perlado sobre el nombre del plan. Mismo lenguaje que el wordmark myLife, a 5.6 s.</p>
+          </div>
+        </li>
+        <li class="preserve-item">
+          <span class="preserve-num">05</span>
+          <div>
+            <strong>Semana3DCarousel <span class="reuse-tag mint">días</span></strong>
+            <p>La cápsula blanca del día activo se reutiliza en el detalle como selector de día sugerido en cada rutina.</p>
+          </div>
+        </li>
+        <li class="preserve-item">
+          <span class="preserve-num">06</span>
+          <div>
+            <strong>SpotlightTabBar <span class="reuse-tag">nav</span></strong>
+            <p>Spotlight y haz superior intactos. Se conservan en la navegación inferior de ambas pantallas.</p>
+          </div>
+        </li>
+      </ul>
+
+      <div class="system-block">
+        <div class="system-label"><span>Core</span><span>Noir Pearl</span></div>
+        <div class="swatches">
+          <div class="swatch"><i style="background:#040507"></i><div><b>Negro neón</b><span>#040507</span></div></div>
+          <div class="swatch"><i style="background:#0a0c11"></i><div><b>Onyx</b><span>#0A0C11</span></div></div>
+          <div class="swatch"><i style="background:#12141a"></i><div><b>Grafito</b><span>#12141A</span></div></div>
+          <div class="swatch"><i style="background:rgba(255,255,255,.08)"></i><div><b>Cristal</b><span>white / 8%</span></div></div>
+          <div class="swatch"><i style="background:#f2f6fc"></i><div><b>Blanco dif.</b><span>#F2F6FC</span></div></div>
+          <div class="swatch"><i style="background:#c9d1dd"></i><div><b>Plata</b><span>#C9D1DD</span></div></div>
+          <div class="swatch"><i style="background:#98a1af"></i><div><b>Niebla</b><span>#98A1AF</span></div></div>
+          <div class="swatch"><i style="background:#dce9ff"></i><div><b>Neón hielo</b><span>#DCE9FF</span></div></div>
+        </div>
+      </div>
+
+      <div class="system-block">
+        <div class="system-label"><span>Semánticos</span><span>solo estado</span></div>
+        <div class="semantic-row">
+          <span class="semantic"><i style="background:#3ff2b0"></i>Activo</span>
+          <span class="semantic"><i style="background:#5cc8ff"></i>Plan</span>
+          <span class="semantic"><i style="background:#ffd166"></i>Tiempo</span>
+          <span class="semantic"><i style="background:#b394ff"></i>Series</span>
+        </div>
+      </div>
+
+      <div class="system-block">
+        <div class="system-label"><span>Tipografía</span><span>Outfit</span></div>
+        <div class="micro-list">
+          <div class="micro-item"><b>Plan / ShinyText</b><span>27 px · 700</span></div>
+          <div class="micro-item"><b>Rutina / título</b><span>15 px · 700</span></div>
+          <div class="micro-item"><b>Eyebrow / caps</b><span>8.5 px · 600</span></div>
+          <div class="micro-item"><b>Meta / cuerpo</b><span>8.5 – 11 px</span></div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="phones">
+      <div class="phone-stage">
+        <div class="phone-caption"><span class="line"></span><b>01</b> · Nivel 1 / Planes</div>
+        <div class="phone-glow"></div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="dynamic-island"></div>
+            <div class="status-bar">
+              <span>9:41</span>
+              <div class="status-right">
+                <div class="signal"><i></i><i></i><i></i><i></i></div>
+                <div class="battery"><span></span></div>
+              </div>
+            </div>
+
+            <div class="screen-scroll">
+              <header class="app-header avatar-only">
+                <div class="avatar-wrap">
+                  <div class="avatar">A</div>
+                  <span class="avatar-status"></span>
+                </div>
+              </header>
+
+              <section class="greeting">
+                <div class="eyebrow"><span class="eyebrow-dot"></span> Sistema de entrenamiento</div>
+                <h1>Planes &amp; Rutinas</h1>
+                <p class="greeting-stats"><b>2 planes</b><span class="sep">·</span>6 rutinas<span class="sep">·</span>1 activo</p>
+              </section>
+
+              <div class="search">
+                <svg class="icon icon-sm"><use href="#i-search"/></svg>
+                Buscar plan o rutina...
+                <kbd>⌘ K</kbd>
+              </div>
+
+              <section class="plan-hero" aria-label="Plan activo Upper-Lower">
+                <div class="plan-head">
+                  <div class="plan-icon">
+                    <svg class="icon"><use href="#i-dumbbell"/></svg>
+                  </div>
+                  <div class="plan-title-block">
+                    <div class="badge-row">
+                      <span class="badge-live"><i></i> Plan activo</span>
+                      <span class="plan-kicker">04 / semana</span>
+                    </div>
+                    <h2 class="shiny-title">Upper-Lower <em>(Gym)</em></h2>
+                    <p class="plan-objective"><b>Hipertrofia</b> · Fuerza · 3 rutinas</p>
+                  </div>
+                </div>
+
+                <div class="stat-strip">
+                  <div class="stat"><b>3</b><span>Rutinas</span></div>
+                  <div class="stat"><b>4</b><span>Días / sem</span></div>
+                  <div class="stat"><b>51</b><span>Series</span></div>
+                </div>
+
+                <div class="card-actions">
+                  <button class="btn-pearl" type="button">
+                    <span class="btn-orb"><svg class="icon icon-xs"><use href="#i-chevron-right"/></svg></span>
+                    Abrir plan
+                  </button>
+                  <button class="icon-btn" type="button" aria-label="Editar plan">
+                    <svg class="icon icon-sm"><use href="#i-edit"/></svg>
+                  </button>
+                </div>
+              </section>
+
+              <article class="plan-compact">
+                <div class="plan-icon-sm"><svg class="icon icon-sm"><use href="#i-target"/></svg></div>
+                <div class="plan-compact-copy">
+                  <div class="plan-compact-title">
+                    <h3>Full Body Express</h3>
+                    <span class="plan-tag">Secundario</span>
+                  </div>
+                  <p>2 rutinas · 3 días/semana</p>
+                </div>
+                <div class="plan-compact-actions">
+                  <button class="mini-btn primary" type="button">Activar</button>
+                  <svg class="icon icon-sm" style="color:var(--muted-2)"><use href="#i-chevron-right"/></svg>
+                </div>
+              </article>
+
+              <div class="orphan">
+                <div class="orphan-icon"><svg class="icon icon-sm"><use href="#i-folder"/></svg></div>
+                <div>
+                  <b>Rutinas individuales</b>
+                  <span>2 rutinas libres · toca para verlas</span>
+                </div>
+                <svg class="icon icon-sm" style="color:var(--muted-2)"><use href="#i-chevron-right"/></svg>
+              </div>
+
+              <div style="height:158px"></div>
+            </div>
+
+            <div class="screen-fade"></div>
+
+            <div class="dock">
+              <button class="liquid-btn" type="button">
+                <span class="liquid-label"><span class="plus">+</span> Nuevo plan</span>
+              </button>
+            </div>
+
+            <nav class="bottom-nav" aria-label="Navegación principal">
+              <span class="nav-spotlight"></span>
+              <span class="nav-beam"></span>
+              <button class="nav-item" type="button"><svg class="icon"><use href="#i-chart"/></svg><span>Progreso</span></button>
+              <button class="nav-item active" type="button"><svg class="icon"><use href="#i-dumbbell"/></svg><span>Rutinas</span></button>
+              <button class="nav-item" type="button"><svg class="icon"><use href="#i-calendar"/></svg><span>Semana</span></button>
+              <button class="nav-item" type="button"><svg class="icon"><use href="#i-note"/></svg><span>Notas</span></button>
+              <button class="nav-item" type="button"><svg class="icon"><use href="#i-clock"/></svg><span>Calendario</span></button>
+            </nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="phone-stage">
+        <div class="phone-caption"><span class="line"></span><b>02</b> · Nivel 2 / Detalle del plan</div>
+        <div class="phone-glow"></div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="dynamic-island"></div>
+            <div class="status-bar">
+              <span>9:41</span>
+              <div class="status-right">
+                <div class="signal"><i></i><i></i><i></i><i></i></div>
+                <div class="battery"><span></span></div>
+              </div>
+            </div>
+
+            <div class="screen-scroll">
+              <header class="app-header">
+                <div class="brand-lockup">
+                  <div class="brand-mark">m</div>
+                  <div class="brand-wordmark">
+                    <span class="brand-name">myLife</span>
+                    <span class="brand-dot-small"></span>
+                  </div>
+                </div>
+                <div class="avatar-wrap">
+                  <div class="avatar">A</div>
+                  <span class="avatar-status"></span>
+                </div>
+              </header>
+
+              <div class="detail-nav">
+                <button class="back-pill" type="button">
+                  <svg class="icon"><use href="#i-chevron-left"/></svg>
+                  Planes
+                </button>
+                <div class="detail-actions">
+                  <button class="icon-btn" type="button" aria-label="Editar plan"><svg class="icon icon-sm"><use href="#i-edit"/></svg></button>
+                  <button class="icon-btn" type="button" aria-label="Archivar plan"><svg class="icon icon-sm"><use href="#i-archive"/></svg></button>
+                  <button class="icon-btn danger" type="button" aria-label="Eliminar plan"><svg class="icon icon-sm"><use href="#i-trash"/></svg></button>
+                </div>
+              </div>
+
+              <section class="plan-hero" aria-label="Detalle del plan Upper-Lower">
+                <div class="plan-head">
+                  <div class="plan-icon">
+                    <svg class="icon"><use href="#i-dumbbell"/></svg>
+                  </div>
+                  <div class="plan-title-block">
+                    <div class="badge-row">
+                      <span class="badge-live"><i></i> Plan activo</span>
+                      <span class="plan-kicker">Semana 4 / 6</span>
+                    </div>
+                    <h2 class="shiny-title">Upper-Lower <em>(Gym)</em></h2>
+                    <p class="plan-objective"><b>Hipertrofia</b> · Fuerza</p>
+                  </div>
+                </div>
+
+                <p class="plan-desc">Bloque de hipertrofia con progresión semanal y énfasis en fuerza.</p>
+
+                <div class="stat-strip">
+                  <div class="stat"><b>3</b><span>Rutinas</span></div>
+                  <div class="stat"><b>4</b><span>Días / sem</span></div>
+                  <div class="stat"><b>51</b><span>Series</span></div>
+                </div>
+
+                <div class="week-strip" aria-label="Días planificados">
+                  <div class="week-day planned"><i>Lun</i><b>19</b><span class="day-dot"></span></div>
+                  <div class="week-day planned"><i>Mar</i><b>20</b><span class="day-dot"></span></div>
+                  <div class="week-day"><i>Mié</i><b>21</b><span class="day-dot"></span></div>
+                  <div class="week-day active"><i>Jue</i><b>22</b><span class="day-dot"></span></div>
+                  <div class="week-day planned"><i>Vie</i><b>23</b><span class="day-dot"></span></div>
+                  <div class="week-day"><i>Sáb</i><b>24</b><span class="day-dot"></span></div>
+                  <div class="week-day"><i>Dom</i><b>25</b><span class="day-dot"></span></div>
+                </div>
+
+                <div class="card-actions">
+                  <button class="young-newt" type="button">
+                    <svg class="sparkle" viewBox="0 0 24 24" fill="currentColor"><path d="M9.8 15.9 9 18.75l-.8-2.85a4.5 4.5 0 0 0-3.1-3.09L2.25 12l2.85-.81a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.81 2.85a4.5 4.5 0 0 0 3.09 3.09l2.85.81-2.85.81a4.5 4.5 0 0 0-3.1 3.09ZM18.3 8.7 18 9.75l-.26-1.04a3.4 3.4 0 0 0-2.45-2.46L14.25 6l1.04-.26a3.4 3.4 0 0 0 2.45-2.46L18 2.25l.26 1.04a3.4 3.4 0 0 0 2.45 2.46L21.75 6l-1.04.26a3.4 3.4 0 0 0-2.45 2.46ZM16.9 20.6l-.4 1.15-.4-1.18a2.25 2.25 0 0 0-1.42-1.42L13.5 18.75l1.18-.4a2.25 2.25 0 0 0 1.42-1.42l.4-1.18.4 1.18a2.25 2.25 0 0 0 1.42 1.42l1.18.4-1.18.39a2.25 2.25 0 0 0-1.42 1.42Z"/></svg>
+                    <span class="letters"><span style="--i:0">A</span><span style="--i:1">p</span><span style="--i:2">l</span><span style="--i:3">i</span><span style="--i:4">c</span><span style="--i:5">a</span><span style="--i:6">r</span><span style="--i:7">&nbsp;</span><span style="--i:8">a</span><span style="--i:9">&nbsp;</span><span style="--i:10">m</span><span style="--i:11">i</span><span style="--i:12">&nbsp;</span><span style="--i:13">s</span><span style="--i:14">e</span><span style="--i:15">m</span><span style="--i:16">a</span><span style="--i:17">n</span><span style="--i:18">a</span></span>
+                  </button>
+                  <button class="icon-btn" type="button" aria-label="Gestionar plan"><svg class="icon icon-sm"><use href="#i-grip"/></svg></button>
+                </div>
+              </section>
+
+              <div class="section-head">
+                <b>Rutinas del plan</b>
+                <span class="line"></span>
+                <span>03</span>
+              </div>
+
+              <article class="routine-card">
+                <div class="routine-head">
+                  <div class="routine-index active">01</div>
+                  <div class="routine-copy">
+                    <div class="routine-name">
+                      <h3>Upper A</h3>
+                      <span class="routine-badge">Mar</span>
+                    </div>
+                    <p class="routine-meta">9 ejercicios · 19 series · ~48 min</p>
+                  </div>
+                  <div class="routine-actions">
+                    <button type="button" aria-label="Editar rutina"><svg class="icon"><use href="#i-edit"/></svg></button>
+                    <button type="button" aria-label="Duplicar rutina"><svg class="icon"><use href="#i-copy"/></svg></button>
+                    <button type="button" aria-label="Más acciones"><svg class="icon"><use href="#i-more"/></svg></button>
+                  </div>
+                </div>
+
+                <div class="day-row">
+                  <span class="day-label">Día sugerido</span>
+                  <div class="day-pills">
+                    <button class="day-pill" type="button">L</button>
+                    <button class="day-pill active" type="button">M</button>
+                    <button class="day-pill" type="button">X</button>
+                    <button class="day-pill" type="button">J</button>
+                    <button class="day-pill" type="button">V</button>
+                    <button class="day-pill" type="button">S</button>
+                    <button class="day-pill" type="button">D</button>
+                  </div>
+                </div>
+
+                <div class="exercise-box">
+                  <div class="exercise-row">
+                    <svg class="icon"><use href="#i-dumbbell"/></svg>
+                    <span>Jalón al pecho en polea, barra lateral</span>
+                    <b>2s</b>
+                  </div>
+                  <div class="exercise-row">
+                    <svg class="icon"><use href="#i-dumbbell"/></svg>
+                    <span>Press inclinado Smith</span>
+                    <b>3s</b>
+                  </div>
+                  <div class="exercise-row">
+                    <svg class="icon"><use href="#i-dumbbell"/></svg>
+                    <span>[U] Jalón unilateral</span>
+                    <b>2s</b>
+                  </div>
+                  <p class="exercise-more">+ 6 ejercicios más</p>
+                </div>
+
+                <div class="routine-foot">
+                  <div class="routine-chips">
+                    <span class="routine-chip ice"><svg class="icon"><use href="#i-layers"/></svg> 19 series</span>
+                    <span class="routine-chip"><svg class="icon"><use href="#i-repeat"/></svg> 9 ej.</span>
+                  </div>
+                  <button class="open-routine" type="button">Abrir rutina <svg class="icon"><use href="#i-chevron-right"/></svg></button>
+                </div>
+              </article>
+
+              <article class="routine-card faded">
+                <div class="routine-head">
+                  <div class="routine-index">02</div>
+                  <div class="routine-copy">
+                    <div class="routine-name">
+                      <h3>Upper B</h3>
+                      <span class="routine-badge">Jue</span>
+                    </div>
+                    <p class="routine-meta">9 ejercicios · 19 series · ~46 min</p>
+                  </div>
+                  <div class="routine-actions">
+                    <button type="button" aria-label="Editar rutina"><svg class="icon"><use href="#i-edit"/></svg></button>
+                    <button type="button" aria-label="Duplicar rutina"><svg class="icon"><use href="#i-copy"/></svg></button>
+                    <button type="button" aria-label="Más acciones"><svg class="icon"><use href="#i-more"/></svg></button>
+                  </div>
+                </div>
+
+                <div class="day-row">
+                  <span class="day-label">Día sugerido</span>
+                  <div class="day-pills">
+                    <button class="day-pill" type="button">L</button>
+                    <button class="day-pill" type="button">M</button>
+                    <button class="day-pill" type="button">X</button>
+                    <button class="day-pill active" type="button">J</button>
+                    <button class="day-pill" type="button">V</button>
+                    <button class="day-pill" type="button">S</button>
+                    <button class="day-pill" type="button">D</button>
+                  </div>
+                </div>
+
+                <div class="exercise-box">
+                  <div class="exercise-row">
+                    <svg class="icon"><use href="#i-dumbbell"/></svg>
+                    <span>Curl femoral en máquina, tumbado</span>
+                    <b>2s</b>
+                  </div>
+                  <div class="exercise-row">
+                    <svg class="icon"><use href="#i-dumbbell"/></svg>
+                    <span>Sentadilla completa en máquina Smith</span>
+                    <b>3s</b>
+                  </div>
+                  <p class="exercise-more">+ 7 ejercicios más</p>
+                </div>
+              </article>
+
+              <div style="height:160px"></div>
+            </div>
+
+            <div class="screen-fade"></div>
+
+            <div class="dock">
+              <button class="liquid-btn" type="button">
+                <span class="liquid-label"><span class="plus">+</span> Nueva rutina en este plan</span>
+              </button>
+            </div>
+
+            <nav class="bottom-nav" aria-label="Navegación principal">
+              <span class="nav-spotlight"></span>
+              <span class="nav-beam"></span>
+              <button class="nav-item" type="button"><svg class="icon"><use href="#i-chart"/></svg><span>Progreso</span></button>
+              <button class="nav-item active" type="button"><svg class="icon"><use href="#i-dumbbell"/></svg><span>Rutinas</span></button>
+              <button class="nav-item" type="button"><svg class="icon"><use href="#i-calendar"/></svg><span>Semana</span></button>
+              <button class="nav-item" type="button"><svg class="icon"><use href="#i-note"/></svg><span>Notas</span></button>
+              <button class="nav-item" type="button"><svg class="icon"><use href="#i-clock"/></svg><span>Calendario</span></button>
+            </nav>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <aside class="panel">
+      <div class="panel-kicker">02 · Sistema de luz</div>
+      <h2>Un héroe. Todo lo demás, vidrio.</h2>
+      <p class="panel-intro">
+        Solo el plan activo recibe el doble glow del MainDayCard. Las rutinas y los planes secundarios
+        usan borde de cristal y microacentos: la jerarquía queda clara sin competir con el hero.
+      </p>
+
+      <div class="system-block" style="margin-top:0;padding-top:0;border-top:0">
+        <div class="system-label"><span>Componentes</span><span>en vivo</span></div>
+        <div class="component-preview">
+          <div class="preview-metal"><span>+ Nueva rutina</span></div>
+          <div class="preview-shiny"><span>Upper-Lower (Gym)</span></div>
+          <div class="preview-young">
+            <svg class="sparkle" viewBox="0 0 24 24" fill="currentColor"><path d="M9.8 15.9 9 18.75l-.8-2.85a4.5 4.5 0 0 0-3.1-3.09L2.25 12l2.85-.81a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.81 2.85a4.5 4.5 0 0 0 3.09 3.09l2.85.81-2.85.81a4.5 4.5 0 0 0-3.1 3.09Z"/></svg>
+            <span class="letters"><span style="--i:0">A</span><span style="--i:1">p</span><span style="--i:2">l</span><span style="--i:3">i</span><span style="--i:4">c</span><span style="--i:5">a</span><span style="--i:6">r</span><span style="--i:7">&nbsp;</span><span style="--i:8">p</span><span style="--i:9">l</span><span style="--i:10">a</span><span style="--i:11">n</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="system-block">
+        <div class="system-label"><span>Movimiento</span><span>valores</span></div>
+        <div class="motion-list">
+          <div class="motion-row"><span>Entrada de tarjeta</span><b>280 ms · fade + 8 px</b></div>
+          <div class="motion-row"><span>Presión de botón</span><b>spring · scale .97</b></div>
+          <div class="motion-row"><span>Barrido ShinyText</span><b>5.6 s · loop</b></div>
+          <div class="motion-row"><span>Borde LiquidMetal</span><b>7.5 s · linear</b></div>
+          <div class="motion-row"><span>Letras YoungNewt</span><b>1.8 s · stagger 38 ms</b></div>
+          <div class="motion-row"><span>Pulso estado activo</span><b>2.4 s · ease-in-out</b></div>
+        </div>
+      </div>
+
+      <div class="system-block">
+        <div class="system-label"><span>Jerarquía</span><span>reglas</span></div>
+        <div class="rule-list">
+          <div class="rule"><span class="mark">1</span><span><b>Un solo glow.</b> El plan activo es el MainDayCard de la pantalla. Ninguna rutina repite el halo perla.</span></div>
+          <div class="rule"><span class="mark">2</span><span><b>El blanco es acción.</b> Cápsulas blancas = abrir, activar, seleccionar. No se usa como decoración.</span></div>
+          <div class="rule"><span class="mark">3</span><span><b>El color es estado.</b> Menta = activo; hielo = plan; lavanda = series; champán = tiempo. Nunca bloques planos.</span></div>
+          <div class="rule"><span class="mark">4</span><span><b>El metal es el cierre.</b> Solo un LiquidMetal por pantalla, siempre en el dock inferior.</span></div>
+        </div>
+      </div>
+
+      <div class="system-block">
+        <div class="system-label"><span>Mapeo</span><span>implementación</span></div>
+        <div class="micro-list">
+          <div class="micro-item"><b>Plan hero</b><span>MainDayCard shell</span></div>
+          <div class="micro-item"><b>Título del plan</b><span>ShinyText</span></div>
+          <div class="micro-item"><b>Selector de día</b><span>Semana3DCarousel</span></div>
+          <div class="micro-item"><b>CTA secundaria</b><span>YoungNewtButton</span></div>
+          <div class="micro-item"><b>CTA inferior</b><span>LiquidMetalButton</span></div>
+          <div class="micro-item"><b>Navegación inferior</b><span>SpotlightTabBar</span></div>
+        </div>
+      </div>
+
+      <div class="system-block">
+        <div class="system-label"><span>No se toca</span><span>ADN</span></div>
+        <div class="keep-tokens">
+          <span class="keep-token">glow 48 / 78</span>
+          <span class="keep-token">radio 20</span>
+          <span class="keep-token">nav 56 / 28</span>
+          <span class="keep-token">spotlight 240/24</span>
+          <span class="keep-token">press scale .97</span>
+        </div>
+      </div>
+    </aside>
+
+  </section>
+
+  <section class="board-principles">
+    <article class="principle">
+      <div class="principle-num">01 · JERARQUÍA</div>
+      <strong>El plan activo se siente distinto.</strong>
+      <p>Hereda el doble glow, el filo superior y el radio del MainDayCard. Es el único elemento que emite luz propia; las rutinas viven dentro de su resplandor.</p>
+    </article>
+    <article class="principle">
+      <div class="principle-num">02 · COMPONENTES</div>
+      <strong>Calidad sin inventar piezas.</strong>
+      <p>LiquidMetal cierra la pantalla, YoungNewt aporta la chispa en la acción secundaria y ShinyText da al nombre del plan el mismo tratamiento del wordmark myLife.</p>
+    </article>
+    <article class="principle">
+      <div class="principle-num">03 · LECTURA</div>
+      <strong>El estado se lee antes que el texto.</strong>
+      <p>Menta para “activo”, hielo para “plan”, lavanda para “series” y champán para “tiempo”. El color no decora: informa y se repite con disciplina.</p>
+    </article>
+  </section>
+
+  <footer class="board-footer">
+    <span><b>myLife</b> · Planes / Noir Pearl · propuesta v1</span>
+    <span>Semana 43 · Octubre 2026</span>
+  </footer>
+
+</main>
+
 </body>
 </html>

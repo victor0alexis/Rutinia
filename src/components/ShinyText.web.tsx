@@ -29,6 +29,12 @@ export interface ShinyTextProps {
   pauseOnHover?: boolean;
   disabled?: boolean;
   className?: string;
+  /** Props de layout compartidas con la implementación nativa. En web el estilo se controla con `style`. */
+  fontSize?: number;
+  fontFamily?: string;
+  align?: 'left' | 'center';
+  width?: number | string;
+  height?: number;
   style?: CSSProperties;
 }
 

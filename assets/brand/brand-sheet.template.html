@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rutinia — Sistema Meridiano</title>
+<style>
+/*__FONTS__*/
+*{box-sizing:border-box}
+:root{
+  --bg:#050608;
+  --ink:#F2F6FC;
+  --muted:#9AA6B6;
+  --dim:#6E7B8D;
+  --line:rgba(255,255,255,.085);
+  --line-strong:rgba(255,255,255,.14);
+  --crimson:#C2243D;
+}
+html{background:var(--bg)}
+body{margin:0;background:
+  radial-gradient(ellipse at 82% -8%,rgba(178,199,226,.075),transparent 46%),
+  radial-gradient(ellipse at 10% 35%,rgba(130,155,188,.035),transparent 40%),
+  var(--bg);
+  color:var(--ink);font-family:Outfit,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.page{width:1440px;margin:0 auto;padding:58px 64px 54px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--line);padding-bottom:26px}
+.brandline{display:flex;align-items:center;gap:14px;font-size:11px;letter-spacing:.26em;text-transform:uppercase;font-weight:600;color:#CBD6E4}
+.brandline b{color:#fff;font-weight:600;letter-spacing:.2em}
+.brandline .sep{width:28px;height:1px;background:linear-gradient(90deg,#93A3B7,transparent)}
+.top .meta{text-align:right;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);line-height:1.8}
+.top .meta b{display:block;color:#C6D2E1;font-weight:500}
+.hero{display:grid;grid-template-columns:460px 1fr;gap:76px;align-items:center;padding:72px 0 58px}
+.iconwrap{position:relative;width:420px;height:420px;padding:10px;border:1px solid rgba(255,255,255,.07);border-radius:104px;background:linear-gradient(145deg,rgba(255,255,255,.03),rgba(255,255,255,.002));box-shadow:0 50px 120px rgba(0,0,0,.48)}
+.iconwrap img{display:block;width:100%;height:100%;border-radius:96px}
+.eyebrow{font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:var(--dim);font-weight:600;margin-bottom:22px;display:flex;align-items:center;gap:14px}
+.eyebrow:before{content:"";width:24px;height:1px;background:#77869A}
+h1{font-size:92px;line-height:.96;letter-spacing:-.035em;font-weight:300;margin:0 0 26px;color:#F5F8FD}
+h1 .silver{background:linear-gradient(100deg,#FFFFFF 0%,#D6E2F1 26%,#8799AF 54%,#CBD8E7 78%,#FFFFFF 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.lead{font-size:18px;line-height:1.55;color:var(--muted);max-width:660px;margin:0 0 30px;font-weight:300}
+.lead b{color:#E3EAF4;font-weight:500}
+.tags{display:flex;gap:10px;flex-wrap:wrap}
+.tag{border:1px solid var(--line);border-radius:999px;padding:9px 14px;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#AEB9C8;display:flex;gap:9px;align-items:center}
+.tag i{font-style:normal;color:#667487;font-size:9px;letter-spacing:.08em}
+.section{padding:26px 0 0}
+.section-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:18px}
+.kicker{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--dim);font-weight:600}
+.section-title{font-size:34px;line-height:1.08;letter-spacing:-.02em;font-weight:300;margin:9px 0 0}
+.section-title b{font-weight:500}
+.section-note{font-size:12px;line-height:1.5;color:#7F8C9E;max-width:290px;text-align:right;font-weight:300}
+.card{border:1px solid var(--line);border-radius:24px;background:linear-gradient(150deg,rgba(255,255,255,.035),rgba(255,255,255,.006));box-shadow:inset 0 1px 0 rgba(255,255,255,.035)}
+.lockup-card{display:grid;grid-template-columns:1fr 300px;align-items:center;gap:36px;padding:34px 44px;min-height:286px}
+.lockup-card img{width:860px;max-width:100%;display:block}
+.lockup-side{border-left:1px solid var(--line);padding-left:30px;align-self:stretch;display:flex;flex-direction:column;justify-content:center;gap:15px}
+.lockup-side h3{font-size:16px;font-weight:500;margin:0;color:#DEE7F2;letter-spacing:.01em}
+.lockup-side p{font-size:13px;line-height:1.55;color:#8592A4;margin:0;font-weight:300}
+.spec{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:11px;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#6D7A8C}
+.spec span:last-child{color:#B7C3D2}
+.grid3{display:grid;grid-template-columns:1.08fr 1fr 1fr;gap:18px;margin-top:18px}
+.mini-card{padding:28px 28px 24px;min-height:342px;display:flex;flex-direction:column}
+.mini-card .kicker{margin-bottom:10px}
+.mini-card h3{font-size:23px;line-height:1.15;font-weight:400;letter-spacing:-.01em;margin:0 0 12px;color:#EAF0F8}
+.mini-card p{font-size:13px;line-height:1.55;color:#8390A2;margin:0;font-weight:300}
+.symbol-stage{flex:1;display:flex;align-items:center;justify-content:flex-start;min-height:150px}
+.symbol-stage img{width:140px;height:140px;display:block}
+.sizes{display:flex;align-items:flex-end;gap:17px;border-top:1px solid var(--line);padding-top:14px}
+.sizes .s{text-align:center;font-size:9px;letter-spacing:.1em;color:#627083}
+.sizes img{display:block;margin:0 auto 7px}
+.palette{display:flex;flex-direction:column;gap:10px;flex:1;justify-content:center}
+.swatch{height:34px;border-radius:9px;border:1px solid rgba(255,255,255,.08);position:relative;overflow:hidden}
+.swatch span{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.72)}
+.swatch.obsidian{background:linear-gradient(135deg,#141922,#050608)}
+.swatch.silver{background:linear-gradient(100deg,#F8FBFF,#A9BAD0 44%,#7B8CA4 62%,#DCE7F5)}
+.swatch.silver span{color:#18212D}
+.swatch.crimson{background:#090B10;border-bottom:2px solid #C2243D}
+.swatch.crimson span{color:#B9C4D3}
+.swatch-row{display:flex;gap:10px;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:14px;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#697789}
+.swatch-row b{font-weight:500;color:#AFBACA;letter-spacing:.1em}
+.orbit-card{position:relative;overflow:hidden}
+.orbit-card img{width:204px;height:204px;border-radius:46px;display:block;margin:8px auto 18px;box-shadow:0 26px 60px rgba(0,0,0,.5)}
+.orbit-card .micro{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#6C798B;text-align:center;margin-top:auto;padding-top:14px;border-top:1px solid var(--line)}
+.traza{display:grid;grid-template-columns:1fr 340px;gap:40px;align-items:center;padding:34px 44px;margin-top:18px;min-height:236px}
+.traza img{width:690px;max-width:100%;display:block}
+.traza-copy{border-left:1px solid var(--line);padding-left:32px}
+.traza-copy h3{font-size:28px;font-weight:300;letter-spacing:-.015em;margin:0 0 12px}
+.traza-copy h3 b{font-weight:500}
+.traza-copy p{font-size:13px;line-height:1.6;color:#8491A3;margin:0 0 18px;font-weight:300}
+.traza-copy .spec{border-top:1px solid var(--line);}
+.footer{margin-top:38px;border-top:1px solid var(--line);padding-top:20px;display:flex;justify-content:space-between;align-items:center;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:#5F6D7F}
+.footer b{color:#9AA7B8;font-weight:500}
+.footer .rule{display:flex;gap:28px}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <div class="brandline"><b>RUTINIA</b><span class="sep"></span>Sistema Meridiano</div>
+    <div class="meta"><b>Identidad visual</b>Versión 1.0 · Octubre 2026</div>
+  </header>
+
+  <section class="hero">
+    <div class="iconwrap"><img src="./rutinia-icono-app.svg" alt="Icono de app Rutinia"></div>
+    <div>
+      <div class="eyebrow">La marca</div>
+      <h1>El punto de <span class="silver">calma</span>.</h1>
+      <p class="lead">Una <b>R</b> construida con peso, plata fría y un solo punto carmesí. La órbita queda reservada al icono; la palabra, a una traza sobria. El logo ordena el movimiento de la app sin competir con él.</p>
+      <div class="tags">
+        <span class="tag"><i>01</i> Meridiano · la R</span>
+        <span class="tag"><i>02</i> Órbita · el icono</span>
+        <span class="tag"><i>03</i> Traza · el nombre</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <div><div class="kicker">Marca principal</div><div class="section-title">Una sola <b>R</b>. Un solo punto.</div></div>
+      <p class="section-note">El símbolo funciona solo y conserva la lectura desde 20 px. El nombre nunca compite con él.</p>
+    </div>
+    <div class="card lockup-card">
+      <img src="./rutinia-lockup-horizontal.svg" alt="Rutinia">
+      <div class="lockup-side">
+        <div class="kicker">Lockup horizontal</div>
+        <h3>Meridiano + Traza</h3>
+        <p>La R aporta el peso. El wordmark baja el volumen y comparte la misma plata, sin repetir el acento.</p>
+        <div class="spec"><span>Wordmark</span><span>Outfit 600</span></div>
+        <div class="spec"><span>Tracking</span><span>0.18 em</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="grid3">
+      <div class="card mini-card">
+        <div class="kicker">01 · Meridiano</div>
+        <h3>La R manda.</h3>
+        <p>Un trazo de peso extra bold, con el contador abierto y el punto en su interior. Sin efectos que desaparezcan a tamaño pequeño.</p>
+        <div class="symbol-stage"><img src="./rutinia-simbolo.svg" alt="Símbolo Rutinia"></div>
+        <div class="sizes">
+          <div class="s"><img src="./rutinia-simbolo.svg" width="64" height="64" alt="">64</div>
+          <div class="s"><img src="./rutinia-simbolo.svg" width="44" height="44" alt="">44</div>
+          <div class="s"><img src="./rutinia-simbolo.svg" width="30" height="30" alt="">30</div>
+          <div class="s"><img src="./rutinia-simbolo.svg" width="20" height="20" alt="">20</div>
+        </div>
+      </div>
+
+      <div class="card mini-card">
+        <div class="kicker">02 · Un solo acento</div>
+        <h3>El color vuelve al dato.</h3>
+        <p>El carmesí vive únicamente en el punto. Nunca dos puntos, nunca un fondo rojo. Verde, ámbar y violeta quedan para la interfaz.</p>
+        <div class="palette">
+          <div class="swatch obsidian"><span>Obsidiana · #050608</span></div>
+          <div class="swatch silver"><span>Plata fría · #F8FBFF → #7B8CA4</span></div>
+          <div class="swatch crimson"><span>Carmesí · #C2243D</span></div>
+        </div>
+        <div class="swatch-row"><span>Plata, no gris</span><b>brillo puntual</b></div>
+      </div>
+
+      <div class="card mini-card orbit-card">
+        <div class="kicker">03 · Órbita</div>
+        <h3>Solo en el icono.</h3>
+        <p>Un anillo fino de plata rodea la R sin tocarla. Es el único lugar donde la marca se permite una composición más amplia.</p>
+        <img src="./rutinia-icono-app.svg" alt="Icono de app Rutinia">
+        <div class="micro">Anillo orbital · trazo 1.8 / 240</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <div><div class="kicker">03 · Traza</div><div class="section-title">El nombre también <b>respira</b>.</div></div>
+      <p class="section-note">Mayúsculas geométricas, tracking amplio y plata fría. El wordmark no lleva punto: el acento pertenece al símbolo.</p>
+    </div>
+    <div class="card traza">
+      <img src="./rutinia-wordmark.svg" alt="Rutinia">
+      <div class="traza-copy">
+        <h3>Una palabra, <b>una línea</b>.</h3>
+        <p>Traza es el sistema de nombre: Outfit 600 en mayúsculas, tracking de 0.18 em y un degradado de plata con un solo brillo. Sin rojo, sin adornos.</p>
+        <div class="spec"><span>Mínimo lockup</span><span>140 px de ancho</span></div>
+        <div class="spec"><span>Símbolo mínimo</span><span>20 px</span></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div><b>RUTINIA</b> · Identidad visual · Sistema Meridiano</div>
+    <div class="rule"><span>SVG + PNG</span><span>Uso en fondo oscuro</span><span>Versión 1.0</span></div>
+  </footer>
+</div>
+</body>
+</html>
