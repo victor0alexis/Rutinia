@@ -209,7 +209,7 @@ export async function cargarCatalogoCompleto(): Promise<EjercicioGifInfo[]> {
             equipment: ex.equipment || 'bodyweight',
             instructions: Array.isArray(ex.instructions) ? ex.instructions : [],
             gifUrl: ex.gifUrl || `${CDN_BASE}/${ex.id}.gif`,
-            thumbUrl: ex.thumbUrl || `${CDN_BASE}/${ex.id}.thumb.webp`,
+            thumbUrl: ex.thumbUrl || ex.gifUrl || `${CDN_BASE}/${ex.id}.gif`,
           }));
           catalogoCompleto = lista;
           AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(lista)).catch(() => {});
@@ -254,7 +254,7 @@ export function obtenerGifEjercicio(nombreEjercicio: string): EjercicioGifInfo {
           'Mantén la tensión en el músculo objetivo durante la fase concéntrica y excéntrica.',
         ],
         gifUrl: `${CDN_BASE}/${id}.gif`,
-        thumbUrl: `${CDN_BASE}/${id}.thumb.webp`,
+        thumbUrl: `${CDN_BASE}/${id}.gif`,
       };
     }
   }
@@ -290,7 +290,7 @@ export function obtenerGifEjercicio(nombreEjercicio: string): EjercicioGifInfo {
       return {
         ...mejorMatch,
         gifUrl: mejorMatch.gifUrl || `${CDN_BASE}/${mejorMatch.id}.gif`,
-        thumbUrl: mejorMatch.thumbUrl || `${CDN_BASE}/${mejorMatch.id}.thumb.webp`,
+        thumbUrl: mejorMatch.thumbUrl || mejorMatch.gifUrl || `${CDN_BASE}/${mejorMatch.id}.gif`,
       };
     }
   }
@@ -331,6 +331,6 @@ export function obtenerGifEjercicio(nombreEjercicio: string): EjercicioGifInfo {
       'Aplica fuerza continua en la fase concéntrica (subida).',
     ],
     gifUrl: `${CDN_BASE}/${fallbackId}.gif`,
-    thumbUrl: `${CDN_BASE}/${fallbackId}.thumb.webp`,
+    thumbUrl: `${CDN_BASE}/${fallbackId}.gif`,
   };
 }
