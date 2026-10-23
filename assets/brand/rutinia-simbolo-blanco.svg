@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-labelledby="t">
+  <title id="t">Rutinia - simbolo monocromo</title>
+  <g transform="translate(-3.5 5.5)">
+    <path d="M 70 196 V 44 H 118 C 153 44 176 60 176 82 C 176 104 153 118 118 118 L 94 118 L 177 196" fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="butt" stroke-linejoin="miter"/>
+    <circle cx="143" cy="82" r="6.3" fill="#FFFFFF"/>
+  </g>
+</svg>

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#050608;color:#E9EFF8;font-family:system-ui,-apple-system,'Segoe UI',sans-serif}
+  body{padding:40px}
+  h1{font-size:14px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:#8D99AB;margin:0 0 28px}
+  .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:24px;max-width:1380px}
+  .card{background:linear-gradient(145deg,rgba(255,255,255,.035),rgba(255,255,255,.008));border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:26px}
+  .label{font-size:10px;letter-spacing:.17em;text-transform:uppercase;color:#748194;margin-bottom:18px}
+  .icon{width:360px;height:360px;border-radius:84px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.45)}
+  .icon img{width:100%;height:100%;display:block}
+  .symbol{width:240px;height:240px}
+  .lockup{width:100%;max-width:920px}
+  .vertical{height:360px}
+  .wordmark{width:620px;max-width:100%}
+  .row{display:flex;gap:36px;align-items:flex-end;flex-wrap:wrap}
+  .light{background:#EEF1F5;border-radius:20px;padding:26px;color:#1B2230}
+  .light .label{color:#667184}
+  .small{display:flex;gap:22px;align-items:flex-end}
+  .mini{background:#07080C;border-radius:16%;overflow:hidden}
+  .mini img{display:block;width:100%;height:100%}
+</style>
+</head>
+<body>
+<h1>Rutinia · Sistema Meridiano</h1>
+<div class="grid">
+  <div class="card">
+    <div class="label">Icono de app · Órbita</div>
+    <div class="icon"><img src="../../assets/brand/rutinia-icono-app.svg" alt="Icono Rutinia"></div>
+  </div>
+  <div class="card">
+    <div class="label">Símbolo · Meridiano</div>
+    <div class="row">
+      <img class="symbol" src="../../assets/brand/rutinia-simbolo.svg" alt="Símbolo Rutinia">
+      <div class="small">
+        <div class="mini" style="width:64px;height:64px"><img src="../../assets/brand/rutinia-icono-app.svg" alt=""></div>
+        <div class="mini" style="width:44px;height:44px"><img src="../../assets/brand/rutinia-icono-app.svg" alt=""></div>
+        <div class="mini" style="width:30px;height:30px"><img src="../../assets/brand/rutinia-icono-app.svg" alt=""></div>
+        <div class="mini" style="width:20px;height:20px"><img src="../../assets/brand/rutinia-icono-app.svg" alt=""></div>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="grid-column:1/-1">
+    <div class="label">Lockup horizontal · Traza + Meridiano</div>
+    <img class="lockup" src="../../assets/brand/rutinia-lockup-horizontal.svg" alt="Rutinia">
+  </div>
+  <div class="card">
+    <div class="label">Wordmark · Traza</div>
+    <img class="wordmark" src="../../assets/brand/rutinia-wordmark.svg" alt="Rutinia">
+  </div>
+  <div class="card">
+    <div class="label">Lockup vertical</div>
+    <img class="vertical" src="../../assets/brand/rutinia-lockup-vertical.svg" alt="Rutinia">
+  </div>
+  <div class="light" style="grid-column:1/-1">
+    <div class="label">Versiones para fondo claro</div>
+    <div class="row">
+      <img class="symbol" src="../../assets/brand/rutinia-simbolo-tinta.svg" alt="">
+      <img class="wordmark" src="../../assets/brand/rutinia-wordmark-tinta.svg" alt="">
+    </div>
+  </div>
+</div>
+</body>
+</html>

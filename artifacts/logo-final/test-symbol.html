@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin:0; background:#050608; color:#E9EFF8; font-family: system-ui, -apple-system, Segoe UI, sans-serif; }
+  body { padding:40px; }
+  h1 { font-size:15px; font-weight:500; letter-spacing:.18em; text-transform:uppercase; color:#8D99AB; margin:0 0 28px; }
+  .row { display:flex; gap:28px; align-items:flex-start; }
+  .case { width:300px; }
+  .icon { width:300px; height:300px; border-radius:64px; overflow:hidden; box-shadow: 0 30px 80px rgba(0,0,0,.5); }
+  .label { margin-top:14px; font-size:12px; color:#7E8B9E; letter-spacing:.08em; text-transform:uppercase; }
+  svg { display:block; width:100%; height:100%; }
+</style>
+</head>
+<body>
+<h1>Meridiano × Órbita — peso / punto</h1>
+<div class="row">
+  <div class="case">
+    <div class="icon">
+      <svg viewBox="0 0 240 240">
+        <defs>
+          <linearGradient id="bgA" x1="0" y1="0" x2=".82" y2="1">
+            <stop offset="0" stop-color="#121620"/>
+            <stop offset=".5" stop-color="#080A0F"/>
+            <stop offset="1" stop-color="#050608"/>
+          </linearGradient>
+          <radialGradient id="glowA" cx=".47" cy=".36" r=".7">
+            <stop offset="0" stop-color="#D9E7FA" stop-opacity=".12"/>
+            <stop offset=".6" stop-color="#A9BBD4" stop-opacity=".035"/>
+            <stop offset="1" stop-color="#050608" stop-opacity="0"/>
+          </radialGradient>
+          <linearGradient id="silverA" gradientUnits="userSpaceOnUse" x1="62" y1="34" x2="186" y2="204">
+            <stop offset="0" stop-color="#F5F9FF"/>
+            <stop offset=".16" stop-color="#D6E1F0"/>
+            <stop offset=".38" stop-color="#A9B7CA"/>
+            <stop offset=".58" stop-color="#7B899D"/>
+            <stop offset=".74" stop-color="#A8B6C8"/>
+            <stop offset=".88" stop-color="#EFF6FF"/>
+            <stop offset="1" stop-color="#C2CFDF"/>
+          </linearGradient>
+          <radialGradient id="specA" cx=".38" cy=".23" r=".52">
+            <stop offset="0" stop-color="#FFFFFF" stop-opacity=".7"/>
+            <stop offset=".38" stop-color="#FFFFFF" stop-opacity=".16"/>
+            <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+          </radialGradient>
+          <linearGradient id="crimsonA" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#F15A72"/>
+            <stop offset=".5" stop-color="#D42A45"/>
+            <stop offset="1" stop-color="#9E1C30"/>
+          </linearGradient>
+          <linearGradient id="orbitA" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#DDE9FA" stop-opacity=".06"/>
+            <stop offset=".3" stop-color="#DDE9FA" stop-opacity=".4"/>
+            <stop offset=".62" stop-color="#8D9CB0" stop-opacity=".16"/>
+            <stop offset="1" stop-color="#E6F1FF" stop-opacity=".55"/>
+          </linearGradient>
+          <clipPath id="rclipA">
+            <path d="M 70 196 V 44 H 118 C 153 44 176 60 176 82 C 176 104 153 118 118 118 L 94 118 L 177 196"/>
+          </clipPath>
+        </defs>
+        <rect width="240" height="240" fill="url(#bgA)"/>
+        <rect width="240" height="240" fill="url(#glowA)"/>
+        <ellipse cx="120" cy="120" rx="89" ry="35" transform="rotate(-20 120 120)" fill="none" stroke="url(#orbitA)" stroke-width="1.25"/>
+        <g fill="none" stroke="url(#silverA)" stroke-width="20" stroke-linecap="butt" stroke-linejoin="miter">
+          <path d="M 70 196 V 44 H 118 C 153 44 176 60 176 82 C 176 104 153 118 118 118 L 94 118 L 177 196"/>
+        </g>
+        <rect width="240" height="240" fill="url(#specA)" clip-path="url(#rclipA)"/>
+        <circle cx="143" cy="81" r="7.5" fill="url(#crimsonA)"/>
+        <circle cx="143" cy="81" r="5.8" fill="none" stroke="#F9A0AC" stroke-opacity=".18" stroke-width=".8"/>
+      </svg>
+    </div>
+    <div class="label">A · órbita + punto</div>
+  </div>
+
+  <div class="case">
+    <div class="icon">
+      <svg viewBox="0 0 240 240">
+        <rect width="240" height="240" fill="url(#bgA)"/>
+        <rect width="240" height="240" fill="url(#glowA)"/>
+        <g fill="none" stroke="url(#silverA)" stroke-width="20" stroke-linecap="butt" stroke-linejoin="miter">
+          <path d="M 70 196 V 44 H 118 C 153 44 176 60 176 82 C 176 104 153 118 118 118 L 94 118 L 177 196"/>
+        </g>
+        <rect width="240" height="240" fill="url(#specA)" clip-path="url(#rclipA)"/>
+        <circle cx="143" cy="81" r="7.5" fill="url(#crimsonA)"/>
+      </svg>
+    </div>
+    <div class="label">B · solo R</div>
+  </div>
+
+  <div class="case">
+    <div class="icon">
+      <svg viewBox="0 0 240 240">
+        <rect width="240" height="240" fill="url(#bgA)"/>
+        <rect width="240" height="240" fill="url(#glowA)"/>
+        <ellipse cx="120" cy="120" rx="96" ry="42" transform="rotate(-20 120 120)" fill="none" stroke="url(#orbitA)" stroke-width="1.35"/>
+        <g fill="none" stroke="url(#silverA)" stroke-width="22" stroke-linecap="butt" stroke-linejoin="miter">
+          <path d="M 70 196 V 44 H 118 C 153 44 176 60 176 82 C 176 104 153 118 118 118 L 94 118 L 177 196"/>
+        </g>
+        <rect width="240" height="240" fill="url(#specA)" clip-path="url(#rclipA)"/>
+        <circle cx="145" cy="79" r="8.5" fill="url(#crimsonA)"/>
+      </svg>
+    </div>
+    <div class="label">C · más peso + más punto</div>
+  </div>
+
+  <div class="case">
+    <div class="icon">
+      <svg viewBox="0 0 240 240">
+        <rect width="240" height="240" fill="url(#bgA)"/>
+        <rect width="240" height="240" fill="url(#glowA)"/>
+        <ellipse cx="120" cy="120" rx="96" ry="42" transform="rotate(-20 120 120)" fill="none" stroke="url(#orbitA)" stroke-width="1.35"/>
+        <g fill="none" stroke="url(#silverA)" stroke-width="22" stroke-linecap="butt" stroke-linejoin="miter">
+          <path d="M 70 196 V 44 H 118 C 153 44 176 60 176 82 C 176 104 153 118 118 118 L 94 118 L 177 196"/>
+        </g>
+        <rect width="240" height="240" fill="url(#specA)" clip-path="url(#rclipA)"/>
+        <circle cx="145" cy="79" r="8.5" fill="url(#crimsonA)"/>
+        <ellipse cx="120" cy="120" rx="96" ry="42" transform="rotate(-20 120 120)" fill="none" stroke="url(#orbitA)" stroke-width="1.1" stroke-dasharray="1 4" opacity=".35"/>
+      </svg>
+    </div>
+    <div class="label">D · órbita tenue + peso</div>
+  </div>
+</div>
+</body>
+</html>

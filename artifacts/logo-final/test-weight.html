@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin:0; background:#050608; color:#E9EFF8; font-family: system-ui, -apple-system, Segoe UI, sans-serif; }
+  body { padding:40px; }
+  h1 { font-size:15px; font-weight:500; letter-spacing:.18em; text-transform:uppercase; color:#8D99AB; margin:0 0 28px; }
+  .row { display:flex; gap:28px; align-items:flex-start; }
+  .case { width:300px; }
+  .icon { width:300px; height:300px; border-radius:64px; overflow:hidden; box-shadow: 0 30px 80px rgba(0,0,0,.5); }
+  .label { margin-top:14px; font-size:12px; color:#7E8B9E; letter-spacing:.08em; text-transform:uppercase; }
+  svg { display:block; width:100%; height:100%; }
+  .sizes { display:flex; gap:18px; align-items:flex-end; margin-top:50px; }
+  .size { text-align:center; color:#6E7A8C; font-size:11px; letter-spacing:.1em; }
+  .size .tile { margin:0 auto 10px; border-radius:22%; overflow:hidden; background:#07080C; }
+</style>
+</head>
+<body>
+<h1>Peso de la R — 20 / 22 / 24</h1>
+<div class="row">
+  <div class="case">
+    <div class="icon">
+      <svg viewBox="0 0 240 240">
+        <defs>
+          <linearGradient id="bg" x1="0" y1="0" x2=".82" y2="1"><stop offset="0" stop-color="#121620"/><stop offset=".5" stop-color="#080A0F"/><stop offset="1" stop-color="#050608"/></linearGradient>
+          <radialGradient id="glow" cx=".47" cy=".36" r=".7"><stop offset="0" stop-color="#D9E7FA" stop-opacity=".12"/><stop offset=".6" stop-color="#A9BBD4" stop-opacity=".035"/><stop offset="1" stop-color="#050608" stop-opacity="0"/></radialGradient>
+          <linearGradient id="silver" gradientUnits="userSpaceOnUse" x1="62" y1="34" x2="186" y2="204"><stop offset="0" stop-color="#F5F9FF"/><stop offset=".16" stop-color="#D6E1F0"/><stop offset=".38" stop-color="#A9B7CA"/><stop offset=".58" stop-color="#7B899D"/><stop offset=".74" stop-color="#A8B6C8"/><stop offset=".88" stop-color="#EFF6FF"/><stop offset="1" stop-color="#C2CFDF"/></linearGradient>
+          <radialGradient id="spec" cx=".38" cy=".23" r=".52"><stop offset="0" stop-color="#FFFFFF" stop-opacity=".7"/><stop offset=".38" stop-color="#FFFFFF" stop-opacity=".16"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+          <linearGradient id="crimson" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F15A72"/><stop offset=".5" stop-color="#D42A45"/><stop offset="1" stop-color="#9E1C30"/></linearGradient>
+          <linearGradient id="orbit" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#DDE9FA" stop-opacity=".06"/><stop offset=".3" stop-color="#DDE9FA" stop-opacity=".4"/><stop offset=".62" stop-color="#8D9CB0" stop-opacity=".16"/><stop offset="1" stop-color="#E6F1FF" stop-opacity=".55"/></linearGradient>
+          <clipPath id="r20"><path d="M 70 196 V 44 H 118 C 153 44 176 60 176 82 C 176 104 153 118 118 118 L 94 118 L 177 196"/></clipPath>
+          <clipPath id="r22"><path d="M 70 196 V 44 H 118 C 153 44 176 60 176 82 C 176 104 153 118 118 118 L 94 118 L 177 196"/></clipPath>
+          <clipPath id="r24"><path d="M 70 196 V 44 H 118 C 153 44 176 60 176 82 C 176 104 153 118 118 118 L 94 118 L 177 196"/></clipPath>
+        </defs>
+        <rect width="240" height="240" fill="url(#bg)"/><rect width="240" height="240" fill="url(#glow)"/>
+        <ellipse cx="120" cy="120" rx="92" ry="37" transform="rotate(-20 120 120)" fill="none" stroke="url(#orbit)" stroke-width="1.6"/>
+        <path d="M 70 196 V 44 H 118 C 153 44 176 60 176 82 C 176 104 153 118 118 118 L 94 118 L 177 196" fill="none" stroke="url(#silver)" stroke-width="20" stroke-linecap="butt" stroke-linejoin="miter"/>
+        <rect width="240" height="240" fill="url(#spec)" clip-path="url(#r20)"/>
+        <circle cx="143" cy="82" r="6.5" fill="url(#crimson)"/>
+      </svg>
+    </div>
+    <div class="label">20 · bold</div>
+  </div>
+
+  <div class="case">
+    <div class="icon">
+      <svg viewBox="0 0 240 240">
+        <rect width="240" height="240" fill="url(#bg)"/><rect width="240" height="240" fill="url(#glow)"/>
+        <ellipse cx="120" cy="120" rx="92" ry="37" transform="rotate(-20 120 120)" fill="none" stroke="url(#orbit)" stroke-width="1.6"/>
+        <path d="M 70 196 V 44 H 118 C 153 44 176 60 176 82 C 176 104 153 118 118 118 L 94 118 L 177 196" fill="none" stroke="url(#silver)" stroke-width="22" stroke-linecap="butt" stroke-linejoin="miter"/>
+        <rect width="240" height="240" fill="url(#spec)" clip-path="url(#r22)"/>
+        <circle cx="143" cy="82" r="6.5" fill="url(#crimson)"/>
+      </svg>
+    </div>
+    <div class="label">22 · extra bold</div>
+  </div>
+
+  <div class="case">
+    <div class="icon">
+      <svg viewBox="0 0 240 240">
+        <rect width="240" height="240" fill="url(#bg)"/><rect width="240" height="240" fill="url(#glow)"/>
+        <ellipse cx="120" cy="120" rx="92" ry="37" transform="rotate(-20 120 120)" fill="none" stroke="url(#orbit)" stroke-width="1.6"/>
+        <path d="M 70 196 V 44 H 118 C 153 44 176 60 176 82 C 176 104 153 118 118 118 L 94 118 L 177 196" fill="none" stroke="url(#silver)" stroke-width="24" stroke-linecap="butt" stroke-linejoin="miter"/>
+        <rect width="240" height="240" fill="url(#spec)" clip-path="url(#r24)"/>
+        <circle cx="143" cy="82" r="6.5" fill="url(#crimson)"/>
+      </svg>
+    </div>
+    <div class="label">24 · black</div>
+  </div>
+</div>
+
+<div class="sizes">
+  <div class="size"><div class="tile" style="width:64px;height:64px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#bg)"/><path d="M 70 196 V 44 H 118 C 153 44 176 60 176 82 C 176 104 153 118 118 118 L 94 118 L 177 196" fill="none" stroke="url(#silver)" stroke-width="22" stroke-linecap="butt" stroke-linejoin="miter"/><circle cx="143" cy="82" r="6.5" fill="url(#crimson)"/></svg></div>64 px</div>
+  <div class="size"><div class="tile" style="width:44px;height:44px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#bg)"/><path d="M 70 196 V 44 H 118 C 153 44 176 60 176 82 C 176 104 153 118 118 118 L 94 118 L 177 196" fill="none" stroke="url(#silver)" stroke-width="22" stroke-linecap="butt" stroke-linejoin="miter"/><circle cx="143" cy="82" r="6.5" fill="url(#crimson)"/></svg></div>44 px</div>
+  <div class="size"><div class="tile" style="width:30px;height:30px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#bg)"/><path d="M 70 196 V 44 H 118 C 153 44 176 60 176 82 C 176 104 153 118 118 118 L 94 118 L 177 196" fill="none" stroke="url(#silver)" stroke-width="22" stroke-linecap="butt" stroke-linejoin="miter"/><circle cx="143" cy="82" r="6.5" fill="url(#crimson)"/></svg></div>30 px</div>
+  <div class="size"><div class="tile" style="width:20px;height:20px"><svg viewBox="0 0 240 240"><rect width="240" height="240" fill="url(#bg)"/><path d="M 70 196 V 44 H 118 C 153 44 176 60 176 82 C 176 104 153 118 118 118 L 94 118 L 177 196" fill="none" stroke="url(#silver)" stroke-width="22" stroke-linecap="butt" stroke-linejoin="miter"/><circle cx="143" cy="82" r="6.5" fill="url(#crimson)"/></svg></div>20 px</div>
+</div>
+</body>
+</html>

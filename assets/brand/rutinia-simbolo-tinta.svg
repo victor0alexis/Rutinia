@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-labelledby="t">
+  <title id="t">Rutinia - simbolo para fondo claro</title>
+  <defs>
+  <linearGradient id="ri-silver" gradientUnits="userSpaceOnUse" x1="55" y1="35" x2="188" y2="205">
+    <stop offset="0" stop-color="#596578"/><stop offset=".2" stop-color="#303A49"/><stop offset=".46" stop-color="#151B25"/><stop offset=".67" stop-color="#0B1017"/><stop offset=".86" stop-color="#394454"/><stop offset="1" stop-color="#131922"/>
+  </linearGradient>
+  <radialGradient id="ri-dot" cx=".34" cy=".3" r=".8">
+    <stop offset="0" stop-color="#D93C55"/><stop offset=".48" stop-color="#B31F37"/><stop offset="1" stop-color="#7D1022"/>
+  </radialGradient>
+</defs>
+  <g transform="translate(-3.5 5.5)">
+  <path d="M 70 196 V 44 H 118 C 153 44 176 60 176 82 C 176 104 153 118 118 118 L 94 118 L 177 196" fill="none" stroke="url(#ri-silver)" stroke-width="22" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <circle cx="143" cy="82" r="6.3" fill="url(#ri-dot)"/>
+</g>
+</svg>

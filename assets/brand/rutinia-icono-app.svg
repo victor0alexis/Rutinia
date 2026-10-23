@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-labelledby="t">
+  <title id="t">Rutinia - icono de app Orbita</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2=".82" y2="1">
+      <stop offset="0" stop-color="#10141C"/><stop offset=".46" stop-color="#080A0F"/><stop offset="1" stop-color="#050608"/>
+    </linearGradient>
+    <radialGradient id="ambient" cx=".47" cy=".36" r=".68">
+      <stop offset="0" stop-color="#D9E7FA" stop-opacity=".09"/><stop offset=".58" stop-color="#A9BBD4" stop-opacity=".025"/><stop offset="1" stop-color="#050608" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="orbit" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#DDE9FA" stop-opacity=".03"/><stop offset=".28" stop-color="#DDE9FA" stop-opacity=".44"/><stop offset=".58" stop-color="#8D9CB0" stop-opacity=".14"/><stop offset=".85" stop-color="#E6F1FF" stop-opacity=".40"/><stop offset="1" stop-color="#E6F1FF" stop-opacity=".08"/>
+    </linearGradient>
+    <mask id="orbitMask" maskUnits="userSpaceOnUse" x="0" y="0" width="240" height="240">
+      <rect width="240" height="240" fill="#fff"/>
+      <g transform="translate(-3.5 5.5)">
+        <path d="M 70 196 V 44 H 118 C 153 44 176 60 176 82 C 176 104 153 118 118 118 L 94 118 L 177 196" fill="none" stroke="#000" stroke-width="22" stroke-linecap="butt" stroke-linejoin="miter"/>
+        <path d="M 79 53 H 152 C 161 53 167 60 167 69 V 93 C 167 102 161 109 152 109 H 79 Z" fill="#000"/>
+      </g>
+    </mask>
+    
+  <linearGradient id="i-silver" gradientUnits="userSpaceOnUse" x1="55" y1="35" x2="188" y2="205">
+    <stop offset="0" stop-color="#F8FBFF"/>
+    <stop offset=".18" stop-color="#D8E4F5"/>
+    <stop offset=".42" stop-color="#A9BAD0"/>
+    <stop offset=".64" stop-color="#7B8CA4"/>
+    <stop offset=".84" stop-color="#AFC0D4"/>
+    <stop offset="1" stop-color="#DCE7F5"/>
+  </linearGradient>
+  <radialGradient id="i-dot" cx=".34" cy=".3" r=".8">
+    <stop offset="0" stop-color="#E65067"/>
+    <stop offset=".46" stop-color="#C2243D"/>
+    <stop offset="1" stop-color="#8E1428"/>
+  </radialGradient>
+
+  </defs>
+  <rect width="240" height="240" fill="url(#bg)"/>
+  <rect width="240" height="240" fill="url(#ambient)"/>
+  <ellipse cx="120" cy="120" rx="96" ry="40" transform="rotate(-20 120 120)" fill="none" stroke="url(#orbit)" stroke-width="1.8" mask="url(#orbitMask)"/>
+  <g transform="translate(-3.5 5.5)">
+  <path d="M 70 196 V 44 H 118 C 153 44 176 60 176 82 C 176 104 153 118 118 118 L 94 118 L 177 196" fill="none" stroke="url(#i-silver)" stroke-width="22" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <circle cx="143" cy="82" r="6.3" fill="url(#i-dot)"/>
+</g>
+</svg>

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 240" role="img" aria-labelledby="t">
+  <title id="t">Rutinia - lockup horizontal</title>
+  <defs>
+  <linearGradient id="h-silver" gradientUnits="userSpaceOnUse" x1="55" y1="35" x2="188" y2="205">
+    <stop offset="0" stop-color="#F8FBFF"/>
+    <stop offset=".18" stop-color="#D8E4F5"/>
+    <stop offset=".42" stop-color="#A9BAD0"/>
+    <stop offset=".64" stop-color="#7B8CA4"/>
+    <stop offset=".84" stop-color="#AFC0D4"/>
+    <stop offset="1" stop-color="#DCE7F5"/>
+  </linearGradient>
+  <radialGradient id="h-dot" cx=".34" cy=".3" r=".8">
+    <stop offset="0" stop-color="#E65067"/>
+    <stop offset=".46" stop-color="#C2243D"/>
+    <stop offset="1" stop-color="#8E1428"/>
+  </radialGradient>
+</defs>
+  <g transform="translate(28 10) scale(0.9166666666666666)"><g transform="translate(-3.5 5.5)">
+  <path d="M 70 196 V 44 H 118 C 153 44 176 60 176 82 C 176 104 153 118 118 118 L 94 118 L 177 196" fill="none" stroke="url(#h-silver)" stroke-width="22" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <circle cx="143" cy="82" r="6.3" fill="url(#h-dot)"/>
+</g></g>
+  <defs>
+    <linearGradient id="hw" gradientUnits="userSpaceOnUse" x1="288" y1="111" x2="893.6400000000001" y2="195">
+      <stop offset="0" stop-color="#EFF5FF"/><stop offset=".22" stop-color="#D5E0EF"/><stop offset=".52" stop-color="#A3B3C7"/><stop offset=".78" stop-color="#C2CFDF"/><stop offset="1" stop-color="#E9F1FC"/>
+    </linearGradient>
+  </defs>
+  <path d="M329.40 159.72L308.64 159.72L308.64 147L328.20 147Q334.20 147 337.50 143.94Q340.80 140.88 340.80 135.48L340.80 135.48Q340.80 130.56 337.50 127.26Q334.20 123.96 328.20 123.96L328.20 123.96L308.64 123.96L308.64 110.64L329.64 110.64Q337.80 110.64 343.98 113.82Q350.16 117 353.58 122.52Q357 128.04 357 135.24L357 135.24Q357 142.68 353.58 148.14Q350.16 153.60 343.92 156.66Q337.68 159.72 329.40 159.72L329.40 159.72ZM312.96 195L296.64 195L296.64 110.64L312.96 110.64L312.96 195ZM362.52 195L342.72 195L314.88 158.52L329.88 153.84L362.52 195Z M428.28 196.20L428.28 196.20Q418.32 196.20 410.58 191.82Q402.84 187.44 398.40 179.76Q393.96 172.08 393.96 162.36L393.96 162.36L393.96 110.64L410.28 110.64L410.28 162.84Q410.28 168.48 412.62 172.56Q414.96 176.64 419.10 178.86Q423.24 181.08 428.28 181.08L428.28 181.08Q433.44 181.08 437.40 178.86Q441.36 176.64 443.70 172.56Q446.04 168.48 446.04 162.96L446.04 162.96L446.04 110.64L462.48 110.64L462.48 162.48Q462.48 172.20 458.04 179.82Q453.60 187.44 445.98 191.82Q438.36 196.20 428.28 196.20Z M537.48 195L521.04 195L521.04 112.44L537.48 112.44L537.48 195ZM564.36 125.16L494.16 125.16L494.16 110.64L564.36 110.64L564.36 125.16Z M613.56 195L597.24 195L597.24 110.64L613.56 110.64L613.56 195Z M668.76 195L652.44 195L652.44 110.64L663.84 110.64L668.76 126.96L668.76 195ZM713.88 175.44L710.76 195L660.72 130.20L663.84 110.64L713.88 175.44ZM722.52 195L710.76 195L706.08 179.16L706.08 110.64L722.52 110.64L722.52 195Z M777.60 195L761.28 195L761.28 110.64L777.60 110.64L777.60 195Z M827.28 195L810.24 195L844.20 110.64L857.52 110.64L891.36 195L873.96 195L847.80 125.76L853.80 125.76L827.28 195ZM873.60 179.28L828.24 179.28L828.24 165.60L873.60 165.60L873.60 179.28Z" fill="url(#hw)"/>
+</svg>

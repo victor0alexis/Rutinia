@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 380" role="img" aria-labelledby="t">
+  <title id="t">Rutinia - lockup vertical</title>
+  <defs>
+  <linearGradient id="v-silver" gradientUnits="userSpaceOnUse" x1="55" y1="35" x2="188" y2="205">
+    <stop offset="0" stop-color="#F8FBFF"/>
+    <stop offset=".18" stop-color="#D8E4F5"/>
+    <stop offset=".42" stop-color="#A9BAD0"/>
+    <stop offset=".64" stop-color="#7B8CA4"/>
+    <stop offset=".84" stop-color="#AFC0D4"/>
+    <stop offset="1" stop-color="#DCE7F5"/>
+  </linearGradient>
+  <radialGradient id="v-dot" cx=".34" cy=".3" r=".8">
+    <stop offset="0" stop-color="#E65067"/>
+    <stop offset=".46" stop-color="#C2243D"/>
+    <stop offset="1" stop-color="#8E1428"/>
+  </radialGradient>
+</defs>
+  <g transform="translate(170 20) scale(0.9166666666666666)"><g transform="translate(-3.5 5.5)">
+  <path d="M 70 196 V 44 H 118 C 153 44 176 60 176 82 C 176 104 153 118 118 118 L 94 118 L 177 196" fill="none" stroke="url(#v-silver)" stroke-width="22" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <circle cx="143" cy="82" r="6.3" fill="url(#v-dot)"/>
+</g></g>
+  <defs>
+    <linearGradient id="vw" gradientUnits="userSpaceOnUse" x1="27.7" y1="270" x2="532.4000000000001" y2="340">
+      <stop offset="0" stop-color="#EFF5FF"/><stop offset=".22" stop-color="#D5E0EF"/><stop offset=".52" stop-color="#A3B3C7"/><stop offset=".78" stop-color="#C2CFDF"/><stop offset="1" stop-color="#E9F1FC"/>
+    </linearGradient>
+  </defs>
+  <path d="M62.20 310.60L44.90 310.60L44.90 300L61.20 300Q66.20 300 68.95 297.45Q71.70 294.90 71.70 290.40L71.70 290.40Q71.70 286.30 68.95 283.55Q66.20 280.80 61.20 280.80L61.20 280.80L44.90 280.80L44.90 269.70L62.40 269.70Q69.20 269.70 74.35 272.35Q79.50 275 82.35 279.60Q85.20 284.20 85.20 290.20L85.20 290.20Q85.20 296.40 82.35 300.95Q79.50 305.50 74.30 308.05Q69.10 310.60 62.20 310.60L62.20 310.60ZM48.50 340L34.90 340L34.90 269.70L48.50 269.70L48.50 340ZM89.80 340L73.30 340L50.10 309.60L62.60 305.70L89.80 340Z M144.60 341L144.60 341Q136.30 341 129.85 337.35Q123.40 333.70 119.70 327.30Q116 320.90 116 312.80L116 312.80L116 269.70L129.60 269.70L129.60 313.20Q129.60 317.90 131.55 321.30Q133.50 324.70 136.95 326.55Q140.40 328.40 144.60 328.40L144.60 328.40Q148.90 328.40 152.20 326.55Q155.50 324.70 157.45 321.30Q159.40 317.90 159.40 313.30L159.40 313.30L159.40 269.70L173.10 269.70L173.10 312.90Q173.10 321 169.40 327.35Q165.70 333.70 159.35 337.35Q153 341 144.60 341Z M235.60 340L221.90 340L221.90 271.20L235.60 271.20L235.60 340ZM258 281.80L199.50 281.80L199.50 269.70L258 269.70L258 281.80Z M299.00 340L285.40 340L285.40 269.70L299.00 269.70L299.00 340Z M345.00 340L331.40 340L331.40 269.70L340.90 269.70L345.00 283.30L345.00 340ZM382.60 323.70L380.00 340L338.30 286L340.90 269.70L382.60 323.70ZM389.80 340L380.00 340L376.10 326.80L376.10 269.70L389.80 269.70L389.80 340Z M435.70 340L422.10 340L422.10 269.70L435.70 269.70L435.70 340Z M477.10 340L462.90 340L491.20 269.70L502.30 269.70L530.50 340L516 340L494.20 282.30L499.20 282.30L477.10 340ZM515.70 326.90L477.90 326.90L477.90 315.50L515.70 315.50L515.70 326.90Z" fill="url(#vw)"/>
+</svg>
