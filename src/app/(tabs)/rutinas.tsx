@@ -1319,14 +1319,6 @@ export default function RutinasScreen() {
                             <Text style={styles.heroKicker}>
                               {planDestacado.activo ? 'PLAN ACTIVO' : 'PLAN'}
                             </Text>
-                            {planDestacado.diasPorSemana && planDestacado.diasPorSemana > 0 ? (
-                              <>
-                                <Text style={styles.heroKickerDim}>·</Text>
-                                <Text style={styles.heroKicker}>
-                                  {planDestacado.diasPorSemana} DÍAS / SEM
-                                </Text>
-                              </>
-                            ) : null}
                           </View>
                         </View>
 
@@ -1425,11 +1417,6 @@ export default function RutinasScreen() {
                   {planesSecundarios.map((p) => {
                     const rutsCount = p.totalRutinas || 0;
                     const diasPorSemana = p.diasPorSemana || 0;
-                    const tag = p.activo
-                      ? 'Activo'
-                      : planDestacado?.activo
-                        ? 'Secundario'
-                        : 'Plan';
 
                     return (
                       <GlassSurface key={p.id} style={styles.compactPlan} contentStyle={styles.compactPlanContent}>
@@ -1455,7 +1442,6 @@ export default function RutinasScreen() {
                                 <Text style={styles.compactPlanName} numberOfLines={1}>
                                   {p.nombre}
                                 </Text>
-                                <Text style={styles.compactPlanTag}>{tag}</Text>
                               </View>
                               <Text style={styles.compactPlanMeta} numberOfLines={1}>
                                 {rutsCount} {rutsCount === 1 ? 'rutina' : 'rutinas'} ·{' '}
@@ -1480,18 +1466,20 @@ export default function RutinasScreen() {
                               onPress={() => abrirAccionesPlan(p)}
                               label={`Opciones de ${p.nombre}`}
                             />
-                            <Pressable
-                              onPress={() => seleccionarPlan(p)}
-                              accessibilityRole="button"
-                              accessibilityLabel={`Abrir plan ${p.nombre}`}
-                              hitSlop={8}
-                              style={({ pressed }) => [
-                                styles.compactChevron,
-                                pressed && styles.pressedSoft,
-                              ]}
-                            >
-                              <Ionicons name="chevron-forward" size={16} color={noir.muted} />
-                            </Pressable>
+                            {!isCompact ? (
+                              <Pressable
+                                onPress={() => seleccionarPlan(p)}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Abrir plan ${p.nombre}`}
+                                hitSlop={8}
+                                style={({ pressed }) => [
+                                  styles.compactChevron,
+                                  pressed && styles.pressedSoft,
+                                ]}
+                              >
+                                <Ionicons name="chevron-forward" size={16} color={noir.muted} />
+                              </Pressable>
+                            ) : null}
                           </View>
                         </View>
                       </GlassSurface>
@@ -1598,10 +1586,6 @@ export default function RutinasScreen() {
                         />
                         <Text style={styles.heroKicker}>
                           {planSeleccionado.activo ? 'PLAN ACTIVO' : 'PLAN'}
-                        </Text>
-                        <Text style={styles.heroKickerDim}>·</Text>
-                        <Text style={styles.heroKicker}>
-                          {diasDetalle > 0 ? `${diasDetalle} DÍAS / SEM` : 'DÍAS FLEXIBLES'}
                         </Text>
                       </View>
                       <Text style={styles.heroKickerSoft}>PLAN DE ENTRENAMIENTO</Text>
@@ -2508,11 +2492,6 @@ const styles = StyleSheet.create({
     fontSize: 8.5,
     letterSpacing: 1.1,
   },
-  heroKickerDim: {
-    color: noir.muted2,
-    fontFamily: fuentes.medium,
-    fontSize: 8.5,
-  },
   heroKickerSoft: {
     color: noir.muted2,
     fontFamily: fuentes.semiBold,
@@ -2766,21 +2745,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     flexShrink: 1,
     minWidth: 0,
-  },
-  compactPlanTag: {
-    color: noir.muted2,
-    fontFamily: fuentes.semiBold,
-    fontSize: 7.4,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: noir.line,
-    backgroundColor: noir.glass,
-    overflow: 'hidden',
-    flexShrink: 0,
   },
   compactPlanMeta: {
     color: noir.muted,

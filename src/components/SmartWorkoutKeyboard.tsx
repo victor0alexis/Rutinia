@@ -7,7 +7,8 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colores, fuentes } from '../constants/colores';
+import { LinearGradient } from 'expo-linear-gradient';
+import { fuentes, noir } from '../constants/colores';
 import { vibrarBoton } from '../utils/haptics';
 import { calcular1RMEstimado, calcularDiscosPorLado } from '../utils/calculadoraFuerza';
 import { useLayout } from '../hooks/useLayout';
@@ -183,6 +184,8 @@ export default function SmartWorkoutKeyboard({
     }
   };
 
+  const unidad = esDecimal ? 'kg' : esRIR ? 'RIR' : esParciales ? '+ reps' : 'reps';
+
   if (!visible) return null;
 
   return (
@@ -200,9 +203,11 @@ export default function SmartWorkoutKeyboard({
           (isLandscape || isTablet) && styles.panelCentrado,
         ]}
       >
-        {/* BARRA SUPERIOR: Contexto, 1RM en vivo y Botón Cerrar */}
+        <View style={styles.kbHandle} />
+
+        {/* BARRA SUPERIOR: contexto de la serie */}
         <View style={styles.headerBar}>
-          <View style={{ flex: 1, marginRight: 8 }}>
+          <View style={{ flex: 1, marginRight: 8, minWidth: 0 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={styles.nombreEjercicioText} numberOfLines={1}>
                 {nombreEjercicio}
@@ -214,19 +219,8 @@ export default function SmartWorkoutKeyboard({
                 </Text>
               </View>
             </View>
-
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-              <Text style={styles.campoActivoText}>{etiquetaCampo()}</Text>
-              {estimacion1RM !== null && (
-                <View style={styles.badge1RM}>
-                  <Ionicons name="flame" size={11} color="#F59E0B" />
-                  <Text style={styles.badge1RMText}>1RM Est: {estimacion1RM} kg</Text>
-                </View>
-              )}
-            </View>
           </View>
 
-          {/* Botón Cerrar Teclado */}
           <Pressable
             onPress={() => {
               vibrarBoton(10);
@@ -234,18 +228,47 @@ export default function SmartWorkoutKeyboard({
             }}
             hitSlop={8}
             style={({ pressed }) => [styles.btnCerrar, pressed && { opacity: 0.6 }]}
+            accessibilityLabel="Cerrar teclado"
           >
-            <Ionicons name="chevron-down" size={22} color={colores.suave} />
+            <Ionicons name="chevron-down" size={18} color={noir.platinum} />
           </Pressable>
         </View>
 
+        {/* DISPLAY GRANDE DEL VALOR ACTIVO */}
+        <View style={styles.kbDisplay}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.kbDisplayLabel}>{etiquetaCampo()}</Text>
+            <View style={styles.kbDisplayValueRow}>
+              <Text style={styles.kbDisplayValue} numberOfLines={1}>
+                {valorActual || '0'}
+              </Text>
+              <Text style={styles.kbDisplayUnit}>{unidad}</Text>
+            </View>
+            <Text style={styles.kbDisplayHint} numberOfLines={1}>
+              {valorPrevioSugerido
+                ? `Previa ${valorPrevioSugerido}${esDecimal ? ' kg' : esParciales ? 'p' : ' reps'}`
+                : 'Ajusta el valor con el teclado'}
+            </Text>
+          </View>
+
+          {estimacion1RM !== null && (
+            <View style={styles.kb1RM}>
+              <Ionicons name="flame" size={11} color={noir.champagne} />
+              <View>
+                <Text style={styles.kb1RMLabel}>1RM EST.</Text>
+                <Text style={styles.kb1RMValue}>{estimacion1RM} kg</Text>
+              </View>
+            </View>
+          )}
+        </View>
+
         {/* CALCULADORA DE DISCOS (Si está desplegada) */}
-        {mostrarCalculadoraDiscos && infoDiscos && (
+        {esDecimal && mostrarCalculadoraDiscos && infoDiscos && (
           <View style={styles.barraDiscos}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 }}>
-              <Ionicons name="barbell-outline" size={14} color={colores.primarioHover} />
+            <View style={styles.barraDiscosHeader}>
+              <Ionicons name="barbell-outline" size={12} color={noir.info} />
               <Text style={styles.barraDiscosTitulo}>
-                Barra 20kg + {infoDiscos.pesoPorLado} kg por lado:
+                Barra 20 kg + {infoDiscos.pesoPorLado} kg / lado
               </Text>
             </View>
             <View style={styles.discosRow}>
@@ -257,9 +280,7 @@ export default function SmartWorkoutKeyboard({
                   </View>
                 ))
               ) : (
-                <Text style={{ color: colores.suave, fontSize: 11, fontStyle: 'italic' }}>
-                  Solo la barra olímpica (20 kg)
-                </Text>
+                <Text style={styles.discosVacio}>Solo la barra olímpica (20 kg)</Text>
               )}
             </View>
           </View>
@@ -287,7 +308,7 @@ export default function SmartWorkoutKeyboard({
                   onPress={() => ajustarPeso(2.5)}
                   style={({ pressed }) => [styles.btnStepper, styles.btnStepperAccent, pressed && styles.btnStepperPressed]}
                 >
-                  <Text style={[styles.btnStepperText, { color: colores.primarioHover }]}>+2.5</Text>
+                  <Text style={[styles.btnStepperText, { color: noir.info }]}>+2.5</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => ajustarPeso(5)}
@@ -312,7 +333,7 @@ export default function SmartWorkoutKeyboard({
                 <Ionicons
                   name="barbell"
                   size={14}
-                  color={mostrarCalculadoraDiscos ? colores.primarioHover : colores.suave}
+                  color={mostrarCalculadoraDiscos ? noir.info : noir.muted}
                 />
               </Pressable>
 
@@ -390,7 +411,7 @@ export default function SmartWorkoutKeyboard({
                       r === '0' && { color: '#EF4444' },
                     ]}
                   >
-                    {r === '0' ? '0 (Fallo)' : r}
+                    {r === '0' ? '0' : r}
                   </Text>
                 </Pressable>
               ))}
@@ -477,7 +498,7 @@ export default function SmartWorkoutKeyboard({
                 delayLongPress={300}
                 style={({ pressed }) => [styles.teclaBtn, styles.teclaAccionSecundaria, pressed && styles.teclaBtnPressed]}
               >
-                <Ionicons name="backspace-outline" size={20} color={colores.texto} />
+                <Ionicons name="backspace-outline" size={19} color={noir.platinum} />
               </Pressable>
             </View>
           </View>
@@ -491,8 +512,9 @@ export default function SmartWorkoutKeyboard({
                 onNext();
               }}
               style={({ pressed }) => [styles.btnFlujoSiguiente, pressed && styles.btnFlujoPressed]}
+              accessibilityLabel="Siguiente campo"
             >
-              <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+              <Ionicons name="arrow-forward" size={17} color={noir.info} />
               <Text style={styles.btnFlujoSiguienteText}>Sig.</Text>
             </Pressable>
 
@@ -503,8 +525,15 @@ export default function SmartWorkoutKeyboard({
                 onCompletarSerie();
               }}
               style={({ pressed }) => [styles.btnFlujoCompletar, pressed && styles.btnFlujoPressed]}
+              accessibilityLabel="Completar serie"
             >
-              <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+              <LinearGradient
+                colors={['#8CFFD6', noir.mint]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[StyleSheet.absoluteFill, { borderRadius: 8 }]}
+              />
+              <Ionicons name="checkmark-circle" size={19} color="#06120D" />
               <Text style={styles.btnFlujoCompletarText}>Hecha</Text>
             </Pressable>
           </View>
@@ -532,24 +561,38 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 99999,
-    backgroundColor: 'rgba(11, 13, 20, 0.98)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(194, 36, 61, 0.40)',
-    shadowColor: '#C2243D',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 24,
+    backgroundColor: 'transparent',
   },
   panelPrincipal: {
     width: '100%',
-    paddingHorizontal: 12,
-    paddingTop: 8,
+    paddingHorizontal: 14,
+    paddingTop: 6,
     paddingBottom: 4,
+    backgroundColor: 'rgba(9, 11, 16, 0.985)',
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderTopWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.13)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -12 },
+    shadowOpacity: 0.38,
+    shadowRadius: 24,
+    elevation: 24,
   },
   panelCentrado: {
     maxWidth: 620,
     alignSelf: 'center',
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  kbHandle: {
+    width: 34,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    alignSelf: 'center',
+    marginBottom: 7,
   },
 
   /* HEADER */
@@ -557,298 +600,379 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 6,
+    paddingBottom: 7,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.07)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   nombreEjercicioText: {
-    color: colores.texto,
+    color: noir.text,
     fontSize: 13,
     fontFamily: fuentes.bold,
+    flexShrink: 1,
   },
   badgeSerie: {
-    backgroundColor: 'rgba(194, 36, 61, 0.20)',
+    backgroundColor: 'rgba(179, 148, 255, 0.08)',
     paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
+    paddingVertical: 2,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(179, 148, 255, 0.2)',
   },
   badgeSerieText: {
-    color: colores.primarioHover,
-    fontSize: 10,
+    color: '#E6DCFF',
+    fontSize: 8,
     fontFamily: fuentes.bold,
+    letterSpacing: 0.2,
   },
   campoActivoText: {
-    color: colores.hoy,
-    fontSize: 11,
+    color: noir.info,
+    fontSize: 7.4,
     fontFamily: fuentes.bold,
-    letterSpacing: 0.5,
-  },
-  badge1RM: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
-  },
-  badge1RMText: {
-    color: '#F59E0B',
-    fontSize: 10,
-    fontFamily: fuentes.bold,
+    letterSpacing: 0.65,
+    textTransform: 'uppercase',
+    marginTop: 3,
   },
   btnCerrar: {
-    padding: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 20,
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.045)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.09)',
+    borderRadius: 15,
+  },
+
+  /* DISPLAY */
+  kbDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.025)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    marginTop: 7,
+  },
+  kbDisplayLabel: {
+    color: noir.info,
+    fontFamily: fuentes.bold,
+    fontSize: 7.2,
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+  },
+  kbDisplayValueRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    marginTop: 1,
+  },
+  kbDisplayValue: {
+    color: noir.text,
+    fontFamily: fuentes.black,
+    fontSize: 29,
+    lineHeight: 31,
+    letterSpacing: -1,
+    fontVariant: ['tabular-nums'],
+  },
+  kbDisplayUnit: {
+    color: noir.muted,
+    fontFamily: fuentes.bold,
+    fontSize: 10,
+    marginLeft: 4,
+    marginBottom: 4,
+  },
+  kbDisplayHint: {
+    color: noir.muted2,
+    fontFamily: fuentes.medium,
+    fontSize: 7.4,
+    marginTop: 1,
+  },
+  kb1RM: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255, 209, 102, 0.065)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 209, 102, 0.2)',
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 5,
+  },
+  kb1RMLabel: {
+    color: noir.champagne,
+    fontFamily: fuentes.bold,
+    fontSize: 6.4,
+    letterSpacing: 0.55,
+  },
+  kb1RMValue: {
+    color: '#FFE6A8',
+    fontFamily: fuentes.black,
+    fontSize: 11,
+    fontVariant: ['tabular-nums'],
   },
 
   /* BARRA DISCOS */
   barraDiscos: {
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-    borderRadius: 8,
-    padding: 8,
+    backgroundColor: 'rgba(92, 200, 255, 0.035)',
+    borderRadius: 9,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     marginTop: 6,
     borderWidth: 1,
-    borderColor: 'rgba(194, 36, 61, 0.3)',
+    borderColor: 'rgba(92, 200, 255, 0.14)',
+  },
+  barraDiscosHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
   },
   barraDiscosTitulo: {
-    color: colores.texto,
-    fontSize: 11,
+    color: '#CDEEFF',
+    fontSize: 7.6,
     fontFamily: fuentes.bold,
+    letterSpacing: 0.15,
   },
   discosRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 4,
   },
   chipDisco: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    backgroundColor: 'rgba(194, 36, 61, 0.25)',
-    paddingHorizontal: 6,
+    backgroundColor: 'rgba(92, 200, 255, 0.08)',
+    paddingHorizontal: 5,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 5,
     borderWidth: 1,
-    borderColor: colores.primarioHover,
+    borderColor: 'rgba(92, 200, 255, 0.2)',
   },
   chipDiscoCant: {
-    color: colores.texto,
-    fontSize: 10,
+    color: noir.platinum,
+    fontSize: 8,
     fontFamily: fuentes.bold,
   },
   chipDiscoPeso: {
-    color: '#FFFFFF',
-    fontSize: 10,
+    color: noir.info,
+    fontSize: 8.5,
     fontFamily: fuentes.black,
+  },
+  discosVacio: {
+    color: noir.muted,
+    fontSize: 8,
+    fontFamily: fuentes.medium,
+    fontStyle: 'italic',
   },
 
   /* TOOLBAR RÁPIDA */
   toolbarRapida: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     paddingVertical: 6,
-    minHeight: 40,
+    minHeight: 36,
   },
   steppersRow: {
     flexDirection: 'row',
-    gap: 5,
+    gap: 4,
     flex: 1,
   },
   btnStepper: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    paddingVertical: 6,
-    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.045)',
+    paddingVertical: 5,
+    borderRadius: 7,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   btnStepperAccent: {
-    borderColor: 'rgba(194, 36, 61, 0.5)',
-    backgroundColor: 'rgba(194, 36, 61, 0.15)',
+    borderColor: 'rgba(92, 200, 255, 0.28)',
+    backgroundColor: 'rgba(92, 200, 255, 0.08)',
   },
   btnStepperPressed: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(92, 200, 255, 0.18)',
+    borderColor: 'rgba(92, 200, 255, 0.4)',
   },
   btnStepperText: {
-    color: colores.texto,
-    fontSize: 11,
+    color: noir.platinum,
+    fontSize: 9.5,
     fontFamily: fuentes.bold,
   },
   btnAccionEspecial: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.045)',
+    paddingHorizontal: 7,
+    paddingVertical: 5,
+    borderRadius: 7,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   btnAccionEspecialActiva: {
-    backgroundColor: 'rgba(194, 36, 61, 0.2)',
-    borderColor: colores.primarioHover,
+    backgroundColor: 'rgba(92, 200, 255, 0.12)',
+    borderColor: 'rgba(92, 200, 255, 0.35)',
   },
   btnCopiarText: {
-    color: colores.hoy,
-    fontSize: 11,
+    color: noir.champagne,
+    fontSize: 9,
     fontFamily: fuentes.bold,
   },
 
   /* CHIPS REPS */
   chipsRepsRow: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 4,
     flex: 1,
   },
   chipRep: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    paddingVertical: 6,
-    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.045)',
+    paddingVertical: 5,
+    borderRadius: 7,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   chipRepActivo: {
-    backgroundColor: 'rgba(194, 36, 61, 0.25)',
-    borderColor: colores.primarioHover,
+    backgroundColor: 'rgba(92, 200, 255, 0.12)',
+    borderColor: 'rgba(92, 200, 255, 0.4)',
   },
   chipRepText: {
-    color: colores.texto,
-    fontSize: 12,
+    color: noir.platinum,
+    fontSize: 10,
     fontFamily: fuentes.bold,
   },
   chipRepTextActivo: {
-    color: colores.primarioHover,
+    color: '#CDEEFF',
   },
 
   /* CHIPS RIR */
   chipsRIRRow: {
     flexDirection: 'row',
-    gap: 5,
+    gap: 4,
     flex: 1,
   },
   chipRIR: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    paddingVertical: 6,
-    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.045)',
+    paddingVertical: 5,
+    borderRadius: 7,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   chipRIRActivo: {
-    backgroundColor: 'rgba(245, 158, 11, 0.25)',
-    borderColor: '#F59E0B',
+    backgroundColor: 'rgba(255, 209, 102, 0.14)',
+    borderColor: 'rgba(255, 209, 102, 0.45)',
   },
   chipRIRFallo: {
-    borderLeftWidth: 2,
-    borderLeftColor: '#EF4444',
+    borderColor: 'rgba(240, 138, 155, 0.4)',
+    backgroundColor: 'rgba(240, 138, 155, 0.07)',
   },
   chipRIRText: {
-    color: colores.texto,
-    fontSize: 10,
+    color: noir.platinum,
+    fontSize: 9,
     fontFamily: fuentes.bold,
   },
   chipRIRTextActivo: {
-    color: '#F59E0B',
+    color: noir.champagne,
   },
 
   /* GRID TECLADO */
   gridContenedor: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 2,
+    gap: 7,
+    marginTop: 1,
   },
   gridNumerico: {
     flex: 3.2,
-    gap: 6,
+    gap: 5,
   },
   tecladoFila: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 5,
   },
   teclaBtn: {
     flex: 1,
-    height: 44,
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    height: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.055)',
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.09)',
+    borderColor: 'rgba(255, 255, 255, 0.075)',
   },
   teclaBtnPressed: {
-    backgroundColor: 'rgba(194, 36, 61, 0.35)',
-    borderColor: colores.primarioHover,
+    backgroundColor: 'rgba(92, 200, 255, 0.18)',
+    borderColor: 'rgba(92, 200, 255, 0.45)',
     transform: [{ scale: 0.96 }],
   },
   teclaNumText: {
-    color: '#FFFFFF',
-    fontSize: 18,
+    color: noir.text,
+    fontSize: 17,
     fontFamily: fuentes.bold,
+    fontVariant: ['tabular-nums'],
   },
   teclaPuntoText: {
-    color: '#FFFFFF',
-    fontSize: 22,
+    color: noir.text,
+    fontSize: 20,
     fontFamily: fuentes.black,
   },
   teclaLimpiarText: {
-    color: colores.suave,
-    fontSize: 15,
+    color: noir.muted,
+    fontSize: 14,
     fontFamily: fuentes.bold,
   },
   teclaAccionSecundaria: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
   },
 
   /* COLUMNA DE FLUJO (DERECHA) */
   columnaFlujo: {
     flex: 1,
-    gap: 6,
+    gap: 5,
   },
   btnFlujoSiguiente: {
     flex: 1,
-    backgroundColor: 'rgba(59, 130, 246, 0.35)',
+    backgroundColor: 'rgba(92, 200, 255, 0.08)',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#3B82F6',
+    borderColor: 'rgba(92, 200, 255, 0.28)',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
   },
   btnFlujoSiguienteText: {
-    color: '#FFFFFF',
-    fontSize: 11,
+    color: '#CDEEFF',
+    fontSize: 9,
     fontFamily: fuentes.bold,
   },
   btnFlujoCompletar: {
     flex: 1.4,
-    backgroundColor: 'rgba(16, 185, 129, 0.40)',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#10B981',
+    borderColor: noir.mint,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
+    overflow: 'hidden',
   },
   btnFlujoCompletarText: {
-    color: '#FFFFFF',
-    fontSize: 11,
+    color: '#06120D',
+    fontSize: 10,
     fontFamily: fuentes.black,
-    letterSpacing: 0.5,
+    letterSpacing: 0.25,
   },
   btnFlujoPressed: {
-    opacity: 0.75,
+    opacity: 0.78,
     transform: [{ scale: 0.96 }],
   },
 });

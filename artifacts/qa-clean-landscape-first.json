@@ -1,0 +1,25 @@
+{
+  "url": "http://127.0.0.1:8083/rutinas",
+  "title": "Planes & Rutinas · Rutinia",
+  "width": 844,
+  "height": 390,
+  "documentWidth": 844,
+  "text": "A\nSISTEMA DE ENTRENAMIENTO\nPlanes & Rutinas\n2 planes  ·  7 rutinas  ·  1 activo\n\n\nPLAN ACTIVO\n\n\nUpper-Lower (Gym)\nHipertrofia / Fuerza  ·  4 rutinas\n4\nRUTINAS\n4\nDÍAS / SEM\nActivo\nESTADO\n\nAbrir plan\n\nUpper-Lower (Casa)\n3 rutinas · días flexibles\nActivar\n\n\n+ Nuevo plan\n\n\n\n\n",
+  "shiny": [
+    {
+      "text": "Upper-Lower (Gym)",
+      "rect": {
+        "x": 101,
+        "y": 231.296875,
+        "width": 642,
+        "height": 33.796875,
+        "top": 231.296875,
+        "right": 743,
+        "bottom": 265.09375,
+        "left": 101
+      },
+      "lineHeight": "33.8px"
+    }
+  ],
+  "horizontalOverflow": []
+}

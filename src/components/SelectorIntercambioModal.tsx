@@ -10,7 +10,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colores, fuentes } from '../constants/colores';
+import { fuentes, noir } from '../constants/colores';
 import { useLayout } from '../hooks/useLayout';
 import { EjercicioCatalogo } from '../types';
 import { listarEjerciciosCatalogo, crearEjercicioCatalogo } from '../services/catalogo';
@@ -130,7 +130,7 @@ export default function SelectorIntercambioModal({
           <View style={styles.sheetHeader}>
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Ionicons name="swap-horizontal" size={16} color={colores.primarioHover} />
+                <Ionicons name="swap-horizontal" size={16} color={noir.info} />
                 <Text style={styles.headerSubtitle}>
                   {modo === 'solo_hoy' ? 'SUSTITUIR SOLO HOY' : 'REEMPLAZO PERMANENTE EN RUTINA'}
                 </Text>
@@ -141,16 +141,16 @@ export default function SelectorIntercambioModal({
             </View>
 
             <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={8}>
-              <Ionicons name="close" size={20} color={colores.texto} />
+              <Ionicons name="close" size={20} color={noir.text} />
             </Pressable>
           </View>
 
           {/* Buscador */}
           <View style={styles.searchBar}>
-            <Ionicons name="search" size={16} color={colores.suave} />
+            <Ionicons name="search" size={16} color={noir.muted} />
             <TextInput
               placeholder="Buscar ejercicio o grupo muscular..."
-              placeholderTextColor={colores.suave}
+              placeholderTextColor={noir.muted}
               value={busqueda}
               onChangeText={setBusqueda}
               inputMode="search"
@@ -165,7 +165,7 @@ export default function SelectorIntercambioModal({
             />
             {Boolean(busqueda) && (
               <Pressable onPress={() => setBusqueda('')} hitSlop={6}>
-                <Ionicons name="close-circle" size={16} color={colores.suave} />
+                <Ionicons name="close-circle" size={16} color={noir.muted} />
               </Pressable>
             )}
           </View>
@@ -179,7 +179,7 @@ export default function SelectorIntercambioModal({
             ]}
           >
             <View style={styles.iconBoxBiblioIntercambio}>
-              <Ionicons name="albums" size={15} color="#FFFFFF" />
+              <Ionicons name="albums" size={15} color={noir.lavender} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.btnBiblioIntercambioTitle}>
@@ -189,7 +189,7 @@ export default function SelectorIntercambioModal({
                 Filtrar por músculo con animaciones y técnica
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={colores.suave} />
+            <Ionicons name="chevron-forward" size={16} color={noir.muted} />
           </Pressable>
 
           {/* Lista de Ejercicios */}
@@ -210,13 +210,13 @@ export default function SelectorIntercambioModal({
                 ]}
               >
                 <View style={styles.crearIconBox}>
-                  <Ionicons name="add" size={18} color={colores.exito} />
+                  <Ionicons name="add" size={18} color={noir.mint} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: colores.exito, fontFamily: fuentes.bold, fontSize: 13 }}>
+                  <Text style={{ color: noir.mint, fontFamily: fuentes.bold, fontSize: 13 }}>
                     Crear y usar &quot;{busqueda.trim()}&quot;
                   </Text>
-                  <Text style={{ color: colores.suave, fontSize: 11, fontFamily: fuentes.regular }}>
+                  <Text style={{ color: noir.muted, fontSize: 11, fontFamily: fuentes.regular }}>
                     Se guardará en tu catálogo de ejercicios
                   </Text>
                 </View>
@@ -227,7 +227,7 @@ export default function SelectorIntercambioModal({
             {!busqueda.trim() && alternativasSugeridas.length > 0 && (
               <View style={{ gap: 6 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="sparkles" size={13} color={colores.hoy} />
+                  <Ionicons name="sparkles" size={13} color={noir.champagne} />
                   <Text style={styles.sectionTitle}>ALTERNATIVAS SUGERIDAS</Text>
                 </View>
 
@@ -253,7 +253,7 @@ export default function SelectorIntercambioModal({
                           <Text
                             style={[
                               styles.itemNombre,
-                              deshabilitado && { color: colores.suave },
+                              deshabilitado && { color: noir.muted },
                             ]}
                           >
                             {item.nombre}
@@ -274,7 +274,7 @@ export default function SelectorIntercambioModal({
                             <Text style={styles.badgeYaEnRutinaText}>En rutina</Text>
                           </View>
                         ) : (
-                          <Ionicons name="chevron-forward" size={16} color={colores.suave} />
+                          <Ionicons name="chevron-forward" size={16} color={noir.muted} />
                         )}
                       </Pressable>
                     );
@@ -291,7 +291,7 @@ export default function SelectorIntercambioModal({
 
               {catalogoFiltrado.length === 0 ? (
                 <View style={styles.emptyBox}>
-                  <Ionicons name="fitness-outline" size={28} color={colores.suave} />
+                  <Ionicons name="fitness-outline" size={28} color={noir.muted} />
                   <Text style={styles.emptyText}>No se encontraron ejercicios con ese nombre.</Text>
                 </View>
               ) : (
@@ -316,7 +316,7 @@ export default function SelectorIntercambioModal({
                         <Text
                           style={[
                             styles.itemNombre,
-                            deshabilitado && { color: colores.suave },
+                            deshabilitado && { color: noir.muted },
                           ]}
                         >
                           {item.nombre}
@@ -337,7 +337,7 @@ export default function SelectorIntercambioModal({
                           <Text style={styles.badgeYaEnRutinaText}>En rutina</Text>
                         </View>
                       ) : (
-                        <Ionicons name="chevron-forward" size={16} color={colores.suave} />
+                        <Ionicons name="chevron-forward" size={16} color={noir.muted} />
                       )}
                     </Pressable>
                   );
@@ -378,83 +378,93 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   sheetContainer: {
-    backgroundColor: '#0F111A',
+    backgroundColor: noir.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    paddingTop: 16,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    paddingTop: 14,
     paddingHorizontal: 16,
     width: '100%',
     maxWidth: 640,
     alignSelf: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -12 },
+    shadowOpacity: 0.38,
+    shadowRadius: 24,
+    elevation: 20,
   },
   sheetHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: 12,
+    paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   headerSubtitle: {
-    fontSize: 10,
+    fontSize: 8.5,
     fontFamily: fuentes.bold,
-    color: colores.primarioHover,
-    letterSpacing: 1,
+    color: noir.info,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
   headerTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: fuentes.black,
-    color: colores.texto,
+    color: noir.text,
     marginTop: 2,
+    letterSpacing: -0.25,
   },
   closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    width: 33,
+    height: 33,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.09)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 44,
-    gap: 8,
-    marginTop: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 11,
+    paddingHorizontal: 11,
+    height: 42,
+    gap: 7,
+    marginTop: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.075)',
   },
   searchInput: {
     flex: 1,
-    color: colores.texto,
-    fontSize: 14,
+    color: noir.text,
+    fontSize: 12.5,
     fontFamily: fuentes.medium,
     padding: 0,
   },
   scrollList: {
-    marginTop: 12,
+    marginTop: 10,
     flex: 1,
   },
   sectionTitle: {
-    fontSize: 10,
+    fontSize: 8,
     fontFamily: fuentes.bold,
-    color: colores.suave,
+    color: noir.muted2,
     letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
   itemCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.022)',
+    borderRadius: 11,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderColor: 'rgba(255, 255, 255, 0.055)',
     gap: 8,
   },
   itemCardDisabled: {
@@ -462,57 +472,59 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   itemNombre: {
-    fontSize: 14,
+    fontSize: 12.5,
     fontFamily: fuentes.bold,
-    color: colores.texto,
+    color: noir.text,
   },
   itemMeta: {
-    fontSize: 11,
+    fontSize: 9,
     fontFamily: fuentes.regular,
-    color: colores.suave,
+    color: noir.muted,
     marginTop: 2,
   },
   badgeActual: {
-    backgroundColor: 'rgba(59, 130, 246, 0.2)',
-    paddingHorizontal: 8,
+    backgroundColor: 'rgba(92, 200, 255, 0.09)',
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 5,
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.4)',
+    borderColor: 'rgba(92, 200, 255, 0.25)',
   },
   badgeActualText: {
-    fontSize: 10,
+    fontSize: 8,
     fontFamily: fuentes.bold,
-    color: '#60A5FA',
+    color: '#CDEEFF',
   },
   badgeYaEnRutina: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    paddingHorizontal: 8,
+    backgroundColor: 'rgba(179, 148, 255, 0.09)',
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 5,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: 'rgba(179, 148, 255, 0.25)',
   },
   badgeYaEnRutinaText: {
-    fontSize: 10,
+    fontSize: 8,
     fontFamily: fuentes.bold,
-    color: '#F87171',
+    color: '#E6DCFF',
   },
   crearCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: 'rgba(63, 242, 176, 0.045)',
+    borderRadius: 11,
+    padding: 10,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
-    gap: 10,
+    borderColor: 'rgba(63, 242, 176, 0.18)',
+    gap: 9,
   },
   crearIconBox: {
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     borderRadius: 8,
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    backgroundColor: 'rgba(63, 242, 176, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(63, 242, 176, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -522,40 +534,43 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptyText: {
-    color: colores.suave,
-    fontSize: 13,
+    color: noir.muted,
+    fontSize: 12,
     fontFamily: fuentes.regular,
     textAlign: 'center',
   },
   btnExplorarBiblioteca: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(158, 28, 48, 0.12)',
+    backgroundColor: 'rgba(179, 148, 255, 0.045)',
     borderWidth: 1,
-    borderColor: 'rgba(158, 28, 48, 0.35)',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginHorizontal: 16,
-    marginBottom: 8,
-    gap: 10,
+    borderColor: 'rgba(179, 148, 255, 0.16)',
+    borderRadius: 11,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    marginHorizontal: 0,
+    marginTop: 8,
+    marginBottom: 6,
+    gap: 9,
   },
   iconBoxBiblioIntercambio: {
     width: 30,
     height: 30,
     borderRadius: 8,
-    backgroundColor: colores.primario,
+    backgroundColor: 'rgba(179, 148, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(179, 148, 255, 0.18)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   btnBiblioIntercambioTitle: {
-    color: colores.texto,
-    fontSize: 12,
+    color: noir.text,
+    fontSize: 11.5,
     fontFamily: fuentes.bold,
   },
   btnBiblioIntercambioSub: {
-    color: colores.suave,
-    fontSize: 10,
+    color: noir.muted,
+    fontSize: 9,
     fontFamily: fuentes.regular,
   },
 });

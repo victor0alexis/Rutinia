@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { colores, fuentes } from '../constants/colores';
+import { colores, fuentes, noir } from '../constants/colores';
 import { useLayout } from '../hooks/useLayout';
 import ScreenBackground from './ScreenBackground';
 import { LiquidMetalButton } from './LiquidMetalButton';
@@ -85,6 +85,7 @@ export type SerieEjecucion = {
   tieneParciales: boolean;
   esDropset: boolean;
   drops: DropItemEjecucion[];
+  tipo?: 'normal' | 'calentamiento' | 'fallo';
 };
 
 export type EjercicioState = {
@@ -136,9 +137,9 @@ export default function EjecutarEntrenamientoModal({
     isKeyboardVisible,
   } = useLayout();
 
-  const dockHeight = isLandscape ? 52 : 72;
+  const dockHeight = isLandscape ? 76 : 98;
   const [focusTeclado, setFocusTeclado] = useState<FocusTeclado>(null);
-  const scrollBottomPad = (focusTeclado ? 280 : isKeyboardVisible ? 16 : dockHeight) + bottomInset + 20;
+  const scrollBottomPad = (focusTeclado ? 320 : isKeyboardVisible ? 16 : dockHeight) + bottomInset + 20;
 
   const [ejerciciosState, setEjerciciosState] = useState<EjercicioState[]>([]);
   const [ejercicioActivoIndex, setEjercicioActivoIndex] = useState(0);
@@ -399,7 +400,7 @@ export default function EjecutarEntrenamientoModal({
         completado: s.completado,
         previa: previaStr,
         repsParciales: s.repsParciales,
-        tipo: (s as any).tipo || 'normal',
+        tipo: s.tipo || 'normal',
         drops: (s.drops || []).map((d) => ({
           orden: d.orden,
           peso: d.kg,
@@ -410,6 +411,18 @@ export default function EjecutarEntrenamientoModal({
       };
     });
   }, [ejActivo, historialMap]);
+
+  const seriesCompletadasActivo = ejActivo
+    ? ejActivo.series.filter((s) => s.completado).length
+    : 0;
+  const totalSeriesActivo = ejActivo?.series.length || 0;
+  const indiceSerieDockRaw =
+    ejActivo?.series.findIndex((s) => !s.completado) ?? -1;
+  const indiceSerieDock = indiceSerieDockRaw >= 0 ? indiceSerieDockRaw : null;
+  const siguienteEjercicioIdx =
+    indexValido + 1 < ejerciciosState.length ? indexValido + 1 : null;
+  const todasCompletadasActivo =
+    totalSeriesActivo > 0 && seriesCompletadasActivo >= totalSeriesActivo;
 
   if (!fecha || !registro) return null;
 
@@ -1276,7 +1289,7 @@ export default function EjecutarEntrenamientoModal({
                 <View style={styles.lobbyHeaderRow}>
                   <Text style={styles.modalBadgeText}>PRE-ENTRENAMIENTO • {nombreDia(fecha)}</Text>
                   <Pressable onPress={onClose} style={styles.closeIconButton}>
-                    <Ionicons name="close" size={22} color={colores.texto} />
+                    <Ionicons name="close" size={22} color={noir.platinum} />
                   </Pressable>
                 </View>
 
@@ -1284,7 +1297,7 @@ export default function EjecutarEntrenamientoModal({
                 <View style={styles.lobbyHeroCard}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                     <View style={styles.lobbyIconBox}>
-                      <Ionicons name="flash" size={24} color={colores.primarioHover} />
+                      <Ionicons name="flash" size={24} color={noir.lavender} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.lobbyTitleText} numberOfLines={1}>
@@ -1301,15 +1314,15 @@ export default function EjecutarEntrenamientoModal({
                   {/* Highlights Grid */}
                   <View style={styles.lobbyGrid}>
                     <View style={styles.lobbyGridItem}>
-                      <Ionicons name="time-outline" size={16} color={colores.hoy} />
+                      <Ionicons name="time-outline" size={16} color={noir.champagne} />
                       <Text style={styles.lobbyGridItemText}>~45 min est.</Text>
                     </View>
                     <View style={styles.lobbyGridItem}>
-                      <Ionicons name="barbell-outline" size={16} color={colores.primarioHover} />
+                      <Ionicons name="barbell-outline" size={16} color={noir.info} />
                       <Text style={styles.lobbyGridItemText}>Sobrecarga Activa</Text>
                     </View>
                     <View style={styles.lobbyGridItem}>
-                      <Ionicons name="stats-chart-outline" size={16} color={colores.exito} />
+                      <Ionicons name="stats-chart-outline" size={16} color={noir.mint} />
                       <Text style={styles.lobbyGridItemText}>Seguimiento en Vivo</Text>
                     </View>
                   </View>
@@ -1324,13 +1337,13 @@ export default function EjecutarEntrenamientoModal({
                   >
                     {ejerciciosState.map((ej, idx) => (
                       <View key={ej.id} style={styles.lobbyExerciseItem}>
-                        <Text style={{ color: colores.primarioHover, fontFamily: fuentes.bold, width: 22 }}>
+                        <Text style={{ color: noir.info, fontFamily: fuentes.bold, width: 22 }}>
                           {idx + 1}.
                         </Text>
-                        <Text style={{ color: colores.texto, fontFamily: fuentes.bold, flex: 1 }}>
+                        <Text style={{ color: noir.text, fontFamily: fuentes.bold, flex: 1 }}>
                           {ej.nombre}
                         </Text>
-                        <Text style={{ color: colores.suave, fontFamily: fuentes.medium, fontSize: 11 }}>
+                        <Text style={{ color: noir.muted, fontFamily: fuentes.medium, fontSize: 11 }}>
                           {ej.series.length} series
                         </Text>
                       </View>
@@ -1352,37 +1365,58 @@ export default function EjecutarEntrenamientoModal({
             ) : (
               /* PANTALLA PRINCIPAL: MODO FOCUS DE ENTRENAMIENTO EN VIVO */
               <View style={{ flex: 1, width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center', position: 'relative' }}>
-                {/* Top Header Bar minimalista estilo boceto */}
-                <View style={styles.focusTopBar}>
-                  <Pressable onPress={onClose} hitSlop={10} style={styles.focusChevronBtn}>
-                    <Ionicons name="chevron-down" size={24} color="#FFFFFF" />
+                {/* Top Header Bar: timer central + acciones de sesión */}
+                <View style={[styles.focusTopBar, { paddingHorizontal: gutter }]}>
+                  <Pressable
+                    onPress={onClose}
+                    hitSlop={10}
+                    style={styles.focusChevronBtn}
+                    accessibilityLabel="Cerrar entrenamiento"
+                  >
+                    <Ionicons name="chevron-down" size={19} color={noir.platinum} />
                   </Pressable>
 
                   <Pressable onPress={togglePausaTimer} style={styles.focusTimerBox} hitSlop={6}>
                     <Text style={styles.focusTimerText}>
                       {formatearTiempo(segundosTranscurridos)}
                     </Text>
-                    <Text style={styles.focusSubtitleText} numberOfLines={1}>
-                      {registro.rutina_nombre || registro.rutinas?.nombre || registro.plan_nombre || 'Entrenamiento'}
-                    </Text>
+                    <View style={styles.focusSubtitleRow}>
+                      <View style={styles.focusLiveDot} />
+                      <Text style={styles.focusSubtitleText} numberOfLines={1}>
+                        {registro.rutina_nombre || registro.rutinas?.nombre || registro.plan_nombre || 'Entrenamiento'}
+                        {' · '}
+                        {nombreDia(fecha)}
+                      </Text>
+                    </View>
                   </Pressable>
 
                   <View style={styles.focusHeaderActions}>
-                    <Pressable onPress={togglePausaTimer} style={styles.focusTimerIconBtn} hitSlop={6}>
+                    <Pressable
+                      onPress={togglePausaTimer}
+                      style={styles.focusTimerIconBtn}
+                      hitSlop={6}
+                      accessibilityLabel={estadoTimer?.pausado ? 'Reanudar sesión' : 'Pausar sesión'}
+                    >
                       <Ionicons
-                        name={estadoTimer?.pausado ? 'play' : 'time-outline'}
-                        size={18}
-                        color={estadoTimer?.pausado ? '#F59E0B' : '#FFFFFF'}
+                        name={estadoTimer?.pausado ? 'play' : 'pause'}
+                        size={15}
+                        color={estadoTimer?.pausado ? noir.champagne : noir.platinum}
                       />
                     </Pressable>
 
-                    <Pressable onPress={abrirResumenConfirmacion} style={styles.focusTerminarBtn} hitSlop={6}>
+                    <Pressable
+                      onPress={abrirResumenConfirmacion}
+                      style={styles.focusTerminarBtn}
+                      hitSlop={6}
+                      accessibilityLabel="Terminar entrenamiento"
+                    >
+                      <Ionicons name="close" size={11} color="#F7B6C1" />
                       <Text style={styles.focusTerminarBtnText}>Terminar</Text>
                     </Pressable>
                   </View>
                 </View>
 
-                {/* Carrusel Superior de Avatares Anatómicos */}
+                {/* Carrusel Superior de Ejercicios con GIFs en modo oscuro */}
                 <CarruselEjerciciosHeader
                   ejercicios={itemsCarrusel}
                   activoIndex={indexValido}
@@ -1390,6 +1424,7 @@ export default function EjecutarEntrenamientoModal({
                     setEjercicioActivoIndex(idx);
                     setFocusTeclado(null);
                   }}
+                  style={{ marginHorizontal: gutter, marginBottom: 10 }}
                 />
 
                 {/* Contenido Scrollable del Ejercicio Activo */}
@@ -1408,7 +1443,19 @@ export default function EjecutarEntrenamientoModal({
                       <HeroEjercicioActivo
                         nombreEjercicio={ejActivo.nombre}
                         totalSeries={ejActivo.series.length}
-                        objetivoTexto={`${ejActivo.series.length} series`}
+                        seriesCompletadas={seriesCompletadasActivo}
+                        objetivoTexto={
+                          ejActivo.series[0]?.reps
+                            ? `${ejActivo.series[0].reps} reps`
+                            : undefined
+                        }
+                        nombrePlan={
+                          registro.plan_nombre ||
+                          registro.planes_entrenamiento?.nombre ||
+                          'Sesión de hoy'
+                        }
+                        indiceEjercicio={indexValido}
+                        totalEjercicios={ejerciciosState.length}
                         tieneHistorialPrevio={Boolean(historialMap[ejActivo.nombre]?.series?.length)}
                         onCopiarHistorial={() => {
                           copiarSeriesHistorial(indexValido);
@@ -1417,6 +1464,12 @@ export default function EjecutarEntrenamientoModal({
                           setSelectorIntercambio({ ejIdx: indexValido, modo: 'solo_hoy' });
                         }}
                         onNotas={() => {
+                          setModalNotaEjercicio({
+                            ejIdx: indexValido,
+                            nota: ejActivo.notaEjercicio || '',
+                          });
+                        }}
+                        onOpciones={() => {
                           setEjercicioMenu(indexValido);
                         }}
                       />
@@ -1426,6 +1479,10 @@ export default function EjecutarEntrenamientoModal({
                         ejIdx={indexValido}
                         series={seriesFocus}
                         activo={visible}
+                        nombreEjercicio={ejActivo.nombre}
+                        onIntercambiarEjercicio={(modo) => {
+                          setSelectorIntercambio({ ejIdx: indexValido, modo });
+                        }}
                         focusCampoActivo={
                           focusTeclado && focusTeclado.ejIdx === indexValido
                             ? {
@@ -1508,15 +1565,22 @@ export default function EjecutarEntrenamientoModal({
 
                       {/* Tarjeta de Notas Generales de la Sesión */}
                       <View style={styles.focusNotesCard}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                          <Ionicons name="document-text-outline" size={14} color={colores.suave} />
-                          <Text style={{ color: colores.suave, fontFamily: fuentes.bold, fontSize: 11 }}>
-                            NOTAS GENERALES DEL DÍA
-                          </Text>
+                        <View style={styles.focusNotesHeader}>
+                          <View style={styles.focusNotesIcon}>
+                            <Ionicons name="chatbubble-ellipses-outline" size={13} color={noir.info} />
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={styles.focusNotesKicker}>SENSACIONES</Text>
+                            <Text style={styles.focusNotesTitle}>Notas de la sesión</Text>
+                          </View>
+                          <View style={styles.focusNotesSmart}>
+                            <Ionicons name="sparkles" size={8} color={noir.champagne} />
+                            <Text style={styles.focusNotesSmartText}>Smart</Text>
+                          </View>
                         </View>
                         <TextInput
                           placeholder="Registra sensaciones, fatiga o notas del entrenamiento..."
-                          placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                          placeholderTextColor="rgba(255, 255, 255, 0.26)"
                           multiline
                           numberOfLines={2}
                           value={notasSesion}
@@ -1532,6 +1596,76 @@ export default function EjecutarEntrenamientoModal({
                     </>
                   )}
                 </ScrollView>
+
+                {/* DOCK FIJO: única acción LiquidMetal de la pantalla */}
+                {!focusTeclado && !isKeyboardVisible && (
+                  <View
+                    style={[
+                      styles.focusDockWrap,
+                      {
+                        paddingHorizontal: gutter,
+                        paddingBottom: Math.max(bottomInset, 10),
+                      },
+                    ]}
+                    pointerEvents="box-none"
+                  >
+                    <View style={styles.focusDockNote}>
+                      <View style={styles.focusDockDot} />
+                      <Text style={styles.focusDockNoteText} numberOfLines={1}>
+                        {indiceSerieDock !== null
+                          ? `Serie ${indiceSerieDock + 1} de ${totalSeriesActivo} · ${seriesCompletadasActivo}/${totalSeriesActivo} completadas`
+                          : todasCompletadasActivo
+                          ? 'Ejercicio completado · listo para el siguiente'
+                          : 'Sesión lista para guardar'}
+                      </Text>
+                    </View>
+                    <LiquidMetalButton
+                      titulo={
+                        indiceSerieDock !== null
+                          ? `Completar serie ${indiceSerieDock + 1}`
+                          : siguienteEjercicioIdx !== null
+                          ? 'Siguiente ejercicio'
+                          : 'Ver resumen'
+                      }
+                      icon={
+                        <Ionicons
+                          name={
+                            indiceSerieDock !== null
+                              ? 'checkmark'
+                              : siguienteEjercicioIdx !== null
+                              ? 'arrow-forward'
+                              : 'flag'
+                          }
+                          size={16}
+                          color={
+                            indiceSerieDock !== null ? noir.mint : noir.info
+                          }
+                        />
+                      }
+                      onPress={() => {
+                        if (indiceSerieDock !== null) {
+                          toggleCompletarSerie(indexValido, indiceSerieDock);
+                        } else if (siguienteEjercicioIdx !== null) {
+                          setEjercicioActivoIndex(siguienteEjercicioIdx);
+                          setFocusTeclado(null);
+                        } else {
+                          abrirResumenConfirmacion();
+                        }
+                      }}
+                      tamano="lg"
+                      height={isLandscape ? 48 : 56}
+                      activo={visible}
+                      accessibilityLabel={
+                        indiceSerieDock !== null
+                          ? `Completar serie ${indiceSerieDock + 1}`
+                          : siguienteEjercicioIdx !== null
+                          ? 'Ir al siguiente ejercicio'
+                          : 'Ver resumen del entrenamiento'
+                      }
+                      style={{ alignSelf: 'stretch' }}
+                    />
+                  </View>
+                )}
 
                 {/* TECLADO INTELIGENTE DE ENTRENAMIENTO */}
                 {focusTeclado && (
@@ -1570,7 +1704,7 @@ export default function EjecutarEntrenamientoModal({
       <ResumenEntrenamientoModal
         visible={resumenVisible}
         nombreRutina={registro.rutinas?.nombre || 'Entrenamiento del Día'}
-        fechaTexto={`${nombreDia(fecha)} ${fecha.getDate()}`}
+        fechaTexto={nombreDia(fecha)}
         segundosTranscurridos={segundosTranscurridos}
         totalSeriesEnSesion={totalSeriesEnSesion}
         totalSeriesCompletadas={totalSeriesCompletadas}
@@ -2037,37 +2171,43 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   lobbyHeroCard: {
-    backgroundColor: colores.tarjeta,
+    backgroundColor: noir.surface,
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: colores.borde,
+    borderColor: 'rgba(255, 255, 255, 0.075)',
     gap: 12,
     marginTop: 6,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.32,
+    shadowRadius: 24,
+    elevation: 12,
   },
   lobbyIconBox: {
     width: 46,
     height: 46,
     borderRadius: 14,
-    backgroundColor: colores.primarioSuave,
+    backgroundColor: 'rgba(179, 148, 255, 0.09)',
     borderWidth: 1,
-    borderColor: colores.primarioGlow,
+    borderColor: 'rgba(179, 148, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   lobbyTitleText: {
-    color: colores.texto,
+    color: noir.text,
     fontSize: 22,
     fontFamily: fuentes.black,
+    letterSpacing: -0.4,
   },
   lobbySubtext: {
-    color: colores.suave,
+    color: noir.muted,
     fontSize: 12,
     fontFamily: fuentes.medium,
   },
   lobbyDivider: {
     height: 1,
-    backgroundColor: colores.borde,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
   lobbyGrid: {
     flexDirection: 'row',
@@ -2079,18 +2219,18 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   lobbyGridItemText: {
-    color: colores.texto,
+    color: noir.platinum,
     fontSize: 11,
     fontFamily: fuentes.medium,
   },
   lobbyExerciseItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(10, 12, 18, 0.50)',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.022)',
+    borderRadius: 11,
     padding: 10,
     borderWidth: 1,
-    borderColor: colores.borde,
+    borderColor: 'rgba(255, 255, 255, 0.055)',
   },
   liveHeader: {
     flexDirection: 'row',
@@ -2127,21 +2267,21 @@ const styles = StyleSheet.create({
     fontFamily: fuentes.bold,
   },
   modalBadgeText: {
-    color: colores.primarioHover,
-    fontSize: 10,
+    color: noir.info,
+    fontSize: 9,
     fontFamily: fuentes.bold,
-    letterSpacing: 1.2,
+    letterSpacing: 1,
     textTransform: 'uppercase',
   },
   closeIconButton: {
-    backgroundColor: colores.tarjeta,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    backgroundColor: noir.surface,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: colores.borde,
+    borderColor: 'rgba(255, 255, 255, 0.09)',
   },
   liveTitleText: {
     color: colores.texto,
@@ -2402,9 +2542,10 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   inputLabelText: {
-    color: colores.suave,
+    color: noir.muted2,
     fontFamily: fuentes.bold,
-    fontSize: 10,
+    fontSize: 9,
+    letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
   historyBoxContainer: {
@@ -2917,19 +3058,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 6,
+    paddingTop: 8,
+    paddingBottom: 8,
     width: '100%',
     zIndex: 10,
   },
   focusChevronBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    width: 33,
+    height: 33,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255, 255, 255, 0.055)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
+    borderColor: 'rgba(255, 255, 255, 0.11)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2939,64 +3079,169 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   focusTimerText: {
-    color: '#FFFFFF',
+    color: noir.text,
     fontFamily: fuentes.black,
-    fontSize: 22,
-    letterSpacing: 0.5,
+    fontSize: 21,
+    letterSpacing: -0.55,
+    fontVariant: ['tabular-nums'],
+  },
+  focusSubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: 1,
+    maxWidth: '100%',
+  },
+  focusLiveDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: noir.mint,
+    shadowColor: noir.mint,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 5,
   },
   focusSubtitleText: {
-    color: '#8A99AD',
+    color: noir.muted,
     fontFamily: fuentes.medium,
-    fontSize: 11.5,
-    marginTop: 1,
+    fontSize: 8.5,
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
+    flexShrink: 1,
   },
   focusHeaderActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 5,
   },
   focusTimerIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.045)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.09)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   focusTerminarBtn: {
-    backgroundColor: '#8B1423',
-    borderWidth: 1.5,
-    borderColor: '#FF1E3C',
-    paddingVertical: 7,
-    paddingHorizontal: 16,
-    borderRadius: 18,
-    shadowColor: '#FF1E3C',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.65,
-    shadowRadius: 10,
-    elevation: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(240, 138, 155, 0.09)',
+    borderWidth: 1,
+    borderColor: 'rgba(240, 138, 155, 0.26)',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 8,
   },
   focusTerminarBtnText: {
-    color: '#FFFFFF',
+    color: '#F7B6C1',
     fontFamily: fuentes.bold,
-    fontSize: 13,
+    fontSize: 8.5,
     letterSpacing: 0.2,
+    textTransform: 'uppercase',
+  },
+  focusDockWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 30,
+    backgroundColor: 'rgba(4, 5, 7, 0.92)',
+    paddingTop: 7,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.055)',
+  },
+  focusDockNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginBottom: 5,
+  },
+  focusDockDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: noir.info,
+    shadowColor: noir.info,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 4,
+  },
+  focusDockNoteText: {
+    color: noir.muted,
+    fontFamily: fuentes.medium,
+    fontSize: 8,
+    letterSpacing: 0.15,
   },
   focusNotesCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 14,
+    backgroundColor: 'rgba(10, 12, 17, 0.78)',
+    borderRadius: 16,
     padding: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-    marginTop: 8,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderLeftWidth: 2,
+    borderLeftColor: 'rgba(92, 200, 255, 0.4)',
+    marginTop: 2,
+  },
+  focusNotesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 7,
+  },
+  focusNotesIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: 'rgba(92, 200, 255, 0.075)',
+    borderWidth: 1,
+    borderColor: 'rgba(92, 200, 255, 0.17)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  focusNotesKicker: {
+    color: noir.info,
+    fontFamily: fuentes.bold,
+    fontSize: 7,
+    letterSpacing: 0.75,
+    textTransform: 'uppercase',
+  },
+  focusNotesTitle: {
+    color: noir.text,
+    fontFamily: fuentes.bold,
+    fontSize: 12,
+    marginTop: 1,
+  },
+  focusNotesSmart: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 5,
+    backgroundColor: 'rgba(255, 209, 102, 0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 209, 102, 0.18)',
+  },
+  focusNotesSmartText: {
+    color: noir.champagne,
+    fontFamily: fuentes.bold,
+    fontSize: 7,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
   },
   focusNotesInput: {
-    color: '#FFFFFF',
+    color: noir.text,
     fontFamily: fuentes.regular,
-    fontSize: 13,
-    minHeight: 46,
+    fontSize: 12,
+    lineHeight: 17,
+    minHeight: 44,
     textAlignVertical: 'top',
+    padding: 0,
   },
 });

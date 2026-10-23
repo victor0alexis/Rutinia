@@ -1,26 +1,64 @@
 import React, { useState } from 'react';
 import {
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { colores, fuentes } from '../../constants/colores';
+import { LinearGradient } from 'expo-linear-gradient';
+import { fuentes, noir } from '../../constants/colores';
 import { vibrarBoton } from '../../utils/haptics';
 import { EjercicioGifInfo, obtenerGifEjercicio } from '../../services/ejerciciosGifs';
 import { parsearEjercicioInfo } from '../../utils/ejercicios';
+import { useLayout } from '../../hooks/useLayout';
+import EjercicioGif from './EjercicioGif';
+
+const MUSCULO_ES: Record<string, string> = {
+  abductors: 'Abductores',
+  adductors: 'Aductores',
+  biceps: 'Bíceps',
+  calves: 'Pantorrillas',
+  chest: 'Pecho',
+  delts: 'Hombros',
+  forearms: 'Antebrazo',
+  glutes: 'Glúteos',
+  hamstrings: 'Isquiotibiales',
+  lats: 'Dorsales',
+  pectorals: 'Pectorales',
+  quads: 'Cuádriceps',
+  spine: 'Espalda',
+  traps: 'Trapecio',
+  triceps: 'Tríceps',
+  'upper back': 'Espalda alta',
+};
+
+const EQUIPO_ES: Record<string, string> = {
+  barbell: 'Barra',
+  bodyweight: 'Peso corporal',
+  cable: 'Polea',
+  dumbbell: 'Mancuerna',
+  'ez barbell': 'Barra EZ',
+  kettlebell: 'Kettlebell',
+  lever: 'Máquina',
+  machine: 'Máquina',
+  'pull-up bar': 'Barra fija',
+  smith: 'Smith',
+};
 
 interface Props {
   nombreEjercicio: string;
   totalSeries: number;
+  seriesCompletadas?: number;
   objetivoTexto?: string;
+  nombrePlan?: string;
+  indiceEjercicio?: number;
+  totalEjercicios?: number;
   onReemplazar?: () => void;
   onNotas?: () => void;
+  onOpciones?: () => void;
   onCopiarHistorial?: () => void;
   tieneHistorialPrevio?: boolean;
 }
@@ -28,106 +66,199 @@ interface Props {
 export default function HeroEjercicioActivo({
   nombreEjercicio,
   totalSeries,
+  seriesCompletadas = 0,
   objetivoTexto,
+  nombrePlan,
+  indiceEjercicio,
+  totalEjercicios,
   onReemplazar,
   onNotas,
+  onOpciones,
   onCopiarHistorial,
   tieneHistorialPrevio,
 }: Props) {
   const [modalTutorialVisible, setModalTutorialVisible] = useState(false);
+  const { isCompact } = useLayout();
   const infoParsed = parsearEjercicioInfo({ nombre: nombreEjercicio });
   const nombreParaBuscar = infoParsed.nombreLimpio || nombreEjercicio;
   const gifInfo: EjercicioGifInfo = obtenerGifEjercicio(nombreParaBuscar);
 
-  const equipamientoTexto = gifInfo.equipment ? gifInfo.equipment.toUpperCase() : 'PESO LIBRE';
-  const grupoMuscular = (gifInfo.muscle || 'Cuerpo').toUpperCase();
-  const subtitulo = `${equipamientoTexto} · ${totalSeries} series · ${objetivoTexto || 'Fuerza / Hipertrofia'} · ${grupoMuscular}`;
+  const equipamientoLegible =
+    EQUIPO_ES[gifInfo.equipment?.toLowerCase()] || gifInfo.equipment || 'Peso libre';
+  const grupoLegible =
+    MUSCULO_ES[gifInfo.muscle?.toLowerCase()] || gifInfo.muscle || 'Cuerpo';
+  const equipamientoTexto = equipamientoLegible.toUpperCase();
+  const grupoMuscular = grupoLegible.toUpperCase();
+  const completadas = Math.min(Math.max(seriesCompletadas, 0), totalSeries);
+  const porcentaje = totalSeries > 0 ? Math.round((completadas / totalSeries) * 100) : 0;
+  const completado = totalSeries > 0 && completadas >= totalSeries;
+  const serieActual = Math.min(completadas + 1, totalSeries);
+  const indiceTexto =
+    indiceEjercicio !== undefined && totalEjercicios !== undefined
+      ? `Ejercicio ${String(indiceEjercicio + 1).padStart(2, '0')} / ${String(totalEjercicios).padStart(2, '0')}`
+      : 'Ejercicio activo';
+  const subtitulo = `Técnica guiada · ${grupoLegible.toLowerCase()}`;
+  const meta = `${equipamientoTexto} · ${totalSeries} series · ${objetivoTexto || 'Fuerza / Hipertrofia'}`;
 
   return (
     <View style={styles.container}>
-      {/* Visualizador Hero Anatómico (GIF Animado sin marco blanco) */}
-      <View style={styles.heroBox}>
-        <Image
-          source={{ uri: gifInfo.gifUrl }}
-          style={[
-            styles.gifImage,
-            Platform.OS === 'web' && ({
-              filter: 'invert(1) contrast(1.1) brightness(0.96)',
-            } as any),
-          ]}
-          contentFit="contain"
-          autoplay
-          cachePolicy="disk"
-        />
-
-        {/* Badge 'R' de Rutinia en esquina inferior derecha */}
-        <View style={styles.badgeR}>
-          <Text style={styles.badgeRText}>R</Text>
+      <LinearGradient
+        colors={['rgba(24, 27, 35, 0.96)', 'rgba(9, 11, 16, 0.97)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroCard}
+      >
+        {/* Cabecera: plan + estado en vivo */}
+        <View style={styles.heroHead}>
+          <View style={styles.planBadge}>
+            <View style={styles.planDot} />
+            <Text style={styles.planBadgeText} numberOfLines={1}>
+              {nombrePlan || 'Sesión de hoy'}
+            </Text>
+          </View>
+          <View style={[styles.liveBadge, completado && styles.liveBadgeDone]}>
+            <View style={[styles.liveDot, completado && styles.liveDotDone]} />
+            <Text style={[styles.liveBadgeText, completado && styles.liveBadgeTextDone]}>
+              {completado ? 'Completado' : 'En proceso'}
+            </Text>
+          </View>
         </View>
-      </View>
 
-      {/* Título Principal y Metadatos */}
-      <View style={styles.textContainer}>
-        <Text style={styles.titulo} numberOfLines={2}>
-          {nombreEjercicio}
-        </Text>
-        <Text style={styles.subtitulo} numberOfLines={1}>
-          {subtitulo}
-        </Text>
-      </View>
+        {/* Cuerpo: copy + visual anatómico */}
+        <View style={styles.heroBody}>
+          <View style={styles.heroCopy}>
+            <Text style={styles.heroEyebrow} numberOfLines={1}>
+              {indiceTexto} · {grupoMuscular}
+            </Text>
+            <Text
+              style={[styles.titulo, isCompact && styles.tituloCompact]}
+              numberOfLines={2}
+            >
+              {nombreEjercicio}
+            </Text>
+            <Text style={styles.heroSub} numberOfLines={1}>
+              {subtitulo}
+            </Text>
+            <Text style={styles.heroMeta} numberOfLines={2}>
+              {meta}
+            </Text>
+          </View>
 
-      {/* Barra de Píldoras de Acción Rápida */}
-      <View style={styles.pillsRow}>
-        <Pressable
-          onPress={() => {
-            vibrarBoton(12);
-            setModalTutorialVisible(true);
-          }}
-          style={({ pressed }) => [styles.pillBtn, pressed && styles.pillBtnPressed]}
-        >
-          <Ionicons name="play" size={13} color="#FFFFFF" />
-          <Text style={styles.pillText}>Tutorial</Text>
-        </Pressable>
+          <View
+            style={[
+              styles.heroVisualWrap,
+              isCompact && styles.heroVisualWrapCompact,
+            ]}
+          >
+            <View style={styles.heroGlow} />
+            <View style={styles.heroVisual}>
+              <EjercicioGif
+                uri={gifInfo.gifUrl}
+                style={styles.heroGif}
+                contentFit="contain"
+              />
+              <View style={styles.badgeR}>
+                <Text style={styles.badgeRText}>R</Text>
+              </View>
+            </View>
+          </View>
+        </View>
 
-        {Boolean(onReemplazar) && (
+        {/* Acciones rápidas */}
+        <View style={styles.pillsRow}>
           <Pressable
             onPress={() => {
               vibrarBoton(12);
-              onReemplazar?.();
+              setModalTutorialVisible(true);
             }}
             style={({ pressed }) => [styles.pillBtn, pressed && styles.pillBtnPressed]}
           >
-            <Ionicons name="swap-horizontal" size={14} color="#FFFFFF" />
-            <Text style={styles.pillText}>Reemplazar</Text>
+            <Ionicons name="play" size={10} color={noir.info} />
+            <Text style={styles.pillText}>Tutorial</Text>
           </Pressable>
-        )}
 
-        {Boolean(onNotas) && (
-          <Pressable
-            onPress={() => {
-              vibrarBoton(12);
-              onNotas?.();
-            }}
-            style={({ pressed }) => [styles.pillBtn, pressed && styles.pillBtnPressed]}
-          >
-            <Ionicons name="pencil" size={13} color="#FFFFFF" />
-            <Text style={styles.pillText}>Notas</Text>
-          </Pressable>
-        )}
+          {Boolean(onReemplazar) && (
+            <Pressable
+              onPress={() => {
+                vibrarBoton(12);
+                onReemplazar?.();
+              }}
+              style={({ pressed }) => [styles.pillBtn, pressed && styles.pillBtnPressed]}
+            >
+              <Ionicons name="swap-horizontal" size={11} color={noir.lavender} />
+              <Text style={styles.pillText}>Reemplazar</Text>
+            </Pressable>
+          )}
 
-        {Boolean(onCopiarHistorial && tieneHistorialPrevio) && (
-          <Pressable
-            onPress={() => {
-              vibrarBoton(12);
-              onCopiarHistorial?.();
-            }}
-            style={({ pressed }) => [styles.pillBtn, pressed && styles.pillBtnPressed]}
-          >
-            <Ionicons name="copy-outline" size={13} color="#FFFFFF" />
-            <Text style={styles.pillText}>Previa</Text>
-          </Pressable>
-        )}
-      </View>
+          {Boolean(onNotas) && (
+            <Pressable
+              onPress={() => {
+                vibrarBoton(12);
+                onNotas?.();
+              }}
+              style={({ pressed }) => [styles.pillBtn, pressed && styles.pillBtnPressed]}
+            >
+              <Ionicons name="pencil" size={10} color={noir.champagne} />
+              <Text style={styles.pillText}>Notas</Text>
+            </Pressable>
+          )}
+
+          {Boolean(onOpciones) && (
+            <Pressable
+              onPress={() => {
+                vibrarBoton(12);
+                onOpciones?.();
+              }}
+              style={({ pressed }) => [styles.pillBtn, pressed && styles.pillBtnPressed]}
+            >
+              <Ionicons name="ellipsis-horizontal" size={11} color={noir.platinum} />
+              <Text style={styles.pillText}>Opciones</Text>
+            </Pressable>
+          )}
+
+          {Boolean(onCopiarHistorial && tieneHistorialPrevio) && (
+            <Pressable
+              onPress={() => {
+                vibrarBoton(12);
+                onCopiarHistorial?.();
+              }}
+              style={({ pressed }) => [styles.pillBtn, pressed && styles.pillBtnPressed]}
+            >
+              <Ionicons name="copy-outline" size={10} color={noir.mint} />
+              <Text style={styles.pillText}>Previa</Text>
+            </Pressable>
+          )}
+        </View>
+
+        {/* Progreso del ejercicio */}
+        <View style={styles.heroFooter}>
+          <View style={styles.heroFooterTop}>
+            <View style={styles.statusPills}>
+              <View style={[styles.statusPill, styles.statusPillChamp]}>
+                <Ionicons name="layers-outline" size={8} color={noir.champagne} />
+                <Text style={[styles.statusPillText, styles.statusPillTextChamp]}>
+                  Serie {serieActual}/{totalSeries}
+                </Text>
+              </View>
+              <View style={[styles.statusPill, styles.statusPillLav]}>
+                <Ionicons name="checkmark-circle-outline" size={8} color={noir.lavender} />
+                <Text style={[styles.statusPillText, styles.statusPillTextLav]}>
+                  {completadas}/{totalSeries} series
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.pctText}>{porcentaje}%</Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <LinearGradient
+              colors={[noir.info, noir.lavender, noir.pearl]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.progressFill, { width: `${porcentaje}%` }]}
+            />
+          </View>
+        </View>
+      </LinearGradient>
 
       {/* Modal Desplegable de Tutorial y Técnica Paso a Paso */}
       <Modal
@@ -138,7 +269,6 @@ export default function HeroEjercicioActivo({
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
-            {/* Header del Modal */}
             <View style={styles.modalHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.modalHeaderTag}>GUÍA TÉCNICA Y ANATOMÍA</Text>
@@ -151,7 +281,7 @@ export default function HeroEjercicioActivo({
                 style={styles.modalCloseBtn}
                 hitSlop={10}
               >
-                <Ionicons name="close" size={20} color="#FFFFFF" />
+                <Ionicons name="close" size={20} color={noir.text} />
               </Pressable>
             </View>
 
@@ -159,22 +289,14 @@ export default function HeroEjercicioActivo({
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.modalScrollContent}
             >
-              {/* Animación en grande */}
               <View style={styles.modalBigGifBox}>
-                <Image
-                  source={{ uri: gifInfo.gifUrl }}
-                  style={[
-                    styles.modalBigGif,
-                    Platform.OS === 'web' && ({
-                      filter: 'invert(1) contrast(1.1) brightness(0.96)',
-                    } as any),
-                  ]}
+                <EjercicioGif
+                  uri={gifInfo.gifUrl}
+                  style={styles.modalBigGif}
                   contentFit="contain"
-                  autoplay
                 />
               </View>
 
-              {/* Ficha rápida de Músculo y Equipo */}
               <View style={styles.modalMetaCard}>
                 <View style={styles.modalMetaItem}>
                   <Text style={styles.modalMetaLabel}>MÚSCULO PRINCIPAL</Text>
@@ -187,7 +309,6 @@ export default function HeroEjercicioActivo({
                 </View>
               </View>
 
-              {/* Lista numerada de instrucciones */}
               <Text style={styles.instruccionesTitulo}>EJECUCIÓN CORRECTA</Text>
               <View style={styles.instruccionesList}>
                 {gifInfo.instructions.map((paso, idx) => (
@@ -209,93 +330,281 @@ export default function HeroEjercicioActivo({
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: 'center',
-    paddingVertical: 8,
     width: '100%',
   },
-  heroBox: {
-    width: '100%',
-    height: 250,
-    backgroundColor: 'transparent',
+  heroCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 12,
+    overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.32,
+    shadowRadius: 22,
+    elevation: 7,
+  },
+  heroHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 10,
+  },
+  planBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    minHeight: 21,
+    paddingHorizontal: 7,
+    borderRadius: 6,
+    backgroundColor: 'rgba(92, 200, 255, 0.075)',
+    borderWidth: 1,
+    borderColor: 'rgba(92, 200, 255, 0.22)',
+    maxWidth: '58%',
+  },
+  planDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: noir.info,
+  },
+  planBadgeText: {
+    color: '#CDEEFF',
+    fontFamily: fuentes.bold,
+    fontSize: 7.5,
+    letterSpacing: 0.45,
+    textTransform: 'uppercase',
+  },
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 21,
+    paddingHorizontal: 7,
+    borderRadius: 6,
+    backgroundColor: 'rgba(63, 242, 176, 0.065)',
+    borderWidth: 1,
+    borderColor: 'rgba(63, 242, 176, 0.22)',
+  },
+  liveBadgeDone: {
+    backgroundColor: 'rgba(63, 242, 176, 0.12)',
+    borderColor: 'rgba(63, 242, 176, 0.4)',
+  },
+  liveDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: noir.mint,
+    shadowColor: noir.mint,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 5,
+  },
+  liveDotDone: {
+    backgroundColor: noir.mint,
+  },
+  liveBadgeText: {
+    color: noir.mint,
+    fontFamily: fuentes.bold,
+    fontSize: 7.5,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  liveBadgeTextDone: {
+    color: '#A8FFE0',
+  },
+  heroBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  heroCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  heroEyebrow: {
+    color: noir.muted,
+    fontFamily: fuentes.bold,
+    fontSize: 7.2,
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+  },
+  titulo: {
+    color: noir.text,
+    fontFamily: fuentes.black,
+    fontSize: 21,
+    lineHeight: 24,
+    letterSpacing: -0.55,
+    marginTop: 2,
+  },
+  tituloCompact: {
+    fontSize: 18,
+    lineHeight: 21,
+  },
+  heroSub: {
+    color: noir.platinum,
+    fontFamily: fuentes.medium,
+    fontSize: 10,
+    marginTop: 2,
+  },
+  heroMeta: {
+    color: noir.muted,
+    fontFamily: fuentes.medium,
+    fontSize: 8,
+    lineHeight: 11,
+    marginTop: 5,
+  },
+  heroVisualWrap: {
+    width: 104,
+    height: 104,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
-    overflow: 'visible',
-    marginVertical: 4,
+    flexShrink: 0,
   },
-  gifImage: {
+  heroVisualWrapCompact: {
+    width: 86,
+    height: 86,
+  },
+  heroGlow: {
+    position: 'absolute',
+    width: '128%',
+    height: '128%',
+    borderRadius: 999,
+    backgroundColor: 'rgba(226, 239, 255, 0.055)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.045)',
+  },
+  heroVisual: {
     width: '100%',
     height: '100%',
+    borderRadius: 999,
+    backgroundColor: '#07090D',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    shadowColor: '#CEE1F7',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    elevation: 6,
+  },
+  heroGif: {
+    width: '94%',
+    height: '94%',
   },
   badgeR: {
     position: 'absolute',
-    bottom: 4,
-    right: 28,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#1E0608',
-    borderWidth: 1.5,
-    borderColor: '#FF1E3C',
+    bottom: 1,
+    right: 1,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(9, 11, 16, 0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FF1E3C',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 12,
-    elevation: 8,
   },
   badgeRText: {
-    color: '#FFFFFF',
+    color: noir.pearl,
     fontFamily: fuentes.black,
-    fontSize: 15,
-  },
-  textContainer: {
-    alignItems: 'center',
-    marginTop: 12,
-    paddingHorizontal: 16,
-  },
-  titulo: {
-    color: '#FFFFFF',
-    fontFamily: fuentes.black,
-    fontSize: 20,
-    letterSpacing: -0.3,
-    textAlign: 'center',
-  },
-  subtitulo: {
-    color: colores.suave,
-    fontFamily: fuentes.medium,
-    fontSize: 12,
-    marginTop: 4,
-    textAlign: 'center',
+    fontSize: 10,
   },
   pillsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 14,
+    gap: 5,
+    marginTop: 12,
     flexWrap: 'wrap',
   },
   pillBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.09)',
+    gap: 4,
+    minHeight: 26,
+    backgroundColor: 'rgba(255, 255, 255, 0.035)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    borderRadius: 20,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
   },
   pillBtnPressed: {
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
-    transform: [{ scale: 0.97 }],
+    backgroundColor: 'rgba(255, 255, 255, 0.09)',
+    transform: [{ scale: 0.98 }],
   },
   pillText: {
-    color: '#FFFFFF',
+    color: noir.platinum,
     fontFamily: fuentes.bold,
-    fontSize: 12.5,
+    fontSize: 8.5,
+    letterSpacing: 0.1,
+  },
+  heroFooter: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  heroFooterTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  statusPills: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexWrap: 'wrap',
+    flex: 1,
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    minHeight: 21,
+    paddingHorizontal: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  statusPillChamp: {
+    backgroundColor: 'rgba(255, 209, 102, 0.065)',
+    borderColor: 'rgba(255, 209, 102, 0.22)',
+  },
+  statusPillLav: {
+    backgroundColor: 'rgba(179, 148, 255, 0.065)',
+    borderColor: 'rgba(179, 148, 255, 0.22)',
+  },
+  statusPillText: {
+    fontFamily: fuentes.bold,
+    fontSize: 7.4,
+    letterSpacing: 0.2,
+  },
+  statusPillTextChamp: {
+    color: '#FFE6A8',
+  },
+  statusPillTextLav: {
+    color: '#E6DCFF',
+  },
+  pctText: {
+    color: noir.platinum,
+    fontFamily: fuentes.bold,
+    fontSize: 9,
+    fontVariant: ['tabular-nums'],
+  },
+  progressTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    overflow: 'hidden',
+    marginTop: 7,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
   },
   modalOverlay: {
     flex: 1,
@@ -303,7 +612,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: '#0A0C14',
+    backgroundColor: noir.surface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     maxHeight: '85%',
@@ -322,13 +631,13 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   modalHeaderTag: {
-    color: '#EF4444',
+    color: noir.info,
     fontFamily: fuentes.bold,
     fontSize: 11,
     letterSpacing: 0.8,
   },
   modalHeaderTitle: {
-    color: '#FFFFFF',
+    color: noir.text,
     fontFamily: fuentes.black,
     fontSize: 17,
     marginTop: 2,
@@ -349,7 +658,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 250,
     borderRadius: 20,
-    backgroundColor: '#000000',
+    backgroundColor: '#05070A',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
     alignItems: 'center',
@@ -377,18 +686,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   modalMetaLabel: {
-    color: colores.suave,
+    color: noir.muted,
     fontSize: 10,
     fontFamily: fuentes.medium,
   },
   modalMetaVal: {
-    color: '#FFFFFF',
+    color: noir.text,
     fontSize: 13,
     fontFamily: fuentes.bold,
     marginTop: 2,
   },
   instruccionesTitulo: {
-    color: '#FFFFFF',
+    color: noir.text,
     fontFamily: fuentes.bold,
     fontSize: 14,
     letterSpacing: 0.4,
@@ -406,15 +715,15 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    backgroundColor: 'rgba(92, 200, 255, 0.12)',
     borderWidth: 1,
-    borderColor: '#EF4444',
+    borderColor: 'rgba(92, 200, 255, 0.45)',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
   },
   instruccionNumeroText: {
-    color: '#EF4444',
+    color: noir.info,
     fontFamily: fuentes.bold,
     fontSize: 11,
   },

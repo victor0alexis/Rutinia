@@ -1,0 +1,25 @@
+{
+  "url": "http://127.0.0.1:8082/rutinas",
+  "title": "Upper-Lower (Gym) · Rutinia",
+  "width": 390,
+  "height": 844,
+  "documentWidth": 390,
+  "text": "m\nmyLife\nA\n\nPlanes\n\n\n\n\nPLAN ACTIVO\n·\n4 DÍAS / SEM\nPLAN DE ENTRENAMIENTO\nUpper-Lower (Gym)\nHipertrofia / Fuerza  ·  4 rutinas\nPlan base con tus rutinas iniciales.\n4\nRUTINAS\n4\nDÍAS / SEM\n62\nSERIES\nLUN\n19\nMAR\n20\nMIÉ\n21\nJUE\n22\nVIE\n23\nSÁB\n24\nDOM\n25\nA\np\nl\ni\nc\na\nr\n \na\n \nm\ni\n \ns\ne\nm\na\nn\na\n\nRUTINAS DEL PLAN\n04\n\n01\nUpper-A\nLUN\n8 ejercicios · 17 series · ~43 min\n\n\n\nDía sugerido\nL\nM\nX\nJ\nV\nS\nD\n\nApertura en máquina, sentado\n2s\n\nJalón al pecho en polea, underhand\n2s\n\nPress Inclinado Smith\n2s\n+ 5 ejercicios más\n\n17 series\n\n8 ej.\nAbrir rutina\n02\nLower-A\nMAR\n6 ejercicios · 13 series · ~33 min\n\n\n\nDía sugerido\nL\nM\nX\nJ\nV\nS\nD\n\nCurl femoral en máquina, tumbado\n2s\n\nSentadilla completa en máquina Smith\n3s\n\nExtension Cuadriceps\n2s\n+ 3 ejercicios más\n\n13 series\n\n6 ej.\nAbrir rutina\n03\nUpperB\nJUE\n9 ejercicios · 19 series · ~48 min\n\n\n\nDía sugerido\nL\nM\nX\nJ\nV\nS\nD\n\nJalón al pecho en polea, barra lateral\n2s\n\nPress Inclinado Smith\n2s\n\n[U] Jalon Unilateral\n2s\n+ 6 ejercicios más\n\n19 series\n\n9 ej.\nAbrir rutina\n04\nLower B\nVIE\n6 ejercicios · 13 series · ~33 min\n\n\n\nDía sugerido\nL\nM\nX\nJ\nV\nS\nD\n\nAbducción de cadera en máquina, sentado\n2s\n\nPeso muerto con barra\n2s\n\n[U] Sentadilla con mancuerna, a una pierna\n3s\n+ 3 ejercicios más\n\n13 series\n\n6 ej.\nAbrir rutina\n+ Nueva rutina en este plan\n\nProgreso\n\nRutinas\n\nSemana\n\nNotas\n\nCalendario\nAcciones de la rutina\nUpper-A\n\n\nEditar rutina\n\n\nDuplicar rutina\n\n\nMover a otro plan\n\n\nEliminar rutina\n",
+  "shiny": [
+    {
+      "text": "Upper-Lower (Gym)",
+      "rect": {
+        "x": 35,
+        "y": 153.296875,
+        "width": 320,
+        "height": 33.796875,
+        "top": 153.296875,
+        "right": 355,
+        "bottom": 187.09375,
+        "left": 35
+      },
+      "lineHeight": "33.8px"
+    }
+  ],
+  "horizontalOverflow": []
+}
