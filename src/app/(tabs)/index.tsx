@@ -453,7 +453,7 @@ export default function Semana() {
           {/* BOTÓN PRINCIPAL LIQUID METAL ENTRE MAINDAYCARD Y BOTTOMTABBAR */}
           <View style={styles.myDiaWrap}>
             <LiquidMetalButton
-              titulo="Administrar"
+              titulo="+ Administrar / Gestionar Día"
               onPress={() => setModalVisible(true)}
               activo={
                 isFocused &&
@@ -461,21 +461,8 @@ export default function Semana() {
                 !modalEjecutarVisible
               }
               height={54}
-              borderRadius={16}
-              borderWidth={2}
+              borderWidth={4}
               tamano="lg"
-              metalConfig={{
-                colorBack: '#8F9AAC',
-                colorTint: '#F4F8FE',
-                speed: 0.28,
-                repetition: 3.4,
-                distortion: 0.12,
-                softness: 0.12,
-                shiftRed: 0.06,
-                shiftBlue: -0.06,
-                angle: 115,
-                contour: 0.36,
-              }}
               style={{ alignSelf: 'stretch' }}
             />
           </View>

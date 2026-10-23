@@ -23,6 +23,48 @@ import { parsearEjercicioInfo } from '../utils/ejercicios';
 import { parsearNotaInteligente } from './DiaDetalleModal';
 import RutinaLiveCard from './RutinaLiveCard';
 
+function obtenerTemaNota(categoria: string) {
+  const cat = (categoria || '').toUpperCase();
+  if (cat.includes('RECUPERA') || cat.includes('DESCANSO')) {
+    return {
+      color: '#5CC8FF',
+      bg: 'rgba(92, 200, 255, 0.16)',
+      borderColor: 'rgba(92, 200, 255, 0.40)',
+      icon: 'pulse-outline' as const,
+    };
+  }
+  if (cat.includes('NUTRICI') || cat.includes('DIETA') || cat.includes('COMIDA')) {
+    return {
+      color: '#3FF2B0',
+      bg: 'rgba(63, 242, 176, 0.16)',
+      borderColor: 'rgba(63, 242, 176, 0.40)',
+      icon: 'nutrition-outline' as const,
+    };
+  }
+  if (cat.includes('SUPLE') || cat.includes('SALUD') || cat.includes('MEDIC')) {
+    return {
+      color: '#FFD166',
+      bg: 'rgba(255, 209, 102, 0.16)',
+      borderColor: 'rgba(255, 209, 102, 0.40)',
+      icon: 'medical-outline' as const,
+    };
+  }
+  if (cat.includes('TECNIC') || cat.includes('ENTRENA') || cat.includes('POSTURA')) {
+    return {
+      color: '#B394FF',
+      bg: 'rgba(179, 148, 255, 0.16)',
+      borderColor: 'rgba(179, 148, 255, 0.40)',
+      icon: 'fitness-outline' as const,
+    };
+  }
+  return {
+    color: '#5CC8FF',
+    bg: 'rgba(92, 200, 255, 0.16)',
+    borderColor: 'rgba(92, 200, 255, 0.40)',
+    icon: 'document-text-outline' as const,
+  };
+}
+
 export interface MainDayCardProps {
   registrosConRutina: Registro[];
   notasDelDia: EjercicioRegistro[];
@@ -148,8 +190,8 @@ export default function MainDayCard({
                 <View style={styles.sectionHeaderRow}>
                   <Ionicons
                     name="document-text-outline"
-                    size={13}
-                    color={noir.info}
+                    size={14}
+                    color="#5CC8FF"
                   />
                   <Text style={[styles.sectionHeaderText, styles.notesHeaderText]}>
                     OBSERVACIONES Y NOTAS
@@ -157,16 +199,36 @@ export default function MainDayCard({
                 </View>
 
                 {notasDelDia.map((notaObj) => {
-                  const { categoria, titulo, cuerpo, iconName } =
+                  const { categoria, titulo, cuerpo } =
                     parsearNotaInteligente(notaObj.nombre);
+                  const tema = obtenerTemaNota(categoria);
 
                   return (
-                    <View key={notaObj.id} style={styles.noteCard}>
+                    <View
+                      key={notaObj.id}
+                      style={[
+                        styles.noteCard,
+                        { borderLeftColor: tema.color },
+                      ]}
+                    >
                       <View style={styles.noteTopRow}>
-                        <View style={styles.noteCategoryBadge}>
-                          <Ionicons name={iconName} size={10} color={noir.info} />
-                          <Text style={styles.noteCategoryText}>
-                            {categoria}
+                        <View
+                          style={[
+                            styles.noteCategoryBadge,
+                            {
+                              backgroundColor: tema.bg,
+                              borderColor: tema.borderColor,
+                            },
+                          ]}
+                        >
+                          <Ionicons name={tema.icon} size={11} color={tema.color} />
+                          <Text
+                            style={[
+                              styles.noteCategoryText,
+                              { color: tema.color },
+                            ]}
+                          >
+                            {categoria.toUpperCase()}
                           </Text>
                         </View>
                         <Text numberOfLines={1} style={styles.noteTitle}>
@@ -188,35 +250,37 @@ export default function MainDayCard({
             {ejerciciosExtras.length > 0 && (
               <View style={styles.extrasSectionContainer}>
                 <View style={styles.sectionHeaderRow}>
-                  <Ionicons name="flash-outline" size={13} color={noir.champagne} />
+                  <Ionicons name="flash" size={14} color="#FFD166" />
                   <Text style={[styles.sectionHeaderText, styles.extrasHeaderText]}>
                     EJERCICIOS EXTRAS
                   </Text>
                 </View>
 
-                <View style={styles.extraSection}>
+                <View style={styles.extrasList}>
                   {ejerciciosExtras.map((e) => {
                     const parsed = parsearEjercicioInfo(e);
                     return (
-                      <View key={e.id} style={styles.extraRow}>
-                        <Ionicons
-                          name={
-                            e.completado
-                              ? 'checkmark-circle'
-                              : 'ellipse-outline'
-                          }
-                          size={14}
-                          color={e.completado ? noir.mint : noir.muted}
-                        />
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.extraExerciseName,
-                            e.completado && { opacity: 0.7 },
-                          ]}
-                        >
-                          {parsed.nombreLimpio}
-                        </Text>
+                      <View key={e.id} style={styles.extraCard}>
+                        <View style={styles.extraLeft}>
+                          <Ionicons
+                            name={
+                              e.completado
+                                ? 'checkmark-circle'
+                                : 'ellipse-outline'
+                            }
+                            size={18}
+                            color={e.completado ? '#3FF2B0' : 'rgba(255, 255, 255, 0.4)'}
+                          />
+                          <Text
+                            numberOfLines={1}
+                            style={[
+                              styles.extraExerciseName,
+                              e.completado && { opacity: 0.85 },
+                            ]}
+                          >
+                            {parsed.nombreLimpio}
+                          </Text>
+                        </View>
                         {parsed.resumenVisual && (
                           <View style={styles.extraBadge}>
                             <Text style={styles.extraBadgeText}>
@@ -279,11 +343,11 @@ const styles = StyleSheet.create({
   },
   notesSection: {
     gap: 8,
-    marginTop: 2,
+    marginTop: 6,
   },
   extrasSectionContainer: {
     gap: 8,
-    marginTop: 2,
+    marginTop: 6,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -293,94 +357,104 @@ const styles = StyleSheet.create({
   },
   sectionHeaderText: {
     fontFamily: fuentes.bold,
-    fontSize: 9.5,
-    color: 'rgba(255, 255, 255, 0.68)',
-    letterSpacing: 0.7,
+    fontSize: 10.5,
+    letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
   notesHeaderText: {
-    color: 'rgba(92, 200, 255, 0.92)',
+    color: '#5CC8FF',
   },
   extrasHeaderText: {
-    color: noir.champagne,
+    color: '#FFD166',
   },
   noteCard: {
-    backgroundColor: 'rgba(20, 20, 24, 0.82)',
+    backgroundColor: 'rgba(20, 20, 24, 0.85)',
     borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 11,
+    paddingVertical: 11,
+    paddingHorizontal: 12,
     gap: 4,
     borderWidth: 1,
-    borderColor: noir.line,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
     borderLeftWidth: 3.5,
-    borderLeftColor: noir.info,
+    borderLeftColor: '#5CC8FF',
   },
   noteTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   noteCategoryBadge: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(92, 200, 255, 0.40)',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(92, 200, 255, 0.18)',
+    backgroundColor: 'rgba(92, 200, 255, 0.16)',
   },
   noteCategoryText: {
-    fontSize: 8,
+    fontSize: 9,
     fontFamily: fuentes.bold,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    color: '#D9F0FF',
+    letterSpacing: 0.6,
+    color: '#5CC8FF',
   },
   noteTitle: {
     color: '#FFFFFF',
-    fontSize: 12.5,
+    fontSize: 14,
     fontFamily: fuentes.bold,
     flex: 1,
-    lineHeight: 15,
+    lineHeight: 18,
   },
   noteBody: {
-    color: 'rgba(255, 255, 255, 0.66)',
-    fontSize: 10.5,
+    color: '#98A1AF',
+    fontSize: 12,
     fontFamily: fuentes.regular,
-    lineHeight: 15,
+    lineHeight: 17,
+    marginTop: 2,
   },
-  extraSection: {
-    backgroundColor: 'rgba(20, 20, 24, 0.82)',
+  extrasList: {
+    gap: 6,
+  },
+  extraCard: {
+    backgroundColor: 'rgba(20, 20, 24, 0.85)',
     borderRadius: 14,
-    paddingVertical: 9,
-    paddingHorizontal: 10,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: noir.line,
-  },
-  extraRow: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    paddingVertical: 2,
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    gap: 8,
+  },
+  extraLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    flex: 1,
   },
   extraExerciseName: {
     flex: 1,
-    fontFamily: fuentes.medium,
-    fontSize: 11.5,
+    fontFamily: fuentes.bold,
+    fontSize: 13.5,
     color: '#FFFFFF',
-    lineHeight: 15,
+    lineHeight: 18,
   },
   extraBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   extraBadgeText: {
     fontFamily: fuentes.semiBold,
-    fontSize: 8.5,
-    color: '#AAB3C0',
+    fontSize: 11,
+    color: '#98A1AF',
   },
   emptyContainer: {
     flex: 1,

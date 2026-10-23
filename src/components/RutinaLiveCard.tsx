@@ -227,13 +227,19 @@ export default function RutinaLiveCard({
         }
       }
 
+      if (!nextName && ejsPuros.length > 0) {
+        const ejIncompleto = ejsPuros.find((e) => !e.completado) || ejsPuros[0];
+        nextName = ejIncompleto.nombre;
+        nextSet = 1;
+      }
+
       return {
         seriesCompletadasLive: comps,
         totalSeriesLive: tots,
         proximoEjercicioNombre: nextName,
         proximaSerieIndice: nextSet,
       };
-    }, [borradorActivo, sesionActivaInfo, totalSeries]);
+    }, [borradorActivo, ejsPuros, sesionActivaInfo, totalSeries]);
 
   const porcentajeLive =
     totalSeriesLive > 0
@@ -462,36 +468,20 @@ export default function RutinaLiveCard({
           {estaEnProceso && (
             <View style={styles.timerSectionLive}>
               <View style={styles.timerPillsRowLive}>
-                <LinearGradient
-                  colors={[
-                    'rgba(255, 209, 102, 0.14)',
-                    'rgba(255, 209, 102, 0.035)',
-                  ]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.timerBoxHome}
-                >
-                  <Ionicons name="time" size={13} color={noir.champagne} />
+                <View style={styles.timerBoxHome}>
+                  <Ionicons name="time-outline" size={14} color="#FFD166" />
                   <Text style={styles.timerTextHome}>
                     {formatearTiempo(segundosEnVivo)}
                   </Text>
                   <Text style={styles.timerLabelHome}>CRONÓMETRO EN VIVO</Text>
-                </LinearGradient>
+                </View>
 
                 {totalSeriesLive > 0 && (
-                  <LinearGradient
-                    colors={[
-                      'rgba(179, 148, 255, 0.20)',
-                      'rgba(179, 148, 255, 0.05)',
-                    ]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.seriesPillHome}
-                  >
+                  <View style={styles.seriesPillHome}>
                     <Ionicons
                       name="checkmark-circle-outline"
-                      size={12}
-                      color={noir.lavender}
+                      size={14}
+                      color="#B394FF"
                     />
                     <Text style={styles.seriesTextHome}>
                       {seriesCompletadasLive}/{totalSeriesLive} series
@@ -501,7 +491,7 @@ export default function RutinaLiveCard({
                         ({porcentajeLive}%)
                       </Text>
                     )}
-                  </LinearGradient>
+                  </View>
                 )}
               </View>
 
@@ -522,16 +512,8 @@ export default function RutinaLiveCard({
 
               {/* Snapshot inteligente: Próximo ejercicio */}
               {Boolean(proximoEjercicioNombre) && (
-                <LinearGradient
-                  colors={[
-                    'rgba(92, 200, 255, 0.11)',
-                    'rgba(92, 200, 255, 0.02)',
-                  ]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.nextRowHome}
-                >
-                  <Ionicons name="bookmark" size={11} color={noir.info} />
+                <View style={styles.nextRowHome}>
+                  <Ionicons name="bookmark-outline" size={13} color="#5CC8FF" />
                   <Text style={styles.nextTextHome} numberOfLines={1}>
                     Siguiente:{' '}
                     <Text style={styles.nextNameHome}>
@@ -543,41 +525,111 @@ export default function RutinaLiveCard({
                       </Text>
                     ) : null}
                   </Text>
-                </LinearGradient>
+                </View>
               )}
             </View>
           )}
 
           {estaFinalizada && (
-            <LinearGradient
-              colors={[
-                'rgba(255, 209, 102, 0.14)',
-                'rgba(255, 209, 102, 0.035)',
-              ]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.timerBoxHome}
-            >
-              <Ionicons name="trophy-outline" size={13} color={noir.champagne} />
-              <Text style={styles.timerTextHome}>
-                {duracionFinalSegs
-                  ? formatearTiempoTexto(duracionFinalSegs)
-                  : `${totalSeries * 2.5} min aprox`}
-              </Text>
-              <Text style={styles.timerLabelHome}>TIEMPO DE EJECUCIÓN</Text>
-            </LinearGradient>
+            <View style={styles.timerSectionLive}>
+              <View style={styles.timerPillsRowLive}>
+                <View style={styles.timerBoxDoneHome}>
+                  <Ionicons name="trophy-outline" size={14} color="#3FF2B0" />
+                  <Text style={styles.timerTextDoneHome}>
+                    {duracionFinalSegs
+                      ? formatearTiempoTexto(duracionFinalSegs)
+                      : `${totalSeries * 2.5} min aprox`}
+                  </Text>
+                  <Text style={styles.timerLabelDoneHome}>TIEMPO DE EJECUCIÓN</Text>
+                </View>
+
+                <View style={styles.seriesPillDoneHome}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={14}
+                    color="#3FF2B0"
+                  />
+                  <Text style={styles.seriesTextDoneHome}>
+                    {totalSeries}/{totalSeries} series
+                  </Text>
+                  <Text style={styles.seriesPctDoneHome}>(100%)</Text>
+                </View>
+              </View>
+
+              {/* Barra de progreso al 100% */}
+              <View style={styles.liveProgressBarContainer}>
+                <LinearGradient
+                  colors={['#3FF2B0', '#5CC8FF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[
+                    styles.liveProgressBarFill,
+                    { width: '100%' },
+                  ]}
+                />
+              </View>
+
+              {/* Snapshot completado */}
+              <View style={styles.doneRowHome}>
+                <Ionicons name="ribbon-outline" size={13} color="#3FF2B0" />
+                <Text style={styles.doneTextHome} numberOfLines={1}>
+                  Entrenamiento finalizado{' '}
+                  <Text style={styles.doneSubtextHome}>
+                    · Todas las series completadas
+                  </Text>
+                </Text>
+              </View>
+            </View>
           )}
 
           {estaPendiente && (
-            <View style={styles.timerBoxPendingHome}>
-              <Ionicons
-                name="stopwatch-outline"
-                size={13}
-                color={noir.info}
-              />
-              <Text style={styles.timerTextPendingHome}>
-                ~{Math.max(25, Math.round(totalSeries * 2.5))} min estimados
-              </Text>
+            <View style={styles.timerSectionLive}>
+              <View style={styles.timerPillsRowLive}>
+                <View style={styles.timerBoxPendingHome}>
+                  <Ionicons
+                    name="stopwatch-outline"
+                    size={14}
+                    color="#5CC8FF"
+                  />
+                  <Text style={styles.timerTextPendingHome}>
+                    ~{Math.max(25, Math.round(totalSeries * 2.5))} min
+                  </Text>
+                  <Text style={styles.timerLabelPendingHome}>TIEMPO ESTIMADO</Text>
+                </View>
+
+                <View style={styles.seriesPillPendingHome}>
+                  <Ionicons
+                    name="layers-outline"
+                    size={14}
+                    color="#B394FF"
+                  />
+                  <Text style={styles.seriesTextPendingHome}>
+                    0/{totalSeries} series
+                  </Text>
+                  <Text style={styles.seriesPctPendingHome}>(0%)</Text>
+                </View>
+              </View>
+
+              {/* Barra de progreso vacía */}
+              <View style={styles.liveProgressBarContainer}>
+                <View style={[styles.liveProgressBarFill, { width: '0%' }]} />
+              </View>
+
+              {/* Snapshot primer ejercicio */}
+              {ejsPuros.length > 0 && (
+                <View style={styles.nextRowHome}>
+                  <Ionicons name="bookmark-outline" size={13} color="#5CC8FF" />
+                  <Text style={styles.nextTextHome} numberOfLines={1}>
+                    Primer ejercicio:{' '}
+                    <Text style={styles.nextNameHome}>
+                      {ejsPuros[0].nombre}
+                    </Text>
+                    <Text style={styles.nextSerieHome}>
+                      {` (${ejsPuros[0].series || 3} series)`}
+                    </Text>
+                  </Text>
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -831,21 +883,21 @@ function RoutineActionButton({
       ? {
           label: 'Ver Resumen',
           icon: 'eye-outline' as keyof typeof Ionicons.glyphMap,
-          iconColor: noir.lavender,
-          colors: ['#FFFFFF', '#FBF8FF', '#EFE8FF', '#DED2FF'] as const,
+          iconColor: '#FFFFFF',
+          colors: ['#FFFFFF', '#F5FAF7', '#E5F2EC'] as const,
         }
       : estado === 'pendiente'
       ? {
           label: 'Iniciar',
           icon: 'play' as keyof typeof Ionicons.glyphMap,
-          iconColor: noir.info,
-          colors: ['#FFFFFF', '#F5FCFF', '#E6F5FF', '#CDEBFF'] as const,
+          iconColor: '#FFFFFF',
+          colors: ['#FFFFFF', '#F4F9FF', '#E4EFFE'] as const,
         }
       : {
           label: 'Reanudar',
           icon: 'play' as keyof typeof Ionicons.glyphMap,
-          iconColor: noir.pearl,
-          colors: ['#FFFFFF', '#F4FBFF', '#E4F2FF', '#E6DDFF'] as const,
+          iconColor: '#FFFFFF',
+          colors: ['#FFFFFF', '#F4F7FB', '#E5ECF6'] as const,
         };
 
   return (
@@ -869,14 +921,9 @@ function RoutineActionButton({
         end={{ x: 1, y: 1 }}
         style={styles.actionButtonHomeGradient}
       >
-        <LinearGradient
-          colors={['#1B2230', '#080A0E']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.actionIconHome}
-        >
-          <Ionicons name={config.icon} size={10} color={config.iconColor} />
-        </LinearGradient>
+        <View style={styles.actionIconHome}>
+          <Ionicons name={config.icon} size={11} color={config.iconColor} />
+        </View>
         <Text style={styles.actionButtonHomeText}>{config.label}</Text>
       </LinearGradient>
     </Pressable>
@@ -1306,49 +1353,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3.5,
-    borderRadius: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 9999,
     borderWidth: 1,
-    borderColor: 'rgba(92, 200, 255, 0.58)',
+    borderColor: 'rgba(92, 200, 255, 0.55)',
+    backgroundColor: 'rgba(92, 200, 255, 0.08)',
     flexShrink: 1,
     shadowColor: noir.info,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 9,
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
     elevation: 2,
   },
   planBadgeDotHome: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: noir.info,
-    shadowColor: noir.info,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#5CC8FF',
+    shadowColor: '#5CC8FF',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 5,
+    shadowOpacity: 0.95,
+    shadowRadius: 6,
     elevation: 2,
   },
   planBadgeTextHome: {
-    color: '#EAF7FF',
+    color: '#5CC8FF',
     fontFamily: fuentes.bold,
-    fontSize: 9,
-    letterSpacing: 0.5,
+    fontSize: 10,
+    letterSpacing: 0.8,
     flexShrink: 1,
   },
   badgeLiveHome: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 9999,
     borderWidth: 1,
-    borderColor: 'rgba(63, 242, 176, 0.58)',
+    borderColor: 'rgba(63, 242, 176, 0.55)',
+    backgroundColor: 'rgba(63, 242, 176, 0.08)',
     shadowColor: noir.mint,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
     elevation: 2,
   },
   liveDotWrap: {
@@ -1365,21 +1414,21 @@ const styles = StyleSheet.create({
     backgroundColor: noir.mint,
   },
   liveDotCore: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: noir.mint,
-    shadowColor: noir.mint,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#3FF2B0',
+    shadowColor: '#3FF2B0',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.95,
-    shadowRadius: 5,
+    shadowRadius: 6,
     elevation: 3,
   },
   badgeLiveTextHome: {
-    color: '#EAFFF8',
+    color: '#3FF2B0',
     fontFamily: fuentes.bold,
-    fontSize: 9,
-    letterSpacing: 0.54,
+    fontSize: 10,
+    letterSpacing: 0.8,
   },
   iconButtonHome: {
     backgroundColor: noir.glass,
@@ -1388,114 +1437,112 @@ const styles = StyleSheet.create({
   badgeDoneHome: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 9999,
     borderWidth: 1,
-    borderColor: 'rgba(63, 242, 176, 0.45)',
+    borderColor: 'rgba(63, 242, 176, 0.5)',
+    backgroundColor: 'rgba(63, 242, 176, 0.08)',
   },
   badgeDoneTextHome: {
-    color: '#EAFFF8',
+    color: '#3FF2B0',
     fontFamily: fuentes.bold,
-    fontSize: 9,
-    letterSpacing: 0.5,
+    fontSize: 10,
+    letterSpacing: 0.8,
   },
   badgePendingHome: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 9999,
     borderWidth: 1,
-    borderColor: 'rgba(92, 200, 255, 0.42)',
+    borderColor: 'rgba(92, 200, 255, 0.45)',
+    backgroundColor: 'rgba(92, 200, 255, 0.08)',
   },
   badgePendingTextHome: {
     color: '#D9F0FF',
-    fontFamily: fuentes.medium,
-    fontSize: 9,
-    letterSpacing: 0.4,
+    fontFamily: fuentes.bold,
+    fontSize: 10,
+    letterSpacing: 0.8,
   },
   tituloRutinaHome: {
-    fontFamily: fuentes.extraBold,
-    fontSize: 17,
+    fontFamily: fuentes.bold,
+    fontSize: 20,
     color: '#FFFFFF',
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
   },
   timerRowHome: {
     width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   timerBoxHome: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 209, 102, 0.48)',
-    shadowColor: noir.champagne,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.1,
-    shadowRadius: 7,
-    elevation: 1,
+    borderColor: 'rgba(255, 209, 102, 0.45)',
+    backgroundColor: 'rgba(255, 209, 102, 0.08)',
+    alignSelf: 'flex-start',
   },
   timerTextHome: {
     fontFamily: fuentes.bold,
-    fontSize: 13.5,
+    fontSize: 14,
     color: '#FFFFFF',
     letterSpacing: 0.1,
   },
   timerLabelHome: {
-    fontFamily: fuentes.semiBold,
-    fontSize: 8,
-    color: 'rgba(255, 231, 174, 0.88)',
-    letterSpacing: 0.56,
+    fontFamily: fuentes.bold,
+    fontSize: 9,
+    color: '#FFD166',
+    letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
   seriesPillHome: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(179, 148, 255, 0.55)',
-    shadowColor: noir.lavender,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.14,
-    shadowRadius: 8,
-    elevation: 1,
+    borderColor: 'rgba(179, 148, 255, 0.45)',
+    backgroundColor: 'rgba(179, 148, 255, 0.08)',
+    alignSelf: 'flex-start',
   },
   seriesTextHome: {
     fontFamily: fuentes.bold,
-    fontSize: 10.5,
-    color: '#F0EBFF',
+    fontSize: 12.5,
+    color: '#FFFFFF',
   },
   seriesPctHome: {
-    fontFamily: fuentes.regular,
-    fontSize: 9.5,
-    color: 'rgba(214, 201, 255, 0.82)',
+    fontFamily: fuentes.semiBold,
+    fontSize: 11,
+    color: '#B394FF',
   },
   nextRowHome: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
+    gap: 7,
+    paddingHorizontal: 11,
+    paddingVertical: 6.5,
     borderWidth: 1,
-    borderColor: 'rgba(92, 200, 255, 0.14)',
-    borderLeftWidth: 2,
-    borderLeftColor: 'rgba(92, 200, 255, 0.85)',
+    borderColor: 'rgba(92, 200, 255, 0.22)',
+    borderLeftWidth: 2.5,
+    borderLeftColor: '#5CC8FF',
     borderRadius: 8,
+    backgroundColor: 'rgba(92, 200, 255, 0.06)',
   },
   nextTextHome: {
     flex: 1,
     fontFamily: fuentes.medium,
-    fontSize: 10.5,
-    color: '#DBE9FB',
-    lineHeight: 14,
+    fontSize: 11.5,
+    color: '#98A1AF',
+    lineHeight: 16,
   },
   nextNameHome: {
     fontFamily: fuentes.bold,
@@ -1503,24 +1550,130 @@ const styles = StyleSheet.create({
   },
   nextSerieHome: {
     fontFamily: fuentes.regular,
-    color: '#8E98A8',
+    color: '#98A1AF',
   },
   timerBoxPendingHome: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 2,
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(92, 200, 255, 0.42)',
+    backgroundColor: 'rgba(92, 200, 255, 0.08)',
+    alignSelf: 'flex-start',
   },
   timerTextPendingHome: {
+    fontFamily: fuentes.bold,
+    fontSize: 14,
+    color: '#FFFFFF',
+    letterSpacing: 0.1,
+  },
+  timerLabelPendingHome: {
+    fontFamily: fuentes.bold,
+    fontSize: 9,
+    color: '#5CC8FF',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  seriesPillPendingHome: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(179, 148, 255, 0.42)',
+    backgroundColor: 'rgba(179, 148, 255, 0.08)',
+    alignSelf: 'flex-start',
+  },
+  seriesTextPendingHome: {
+    fontFamily: fuentes.bold,
+    fontSize: 12.5,
+    color: '#FFFFFF',
+  },
+  seriesPctPendingHome: {
+    fontFamily: fuentes.semiBold,
+    fontSize: 11,
+    color: '#B394FF',
+  },
+  timerBoxDoneHome: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(63, 242, 176, 0.45)',
+    backgroundColor: 'rgba(63, 242, 176, 0.08)',
+    alignSelf: 'flex-start',
+  },
+  timerTextDoneHome: {
+    fontFamily: fuentes.bold,
+    fontSize: 14,
+    color: '#FFFFFF',
+    letterSpacing: 0.1,
+  },
+  timerLabelDoneHome: {
+    fontFamily: fuentes.bold,
+    fontSize: 9,
+    color: '#3FF2B0',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  seriesPillDoneHome: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(63, 242, 176, 0.45)',
+    backgroundColor: 'rgba(63, 242, 176, 0.08)',
+    alignSelf: 'flex-start',
+  },
+  seriesTextDoneHome: {
+    fontFamily: fuentes.bold,
+    fontSize: 12.5,
+    color: '#FFFFFF',
+  },
+  seriesPctDoneHome: {
+    fontFamily: fuentes.semiBold,
+    fontSize: 11,
+    color: '#3FF2B0',
+  },
+  doneRowHome: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 11,
+    paddingVertical: 6.5,
+    borderRadius: 8,
+    backgroundColor: 'rgba(63, 242, 176, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(63, 242, 176, 0.22)',
+    borderLeftWidth: 2.5,
+    borderLeftColor: '#3FF2B0',
+  },
+  doneTextHome: {
+    fontFamily: fuentes.bold,
+    fontSize: 11.5,
+    color: '#3FF2B0',
+  },
+  doneSubtextHome: {
     fontFamily: fuentes.regular,
-    fontSize: 12,
-    color: noir.platinum,
+    fontSize: 11.5,
+    color: '#98A1AF',
   },
   footerRowHome: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 2,
+    paddingTop: 4,
     gap: 8,
   },
   metricChipsHome: {
@@ -1534,87 +1687,86 @@ const styles = StyleSheet.create({
   metricChipExHome: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 4,
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     borderRadius: 8,
-    backgroundColor: 'rgba(92, 200, 255, 0.15)',
+    backgroundColor: 'rgba(92, 200, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(92, 200, 255, 0.22)',
   },
   metricChipExTextHome: {
-    fontFamily: fuentes.medium,
-    fontSize: 10,
-    color: '#E3F3FF',
+    fontFamily: fuentes.bold,
+    fontSize: 11,
+    color: '#DCE3EC',
   },
   metricChipSeriesHome: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 4,
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     borderRadius: 8,
-    backgroundColor: 'rgba(179, 148, 255, 0.15)',
+    backgroundColor: 'rgba(179, 148, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(179, 148, 255, 0.22)',
   },
   metricChipSeriesTextHome: {
-    fontFamily: fuentes.medium,
-    fontSize: 10,
-    color: '#EDE9FF',
+    fontFamily: fuentes.bold,
+    fontSize: 11,
+    color: '#DCE3EC',
   },
   actionButtonHome: {
     flexShrink: 0,
-    borderRadius: 13,
+    borderRadius: 9999,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.95)',
-    shadowColor: noir.info,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.38,
-    shadowRadius: 13,
-    elevation: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   actionButtonHomeHover: {
     transform: [{ translateY: -1 }],
-    shadowOpacity: 0.46,
-    shadowRadius: 16,
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
   },
   actionButtonHomePressed: {
-    transform: [{ scale: 0.97 }],
-    opacity: 0.94,
+    transform: [{ scale: 0.96 }],
+    opacity: 0.92,
   },
   actionButtonHomeWeb: {
     // @ts-ignore
-    boxShadow:
-      '0 8px 26px rgba(92,200,255,.38), 0 0 24px rgba(179,148,255,.16), 0 0 0 1px rgba(255,255,255,.12)',
+    boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.9)',
+    cursor: 'pointer' as any,
   },
   actionButtonHomeHoverWeb: {
     // @ts-ignore
-    boxShadow:
-      '0 11px 32px rgba(92,200,255,.46), 0 0 30px rgba(179,148,255,.22), 0 0 0 1px rgba(255,255,255,.16)',
+    boxShadow: '0 6px 18px rgba(0, 0, 0, 0.35), 0 0 0 1px #FFFFFF',
   },
   actionButtonHomeGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    paddingLeft: 5,
-    paddingRight: 11,
-    paddingVertical: 4,
-    borderRadius: 13,
+    gap: 8,
+    paddingLeft: 6,
+    paddingRight: 14,
+    paddingVertical: 5,
+    borderRadius: 9999,
   },
   actionIconHome: {
-    width: 21,
-    height: 21,
-    borderRadius: 7,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#090B0F',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: noir.info,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.24,
-    shadowRadius: 10,
-    elevation: 2,
   },
   actionButtonHomeText: {
     fontFamily: fuentes.bold,
-    fontSize: 11.5,
-    color: '#080A0E',
-    letterSpacing: 0.1,
+    fontSize: 13,
+    color: '#090B0F',
+    letterSpacing: -0.1,
   },
 });
 
