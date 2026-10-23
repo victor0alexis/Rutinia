@@ -144,11 +144,18 @@ export default function HeroEjercicioActivo({
             </Text>
           </View>
 
-          <View
-            style={[
+          <Pressable
+            onPress={() => {
+              vibrarBoton(12);
+              setModalTutorialVisible(true);
+            }}
+            style={({ pressed }) => [
               styles.heroVisualWrap,
               isCompact && styles.heroVisualWrapCompact,
+              pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
             ]}
+            accessibilityRole="button"
+            accessibilityLabel="Ver tutorial ampliado del ejercicio"
           >
             <View style={styles.heroGlow} />
             <View style={styles.heroVisual}>
@@ -158,13 +165,13 @@ export default function HeroEjercicioActivo({
                 contentFit="contain"
               />
               <View style={styles.badgeR}>
-                <Text style={styles.badgeRText}>R</Text>
+                <Ionicons name="expand" size={11} color={noir.pearl} />
               </View>
             </View>
-          </View>
+          </Pressable>
         </View>
 
-        {/* Acciones rápidas */}
+        {/* Acciones rápidas (en una sola fila horizontal) */}
         <View style={styles.pillsRow}>
           <Pressable
             onPress={() => {
@@ -174,7 +181,7 @@ export default function HeroEjercicioActivo({
             style={({ pressed }) => [styles.pillBtn, pressed && styles.pillBtnPressed]}
           >
             <Ionicons name="play" size={10} color={noir.info} />
-            <Text style={styles.pillText}>Tutorial</Text>
+            <Text numberOfLines={1} style={styles.pillText}>Tutorial</Text>
           </Pressable>
 
           {Boolean(onReemplazar) && (
@@ -186,33 +193,7 @@ export default function HeroEjercicioActivo({
               style={({ pressed }) => [styles.pillBtn, pressed && styles.pillBtnPressed]}
             >
               <Ionicons name="swap-horizontal" size={11} color={noir.lavender} />
-              <Text style={styles.pillText}>Reemplazar</Text>
-            </Pressable>
-          )}
-
-          {Boolean(onNotas) && (
-            <Pressable
-              onPress={() => {
-                vibrarBoton(12);
-                onNotas?.();
-              }}
-              style={({ pressed }) => [styles.pillBtn, pressed && styles.pillBtnPressed]}
-            >
-              <Ionicons name="pencil" size={10} color={noir.champagne} />
-              <Text style={styles.pillText}>Notas</Text>
-            </Pressable>
-          )}
-
-          {Boolean(onOpciones) && (
-            <Pressable
-              onPress={() => {
-                vibrarBoton(12);
-                onOpciones?.();
-              }}
-              style={({ pressed }) => [styles.pillBtn, pressed && styles.pillBtnPressed]}
-            >
-              <Ionicons name="ellipsis-horizontal" size={11} color={noir.platinum} />
-              <Text style={styles.pillText}>Opciones</Text>
+              <Text numberOfLines={1} style={styles.pillText}>Reemplazar</Text>
             </Pressable>
           )}
 
@@ -225,7 +206,20 @@ export default function HeroEjercicioActivo({
               style={({ pressed }) => [styles.pillBtn, pressed && styles.pillBtnPressed]}
             >
               <Ionicons name="copy-outline" size={10} color={noir.mint} />
-              <Text style={styles.pillText}>Previa</Text>
+              <Text numberOfLines={1} style={styles.pillText}>Previa</Text>
+            </Pressable>
+          )}
+
+          {Boolean(onOpciones) && (
+            <Pressable
+              onPress={() => {
+                vibrarBoton(12);
+                onOpciones?.();
+              }}
+              style={({ pressed }) => [styles.pillBtn, pressed && styles.pillBtnPressed]}
+            >
+              <Ionicons name="ellipsis-horizontal" size={11} color={noir.platinum} />
+              <Text numberOfLines={1} style={styles.pillText}>Opciones</Text>
             </Pressable>
           )}
         </View>
@@ -456,55 +450,56 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   heroVisualWrap: {
-    width: 104,
-    height: 104,
+    width: 124,
+    height: 124,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    position: 'relative',
   },
   heroVisualWrapCompact: {
-    width: 86,
-    height: 86,
+    width: 104,
+    height: 104,
   },
   heroGlow: {
     position: 'absolute',
-    width: '128%',
-    height: '128%',
-    borderRadius: 999,
-    backgroundColor: 'rgba(226, 239, 255, 0.055)',
+    width: '116%',
+    height: '116%',
+    borderRadius: 24,
+    backgroundColor: 'rgba(216, 228, 245, 0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.045)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   heroVisual: {
     width: '100%',
     height: '100%',
-    borderRadius: 999,
-    backgroundColor: '#07090D',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+    borderRadius: 20,
+    backgroundColor: '#06080D',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    shadowColor: '#CEE1F7',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.16,
-    shadowRadius: 18,
-    elevation: 6,
+    shadowColor: '#A9BAD0',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 8,
   },
   heroGif: {
-    width: '94%',
-    height: '94%',
+    width: '96%',
+    height: '96%',
   },
   badgeR: {
     position: 'absolute',
-    bottom: 1,
-    right: 1,
+    bottom: 4,
+    right: 4,
     width: 22,
     height: 22,
-    borderRadius: 11,
-    backgroundColor: 'rgba(9, 11, 16, 0.9)',
+    borderRadius: 7,
+    backgroundColor: 'rgba(9, 11, 16, 0.92)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -516,24 +511,27 @@ const styles = StyleSheet.create({
   pillsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    justifyContent: 'space-between',
+    gap: 6,
     marginTop: 12,
-    flexWrap: 'wrap',
+    width: '100%',
   },
   pillBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
-    minHeight: 26,
-    backgroundColor: 'rgba(255, 255, 255, 0.035)',
+    minHeight: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    borderColor: 'rgba(255, 255, 255, 0.09)',
+    paddingVertical: 5,
+    paddingHorizontal: 4,
     borderRadius: 8,
   },
   pillBtnPressed: {
-    backgroundColor: 'rgba(255, 255, 255, 0.09)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     transform: [{ scale: 0.98 }],
   },
   pillText: {

@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colores, fuentes } from '../constants/colores';
 import { useLayout } from '../hooks/useLayout';
 import GlowButton from './GlowButton';
+import RutiniaLogo from './RutiniaLogo';
 
 type Props = {
   badgeText?: string;
@@ -118,7 +119,7 @@ export default function EncabezadoSeccion({
           end={{ x: 1, y: 0 }}
           style={styles.badgeInner}
         >
-          <View style={styles.badgeDot} />
+          <RutiniaLogo size={14} showGlow={false} />
           <Text style={styles.badgeText}>{badgeText}</Text>
         </LinearGradient>
       </View>

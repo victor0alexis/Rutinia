@@ -1,26 +1,12 @@
-import React, { useState } from 'react';
-import {
-  LayoutChangeEvent,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import React from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import {
-  Canvas,
-  Box,
-  BoxShadow,
-  rect,
-  rrect,
-} from '@shopify/react-native-skia';
-import { fuentes, noir } from '../constants/colores';
+import { fuentes } from '../constants/colores';
 import { EjercicioRegistro, Registro } from '../types';
 import { SesionActivaInfo } from '../utils/sesionActiva';
 import { parsearEjercicioInfo } from '../utils/ejercicios';
 import { parsearNotaInteligente } from './DiaDetalleModal';
+import GlowPanel from './GlowPanel';
 import RutinaLiveCard from './RutinaLiveCard';
 
 function obtenerTemaNota(categoria: string) {
@@ -91,66 +77,13 @@ export default function MainDayCard({
   onVerResumenRutina,
   onDescartarRutina,
 }: MainDayCardProps) {
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-
-  const handleLayout = (e: LayoutChangeEvent) => {
-    const { width, height } = e.nativeEvent.layout;
-    if (width > 0 && height > 0) {
-      setDimensions({ width, height });
-    }
-  };
-
   const tieneContenido =
     registrosConRutina.length > 0 ||
     notasDelDia.length > 0 ||
     ejerciciosExtras.length > 0;
 
-  const isWeb = Platform.OS === 'web';
-
   return (
-    <View
-      onLayout={handleLayout}
-      style={[
-        styles.uiverseCardBase,
-        isWeb && styles.uiverseCardWeb,
-      ]}
-    >
-      {/* Fondo Skia en plataformas nativas (iOS / Android) para lograr el BoxShadow e Inset Glow idéntico */}
-      {!isWeb && dimensions.width > 0 && dimensions.height > 0 && (
-        <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
-          <Box
-            box={rrect(rect(0, 0, dimensions.width, dimensions.height), 20, 20)}
-            color="rgb(15, 15, 15)"
-          >
-            {/* Outer Glow perla fría difuso */}
-            <BoxShadow
-              dx={0}
-              dy={0}
-              blur={28}
-              color="rgba(226, 239, 255, 0.52)"
-            />
-            {/* Inset Glow perla desde los bordes hacia el centro */}
-            <BoxShadow
-              dx={0}
-              dy={0}
-              blur={50}
-              color="rgba(226, 239, 255, 0.24)"
-              inner
-            />
-          </Box>
-        </Canvas>
-      )}
-
-      {/* Filo de luz superior: el detalle editorial del MainDayCard */}
-      <LinearGradient
-        pointerEvents="none"
-        colors={['transparent', 'rgba(255, 255, 255, 0.16)', 'transparent']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.topHairline}
-      />
-
-      {/* Contenido Scrollable Interno (Sin SelectedDayHeader, como se solicitó) */}
+    <GlowPanel style={styles.mainCard}>
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
@@ -297,41 +230,14 @@ export default function MainDayCard({
           </>
         )}
       </ScrollView>
-    </View>
+    </GlowPanel>
   );
 }
 
 const styles = StyleSheet.create({
-  uiverseCardBase: {
+  mainCard: {
     flex: 1,
-    backgroundColor: noir.card,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
     padding: 14,
-    overflow: 'hidden',
-    position: 'relative',
-    // Sombra nativa de fallback para dispositivos móviles
-    shadowColor: '#E2EFFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.52,
-    shadowRadius: 22,
-    elevation: 12,
-  },
-  // Estilo exacto de Uiverse para Web (con doble box-shadow: exterior + inset)
-  uiverseCardWeb: {
-    // @ts-ignore
-    boxShadow:
-      '0 0 50px 0px rgba(226, 239, 255, 0.52), inset 0 0 90px 0px rgba(226, 239, 255, 0.24)',
-    color: '#FFFFFF',
-  },
-  topHairline: {
-    position: 'absolute',
-    top: 0,
-    left: 14,
-    right: 14,
-    height: 1,
-    zIndex: 3,
   },
   scrollContent: {
     paddingVertical: 4,

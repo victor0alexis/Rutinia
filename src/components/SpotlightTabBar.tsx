@@ -109,24 +109,23 @@ export default function SpotlightTabBar({
   };
 
   const isWeb = Platform.OS === 'web';
-  // safeBottom ya incluye el respaldo de 34 px para el home indicator
-  // cuando iOS devuelve env(safe-area-inset-bottom) = 0.
-  const bottomPosition = Math.max(isLandscape ? 8 : 12, safeBottom);
+  const bottomInsetToUse = isLandscape ? 4 : Math.max(safeBottom, insets.bottom, 8);
+  const contentHeight = isLandscape ? 46 : 56;
+  const totalNavHeight = contentHeight + bottomInsetToUse;
 
   return (
     <View
       pointerEvents="box-none"
-      style={[
-        styles.outerWrapper,
-        {
-          bottom: bottomPosition,
-        },
-      ]}
+      style={styles.outerWrapper}
     >
       <View
         onLayout={handleLayout}
         style={[
           styles.navbarContainer,
+          {
+            height: totalNavHeight,
+            paddingBottom: bottomInsetToUse,
+          },
           isLandscape && styles.navbarContainerLandscape,
           isWeb && styles.navbarContainerWeb,
         ]}
@@ -255,41 +254,48 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 100,
+    width: '100%',
   },
   navbarContainer: {
-    width: '92%',
-    maxWidth: 410,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(17, 17, 21, 0.94)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.09)',
+    width: '100%',
+    maxWidth: 600,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    backgroundColor: 'rgba(11, 13, 19, 0.96)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.09)',
+    borderBottomWidth: 0,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
     position: 'relative',
     overflow: 'hidden',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
+    shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.65,
-    shadowRadius: 20,
+    shadowRadius: 16,
     elevation: 16,
   },
   navbarContainerLandscape: {
-    height: 46,
-    borderRadius: 23,
-    maxWidth: 440,
+    maxWidth: '100%',
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
   },
   navbarContainerWeb: {
     // @ts-ignore
     backdropFilter: 'blur(16px)',
     boxShadow:
-      '0 12px 30px rgba(0, 0, 0, 0.65), 0 0 1px 1px rgba(255, 255, 255, 0.08), inset 0 1px 0 0 rgba(255, 255, 255, 0.12)',
+      '0 -6px 24px rgba(0, 0, 0, 0.65), 0 -1px 0 0 rgba(255, 255, 255, 0.08), inset 0 1px 0 0 rgba(255, 255, 255, 0.12)',
   },
   spotlightWrapper: {
     position: 'absolute',
     top: 4,
-    bottom: 4,
+    height: 48,
     left: 0,
     alignItems: 'center',
     justifyContent: 'center',

@@ -80,7 +80,7 @@ export default function ProgresoScreen() {
         {/* ENCABEZADO ESTANDARIZADO CENTRADO */}
         <EncabezadoSeccion
           badgeText="MÉTRICAS & NUTRICIÓN"
-          titulo="Mi Progreso"
+          titulo="Progreso"
           subtitulo="Rendimiento de rutinas, récords de peso y hábitos saludables"
         />
 

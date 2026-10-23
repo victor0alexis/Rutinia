@@ -29,6 +29,7 @@ import DockPrincipal from '../../components/DockPrincipal';
 import ShinyText from '../../components/ShinyText';
 import YoungNewtButton from '../../components/YoungNewtButton';
 import GradientText from '../../components/GradientText';
+import RutiniaLogo from '../../components/RutiniaLogo';
 import { LiquidMetalButton } from '../../components/LiquidMetalButton';
 import GestionarPlanModal from '../../components/GestionarPlanModal';
 import EliminarPlanModal from '../../components/EliminarPlanModal';
@@ -1118,43 +1119,30 @@ export default function RutinasScreen() {
           <View
             style={[
               styles.headerWrap,
-              { justifyContent: planSeleccionado || viendoSinPlan ? 'space-between' : 'flex-end' },
+              { justifyContent: 'space-between' },
             ]}
           >
-            {(planSeleccionado || viendoSinPlan) && (
-              <View style={styles.brandLockup}>
-                <LinearGradient
-                  colors={[
-                    'rgba(255,255,255,0.30)',
-                    'rgba(255,255,255,0.16)',
-                    'rgba(255,255,255,0.045)',
-                  ]}
-                  start={{ x: 0.15, y: 0.05 }}
-                  end={{ x: 0.85, y: 0.95 }}
-                  style={styles.brandMark}
-                >
-                  <Text style={styles.brandMarkText}>m</Text>
-                </LinearGradient>
+            <View style={styles.brandLockup}>
+              <RutiniaLogo size={30} />
 
-                <View style={styles.brandWordmark}>
-                  <GradientText
-                    colors={TITLE_GRADIENT_COLORS}
-                    animationSpeed={8}
-                    direction="horizontal"
-                    scale={3}
-                    style={{
-                      fontSize: isCompact ? 19 : 21,
-                      lineHeight: 24,
-                      fontFamily: fuentes.extraBold,
-                      letterSpacing: -0.55,
-                    }}
-                  >
-                    myLife
-                  </GradientText>
-                  <View style={styles.brandDotSmall} />
-                </View>
+              <View style={styles.brandWordmark}>
+                <GradientText
+                  colors={TITLE_GRADIENT_COLORS}
+                  animationSpeed={8}
+                  direction="horizontal"
+                  scale={3}
+                  style={{
+                    fontSize: isCompact ? 19 : 21,
+                    lineHeight: 24,
+                    fontFamily: fuentes.extraBold,
+                    letterSpacing: -0.55,
+                  }}
+                >
+                  Rutinas
+                </GradientText>
+                <View style={styles.brandDotSmall} />
               </View>
-            )}
+            </View>
 
             <View style={styles.avatarWrap}>
               <Pressable
