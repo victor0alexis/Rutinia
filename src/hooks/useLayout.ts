@@ -82,8 +82,39 @@ export function useLayout(): Layout {
   // Content max width: ~720 centered on tablet/landscape, full width on portrait mobile
   const contentMaxWidth = isTablet || isLandscape ? Math.min(width - gutter * 2, 720) : width;
 
+  // En una web app instalada en iOS, algunas versiones (iOS 26.1/27)
+  // devuelven env(safe-area-inset-bottom) = 0 aunque el home indicator
+  // siga ocupando su franja. Usamos el alto real del indicador como
+  // respaldo para que la barra flotante y los docks no queden debajo.
+  const isIOSWebStandalone =
+    Platform.OS === 'web' &&
+    typeof navigator !== 'undefined' &&
+    /iPhone|iPad|iPod/i.test(navigator.userAgent || '') &&
+    (((navigator as Navigator & { standalone?: boolean }).standalone === true) ||
+      (typeof window !== 'undefined' &&
+        window.matchMedia?.('(display-mode: standalone)')?.matches === true));
+
+  // Solo aplicamos el respaldo si la web app ocupa la pantalla completa.
+  // Si iOS ya la ha recortado por arriba/abajo, el sistema gestiona esa
+  // franja y no hay que añadir un hueco extra.
+  const webAppCoversScreen =
+    isIOSWebStandalone &&
+    typeof window !== 'undefined' &&
+    window.innerHeight + insets.top + insets.bottom >=
+      (window.screen?.height || window.innerHeight) - 2;
+
+  const iosWebBottomFallback = webAppCoversScreen
+    ? /iPad/i.test(navigator.userAgent || '')
+      ? 20
+      : 34
+    : 0;
+  const resolvedBottomInset = Math.max(insets.bottom, iosWebBottomFallback);
+
   // Safe bottom padding for docks and scrollviews
-  const safeBottom = Math.max(insets.bottom, Platform.OS === 'ios' ? 20 : 10);
+  const safeBottom = Math.max(
+    resolvedBottomInset,
+    Platform.OS === 'ios' ? 20 : 10
+  );
 
   // Web visualViewport & Native Keyboard listener
   useEffect(() => {
@@ -148,7 +179,7 @@ export function useLayout(): Layout {
     gutter,
     contentMaxWidth,
     topInset: insets.top,
-    bottomInset: insets.bottom,
+    bottomInset: resolvedBottomInset,
     safeBottom,
     leftInset: insets.left,
     rightInset: insets.right,

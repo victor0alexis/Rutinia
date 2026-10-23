@@ -17,25 +17,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Rutinia" />
-        <meta name="theme-color" content="#050608" />
-
-        {/* iOS standalone: marcar el documento antes del primer paint.
-            Algunas versiones de iOS no activan (display-mode: standalone) en
-            la PWA instalada aunque navigator.standalone sea true. */}
-        <script
-          dangerouslySetInnerHTML={{ __html: `
-            (function () {
-              try {
-                var standalone = window.navigator.standalone === true ||
-                  (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
-                  (window.matchMedia && window.matchMedia('(display-mode: fullscreen)').matches);
-                if (standalone) {
-                  document.documentElement.classList.add('pwa-standalone');
-                }
-              } catch (e) {}
-            })();
-          ` }}
-        />
+        <meta name="theme-color" content="#080A0F" />
 
         {/* Iconos de pantalla de inicio para iOS (iPhone) y Web */}
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -61,7 +43,7 @@ export default function Root({ children }: PropsWithChildren) {
           }
 
           html, body {
-            background-color: #000000;
+            background-color: #080A0F;
             color: #F9FAFB;
             width: 100%;
             height: 100%;
@@ -83,7 +65,7 @@ export default function Root({ children }: PropsWithChildren) {
           }
 
           #root {
-            background-color: #000000;
+            background-color: #080A0F;
             width: 100%;
             height: 100%;
             height: -webkit-fill-available;
@@ -102,27 +84,11 @@ export default function Root({ children }: PropsWithChildren) {
             flex-direction: column;
           }
 
-          /* PWA instalada en iOS (pantalla de inicio):
-             WebKit mide 100dvh/100svh/100% como "pantalla menos el safe-area
-             superior", dejando una franja sin cubrir (normalmente abajo).
-             En standalone usamos el viewport grande (100vh/100lvh), que sí
-             equivale a la pantalla física completa. En Safari normal se
-             mantiene 100dvh para no invadir las barras del navegador.
-             Se cubren las dos detecciones: media query y la clase que añade
-             el script de <head> cuando navigator.standalone es true. */
-          @media (display-mode: standalone), (display-mode: fullscreen) {
-            html, body, #root {
-              height: 100vh;
-              height: 100lvh;
-            }
-          }
-
-          html.pwa-standalone,
-          html.pwa-standalone body,
-          html.pwa-standalone #root {
-            height: 100vh;
-            height: 100lvh;
-          }
+          /* En una PWA instalada, iOS puede recortar el viewport por arriba
+             (barra de estado) y por abajo (home indicator). 100dvh/100% ya
+             miden exactamente esa área visible; usar 100lvh hacía que #root
+             fuese más alto que la pantalla y cortaba la parte inferior
+             (la barra de pestañas). */
 
           /* Aplicar Outfit por defecto a todo texto en la web salvo Ionicons */
           div, span, p, label, select, textarea {

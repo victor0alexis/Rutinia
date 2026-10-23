@@ -65,7 +65,7 @@ export default function SpotlightTabBar({
   navigation,
   insets,
 }: BottomTabBarProps) {
-  const { isLandscape, isCompact } = useLayout();
+  const { isLandscape, isCompact, safeBottom } = useLayout();
   const [containerWidth, setContainerWidth] = useState(0);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
@@ -109,7 +109,9 @@ export default function SpotlightTabBar({
   };
 
   const isWeb = Platform.OS === 'web';
-  const bottomPosition = isLandscape ? Math.max(8, insets.bottom) : Math.max(12, insets.bottom);
+  // safeBottom ya incluye el respaldo de 34 px para el home indicator
+  // cuando iOS devuelve env(safe-area-inset-bottom) = 0.
+  const bottomPosition = Math.max(isLandscape ? 8 : 12, safeBottom);
 
   return (
     <View
