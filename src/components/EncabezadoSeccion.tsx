@@ -111,6 +111,12 @@ export default function EncabezadoSeccion({
         </View>
       )}
 
+      {/* Marca metálica: el componente oficial de Reacticx como logotipo. */}
+      <RutiniaLogo
+        size={isLandscape ? 22 : 28}
+        style={styles.brandMark}
+      />
+
       {/* Badge Superior Micro-Elegante con Borde Luminoso */}
       <View style={styles.badgeGlowBorder}>
         <LinearGradient
@@ -119,7 +125,6 @@ export default function EncabezadoSeccion({
           end={{ x: 1, y: 0 }}
           style={styles.badgeInner}
         >
-          <RutiniaLogo size={14} showGlow={false} />
           <Text style={styles.badgeText}>{badgeText}</Text>
         </LinearGradient>
       </View>
@@ -171,6 +176,10 @@ export default function EncabezadoSeccion({
 }
 
 const styles = StyleSheet.create({
+  brandMark: {
+    marginTop: 1,
+    marginBottom: 1,
+  },
   volverContainer: {
     position: 'absolute',
     top: 6,

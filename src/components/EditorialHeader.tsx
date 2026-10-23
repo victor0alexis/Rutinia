@@ -80,7 +80,7 @@ export default function EditorialHeader({ title = 'Semana', style }: Props) {
     <>
       <View style={[styles.headerWrap, style]}>
         <View style={styles.brandLockup}>
-          <RutiniaLogo size={30} />
+          <RutiniaLogo size={32} />
 
           <View style={styles.brandWordmark}>
             <GradientText
@@ -180,36 +180,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    height: 30,
+    height: 32,
     position: 'relative',
     zIndex: 60,
   },
   brandLockup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 9,
+    gap: 10,
     minWidth: 0,
-  },
-  brandMark: {
-    width: 30,
-    height: 30,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.24)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#E2EFFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.14,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  brandMarkText: {
-    color: '#F8FBFF',
-    fontFamily: fuentes.extraBold,
-    fontSize: 15,
-    letterSpacing: -1.2,
-    paddingBottom: 1,
   },
   brandWordmark: {
     flexDirection: 'row',

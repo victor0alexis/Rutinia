@@ -697,19 +697,9 @@ export default function GestionarRutinaModal({
                 />
               </View>
 
-              <View
-                style={[
-                  styles.fieldPair,
-                  (isLandscape || isTablet) && styles.fieldPairRow,
-                ]}
-              >
+              <View style={styles.fieldPair}>
                 {planesDisponibles.length > 0 ? (
-                  <View
-                    style={[
-                      styles.field,
-                      (isLandscape || isTablet) && styles.fieldPairItem,
-                    ]}
-                  >
+                  <View style={styles.field}>
                     <View style={styles.labelRow}>
                       <Text style={styles.label}>Plan</Text>
                       <Text style={styles.fieldHint}>Opcional</Text>
@@ -840,12 +830,7 @@ export default function GestionarRutinaModal({
                   </View>
                 ) : null}
 
-                <View
-                  style={[
-                    styles.field,
-                    (isLandscape || isTablet) && styles.fieldPairItem,
-                  ]}
-                >
+                <View style={styles.field}>
                   <View style={styles.labelRow}>
                     <Text style={styles.label}>Día sugerido</Text>
                     {diaSugerido !== null ? (
@@ -1725,15 +1710,6 @@ const styles = StyleSheet.create({
   },
   fieldPair: {
     gap: 14,
-  },
-  fieldPairRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 14,
-  },
-  fieldPairItem: {
-    flex: 1,
-    minWidth: 0,
   },
   labelRow: {
     flexDirection: 'row',

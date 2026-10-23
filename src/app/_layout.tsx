@@ -16,6 +16,7 @@ import { supabase } from '../lib/supabase';
 import { colores } from '../constants/colores';
 
 import ConfirmModalGlobal from '../components/ConfirmModalGlobal';
+import { RutiniaLogo } from '../components/RutiniaLogo';
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -78,7 +79,8 @@ export default function RootLayout() {
   if (!fontsLoaded) {
     return (
       <View style={{ flex: 1, width: '100%', height: '100%', backgroundColor: colores.fondo, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={colores.primarioHover} />
+        <RutiniaLogo size={84} />
+        <ActivityIndicator size="small" color={colores.primarioHover} style={{ marginTop: 22 }} />
       </View>
     );
   }

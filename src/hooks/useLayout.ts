@@ -82,38 +82,31 @@ export function useLayout(): Layout {
   // Content max width: ~720 centered on tablet/landscape, full width on portrait mobile
   const contentMaxWidth = isTablet || isLandscape ? Math.min(width - gutter * 2, 720) : width;
 
-  // En una web app instalada en iOS, algunas versiones (iOS 26.1/27)
-  // devuelven env(safe-area-inset-bottom) = 0 aunque el home indicator
-  // siga ocupando su franja. Usamos el alto real del indicador como
-  // respaldo para que la barra flotante y los docks no queden debajo.
-  const isIOSWebStandalone =
-    Platform.OS === 'web' &&
-    typeof navigator !== 'undefined' &&
-    /iPhone|iPad|iPod/i.test(navigator.userAgent || '') &&
-    (((navigator as Navigator & { standalone?: boolean }).standalone === true) ||
-      (typeof window !== 'undefined' &&
-        window.matchMedia?.('(display-mode: standalone)')?.matches === true));
+  const isIOS =
+    Platform.OS === 'ios' ||
+    (Platform.OS === 'web' &&
+      typeof navigator !== 'undefined' &&
+      /iPhone|iPad|iPod/i.test(navigator.userAgent || ''));
 
-  // Solo aplicamos el respaldo si la web app ocupa la pantalla completa.
-  // Si iOS ya la ha recortado por arriba/abajo, el sistema gestiona esa
-  // franja y no hay que añadir un hueco extra.
-  const webAppCoversScreen =
-    isIOSWebStandalone &&
-    typeof window !== 'undefined' &&
-    window.innerHeight + insets.top + insets.bottom >=
-      (window.screen?.height || window.innerHeight) - 2;
+  const isIPhone =
+    isIOS &&
+    (Platform.OS === 'ios'
+      ? !isTablet
+      : typeof navigator !== 'undefined' && /iPhone/i.test(navigator.userAgent || ''));
 
-  const iosWebBottomFallback = webAppCoversScreen
-    ? /iPad/i.test(navigator.userAgent || '')
+  // Respaldo de home indicator para iPhone (34 px en vertical, 12 px en horizontal) y iPad (20 px)
+  const iosBottomFallback = isIPhone
+    ? (isLandscape ? 12 : 34)
+    : isIOS
       ? 20
-      : 34
-    : 0;
-  const resolvedBottomInset = Math.max(insets.bottom, iosWebBottomFallback);
+      : 0;
 
-  // Safe bottom padding for docks and scrollviews
+  const resolvedBottomInset = Math.max(insets.bottom, iosBottomFallback);
+
+  // Safe bottom padding para barras de pestañas, docks y scrollviews
   const safeBottom = Math.max(
     resolvedBottomInset,
-    Platform.OS === 'ios' ? 20 : 10
+    isIOS ? (isLandscape ? 12 : 34) : 12
   );
 
   // Web visualViewport & Native Keyboard listener

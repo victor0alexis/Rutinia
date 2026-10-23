@@ -47,8 +47,6 @@ export default function Root({ children }: PropsWithChildren) {
             color: #F9FAFB;
             width: 100%;
             height: 100%;
-            height: -webkit-fill-available;
-            height: 100dvh;
             margin: 0;
             padding: 0;
             overflow: hidden !important;
@@ -68,8 +66,6 @@ export default function Root({ children }: PropsWithChildren) {
             background-color: #080A0F;
             width: 100%;
             height: 100%;
-            height: -webkit-fill-available;
-            height: 100dvh;
             margin: 0;
             padding: 0;
             overflow: hidden !important;
@@ -83,12 +79,6 @@ export default function Root({ children }: PropsWithChildren) {
             display: flex;
             flex-direction: column;
           }
-
-          /* En una PWA instalada, iOS puede recortar el viewport por arriba
-             (barra de estado) y por abajo (home indicator). 100dvh/100% ya
-             miden exactamente esa área visible; usar 100lvh hacía que #root
-             fuese más alto que la pantalla y cortaba la parte inferior
-             (la barra de pestañas). */
 
           /* Aplicar Outfit por defecto a todo texto en la web salvo Ionicons */
           div, span, p, label, select, textarea {

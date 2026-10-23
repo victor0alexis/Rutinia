@@ -1,260 +1,32 @@
-import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
+/**
+ * `metal-skia.tsx` is the literal source of the Reacticx Metal component:
+ * https://reacticx.com/components/metal
+ *
+ * Native and web both render that exact implementation. On web it is loaded
+ * lazily through `index.web.tsx` once CanvasKit is ready, because Skia's
+ * runtime shader compiler is not available when the JS bundle first executes.
+ */
+import React from "react";
+import { Platform, View } from "react-native";
 
-import {
-  AppState,
-  StyleSheet,
-  View,
-  type AppStateStatus,
-  type LayoutChangeEvent,
-  type StyleProp,
-  type ViewStyle,
-} from "react-native";
-
-import { Canvas, Fill, Shader, Skia } from "@shopify/react-native-skia";
-
-import {
-  useDerivedValue,
-  useFrameCallback,
-  useSharedValue,
-  type FrameInfo,
-} from "react-native-reanimated";
-
-import { MAX_STOPS, METAL_SHADER } from "./conf";
-
-import { CONF, DEFAULT_COLORS } from "./const";
-
-import { degreesToRadians, resolvePalette, resolveRadius } from "./helper";
+import { Metal as MetalCanvas } from "./metal-skia";
 import type { IMetal } from "./types";
 
-let cachedShader: ReturnType<typeof Skia.RuntimeEffect.Make> | null = null;
-function getShader() {
-  if (!cachedShader && typeof Skia !== 'undefined' && Skia?.RuntimeEffect?.Make) {
-    try {
-      cachedShader = Skia.RuntimeEffect.Make(METAL_SHADER);
-    } catch {
-      cachedShader = null;
-    }
+/**
+ * Expo Router may resolve this native entry while rendering on the server.
+ * Skia and its native module only exist in the app runtime, so keep web SSR on
+ * a plain wrapper. Native platforms always use the animated Metal.
+ */
+export const Metal: React.FC<IMetal> = (props) => {
+  if (Platform.OS === "web" && typeof window === "undefined") {
+    return <View style={props.style}>{props.children}</View>;
   }
-  return cachedShader;
-}
 
-export const Metal = memo(function Metal({
-  children,
+  return <MetalCanvas {...props} />;
+};
 
-      colors = DEFAULT_COLORS,
+Metal.displayName = "Metal";
 
-      borderWidth = CONF.borderWidth,
-      borderRadius,
-      softness = CONF.softness,
-      opacity = CONF.opacity,
-      glow = CONF.glow,
-      sheen = CONF.sheen,
-
-      speed = CONF.speed,
-      bands = CONF.bands,
-      sharpness = CONF.sharpness,
-      distortion = CONF.distortion,
-      noiseScale = CONF.noiseScale,
-      bevel = CONF.bevel,
-      contrast = CONF.contrast,
-      direction = CONF.direction,
-
-      paused = false,
-      style,
-    }: IMetal) {
-      const [measured, setMeasured] = useState<{
-        width: number;
-        height: number;
-      }>({
-        width: 0,
-        height: 0,
-      });
-
-      const onLayout = useCallback((event: LayoutChangeEvent) => {
-        const { width, height } = event.nativeEvent.layout;
-
-        setMeasured((previous) =>
-          previous.width === width && previous.height === height
-            ? previous
-            : {
-                width,
-                height,
-              },
-        );
-      }, []);
-
-      const time = useSharedValue<number>(0);
-
-      const speedRef = useSharedValue<number>(speed);
-
-      speedRef.value = speed;
-
-      const [backgrounded, setBackgrounded] = useState<boolean>(false);
-
-      useEffect(() => {
-        const subscription = AppState.addEventListener(
-          "change",
-          (status: AppStateStatus) => {
-            setBackgrounded(status !== "active");
-          },
-        );
-
-        return () => subscription.remove();
-      }, []);
-
-      const running = !paused && !backgrounded;
-
-      const frameCallback = useFrameCallback((frameInfo: FrameInfo) => {
-        "worklet";
-
-        if (frameInfo.timeSincePreviousFrame != null) {
-          time.value +=
-            (frameInfo.timeSincePreviousFrame / 1000) * speedRef.value;
-        }
-      }, false);
-
-      useEffect(() => {
-        frameCallback.setActive(running);
-      }, [frameCallback, running]);
-
-      const palette = useMemo(() => resolvePalette(colors), [colors]);
-
-      const stops = useMemo(
-        () => Math.min(Math.max(colors.length, 2), MAX_STOPS),
-        [colors],
-      );
-
-      /**
-       * The radius the child already rounds by, so wrapping a circle needs
-       * no extra prop.
-       */
-      const childRadius = useMemo<StyleProp<ViewStyle>>(() => {
-        const [child] = React.Children.toArray(children);
-
-        return React.isValidElement<{ style?: StyleProp<ViewStyle> }>(child)
-          ? child.props.style
-          : undefined;
-      }, [children]);
-
-      const radius = useMemo(
-        () =>
-          resolveRadius(
-            borderRadius,
-            measured.width,
-            measured.height,
-            childRadius,
-            style,
-          ),
-        [borderRadius, measured.width, measured.height, childRadius, style],
-      );
-
-      const bleed = useMemo(
-        () => (glow > 0 ? Math.max(borderWidth * 4, 8) : 0),
-        [glow, borderWidth],
-      );
-
-      const directionRadians = useMemo(
-        () => degreesToRadians(direction),
-        [direction],
-      );
-
-      const canvasWidth = measured.width + bleed * 2;
-      const canvasHeight = measured.height + bleed * 2;
-
-      const uniforms = useDerivedValue(() => {
-        "worklet";
-
-        return {
-          u_resolution: [canvasWidth, canvasHeight] as [number, number],
-
-          u_time: time.value,
-
-          u_colors: palette,
-
-          u_shape: [borderWidth, radius, softness, opacity] as [
-            number,
-            number,
-            number,
-            number,
-          ],
-
-          u_pattern: [stops, bands, sharpness, directionRadians] as [
-            number,
-            number,
-            number,
-            number,
-          ],
-
-          u_surface: [distortion, noiseScale, bevel, contrast] as [
-            number,
-            number,
-            number,
-            number,
-          ],
-
-          u_light: [sheen, glow, bleed] as [number, number, number],
-        } as const;
-      }, [
-        canvasWidth,
-        canvasHeight,
-        palette,
-        stops,
-        borderWidth,
-        radius,
-        softness,
-        opacity,
-        bands,
-        sharpness,
-        directionRadians,
-        distortion,
-        noiseScale,
-        bevel,
-        contrast,
-        sheen,
-        glow,
-        bleed,
-      ]);
-
-      const shaderEffect = useMemo(() => getShader(), []);
-
-      return (
-        <View style={style} onLayout={onLayout}>
-          {children}
-
-          {measured.width > 0 && measured.height > 0 && shaderEffect ? (
-            <View
-              pointerEvents="none"
-              style={[
-                styles.overlay,
-                {
-                  top: -bleed,
-                  left: -bleed,
-                },
-              ]}
-            >
-              <Canvas
-                style={{
-                  width: canvasWidth,
-                  height: canvasHeight,
-                }}
-              >
-                <Fill>
-                  <Shader source={shaderEffect} uniforms={uniforms} />
-                </Fill>
-              </Canvas>
-            </View>
-          ) : null}
-        </View>
-      );
-    }
-  );
-
-const styles = StyleSheet.create({
-  overlay: {
-    position: "absolute",
-  },
-});
-
-export { METAL_COLORS } from "./const";
-
+export { METAL_COLORS } from "./metal-skia";
+export type { IMetal, MetalStop } from "./types";
 export default Metal;
