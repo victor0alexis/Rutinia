@@ -175,6 +175,23 @@ export default function RutinaLiveCard({
     return ejsPuros.reduce((acc, ej) => acc + (ej.series || 3), 0);
   }, [ejsPuros]);
 
+  // Series realmente completadas en una sesión finalizada (parsea el detalle del registro)
+  const { seriesCompletadasFinal, totalSeriesFinal } = useMemo(() => {
+    if (!estaFinalizada) return { seriesCompletadasFinal: 0, totalSeriesFinal: totalSeries };
+    let comps = 0;
+    let tots = 0;
+    for (const ej of ejsPuros) {
+      const parsed = parsearEjercicioInfo(ej);
+      tots += parsed.totalSeries || ej.series || 3;
+      comps += parsed.seriesCompletadas || 0;
+    }
+    return { seriesCompletadasFinal: comps, totalSeriesFinal: tots > 0 ? tots : totalSeries };
+  }, [estaFinalizada, ejsPuros, totalSeries]);
+
+  const porcentajeFinal = totalSeriesFinal > 0
+    ? Math.min(100, Math.round((seriesCompletadasFinal / totalSeriesFinal) * 100))
+    : 0;
+
   // Borrador persistente de la sesión activa para extraer detalles inteligentes
   const [borrador, setBorrador] = useState<BorradorSesion | null>(null);
 
@@ -550,13 +567,13 @@ export default function RutinaLiveCard({
                     color="#3FF2B0"
                   />
                   <Text style={styles.seriesTextDoneHome}>
-                    {totalSeries}/{totalSeries} series
+                    {seriesCompletadasFinal}/{totalSeriesFinal} series
                   </Text>
-                  <Text style={styles.seriesPctDoneHome}>(100%)</Text>
+                  <Text style={styles.seriesPctDoneHome}>({porcentajeFinal}%)</Text>
                 </View>
               </View>
 
-              {/* Barra de progreso al 100% */}
+              {/* Barra de progreso con el porcentaje real */}
               <View style={styles.liveProgressBarContainer}>
                 <LinearGradient
                   colors={['#3FF2B0', '#5CC8FF']}
@@ -564,18 +581,20 @@ export default function RutinaLiveCard({
                   end={{ x: 1, y: 0 }}
                   style={[
                     styles.liveProgressBarFill,
-                    { width: '100%' },
+                    { width: `${Math.max(porcentajeFinal, 4)}%` },
                   ]}
                 />
               </View>
 
-              {/* Snapshot completado */}
+              {/* Snapshot completado con detalle real */}
               <View style={styles.doneRowHome}>
                 <Ionicons name="ribbon-outline" size={13} color="#3FF2B0" />
                 <Text style={styles.doneTextHome} numberOfLines={1}>
                   Entrenamiento finalizado{' '}
                   <Text style={styles.doneSubtextHome}>
-                    · Todas las series completadas
+                    · {seriesCompletadasFinal === totalSeriesFinal
+                        ? 'Todas las series completadas'
+                        : `${seriesCompletadasFinal} de ${totalSeriesFinal} series realizadas`}
                   </Text>
                 </Text>
               </View>
@@ -738,6 +757,8 @@ export default function RutinaLiveCard({
               <Text style={styles.metricChipSeriesTextHome}>
                 {estaEnProceso
                   ? `${seriesCompletadasLive}/${totalSeriesLive} series`
+                  : estaFinalizada
+                  ? `${seriesCompletadasFinal}/${totalSeriesFinal} series`
                   : `${totalSeries} series`}
               </Text>
             </View>
@@ -767,6 +788,8 @@ export default function RutinaLiveCard({
             <Text style={styles.metricChipText}>
               {estaEnProceso
                 ? `${seriesCompletadasLive}/${totalSeriesLive} series`
+                : estaFinalizada
+                ? `${seriesCompletadasFinal}/${totalSeriesFinal} series`
                 : `${totalSeries} series`}
             </Text>
           </View>

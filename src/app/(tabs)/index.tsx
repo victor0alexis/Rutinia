@@ -67,6 +67,7 @@ export default function Semana() {
   // Partida en curso / Entrenamiento activo
   const [sesionActivaInfo, setSesionActivaInfo] = useState<SesionActivaInfo | null>(null);
   const [modoReanudar, setModoReanudar] = useState(false);
+  const [modoResumenModal, setModoResumenModal] = useState(false);
 
   // Cabecera editorial: identidad discreta y menú de cuenta detrás del avatar.
   const [avatarInicial, setAvatarInicial] = useState('A');
@@ -261,6 +262,15 @@ export default function Semana() {
 
   const abrirEjecutarRutina = (r: Registro) => {
     setRegistroEjecutar(r);
+    setModoReanudar(false);
+    setModoResumenModal(false);
+    setModalEjecutarVisible(true);
+  };
+
+  const abrirVerResumenRutina = (r: Registro) => {
+    setRegistroEjecutar(r);
+    setModoReanudar(false);
+    setModoResumenModal(true);
     setModalEjecutarVisible(true);
   };
 
@@ -471,7 +481,7 @@ export default function Semana() {
                 abrirEjecutarRutina(r);
               }
             }}
-            onVerResumenRutina={abrirEjecutarRutina}
+            onVerResumenRutina={abrirVerResumenRutina}
             onDescartarRutina={async () => {
               setSesionActivaInfo(null);
               cargar();
@@ -519,7 +529,7 @@ export default function Semana() {
               abrirEjecutarRutina(r);
             }
           }}
-          onVerResumenRutina={abrirEjecutarRutina}
+          onVerResumenRutina={abrirVerResumenRutina}
         />
 
         {/* Modal Llenar Registro / Ejecutar Entrenamiento del Día */}
@@ -528,9 +538,11 @@ export default function Semana() {
           registro={registroEjecutar}
           fecha={diaActivo}
           modoReanudar={modoReanudar}
+          modoResumen={modoResumenModal}
           onClose={async () => {
             setModalEjecutarVisible(false);
             setModoReanudar(false);
+            setModoResumenModal(false);
             const active = await obtenerSesionActivaInfo();
             setSesionActivaInfo(active);
             cargar();
@@ -538,6 +550,7 @@ export default function Semana() {
           onGuardado={async () => {
             setModalEjecutarVisible(false);
             setModoReanudar(false);
+            setModoResumenModal(false);
             const active = await obtenerSesionActivaInfo();
             setSesionActivaInfo(active);
             cargar();

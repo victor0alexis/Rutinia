@@ -17,6 +17,8 @@ export interface SerieItem {
   setNum: number;
   peso: string;
   reps: string;
+  pesoI?: string;
+  repsI?: string;
   rir?: string;
   completado: boolean;
   previa?: string;
@@ -35,23 +37,26 @@ interface Props {
   ejIdx: number;
   series: SerieItem[];
   activo?: boolean;
+  esUnilateral?: boolean;
   nombreEjercicio?: string;
   focusCampoActivo?: {
     sIdx: number;
-    campo: 'kg' | 'reps' | 'rir' | 'parciales';
+    campo: 'kg' | 'reps' | 'rir' | 'parciales' | 'pesoI' | 'repsI';
     dropIdx?: number;
   } | null;
-  onFocusCampo: (sIdx: number, campo: 'kg' | 'reps' | 'rir' | 'parciales', dropIdx?: number) => void;
+  onFocusCampo: (sIdx: number, campo: 'kg' | 'reps' | 'rir' | 'parciales' | 'pesoI' | 'repsI', dropIdx?: number) => void;
   onToggleCompletado: (sIdx: number, dropIdx?: number) => void;
   onAnadirSerie: () => void;
   onEliminarSerie: (sIdx: number) => void;
   onActualizarSerie: (sIdx: number, patch: Partial<SerieItem>) => void;
   onIntercambiarEjercicio?: (modo: 'solo_hoy' | 'rutina') => void;
+  onToggleUnilateral?: () => void;
 }
 
 export default function TablaSeriesFocus({
   series,
   activo = true,
+  esUnilateral = false,
   nombreEjercicio,
   focusCampoActivo,
   onFocusCampo,
@@ -60,6 +65,7 @@ export default function TablaSeriesFocus({
   onEliminarSerie,
   onActualizarSerie,
   onIntercambiarEjercicio,
+  onToggleUnilateral,
 }: Props) {
   const [menuSerieIdx, setMenuSerieIdx] = useState<number | null>(null);
 
@@ -164,24 +170,62 @@ export default function TablaSeriesFocus({
             <Text style={styles.tableKicker}>REGISTRO DE SERIES</Text>
             <Text style={styles.tableTitle}>Hoy</Text>
           </View>
-          <View style={styles.tableMetaPill}>
-            <Ionicons name="layers-outline" size={9} color={noir.lavender} />
-            <Text style={styles.tableMetaText}>{series.length} planificadas</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {onToggleUnilateral && (
+              <Pressable
+                onPress={onToggleUnilateral}
+                style={[
+                  styles.unilateralTogglePill,
+                  esUnilateral && styles.unilateralTogglePillActive,
+                ]}
+                hitSlop={6}
+                accessibilityRole="button"
+                accessibilityLabel="Cambiar modalidad unilateral o bilateral"
+              >
+                <Ionicons
+                  name={esUnilateral ? 'hand-left-outline' : 'body-outline'}
+                  size={9}
+                  color={esUnilateral ? noir.mint : 'rgba(255, 255, 255, 0.45)'}
+                />
+                <Text style={[styles.unilateralToggleText, esUnilateral && styles.unilateralToggleTextActive]}>
+                  {esUnilateral ? 'Unilateral D/I' : 'Bilateral'}
+                </Text>
+              </Pressable>
+            )}
+            <View style={styles.tableMetaPill}>
+              <Ionicons name="layers-outline" size={9} color={noir.lavender} />
+              <Text style={styles.tableMetaText}>{series.length} planificadas</Text>
+            </View>
           </View>
         </View>
 
         {/* Encabezado de Columnas */}
-        <View style={styles.headerRow}>
-          <Text style={[styles.headerCol, styles.colSet]}>SET</Text>
-          <Text style={[styles.headerCol, styles.colPrevia]}>PREVIA</Text>
-          <Text style={[styles.headerCol, styles.colInput]}>KG</Text>
-          <Text style={[styles.headerCol, styles.colInput]}>REPS</Text>
-          <Text style={[styles.headerCol, styles.colRir]}>RIR</Text>
-          <View style={styles.colCheckHeader}>
-            <Ionicons name="sparkles" size={11} color={noir.mint} />
+        {esUnilateral ? (
+          <View style={styles.headerRow}>
+            <Text style={[styles.headerCol, styles.colSet]}>SET</Text>
+            <Text style={[styles.headerCol, styles.colPrevia]}>PREVIA</Text>
+            <Text style={[styles.headerCol, styles.colInput]}>KG-D</Text>
+            <Text style={[styles.headerCol, styles.colInput]}>R-D</Text>
+            <Text style={[styles.headerCol, styles.colInput]}>KG-I</Text>
+            <Text style={[styles.headerCol, styles.colInput]}>R-I</Text>
+            <View style={styles.colCheckHeader}>
+              <Ionicons name="sparkles" size={11} color={noir.mint} />
+            </View>
+            <View style={styles.colMenuHeader} />
           </View>
-          <View style={styles.colMenuHeader} />
-        </View>
+        ) : (
+          <View style={styles.headerRow}>
+            <Text style={[styles.headerCol, styles.colSet]}>SET</Text>
+            <Text style={[styles.headerCol, styles.colPrevia]}>PREVIA</Text>
+            <Text style={[styles.headerCol, styles.colInput]}>KG</Text>
+            <Text style={[styles.headerCol, styles.colInput]}>REPS</Text>
+            <Text style={[styles.headerCol, styles.colRir]}>RIR</Text>
+            <View style={styles.colCheckHeader}>
+              <Ionicons name="sparkles" size={11} color={noir.mint} />
+            </View>
+            <View style={styles.colMenuHeader} />
+          </View>
+        )}
 
         {/* Filas de Series */}
         <View style={styles.seriesList}>
@@ -190,9 +234,15 @@ export default function TablaSeriesFocus({
             const esFocusReps = focusCampoActivo?.sIdx === sIdx && focusCampoActivo?.campo === 'reps' && focusCampoActivo?.dropIdx === undefined;
             const esFocusParciales = focusCampoActivo?.sIdx === sIdx && focusCampoActivo?.campo === 'parciales' && focusCampoActivo?.dropIdx === undefined;
             const esFocusRir = focusCampoActivo?.sIdx === sIdx && focusCampoActivo?.campo === 'rir' && focusCampoActivo?.dropIdx === undefined;
+            const esFocusPesoI = focusCampoActivo?.sIdx === sIdx && focusCampoActivo?.campo === 'pesoI' && focusCampoActivo?.dropIdx === undefined;
+            const esFocusRepsI = focusCampoActivo?.sIdx === sIdx && focusCampoActivo?.campo === 'repsI' && focusCampoActivo?.dropIdx === undefined;
             const filaEnfocada = focusCampoActivo?.sIdx === sIdx;
             const esObjetivo = primeraIncompleta === sIdx;
             const tieneParciales = Boolean(s.repsParciales && s.repsParciales > 0);
+
+            // Valores lado izquierdo: si están vacíos se muestra el mismo valor que el lado derecho
+            const pesoIDisplay = s.pesoI !== undefined && s.pesoI !== '' ? s.pesoI : s.peso;
+            const repsIDisplay = s.repsI !== undefined && s.repsI !== '' ? s.repsI : s.reps;
 
             return (
               <View key={s.id || `set-${sIdx}`} style={styles.serieBlock}>
@@ -231,84 +281,142 @@ export default function TablaSeriesFocus({
                     {s.previa || '—'}
                   </Text>
 
-                  {/* INPUT KG */}
-                  <Pressable
-                    onPress={() => onFocusCampo(sIdx, 'kg')}
-                    style={[styles.inputBox, esFocusKg && styles.inputBoxActivo]}
-                  >
-                    <Text
-                      style={[
-                        styles.inputText,
-                        !s.peso && styles.inputPlaceholder,
-                        esFocusKg && styles.inputTextActivo,
-                      ]}
-                    >
-                      {s.peso || '0'}
-                    </Text>
-                  </Pressable>
-
-                  {/* INPUT REPS + PARCIALES INTERACTIVO */}
-                  <View
-                    style={[
-                      styles.inputBox,
-                      styles.inputBoxRepsGroup,
-                      (esFocusReps || esFocusParciales) && styles.inputBoxActivo,
-                      esFocusParciales && styles.inputBoxParcialesActivo,
-                    ]}
-                  >
-                    <Pressable
-                      onPress={() => onFocusCampo(sIdx, 'reps')}
-                      style={styles.repsTouchArea}
-                      hitSlop={2}
-                    >
-                      <Text
-                        style={[
-                          styles.inputText,
-                          !s.reps && styles.inputPlaceholder,
-                          esFocusReps && styles.inputTextActivo,
-                        ]}
-                      >
-                        {s.reps || '0'}
-                      </Text>
-                    </Pressable>
-
-                    {tieneParciales && (
+                  {esUnilateral ? (
+                    // Modo Unilateral: KG-D, REPS-D, KG-I, REPS-I
+                    <>
+                      {/* INPUT KG DERECHO */}
                       <Pressable
-                        onPress={() => onFocusCampo(sIdx, 'parciales')}
-                        style={({ pressed }) => [
-                          styles.parcialesBadgeTouch,
-                          esFocusParciales && styles.parcialesBadgeTouchActivo,
-                          pressed && { opacity: 0.7 },
-                        ]}
-                        hitSlop={5}
+                        onPress={() => onFocusCampo(sIdx, 'kg')}
+                        style={[styles.inputBox, esFocusKg && styles.inputBoxActivo]}
+                      >
+                        <Text style={[styles.inputText, !s.peso && styles.inputPlaceholder, esFocusKg && styles.inputTextActivo]}>
+                          {s.peso || '0'}
+                        </Text>
+                      </Pressable>
+
+                      {/* INPUT REPS DERECHO */}
+                      <View style={[styles.inputBox, styles.inputBoxRepsGroup, esFocusReps && styles.inputBoxActivo]}>
+                        <Pressable onPress={() => onFocusCampo(sIdx, 'reps')} style={styles.repsTouchArea} hitSlop={2}>
+                          <Text style={[styles.inputText, !s.reps && styles.inputPlaceholder, esFocusReps && styles.inputTextActivo]}>
+                            {s.reps || '0'}
+                          </Text>
+                        </Pressable>
+                        {tieneParciales && (
+                          <Pressable
+                            onPress={() => onFocusCampo(sIdx, 'parciales')}
+                            style={({ pressed }) => [styles.parcialesBadgeTouch, esFocusParciales && styles.parcialesBadgeTouchActivo, pressed && { opacity: 0.7 }]}
+                            hitSlop={5}
+                          >
+                            <Text style={[styles.parcialesTag, esFocusParciales && styles.parcialesTagActivo]}>
+                              +{s.repsParciales}p
+                            </Text>
+                          </Pressable>
+                        )}
+                      </View>
+
+                      {/* INPUT KG IZQUIERDO */}
+                      <Pressable
+                        onPress={() => onFocusCampo(sIdx, 'pesoI')}
+                        style={[styles.inputBox, esFocusPesoI && styles.inputBoxActivo, styles.inputBoxUnilateralI]}
+                      >
+                        <Text style={[styles.inputText, !s.pesoI && styles.inputPlaceholder, esFocusPesoI && styles.inputTextActivo]}>
+                          {pesoIDisplay || '0'}
+                        </Text>
+                      </Pressable>
+
+                      {/* INPUT REPS IZQUIERDO */}
+                      <Pressable
+                        onPress={() => onFocusCampo(sIdx, 'repsI')}
+                        style={[styles.inputBox, esFocusRepsI && styles.inputBoxActivo, styles.inputBoxUnilateralI]}
+                      >
+                        <Text style={[styles.inputText, !s.repsI && styles.inputPlaceholder, esFocusRepsI && styles.inputTextActivo]}>
+                          {repsIDisplay || '0'}
+                        </Text>
+                      </Pressable>
+                    </>
+                  ) : (
+                    // Modo Bilateral: KG, REPS, RIR
+                    <>
+                      {/* INPUT KG */}
+                      <Pressable
+                        onPress={() => onFocusCampo(sIdx, 'kg')}
+                        style={[styles.inputBox, esFocusKg && styles.inputBoxActivo]}
                       >
                         <Text
                           style={[
-                            styles.parcialesTag,
-                            esFocusParciales && styles.parcialesTagActivo,
+                            styles.inputText,
+                            !s.peso && styles.inputPlaceholder,
+                            esFocusKg && styles.inputTextActivo,
                           ]}
                         >
-                          +{s.repsParciales}p
+                          {s.peso || '0'}
                         </Text>
                       </Pressable>
-                    )}
-                  </View>
 
-                  {/* INPUT RIR */}
-                  <Pressable
-                    onPress={() => onFocusCampo(sIdx, 'rir')}
-                    style={[styles.rirBox, esFocusRir && styles.rirBoxActivo]}
-                  >
-                    <Text
-                      style={[
-                        styles.rirText,
-                        !s.rir && styles.rirPlaceholder,
-                        esFocusRir && styles.rirTextActivo,
-                      ]}
-                    >
-                      {s.rir !== undefined && s.rir !== '' ? s.rir : '—'}
-                    </Text>
-                  </Pressable>
+                      {/* INPUT REPS + PARCIALES INTERACTIVO */}
+                      <View
+                        style={[
+                          styles.inputBox,
+                          styles.inputBoxRepsGroup,
+                          (esFocusReps || esFocusParciales) && styles.inputBoxActivo,
+                          esFocusParciales && styles.inputBoxParcialesActivo,
+                        ]}
+                      >
+                        <Pressable
+                          onPress={() => onFocusCampo(sIdx, 'reps')}
+                          style={styles.repsTouchArea}
+                          hitSlop={2}
+                        >
+                          <Text
+                            style={[
+                              styles.inputText,
+                              !s.reps && styles.inputPlaceholder,
+                              esFocusReps && styles.inputTextActivo,
+                            ]}
+                          >
+                            {s.reps || '0'}
+                          </Text>
+                        </Pressable>
+
+                        {tieneParciales && (
+                          <Pressable
+                            onPress={() => onFocusCampo(sIdx, 'parciales')}
+                            style={({ pressed }) => [
+                              styles.parcialesBadgeTouch,
+                              esFocusParciales && styles.parcialesBadgeTouchActivo,
+                              pressed && { opacity: 0.7 },
+                            ]}
+                            hitSlop={5}
+                          >
+                            <Text
+                              style={[
+                                styles.parcialesTag,
+                                esFocusParciales && styles.parcialesTagActivo,
+                              ]}
+                            >
+                              +{s.repsParciales}p
+                            </Text>
+                          </Pressable>
+                        )}
+                      </View>
+
+                      {/* INPUT RIR */}
+                      <Pressable
+                        onPress={() => onFocusCampo(sIdx, 'rir')}
+                        style={[styles.rirBox, esFocusRir && styles.rirBoxActivo]}
+                      >
+                        <Text
+                          style={[
+                            styles.rirText,
+                            !s.rir && styles.rirPlaceholder,
+                            esFocusRir && styles.rirTextActivo,
+                          ]}
+                        >
+                          {s.rir !== undefined && s.rir !== '' ? s.rir : '—'}
+                        </Text>
+                      </Pressable>
+                    </>
+                  )}
 
                   {/* BOTÓN CHECK COMPLETADO */}
                   <Pressable
@@ -326,7 +434,7 @@ export default function TablaSeriesFocus({
                     />
                   </Pressable>
 
-                  {/* BOTÓN MENÚ ⋯ */}
+                  {/* BOTÓN MENÜ ⋯ */}
                   <Pressable
                     onPress={() => abrirMenu(sIdx)}
                     style={styles.menuButton}
@@ -726,6 +834,30 @@ const styles = StyleSheet.create({
     fontSize: 7.2,
     letterSpacing: 0.15,
   },
+  unilateralTogglePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 21,
+    paddingHorizontal: 7,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  unilateralTogglePillActive: {
+    backgroundColor: 'rgba(63, 242, 176, 0.1)',
+    borderColor: 'rgba(63, 242, 176, 0.32)',
+  },
+  unilateralToggleText: {
+    fontFamily: fuentes.bold,
+    fontSize: 8,
+    color: 'rgba(255, 255, 255, 0.45)',
+    letterSpacing: 0.15,
+  },
+  unilateralToggleTextActive: {
+    color: noir.mint,
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -845,6 +977,10 @@ const styles = StyleSheet.create({
   inputBoxDrop: {
     backgroundColor: 'rgba(92, 200, 255, 0.035)',
     borderColor: 'rgba(92, 200, 255, 0.14)',
+  },
+  inputBoxUnilateralI: {
+    backgroundColor: 'rgba(179, 148, 255, 0.06)',
+    borderColor: 'rgba(179, 148, 255, 0.18)',
   },
   inputBoxActivo: {
     borderColor: 'rgba(92, 200, 255, 0.7)',

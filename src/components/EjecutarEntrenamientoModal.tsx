@@ -63,6 +63,8 @@ type Props = {
   onGuardado: () => void;
   /** Si true, salta el lobby directamente al workout (usado al reanudar sesión guardada) */
   modoReanudar?: boolean;
+  /** Si true, entra directamente en modo visualización de resumen (solo lectura) sin iniciar cronómetro ni alterar la sesión */
+  modoResumen?: boolean;
 };
 
 export type DropItemEjecucion = {
@@ -123,7 +125,9 @@ export default function EjecutarEntrenamientoModal({
   onClose,
   onGuardado,
   modoReanudar = false,
+  modoResumen = false,
 }: Props) {
+  const esModoResumen = Boolean(modoResumen || (registro?.completado && !modoReanudar));
 
   // ── Responsive layout centralizado con useLayout ───────────────────────────
   const {
@@ -193,9 +197,10 @@ export default function EjecutarEntrenamientoModal({
       let parsedEjercicios: EjercicioState[] = [];
       let notasTexto = '';
 
-      if (borradorPrevio && borradorPrevio.ejerciciosState && borradorPrevio.ejerciciosState.length > 0) {
+      if (!esModoResumen && borradorPrevio && borradorPrevio.ejerciciosState && borradorPrevio.ejerciciosState.length > 0) {
         parsedEjercicios = borradorPrevio.ejerciciosState.map((ej) => ({
           ...ej,
+          esUnilateral: ej.esUnilateral ?? parsearEjercicioInfo({ nombre: ej.nombre }).esUnilateral,
           series: ej.series.map((s) => ({
             ...s,
             repsParciales: s.repsParciales || 0,
@@ -278,14 +283,16 @@ export default function EjecutarEntrenamientoModal({
       setNotasSesion(notasTexto);
       setEjerciciosState(parsedEjercicios);
 
-      // Guardar borrador inicial
-      const nombreRutina = registro.rutinas?.nombre || 'Entrenamiento';
-      await guardarBorradorSesion(registro.id, {
-        nombreRutina,
-        fechaISO: registro.fecha,
-        notasSesion: notasTexto,
-        ejerciciosState: parsedEjercicios,
-      });
+      // Guardar borrador inicial solo si la sesión está en curso o nueva (no en modo resumen)
+      if (!esModoResumen) {
+        const nombreRutina = registro.rutinas?.nombre || 'Entrenamiento';
+        await guardarBorradorSesion(registro.id, {
+          nombreRutina,
+          fechaISO: registro.fecha,
+          notasSesion: notasTexto,
+          ejerciciosState: parsedEjercicios,
+        });
+      }
 
       // Cargar historial previo
       if (registro.rutina_id) {
@@ -325,20 +332,38 @@ export default function EjecutarEntrenamientoModal({
         }
       }
 
-      // Inicializar / Restaurar Timer de la Sesión
-      const timerState = await obtenerOIniciarTimer(registro.id);
-      if (!cancelado) {
-        setEstadoTimer(timerState);
-        const segs = calcularSegundosTranscurridos(timerState);
-        setSegundosTranscurridos(segs);
-
-        // Si ya han pasado más de 5 segundos, había progreso guardado, o se viene de reanudar → salta lobby
-        const algunaCompletada = parsedEjercicios.some((ej) => ej.series.some((s) => s.completado));
-        const tieneBorrador = Boolean(borradorPrevio && borradorPrevio.ejerciciosState && borradorPrevio.ejerciciosState.length > 0);
-        if (modoReanudar || segs > 5 || algunaCompletada || tieneBorrador) {
+      // Si estamos en modo resumen (sesión completada), no iniciar timer ni lobby
+      if (esModoResumen) {
+        let duracionSegs = 0;
+        try {
+          const val = await AsyncStorage.getItem(`rutinia_duracion_${registro.id}`);
+          if (val) {
+            const num = Number(val);
+            if (!isNaN(num) && num > 0) duracionSegs = num;
+          }
+        } catch {}
+        if (!cancelado) {
+          setEstadoTimer(null);
+          setSegundosTranscurridos(duracionSegs);
           setEnLobby(false);
-        } else {
-          setEnLobby(true);
+          setResumenVisible(true);
+        }
+      } else {
+        // Inicializar / Restaurar Timer de la Sesión
+        const timerState = await obtenerOIniciarTimer(registro.id);
+        if (!cancelado) {
+          setEstadoTimer(timerState);
+          const segs = calcularSegundosTranscurridos(timerState);
+          setSegundosTranscurridos(segs);
+
+          // Si ya han pasado más de 5 segundos, había progreso guardado, o se viene de reanudar → salta lobby
+          const algunaCompletada = parsedEjercicios.some((ej) => ej.series.some((s) => s.completado));
+          const tieneBorrador = Boolean(borradorPrevio && borradorPrevio.ejerciciosState && borradorPrevio.ejerciciosState.length > 0);
+          if (modoReanudar || segs > 5 || algunaCompletada || tieneBorrador) {
+            setEnLobby(false);
+          } else {
+            setEnLobby(true);
+          }
         }
       }
     }, 0);
@@ -347,7 +372,7 @@ export default function EjecutarEntrenamientoModal({
       cancelado = true;
       clearTimeout(timer);
     };
-  }, [visible, registro, modoReanudar]);
+  }, [visible, registro, modoReanudar, esModoResumen]);
 
   // Manejador del Interval del Timer (se actualiza cada 1 seg de manera eficiente)
   useEffect(() => {
@@ -396,6 +421,8 @@ export default function EjecutarEntrenamientoModal({
         setNum: sIdx + 1,
         peso: s.peso,
         reps: s.reps,
+        pesoI: s.pesoI,
+        repsI: s.repsI,
         rir: s.rir,
         completado: s.completado,
         previa: previaStr,
@@ -431,10 +458,6 @@ export default function EjecutarEntrenamientoModal({
     (acc, ej) => acc + ej.series.filter((s) => s.completado).length,
     0
   );
-  const porcentajeProgreso =
-    totalSeriesEnSesion > 0
-      ? Math.round((totalSeriesCompletadas / totalSeriesEnSesion) * 100)
-      : 0;
 
   // Iniciar la sesión de entrenamiento desde el lobby
   const iniciarEntrenamiento = async () => {
@@ -453,13 +476,21 @@ export default function EjecutarEntrenamientoModal({
   };
 
   const guardarDraftAuto = (nextState: EjercicioState[], nTexto: string = notasSesion) => {
-    if (!registro) return;
+    if (!registro || esModoResumen) return;
     const nombreRutina = registro.rutinas?.nombre || 'Entrenamiento';
     guardarBorradorSesion(registro.id, {
       nombreRutina,
       fechaISO: registro.fecha,
       notasSesion: nTexto,
       ejerciciosState: nextState,
+    });
+  };
+
+  const toggleUnilateralEjercicio = (ejIdx: number) => {
+    setEjerciciosState((prev) => {
+      const next = prev.map((ej, i) => (i === ejIdx ? { ...ej, esUnilateral: !ej.esUnilateral } : ej));
+      guardarDraftAuto(next);
+      return next;
     });
   };
 
@@ -932,6 +963,8 @@ export default function EjecutarEntrenamientoModal({
       }));
     }
 
+    const esUnilateralNuevo = parsearEjercicioInfo({ nombre: nuevoNombre }).esUnilateral;
+
     if (modo === 'solo_hoy') {
       let nuevoEjerciciosState: EjercicioState[] = [];
       if (seriesCompletadas.length > 0) {
@@ -942,7 +975,7 @@ export default function EjecutarEntrenamientoModal({
         const ejNuevoState: EjercicioState = {
           id: Date.now().toString() + Math.random().toString(),
           nombre: nuevoNombre,
-          esUnilateral: false,
+          esUnilateral: esUnilateralNuevo,
           series: seriesHeredadas,
           sustituye_a_nombre: nombreOriginal,
           sustitucion_alcance: 'solo_hoy',
@@ -957,6 +990,7 @@ export default function EjecutarEntrenamientoModal({
         const ejNuevoState: EjercicioState = {
           ...ejActual,
           nombre: nuevoNombre,
+          esUnilateral: esUnilateralNuevo,
           series: seriesHeredadas,
           sustituye_a_nombre: nombreOriginal,
           sustitucion_alcance: 'solo_hoy',
@@ -995,6 +1029,8 @@ export default function EjecutarEntrenamientoModal({
     const ejActual = ejerciciosState[ejIdx];
     const prevEjerciciosState = [...ejerciciosState];
 
+    const esUnilateralNuevo = parsearEjercicioInfo({ nombre: nuevoNombre }).esUnilateral;
+
     let nuevoEjerciciosState: EjercicioState[] = [];
     if (seriesCompletadas.length > 0) {
       const ejOriginalRestante: EjercicioState = {
@@ -1004,7 +1040,7 @@ export default function EjecutarEntrenamientoModal({
       const ejNuevoState: EjercicioState = {
         id: Date.now().toString() + Math.random().toString(),
         nombre: nuevoNombre,
-        esUnilateral: false,
+        esUnilateral: esUnilateralNuevo,
         series: seriesHeredadas,
         sustituye_a_nombre: nombreOriginal,
         sustitucion_alcance: 'rutina',
@@ -1019,6 +1055,7 @@ export default function EjecutarEntrenamientoModal({
       const ejNuevoState: EjercicioState = {
         ...ejActual,
         nombre: nuevoNombre,
+        esUnilateral: esUnilateralNuevo,
         series: seriesHeredadas,
         sustituye_a_nombre: nombreOriginal,
         sustitucion_alcance: 'rutina',
@@ -1127,8 +1164,27 @@ export default function EjecutarEntrenamientoModal({
   };
 
   // Abrir Modal de Confirmación y Resumen
-  const abrirResumenConfirmacion = () => {
+  // Pausa el timer automáticamente al ver el resumen para que no siga contando
+  const abrirResumenConfirmacion = async () => {
+    if (estadoTimer && !estadoTimer.pausado) {
+      const pausado = await alternarPausaTimer(estadoTimer);
+      setEstadoTimer(pausado);
+    }
     setResumenVisible(true);
+  };
+
+  // Volver a editar desde el resumen: reanuda el timer si estaba corriendo o cierra si es solo lectura
+  const volverAEditarDesdeResumen = async () => {
+    if (esModoResumen) {
+      setResumenVisible(false);
+      onClose();
+      return;
+    }
+    setResumenVisible(false);
+    if (estadoTimer && estadoTimer.pausado) {
+      const reanudado = await alternarPausaTimer(estadoTimer);
+      setEstadoTimer(reanudado);
+    }
   };
 
   // Confirmar y Guardar Sesión en Supabase
@@ -1225,13 +1281,12 @@ export default function EjecutarEntrenamientoModal({
         }
 
 
-        const sesionCompletada = porcentajeProgreso >= 50;
         const planNombreFinal = registro.plan_nombre || registro.planes_entrenamiento?.nombre || null;
         const rutinaNombreFinal = registro.rutina_nombre || registro.rutinas?.nombre || null;
         const planIdFinal = registro.plan_id || registro.planes_entrenamiento?.id || null;
 
         await actualizarEstadoRegistro(registro.id, {
-          completado: sesionCompletada,
+          completado: true,
           notas: notasSesion.trim() || null,
           plan_id: planIdFinal,
           plan_nombre: planNombreFinal,
@@ -1479,7 +1534,9 @@ export default function EjecutarEntrenamientoModal({
                         ejIdx={indexValido}
                         series={seriesFocus}
                         activo={visible}
+                        esUnilateral={ejActivo.esUnilateral}
                         nombreEjercicio={ejActivo.nombre}
+                        onToggleUnilateral={() => toggleUnilateralEjercicio(indexValido)}
                         onIntercambiarEjercicio={(modo) => {
                           setSelectorIntercambio({ ejIdx: indexValido, modo });
                         }}
@@ -1713,9 +1770,10 @@ export default function EjecutarEntrenamientoModal({
         notasSesion={notasSesion}
         onChangeNotasSesion={setNotasSesion}
         guardando={guardando}
-        onClose={() => setResumenVisible(false)}
+        onClose={volverAEditarDesdeResumen}
         onConfirmarGuardar={guardarSesionFinal}
         onDescartarSesion={descartarSesion}
+        esSoloLectura={esModoResumen}
       />
 
       {/* MODAL / SHEET: SELECTOR DE INTERCAMBIO DE EJERCICIO */}

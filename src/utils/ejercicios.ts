@@ -51,6 +51,8 @@ export function parsearEjercicioInfo(e: {
   peso?: number | null;
   completado?: boolean;
   sustituye_a_nombre?: string | null;
+  es_unilateral?: boolean | null;
+  esUnilateral?: boolean | null;
 }): InfoEjercicioParsed {
   const nombreRaw = (e.nombre || '').trim();
 
@@ -61,11 +63,22 @@ export function parsearEjercicioInfo(e: {
     sustituyeANombre = matchSust[1].trim();
   }
 
-  // 2. Detectar si es unilateral por etiqueta [U] o "D ... | I ..." en el resumen
-  const tieneTagUnilateral = /^\[U(NILATERAL)?\]/i.test(nombreRaw) || nombreRaw.includes('[U]');
+  // 2. Detectar si es unilateral por booleano explícito, tags [U], (U), [D/I], (D/I), o palabra unilateral
+  const tieneTagUnilateral =
+    Boolean(e.es_unilateral || e.esUnilateral) ||
+    /\[U(NILATERAL)?\]/i.test(nombreRaw) ||
+    /\(U(NILATERAL)?\)/i.test(nombreRaw) ||
+    /\[D\/I\]/i.test(nombreRaw) ||
+    /\(D\/I\)/i.test(nombreRaw) ||
+    /\bunilateral(es)?\b/i.test(nombreRaw);
 
-  // Extraer el nombre base removiendo prefijo [U], cualquier bloque "↔ Sustituye a..." y bloque (...) al final
-  let nombreSinTag = nombreRaw.replace(/^\[U(NILATERAL)?\]\s*/i, '').trim();
+  // Extraer el nombre base removiendo prefijos de unilateral, sustitución y bloque (...) al final
+  let nombreSinTag = nombreRaw
+    .replace(/^\[U(NILATERAL)?\]\s*/i, '')
+    .replace(/^\(U(NILATERAL)?\)\s*/i, '')
+    .replace(/^\[D\/I\]\s*/i, '')
+    .replace(/^\(D\/I\)\s*/i, '')
+    .trim();
   nombreSinTag = nombreSinTag.replace(/↔\s*Sustituye\s+a\s+[^(\[]+/i, '').trim();
   const nombreLimpio = nombreSinTag.replace(/\s*\((.*?)\)$/, '').trim() || 'Ejercicio';
 

@@ -43,9 +43,10 @@ type Props = {
   notasSesion: string;
   onChangeNotasSesion: (text: string) => void;
   guardando: boolean;
-  onClose: () => void; // Volver a editar
+  onClose: () => void; // Volver a editar o cerrar
   onConfirmarGuardar: () => void;
   onDescartarSesion: () => void;
+  esSoloLectura?: boolean;
 };
 
 export default function ResumenEntrenamientoModal({
@@ -63,6 +64,7 @@ export default function ResumenEntrenamientoModal({
   onClose,
   onConfirmarGuardar,
   onDescartarSesion,
+  esSoloLectura = false,
 }: Props) {
   const { topInset, bottomInset, leftInset, rightInset, gutter, contentMaxWidth } = useLayout();
   if (!visible) return null;
@@ -381,12 +383,13 @@ export default function ResumenEntrenamientoModal({
                   </View>
                 </View>
                 <TextInput
-                  placeholder="Añade sensaciones finales, nivel de energía o apuntes de esta sesión..."
+                  placeholder={esSoloLectura ? 'Sin notas registradas en esta sesión' : "Añade sensaciones finales, nivel de energía o apuntes de esta sesión..."}
                   placeholderTextColor="rgba(255, 255, 255, 0.26)"
                   multiline
                   numberOfLines={3}
                   value={notasSesion}
                   onChangeText={onChangeNotasSesion}
+                  editable={!esSoloLectura}
                   inputMode="text"
                   keyboardType="default"
                   autoCapitalize="sentences"
@@ -396,30 +399,32 @@ export default function ResumenEntrenamientoModal({
                 />
               </View>
 
-              {/* Acciones secundarias */}
-              <View style={styles.secondaryActions}>
-                <Pressable
-                  onPress={onClose}
-                  style={({ pressed }) => [
-                    styles.secondaryButton,
-                    pressed && { opacity: 0.7 },
-                  ]}
-                >
-                  <Ionicons name="create-outline" size={14} color={noir.platinum} />
-                  <Text style={styles.secondaryButtonText}>Seguir editando</Text>
-                </Pressable>
+              {/* Acciones secundarias: Solo activas si la sesión no ha finalizado */}
+              {!esSoloLectura && (
+                <View style={styles.secondaryActions}>
+                  <Pressable
+                    onPress={onClose}
+                    style={({ pressed }) => [
+                      styles.secondaryButton,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                  >
+                    <Ionicons name="create-outline" size={14} color={noir.platinum} />
+                    <Text style={styles.secondaryButtonText}>Seguir editando</Text>
+                  </Pressable>
 
-                <Pressable
-                  onPress={handleDescartar}
-                  style={({ pressed }) => [
-                    styles.dangerButton,
-                    pressed && { opacity: 0.7 },
-                  ]}
-                >
-                  <Ionicons name="trash-outline" size={14} color="#F08A9B" />
-                  <Text style={styles.dangerButtonText}>Descartar</Text>
-                </Pressable>
-              </View>
+                  <Pressable
+                    onPress={handleDescartar}
+                    style={({ pressed }) => [
+                      styles.dangerButton,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                  >
+                    <Ionicons name="trash-outline" size={14} color="#F08A9B" />
+                    <Text style={styles.dangerButtonText}>Descartar</Text>
+                  </Pressable>
+                </View>
+              )}
 
               <YoungNewtButton
                 title="Compartir resumen"
@@ -442,13 +447,29 @@ export default function ResumenEntrenamientoModal({
             <View style={styles.dockNote}>
               <View style={styles.dockDot} />
               <Text style={styles.dockNoteText}>
-                {guardando ? 'Guardando tu progreso…' : 'Todo listo para guardar'}
+                {esSoloLectura
+                  ? 'Entrenamiento finalizado y guardado'
+                  : guardando
+                  ? 'Guardando tu progreso…'
+                  : 'Todo listo para guardar'}
               </Text>
             </View>
             <LiquidMetalButton
-              titulo={guardando ? 'Guardando entrenamiento…' : 'Guardar entrenamiento'}
-              icon={<Ionicons name="cloud-upload-outline" size={16} color={noir.mint} />}
-              onPress={onConfirmarGuardar}
+              titulo={
+                esSoloLectura
+                  ? 'Cerrar resumen'
+                  : guardando
+                  ? 'Guardando entrenamiento…'
+                  : 'Guardar entrenamiento'
+              }
+              icon={
+                <Ionicons
+                  name={esSoloLectura ? 'checkmark-done' : 'cloud-upload-outline'}
+                  size={16}
+                  color={noir.mint}
+                />
+              }
+              onPress={esSoloLectura ? onClose : onConfirmarGuardar}
               disabled={guardando}
               tamano="lg"
               height={56}

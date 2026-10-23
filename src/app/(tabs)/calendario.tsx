@@ -52,6 +52,7 @@ export default function CalendarioScreen() {
   const [registroEjecutar, setRegistroEjecutar] = useState<Registro | null>(null);
   const [modalEjecutarVisible, setModalEjecutarVisible] = useState(false);
   const [sesionActivaInfo, setSesionActivaInfo] = useState<SesionActivaInfo | null>(null);
+  const [modoResumenModal, setModoResumenModal] = useState(false);
 
   const cargarDatosMes = useCallback(() => {
     seguro(async () => {
@@ -461,14 +462,17 @@ export default function CalendarioScreen() {
           sesionActivaInfo={sesionActivaInfo}
           onIniciarRutina={(reg) => {
             setRegistroEjecutar(reg);
+            setModoResumenModal(false);
             setModalEjecutarVisible(true);
           }}
           onReanudarRutina={(reg) => {
             setRegistroEjecutar(reg);
+            setModoResumenModal(false);
             setModalEjecutarVisible(true);
           }}
           onVerResumenRutina={(reg) => {
             setRegistroEjecutar(reg);
+            setModoResumenModal(true);
             setModalEjecutarVisible(true);
           }}
           onClose={() => setModalDetalleVisible(false)}
@@ -482,14 +486,17 @@ export default function CalendarioScreen() {
           visible={modalEjecutarVisible}
           registro={registroEjecutar}
           fecha={fechaSeleccionadaObj}
+          modoResumen={modoResumenModal}
           onClose={async () => {
             setModalEjecutarVisible(false);
+            setModoResumenModal(false);
             const active = await obtenerSesionActivaInfo();
             setSesionActivaInfo(active);
             cargarDatosMes();
           }}
           onGuardado={async () => {
             setModalEjecutarVisible(false);
+            setModoResumenModal(false);
             const active = await obtenerSesionActivaInfo();
             setSesionActivaInfo(active);
             cargarDatosMes();
