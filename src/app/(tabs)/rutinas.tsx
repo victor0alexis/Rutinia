@@ -22,6 +22,7 @@ import GestionarPlanModal from '../../components/GestionarPlanModal';
 import EliminarPlanModal from '../../components/EliminarPlanModal';
 import AplicarPlanSemanaModal from '../../components/AplicarPlanSemanaModal';
 import GestionarRutinaModal from '../../components/GestionarRutinaModal';
+import { subscribirCambioDatos } from '../../utils/sincronizacion';
 import {
   archivarPlan,
   crearPlan,
@@ -152,6 +153,13 @@ export default function RutinasScreen() {
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => sub.remove();
   }, [planSeleccionado, viendoSinPlan, volverATodosLosPlanes]);
+
+  useEffect(() => {
+    const unsub = subscribirCambioDatos(() => {
+      cargarDatos();
+    });
+    return unsub;
+  }, [cargarDatos]);
 
   useFocusEffect(
     useCallback(() => {

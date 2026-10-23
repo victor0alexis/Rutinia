@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -19,6 +19,12 @@ import { seguro } from '../../utils/errores';
 import { parsearEjercicioInfo } from '../../utils/ejercicios';
 import { EjercicioRegistro, PlanEntrenamiento, Registro } from '../../types';
 import { useLayout } from '../../hooks/useLayout';
+import {
+  SesionActivaInfo,
+  obtenerSesionActivaInfo,
+  subscribirSesionActiva,
+} from '../../utils/sesionActiva';
+import { subscribirCambioDatos } from '../../utils/sincronizacion';
 
 // Configuración de idioma Español para el Calendario
 LocaleConfig.locales['es'] = {
@@ -45,19 +51,36 @@ export default function CalendarioScreen() {
   const [modalDetalleVisible, setModalDetalleVisible] = useState(false);
   const [registroEjecutar, setRegistroEjecutar] = useState<Registro | null>(null);
   const [modalEjecutarVisible, setModalEjecutarVisible] = useState(false);
+  const [sesionActivaInfo, setSesionActivaInfo] = useState<SesionActivaInfo | null>(null);
 
   const cargarDatosMes = useCallback(() => {
     seguro(async () => {
       const inicio = aISO(startOfMonth(fechaReferencia));
       const fin = aISO(endOfMonth(fechaReferencia));
-      const [datos, listaPlanes] = await Promise.all([
+      const [datos, listaPlanes, active] = await Promise.all([
         registrosDeRango(inicio, fin),
         listarPlanes({ incluirArchivados: false }),
+        obtenerSesionActivaInfo(),
       ]);
       setRegistrosMes(datos);
       setPlanes(listaPlanes);
+      setSesionActivaInfo(active);
     });
   }, [fechaReferencia]);
+
+  useEffect(() => {
+    const unsubSesion = subscribirSesionActiva((info) => {
+      setSesionActivaInfo(info);
+      cargarDatosMes();
+    });
+    const unsubDatos = subscribirCambioDatos(() => {
+      cargarDatosMes();
+    });
+    return () => {
+      unsubSesion();
+      unsubDatos();
+    };
+  }, [cargarDatosMes]);
 
   useFocusEffect(
     useCallback(() => {
@@ -435,6 +458,19 @@ export default function CalendarioScreen() {
           fecha={fechaSeleccionadaObj}
           registros={registrosDiaSel}
           visible={modalDetalleVisible}
+          sesionActivaInfo={sesionActivaInfo}
+          onIniciarRutina={(reg) => {
+            setRegistroEjecutar(reg);
+            setModalEjecutarVisible(true);
+          }}
+          onReanudarRutina={(reg) => {
+            setRegistroEjecutar(reg);
+            setModalEjecutarVisible(true);
+          }}
+          onVerResumenRutina={(reg) => {
+            setRegistroEjecutar(reg);
+            setModalEjecutarVisible(true);
+          }}
           onClose={() => setModalDetalleVisible(false)}
           alCambiar={() => {
             cargarDatosMes();
@@ -446,8 +482,16 @@ export default function CalendarioScreen() {
           visible={modalEjecutarVisible}
           registro={registroEjecutar}
           fecha={fechaSeleccionadaObj}
-          onClose={() => setModalEjecutarVisible(false)}
-          onGuardado={() => {
+          onClose={async () => {
+            setModalEjecutarVisible(false);
+            const active = await obtenerSesionActivaInfo();
+            setSesionActivaInfo(active);
+            cargarDatosMes();
+          }}
+          onGuardado={async () => {
+            setModalEjecutarVisible(false);
+            const active = await obtenerSesionActivaInfo();
+            setSesionActivaInfo(active);
             cargarDatosMes();
           }}
         />

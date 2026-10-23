@@ -20,7 +20,13 @@ import { registrosDeRango } from '../../services/registros';
 import { aISO, diasDeSemana } from '../../utils/fechas';
 import { seguro } from '../../utils/errores';
 import { EjercicioRegistro, Registro } from '../../types';
-import { SesionActivaInfo, obtenerSesionActivaInfo, obtenerBorradorSesion } from '../../utils/sesionActiva';
+import {
+  SesionActivaInfo,
+  obtenerSesionActivaInfo,
+  obtenerBorradorSesion,
+  subscribirSesionActiva,
+} from '../../utils/sesionActiva';
+import { subscribirCambioDatos } from '../../utils/sincronizacion';
 import { useLayout } from '../../hooks/useLayout';
 
 // Noir Pearl wordmark: perla -> platino -> perla. El barrido conserva el
@@ -104,6 +110,28 @@ export default function Semana() {
       setRegistros(datos);
     });
   }, [inicioSemanaISO, finSemanaISO]);
+
+  // Suscripción reactiva global: actualiza el estado de inmediato (0 ms) cuando
+  // inicia, avanza o termina una sesión, o cuando se modifica cualquier rutina o plan
+  useEffect(() => {
+    const unsubSesion = subscribirSesionActiva((active) => {
+      setSesionActivaInfo(active);
+      cargar();
+    });
+
+    const unsubDatos = subscribirCambioDatos(() => {
+      cargar();
+      seguro(async () => {
+        const active = await obtenerSesionActivaInfo();
+        setSesionActivaInfo(active);
+      });
+    });
+
+    return () => {
+      unsubSesion();
+      unsubDatos();
+    };
+  }, [cargar]);
 
   useFocusEffect(
     useCallback(() => {
@@ -473,7 +501,12 @@ export default function Semana() {
           fecha={diaActivo}
           registros={registrosDelDia}
           visible={modalVisible}
-          onClose={() => setModalVisible(false)}
+          onClose={async () => {
+            setModalVisible(false);
+            const active = await obtenerSesionActivaInfo();
+            setSesionActivaInfo(active);
+            cargar();
+          }}
           alCambiar={() => {
             cargar();
           }}
@@ -495,13 +528,18 @@ export default function Semana() {
           registro={registroEjecutar}
           fecha={diaActivo}
           modoReanudar={modoReanudar}
-          onClose={() => {
+          onClose={async () => {
             setModalEjecutarVisible(false);
             setModoReanudar(false);
+            const active = await obtenerSesionActivaInfo();
+            setSesionActivaInfo(active);
+            cargar();
           }}
-          onGuardado={() => {
+          onGuardado={async () => {
             setModalEjecutarVisible(false);
             setModoReanudar(false);
+            const active = await obtenerSesionActivaInfo();
+            setSesionActivaInfo(active);
             cargar();
           }}
         />

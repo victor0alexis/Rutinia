@@ -189,7 +189,7 @@ export default function RutinaLiveCard({
     return () => {
       activo = false;
     };
-  }, [estaEnProceso, registro.id]);
+  }, [estaEnProceso, registro.id, sesionActivaInfo?.seriesCompletadas, sesionActivaInfo?.totalSeries]);
 
   const borradorActivo = estaEnProceso ? borrador : null;
 

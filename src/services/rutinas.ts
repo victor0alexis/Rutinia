@@ -1,6 +1,15 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
-import { Rutina } from '../types';
+import { Registro, Rutina } from '../types';
 import { guardarCacheLocal, obtenerCacheLocal } from '../utils/offline';
+import { parsearEjercicioInfo } from '../utils/ejercicios';
+import {
+  BorradorSesion,
+  EjercicioStateDraft,
+  SerieEjecucionDraft,
+  emitirCambioSesionActiva,
+} from '../utils/sesionActiva';
+import { emitirCambioDatos } from '../utils/sincronizacion';
 
 export type EjercicioNuevo = {
   nombre: string;
@@ -111,6 +120,7 @@ export async function crearRutina(
 
     const rutinasExistentes = (await obtenerCacheLocal<Rutina[]>('rutinas')) || [];
     await guardarCacheLocal('rutinas', [rutinaCompleta, ...rutinasExistentes]);
+    emitirCambioDatos();
 
     return rutinaCompleta;
   } catch (err: any) {
@@ -138,6 +148,7 @@ export async function crearRutina(
     };
     const rutinasExistentes = (await obtenerCacheLocal<Rutina[]>('rutinas')) || [];
     await guardarCacheLocal('rutinas', [nuevaRutinaLocal, ...rutinasExistentes]);
+    emitirCambioDatos();
     return nuevaRutinaLocal;
   }
 }
@@ -210,6 +221,7 @@ export async function eliminarRutina(id: string): Promise<void> {
   // 5. Limpiar caché local
   const cache = (await obtenerCacheLocal<Rutina[]>('rutinas')) || [];
   await guardarCacheLocal('rutinas', cache.filter((r) => r.id !== id));
+  emitirCambioDatos();
 }
 
 
@@ -225,6 +237,198 @@ export async function duplicarRutina(rutina: Rutina, nuevoPlanId?: string | null
     };
   });
   return crearRutina(`${rutina.nombre} (Copia)`, nuevosEjercicios, targetPlanId, rutina.dia_sugerido);
+}
+
+/**
+ * Sincroniza de manera automática e instantánea cualquier cambio de ejercicios u orden
+ * de una rutina con:
+ * 1. Todos los registros programados incompletos de esa rutina en el calendario (ejercicios_registro).
+ * 2. Cualquier borrador de sesión activa en curso (ejerciciosState), preservando las series completadas.
+ * 3. Los cachés locales de registros de entrenamiento en AsyncStorage.
+ * 4. Notifica a toda la aplicación para recarga inmediata en 0 ms.
+ */
+export async function sincronizarRutinaConRegistrosYActiva(
+  rutinaId: string,
+  nuevoNombre: string,
+  nuevosEjercicios: EjercicioNuevo[]
+): Promise<void> {
+  try {
+    const usuarioId = await getUsuarioId();
+
+    // 1. En Supabase: buscar registros no completados que usen esta rutina
+    let regsIncompletos: { id: string; fecha: string; rutina_id: string | null }[] = [];
+    if (!rutinaId.startsWith('local_')) {
+      try {
+        const { data, error } = await supabase
+          .from('registros_entrenamiento')
+          .select('id, fecha, rutina_id')
+          .eq('rutina_id', rutinaId)
+          .eq('completado', false);
+
+        if (!error && data) {
+          regsIncompletos = data;
+        }
+
+        for (const reg of regsIncompletos) {
+          // Actualizar nombre de rutina en el registro si cambió
+          await supabase
+            .from('registros_entrenamiento')
+            .update({ rutina_nombre: nuevoNombre })
+            .eq('id', reg.id);
+
+          // Eliminar ejercicios previos que no sean notas/observaciones (📌)
+          await supabase
+            .from('ejercicios_registro')
+            .delete()
+            .eq('registro_id', reg.id)
+            .not('nombre', 'ilike', '📌%');
+
+          // Insertar la nueva lista de ejercicios sincronizada
+          if (nuevosEjercicios.length > 0) {
+            const filasEjs = nuevosEjercicios.map((e) => {
+              const fila: any = {
+                registro_id: reg.id,
+                nombre: e.nombre,
+                series: e.series,
+                repeticiones: e.repeticiones,
+                peso: e.peso,
+                completado: false,
+              };
+              if (usuarioId) fila.usuario_id = usuarioId;
+              return fila;
+            });
+            await supabase.from('ejercicios_registro').insert(filasEjs);
+          }
+        }
+      } catch (err) {
+        console.warn('Error sincronizando registros de Supabase:', err);
+      }
+    }
+
+    // 2. En AsyncStorage: actualizar cachés de registros locales
+    try {
+      const allKeys = await AsyncStorage.getAllKeys();
+      const regCacheKeys = allKeys.filter(
+        (k) => k.startsWith('rutinia_cache_registros_') || k.startsWith('rutinia_registros_')
+      );
+
+      for (const k of regCacheKeys) {
+        const raw = await AsyncStorage.getItem(k);
+        if (raw) {
+          let modificado = false;
+          const listaRegs = JSON.parse(raw) as Registro[];
+          const nuevaLista = listaRegs.map((r) => {
+            if (r.rutina_id === rutinaId && !r.completado) {
+              modificado = true;
+              const obs = (r.ejercicios_registro || []).filter((e) => e.nombre.startsWith('📌'));
+              const nuevosEjsMapeados = nuevosEjercicios.map((ne, idx) => ({
+                id: `${r.id}_ej_${idx}_${Date.now()}`,
+                registro_id: r.id,
+                nombre: ne.nombre,
+                series: ne.series,
+                repeticiones: ne.repeticiones,
+                peso: ne.peso,
+                completado: false,
+              }));
+              return {
+                ...r,
+                rutina_nombre: nuevoNombre,
+                rutinas: r.rutinas ? { ...r.rutinas, nombre: nuevoNombre } : { nombre: nuevoNombre },
+                ejercicios_registro: [...nuevosEjsMapeados, ...obs],
+              };
+            }
+            return r;
+          });
+
+          if (modificado) {
+            await AsyncStorage.setItem(k, JSON.stringify(nuevaLista));
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Error sincronizando caché local de registros:', err);
+    }
+
+    // 3. En AsyncStorage: Sincronizar borradores de sesión en curso (rutinia_sesion_borrador_*)
+    try {
+      const allKeys = await AsyncStorage.getAllKeys();
+      const borradorKeys = allKeys.filter((k) => k.startsWith('rutinia_sesion_borrador_'));
+
+      for (const bKey of borradorKeys) {
+        const rawB = await AsyncStorage.getItem(bKey);
+        if (rawB) {
+          const borrador = JSON.parse(rawB) as BorradorSesion;
+          const regCoincide =
+            regsIncompletos.some((r) => r.id === borrador.registroId) ||
+            borrador.nombreRutina === nuevoNombre;
+
+          if (regCoincide) {
+            const prevEjStates = borrador.ejerciciosState || [];
+
+            const nuevosStates: EjercicioStateDraft[] = nuevosEjercicios.map((ne, idx) => {
+              const parsedNuevo = parsearEjercicioInfo(ne);
+              const cleanNuevo = (parsedNuevo.nombreLimpio || ne.nombre).toLowerCase();
+
+              // Buscar si ya existía en el borrador por nombre limpio para preservar series completadas
+              const existente = prevEjStates.find(
+                (pe) =>
+                  (parsearEjercicioInfo({ nombre: pe.nombre }).nombreLimpio || pe.nombre).toLowerCase() ===
+                  cleanNuevo
+              );
+
+              if (existente) {
+                return {
+                  ...existente,
+                  nombre: parsedNuevo.nombreLimpio || ne.nombre,
+                  esUnilateral: parsedNuevo.esUnilateral,
+                };
+              }
+
+              // Ejercicio nuevo o intercambiado: construir series respetando el nuevo plan
+              const numSeries = ne.series || parsedNuevo.detallesSets.length || 1;
+              const seriesDraft: SerieEjecucionDraft[] = Array.from({ length: numSeries }, (_, sIdx) => {
+                const sDetail = parsedNuevo.detallesSets[sIdx];
+                return {
+                  id: `${Date.now()}_${idx}_${sIdx}`,
+                  peso: sDetail?.pesoD || (ne.peso ? ne.peso.toString() : ''),
+                  reps: sDetail?.repsD || (ne.repeticiones ? ne.repeticiones.toString() : ''),
+                  pesoI: sDetail?.pesoI || '',
+                  repsI: sDetail?.repsI || '',
+                  rir: sDetail?.rir || '',
+                  nota: sDetail?.nota || '',
+                  completado: false,
+                  repsParciales: sDetail?.repsParciales || 0,
+                  tieneParciales: Boolean(sDetail?.repsParciales && sDetail.repsParciales > 0),
+                  esDropset: Boolean(sDetail?.esDropset),
+                  drops: [],
+                };
+              });
+
+              return {
+                id: `draft_${Date.now()}_${idx}`,
+                nombre: parsedNuevo.nombreLimpio || ne.nombre,
+                esUnilateral: parsedNuevo.esUnilateral,
+                series: seriesDraft,
+              };
+            });
+
+            borrador.nombreRutina = nuevoNombre;
+            borrador.ejerciciosState = nuevosStates;
+            borrador.updatedAt = Date.now();
+            await AsyncStorage.setItem(bKey, JSON.stringify(borrador));
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Error sincronizando borradores de sesión:', err);
+    }
+
+    // 4. Emisión reactiva para actualizar Home, Calendario y Modal de Entrenamiento al instante
+    await emitirCambioSesionActiva();
+    emitirCambioDatos();
+  } catch (err) {
+    console.warn('Error global en sincronizarRutinaConRegistrosYActiva:', err);
+  }
 }
 
 export async function actualizarRutina(
@@ -259,6 +463,7 @@ export async function actualizarRutina(
           : r
       )
     );
+    await sincronizarRutinaConRegistrosYActiva(rutinaId, nombre, ejercicios);
     return;
   }
 
@@ -321,6 +526,9 @@ export async function actualizarRutina(
         : r
     )
   );
+
+  // 5. Sincronizar automáticamente con registros programados hoy/incompletos y partidas en curso
+  await sincronizarRutinaConRegistrosYActiva(rutinaId, nombre, ejercicios);
 }
 
 export async function reemplazarEjercicioEnRutina(
@@ -367,5 +575,63 @@ export async function reemplazarEjercicioEnRutina(
       };
     })
   );
+
+  // Sincronizar registros incompletos y borradores de sesión activos
+  try {
+    if (!rutinaId.startsWith('local_')) {
+      const { data: regs } = await supabase
+        .from('registros_entrenamiento')
+        .select('id')
+        .eq('rutina_id', rutinaId)
+        .eq('completado', false);
+
+      for (const r of regs || []) {
+        const { data: ejsReg } = await supabase
+          .from('ejercicios_registro')
+          .select('*')
+          .eq('registro_id', r.id);
+
+        for (const er of ejsReg || []) {
+          const erLimpio = er.nombre.replace(/\s*\(.*\)$/, '').trim().toLowerCase();
+          if (erLimpio === nombreOrigLimpio) {
+            await supabase
+              .from('ejercicios_registro')
+              .update({ nombre: nombreNuevo.trim() })
+              .eq('id', er.id);
+          }
+        }
+      }
+    }
+
+    // Actualizar borradores activos en AsyncStorage
+    const allKeys = await AsyncStorage.getAllKeys();
+    const bKeys = allKeys.filter((k) => k.startsWith('rutinia_sesion_borrador_'));
+    for (const bk of bKeys) {
+      const raw = await AsyncStorage.getItem(bk);
+      if (raw) {
+        const b = JSON.parse(raw) as BorradorSesion;
+        let cambiado = false;
+        const nextStates = (b.ejerciciosState || []).map((es) => {
+          const esLimpio = es.nombre.replace(/\s*\(.*\)$/, '').trim().toLowerCase();
+          if (esLimpio === nombreOrigLimpio) {
+            cambiado = true;
+            return { ...es, nombre: nombreNuevo.trim() };
+          }
+          return es;
+        });
+        if (cambiado) {
+          b.ejerciciosState = nextStates;
+          b.updatedAt = Date.now();
+          await AsyncStorage.setItem(bk, JSON.stringify(b));
+        }
+      }
+    }
+
+    await emitirCambioSesionActiva();
+    emitirCambioDatos();
+  } catch (err) {
+    console.warn('Error sincronizando reemplazo de ejercicio:', err);
+  }
 }
+
 

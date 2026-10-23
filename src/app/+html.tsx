@@ -19,6 +19,24 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="apple-mobile-web-app-title" content="Rutinia" />
         <meta name="theme-color" content="#050608" />
 
+        {/* iOS standalone: marcar el documento antes del primer paint.
+            Algunas versiones de iOS no activan (display-mode: standalone) en
+            la PWA instalada aunque navigator.standalone sea true. */}
+        <script
+          dangerouslySetInnerHTML={{ __html: `
+            (function () {
+              try {
+                var standalone = window.navigator.standalone === true ||
+                  (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+                  (window.matchMedia && window.matchMedia('(display-mode: fullscreen)').matches);
+                if (standalone) {
+                  document.documentElement.classList.add('pwa-standalone');
+                }
+              } catch (e) {}
+            })();
+          ` }}
+        />
+
         {/* Iconos de pantalla de inicio para iOS (iPhone) y Web */}
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
@@ -84,6 +102,28 @@ export default function Root({ children }: PropsWithChildren) {
             flex-direction: column;
           }
 
+          /* PWA instalada en iOS (pantalla de inicio):
+             WebKit mide 100dvh/100svh/100% como "pantalla menos el safe-area
+             superior", dejando una franja sin cubrir (normalmente abajo).
+             En standalone usamos el viewport grande (100vh/100lvh), que sí
+             equivale a la pantalla física completa. En Safari normal se
+             mantiene 100dvh para no invadir las barras del navegador.
+             Se cubren las dos detecciones: media query y la clase que añade
+             el script de <head> cuando navigator.standalone es true. */
+          @media (display-mode: standalone), (display-mode: fullscreen) {
+            html, body, #root {
+              height: 100vh;
+              height: 100lvh;
+            }
+          }
+
+          html.pwa-standalone,
+          html.pwa-standalone body,
+          html.pwa-standalone #root {
+            height: 100vh;
+            height: 100lvh;
+          }
+
           /* Aplicar Outfit por defecto a todo texto en la web salvo Ionicons */
           div, span, p, label, select, textarea {
             font-family: 'Outfit', 'Outfit_400Regular', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -107,11 +147,9 @@ export default function Root({ children }: PropsWithChildren) {
           img[src*="ExerciseGymGifsDB"],
           img[src*="exercises"],
           img[src*=".thumb.webp"],
-          img[src*=".gif"],
-          [data-dark-gif="true"] img,
-          .rutinia-dark-gif img {
-            filter: invert(1) hue-rotate(180deg) contrast(1.15) brightness(0.95) !important;
-            -webkit-filter: invert(1) hue-rotate(180deg) contrast(1.15) brightness(0.95) !important;
+          img[src*=".gif"] {
+            filter: invert(1) contrast(1.1) brightness(0.96) !important;
+            -webkit-filter: invert(1) contrast(1.1) brightness(0.96) !important;
             background-color: transparent !important;
           }
 

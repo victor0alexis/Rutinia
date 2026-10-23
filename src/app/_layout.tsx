@@ -58,30 +58,7 @@ export default function RootLayout() {
         }
       }
 
-      // Inyectar regla global de modo oscuro para GIFs anatómicos en web / Safari PWA
-      const gifStyleId = 'rutinia-dark-gif-style';
-      if (!document.getElementById(gifStyleId)) {
-        try {
-          const gifStyle = document.createElement('style');
-          gifStyle.id = gifStyleId;
-          gifStyle.type = 'text/css';
-          gifStyle.appendChild(
-            document.createTextNode(`
-              img[src*="JahelCuadrado"],
-              img[src*="ExerciseGymGifsDB"],
-              img[src*=".gif"],
-              img[src*=".thumb.webp"],
-              [data-dark-gif="true"] img,
-              .rutinia-dark-gif img {
-                filter: invert(1) hue-rotate(180deg) contrast(1.15) brightness(0.95) !important;
-                -webkit-filter: invert(1) hue-rotate(180deg) contrast(1.15) brightness(0.95) !important;
-                background-color: transparent !important;
-              }
-            `)
-          );
-          document.head.appendChild(gifStyle);
-        } catch {}
-      }
+
       // Bloquear scroll elástico de la ventana en iOS Safari (PWA y navegador)
       const preventElasticScroll = (e: TouchEvent) => {
         if (e.target === document.body || e.target === document.documentElement) {

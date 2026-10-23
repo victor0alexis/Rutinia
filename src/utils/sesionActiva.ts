@@ -60,6 +60,39 @@ function getBorradorKey(registroId: string): string {
   return `${BORRADOR_PREFIX}${registroId}`;
 }
 
+type SesionListener = (info: SesionActivaInfo | null) => void;
+const sesionListeners = new Set<SesionListener>();
+
+/**
+ * Permite suscribirse en tiempo real a cualquier cambio en la sesión en vivo
+ * (inicio, progreso de series, salida, descarte o finalización).
+ */
+export function subscribirSesionActiva(fn: SesionListener): () => void {
+  sesionListeners.add(fn);
+  return () => {
+    sesionListeners.delete(fn);
+  };
+}
+
+/**
+ * Notifica a todas las pantallas (Home, Calendario, etc.) sobre el estado actual
+ * de la sesión activa en 0 ms.
+ */
+export async function emitirCambioSesionActiva(): Promise<void> {
+  try {
+    const info = await obtenerSesionActivaInfo();
+    for (const fn of sesionListeners) {
+      try {
+        fn(info);
+      } catch (err) {
+        console.warn('Error en listener de sesión activa:', err);
+      }
+    }
+  } catch (err) {
+    console.warn('Error emitiendo cambio de sesión activa:', err);
+  }
+}
+
 /**
  * Guarda el estado en vivo (series, peso, reps, notas) y marca la sesión como activa.
  */
@@ -83,6 +116,7 @@ export async function guardarBorradorSesion(
     };
     await AsyncStorage.setItem(getBorradorKey(registroId), JSON.stringify(borrador));
     await AsyncStorage.setItem(SESION_ACTIVA_KEY, registroId);
+    await emitirCambioSesionActiva();
   } catch (err) {
     console.warn('Error guardando borrador de sesión:', err);
   }
@@ -149,6 +183,7 @@ export async function limpiarSesionActiva(registroId: string): Promise<void> {
       await AsyncStorage.removeItem(SESION_ACTIVA_KEY);
     }
     await limpiarTimerSesion(registroId);
+    await emitirCambioSesionActiva();
   } catch (err) {
     console.warn('Error limpiando sesión activa:', err);
   }
