@@ -42,8 +42,9 @@ export default function Root({ children }: PropsWithChildren) {
             -moz-osx-font-smoothing: grayscale;
           }
 
-          html, body {
-            background-color: #080A0F;
+          :root, html, body {
+            background-color: #080A0F !important;
+            color-scheme: dark;
             color: #F9FAFB;
             width: 100%;
             height: 100%;
@@ -63,9 +64,12 @@ export default function Root({ children }: PropsWithChildren) {
           }
 
           #root {
-            background-color: #080A0F;
+            background-color: #080A0F !important;
+            color-scheme: dark;
             width: 100%;
             height: 100%;
+            min-height: 100%;
+            min-height: -webkit-fill-available;
             margin: 0;
             padding: 0;
             overflow: hidden !important;

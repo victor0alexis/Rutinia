@@ -18,6 +18,8 @@ import { colores } from '../constants/colores';
 import ConfirmModalGlobal from '../components/ConfirmModalGlobal';
 import { RutiniaLogo } from '../components/RutiniaLogo';
 
+import { StatusBar } from 'expo-status-bar';
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
@@ -86,8 +88,9 @@ export default function RootLayout() {
   }
 
   return (
-    <View style={{ flex: 1, width: '100%', height: '100%', overflow: 'hidden' }}>
-      <Stack screenOptions={{ headerShown: false }}>
+    <View style={{ flex: 1, width: '100%', height: '100%', backgroundColor: '#080A0F', overflow: 'hidden' }}>
+      <StatusBar style="light" />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#080A0F' } }}>
         <Stack.Screen name="(tabs)" />
       </Stack>
       <ConfirmModalGlobal />

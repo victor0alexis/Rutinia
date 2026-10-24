@@ -109,21 +109,24 @@ export default function SpotlightTabBar({
   };
 
   const isWeb = Platform.OS === 'web';
-  const bottomInsetToUse = isLandscape ? 4 : Math.max(safeBottom, insets.bottom, 24);
+  const bottomInsetToUse = isLandscape ? 6 : Math.max(safeBottom, insets.bottom, 28);
   const contentHeight = isLandscape ? 46 : 56;
   const totalNavHeight = contentHeight + bottomInsetToUse;
 
   return (
     <View
       pointerEvents="box-none"
-      style={styles.outerWrapper}
+      style={[
+        styles.outerWrapper,
+        isWeb && styles.outerWrapperWeb,
+      ]}
     >
       <View
         onLayout={handleLayout}
         style={[
           styles.navbarContainer,
           {
-            minHeight: totalNavHeight,
+            height: totalNavHeight,
             paddingBottom: bottomInsetToUse,
           },
           isLandscape && styles.navbarContainerLandscape,
@@ -173,7 +176,7 @@ export default function SpotlightTabBar({
         )}
 
         {/* 3. ITEMS / BOTONES DE NAVEGACIÓN */}
-        <View style={styles.itemsRow}>
+        <View style={[styles.itemsRow, { height: contentHeight }]}>
           {state.routes.map((route: any, index: number) => {
             const isFocused = state.index === index;
             const meta = TAB_CONFIG[route.name] || {
@@ -245,6 +248,8 @@ export default function SpotlightTabBar({
           })}
         </View>
       </View>
+      {/* Extensión hacia abajo para garantizar 100% fondo sólido detrás del home indicator y en overscroll */}
+      <View pointerEvents="none" style={styles.bottomFiller} />
     </View>
   );
 }
@@ -255,19 +260,28 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 100,
+    alignItems: 'stretch',
+    justifyContent: 'flex-end',
+    zIndex: 9999,
+    width: '100%',
+    backgroundColor: '#0B0D13',
+  },
+  outerWrapperWeb: {
+    // @ts-ignore
+    position: 'fixed',
+    left: 0,
+    right: 0,
+    bottom: 0,
     width: '100%',
   },
   navbarContainer: {
     width: '100%',
-    maxWidth: 600,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+    maxWidth: '100%',
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
-    backgroundColor: 'rgba(11, 13, 19, 0.96)',
+    backgroundColor: '#0B0D13',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.09)',
     borderBottomWidth: 0,
@@ -281,10 +295,18 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 16,
   },
+  bottomFiller: {
+    position: 'absolute',
+    bottom: -300,
+    left: 0,
+    right: 0,
+    height: 300,
+    backgroundColor: '#0B0D13',
+  },
   navbarContainerLandscape: {
     maxWidth: '100%',
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
   },
   navbarContainerWeb: {
     // @ts-ignore
@@ -321,7 +343,7 @@ const styles = StyleSheet.create({
     boxShadow: '0 0 8px rgba(255, 255, 255, 0.55)',
   },
   itemsRow: {
-    flex: 1,
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
