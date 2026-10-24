@@ -1,14 +1,52 @@
-import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useIsFocused } from 'expo-router';
 import Head from 'expo-router/head';
 import { Ionicons } from '@expo/vector-icons';
-import { startOfMonth, endOfMonth, subDays, startOfYear } from 'date-fns';
-import { colores, fuentes } from '../../constants/colores';
-import EncabezadoSeccion from '../../components/EncabezadoSeccion';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
+import {
+  differenceInCalendarDays,
+  format,
+  isValid,
+  parseISO,
+  startOfMonth,
+  startOfYear,
+  subDays,
+} from 'date-fns';
+import { es } from 'date-fns/locale';
+import { fuentes, noir } from '../../constants/colores';
+import EditorialHeader from '../../components/EditorialHeader';
 import ScreenBackground from '../../components/ScreenBackground';
-import { MetricasProgreso, obtenerMetricasProgreso } from '../../services/progreso';
+import ShinyText from '../../components/ShinyText';
+import SpotlightSegmentedTabs from '../../components/SpotlightSegmentedTabs';
+import YoungNewtButton from '../../components/YoungNewtButton';
+import { LiquidMetalButton } from '../../components/LiquidMetalButton';
+import {
+  AdherenceRing,
+  ProgressBar,
+  ProgressEmptyState,
+  ProgressPanel,
+  ProgressSectionHeader,
+  ProgressStatus,
+  PulseDot,
+  tint,
+} from '../../components/progreso/ProgressPrimitives';
+import {
+  EstadisticaRutina,
+  HabitoTrackerStat,
+  MetricasProgreso,
+  RecordPersonal,
+  obtenerMetricasProgreso,
+} from '../../services/progreso';
 import { listarPlanes } from '../../services/planes';
 import { PlanEntrenamiento } from '../../types';
 import { aISO } from '../../utils/fechas';
@@ -16,12 +54,77 @@ import { seguro } from '../../utils/errores';
 import { useLayout } from '../../hooks/useLayout';
 
 type PeriodoFiltro = 'mes' | '30dias' | 'anio';
+type IconName = keyof typeof Ionicons.glyphMap;
+
+const PERIODOS: {
+  id: PeriodoFiltro;
+  label: string;
+  iconFocused: IconName;
+  iconOutline: IconName;
+}[] = [
+  {
+    id: 'mes',
+    label: 'Este mes',
+    iconFocused: 'calendar',
+    iconOutline: 'calendar-outline',
+  },
+  {
+    id: '30dias',
+    label: '30 días',
+    iconFocused: 'time',
+    iconOutline: 'time-outline',
+  },
+  {
+    id: 'anio',
+    label: 'Este año',
+    iconFocused: 'trending-up',
+    iconOutline: 'trending-up-outline',
+  },
+];
+
+const COLORES_BARRAS = [
+  noir.ice,
+  noir.mint,
+  noir.lavender,
+  noir.champagne,
+  '#F08A9B',
+  noir.info,
+];
+
+const PR_CARD_WIDTH = 184;
+
+function numero(valor: number) {
+  const redondeado = Math.round(valor * 10) / 10;
+  return Number.isInteger(redondeado)
+    ? redondeado.toLocaleString()
+    : redondeado.toFixed(1);
+}
+
+function fechaCorta(iso?: string | null) {
+  if (!iso) return '—';
+  const fecha = parseISO(iso);
+  if (!isValid(fecha)) return '—';
+  return format(fecha, 'd MMM', { locale: es }).toUpperCase();
+}
 
 export default function ProgresoScreen() {
-  const { gutter, contentMaxWidth, isCompact } = useLayout();
+  const {
+    gutter,
+    contentMaxWidth,
+    isCompact,
+    isLandscape,
+    bottomInset,
+    safeBottom,
+  } = useLayout();
+  const isFocused = useIsFocused();
+  const tabBottomPadding = isLandscape
+    ? 56 + Math.max(bottomInset, 8) + 6
+    : 64 + safeBottom;
+
   const [periodo, setPeriodo] = useState<PeriodoFiltro>('mes');
   const [planes, setPlanes] = useState<PlanEntrenamiento[]>([]);
   const [planSeleccionado, setPlanSeleccionado] = useState<string>('TODOS');
+  const [cargando, setCargando] = useState(true);
   const [metricas, setMetricas] = useState<MetricasProgreso>({
     volumenTotalKg: 0,
     diasCompletados: 0,
@@ -32,738 +135,1879 @@ export default function ProgresoScreen() {
     rutinasStats: [],
     habitosStats: [],
   });
-  const [ejercicioSeleccionado, setEjercicioSeleccionado] = useState<string | null>(null);
+  const [ejercicioSeleccionado, setEjercicioSeleccionado] = useState<
+    string | null
+  >(null);
 
-  const cargarMetricas = useCallback(() => {
-    seguro(async () => {
+  const cargarMetricas = useCallback(async () => {
+    await seguro(async () => {
       const hoy = new Date();
       let desdeISO = aISO(startOfMonth(hoy));
-      let hastaISO = aISO(endOfMonth(hoy));
+      let hastaISO = aISO(hoy);
 
       if (periodo === '30dias') {
         desdeISO = aISO(subDays(hoy, 30));
-        hastaISO = aISO(hoy);
       } else if (periodo === 'anio') {
         desdeISO = aISO(startOfYear(hoy));
-        hastaISO = aISO(hoy);
       }
 
       const res = await obtenerMetricasProgreso(desdeISO, hastaISO);
       setMetricas(res);
-
-      if (res.recordsPersonales.length > 0) {
-        setEjercicioSeleccionado((prev) => prev || res.recordsPersonales[0].nombreEjercicio);
-      }
+      setEjercicioSeleccionado((prev) => {
+        const sigueExistiendo = res.recordsPersonales.some(
+          (record) => record.nombreEjercicio === prev
+        );
+        if (sigueExistiendo) return prev;
+        return res.recordsPersonales[0]?.nombreEjercicio ?? null;
+      });
     });
   }, [periodo]);
 
+  const cargarPlanes = useCallback(async () => {
+    await seguro(async () => {
+      const data = await listarPlanes({ incluirArchivados: true });
+      setPlanes(data);
+    });
+  }, []);
+
+  const recargar = useCallback(() => {
+    setCargando(true);
+    Promise.all([cargarMetricas(), cargarPlanes()]).finally(() => {
+      setCargando(false);
+    });
+  }, [cargarMetricas, cargarPlanes]);
+
   useFocusEffect(
     useCallback(() => {
-      cargarMetricas();
-      listarPlanes({ incluirArchivados: true })
-        .then(setPlanes)
-        .catch(() => {});
-    }, [cargarMetricas])
+      recargar();
+    }, [recargar])
   );
 
-  const prDestacado = metricas.recordsPersonales.find((r) => r.nombreEjercicio === ejercicioSeleccionado) || metricas.recordsPersonales[0];
-  const rutinasFiltradas = planSeleccionado === 'TODOS'
-    ? metricas.rutinasStats
-    : metricas.rutinasStats.filter((r) => r.planId === planSeleccionado);
+  const entrenamientos = useMemo(
+    () =>
+      metricas.rutinasStats.reduce(
+        (total, rutina) => total + rutina.vecesEjecutada,
+        0
+      ),
+    [metricas.rutinasStats]
+  );
+
+  const diasTranscurridos = useMemo(() => {
+    const hoy = new Date();
+    if (periodo === 'mes') {
+      return differenceInCalendarDays(hoy, startOfMonth(hoy)) + 1;
+    }
+    if (periodo === 'anio') {
+      return differenceInCalendarDays(hoy, startOfYear(hoy)) + 1;
+    }
+    return 30;
+  }, [periodo]);
+
+  const pctConstancia = Math.min(
+    100,
+    Math.round(
+      (metricas.diasCompletados / Math.max(1, diasTranscurridos)) * 100
+    )
+  );
+
+  const rutinasConActividad = useMemo(
+    () =>
+      metricas.rutinasStats.filter(
+        (rutina) =>
+          // Las sesiones sin completar no representan progreso de rutina.
+          // Se excluyen aunque tengan series registradas (p. ej. un borrador).
+          rutina.vecesEjecutada > 0 || rutina.volumenTotalKg > 0
+      ),
+    [metricas.rutinasStats]
+  );
+
+  const rutinasFiltradas = useMemo(
+    () =>
+      planSeleccionado === 'TODOS'
+        ? rutinasConActividad
+        : rutinasConActividad.filter(
+            (rutina) => rutina.planId === planSeleccionado
+          ),
+    [planSeleccionado, rutinasConActividad]
+  );
+
+  const maxVolumenRutina = useMemo(
+    () =>
+      Math.max(
+        1,
+        ...rutinasFiltradas.map((rutina) => rutina.volumenTotalKg)
+      ),
+    [rutinasFiltradas]
+  );
+
+  const habitosOrdenados = useMemo(
+    () =>
+      [...metricas.habitosStats].sort(
+        (a, b) =>
+          b.totalDias - a.totalDias || b.rachaActual - a.rachaActual
+      ),
+    [metricas.habitosStats]
+  );
+
+  const topEjercicios = useMemo(
+    () => metricas.ejerciciosStats.slice(0, 6),
+    [metricas.ejerciciosStats]
+  );
+
+  const prDestacado =
+    metricas.recordsPersonales.find(
+      (record) => record.nombreEjercicio === ejercicioSeleccionado
+    ) ?? metricas.recordsPersonales[0];
+
+  const hayActividad =
+    metricas.seriesTotales > 0 ||
+    metricas.volumenTotalKg > 0 ||
+    metricas.diasCompletados > 0 ||
+    entrenamientos > 0;
+
+  const tituloTamano = isLandscape ? 22 : isCompact ? 24 : 28;
+  const shinyWebStyle =
+    Platform.OS === 'web'
+      ? ({
+          width: '100%',
+          display: 'block',
+          fontSize: tituloTamano,
+          fontFamily: fuentes.extraBold,
+          fontWeight: 800,
+          lineHeight: `${Math.round(tituloTamano * 1.18)}px`,
+          letterSpacing: '-0.9px',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        } as any)
+      : undefined;
+
+  const emptyRoutineAction =
+    planSeleccionado === 'TODOS' ? (
+      <YoungNewtButton
+        title="Crear una rutina"
+        onPress={() => router.push('/rutinas')}
+      />
+    ) : (
+      <Pressable
+        onPress={() => setPlanSeleccionado('TODOS')}
+        style={({ pressed }) => [
+          styles.emptyLink,
+          pressed && { opacity: 0.62 },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel="Ver todos los planes"
+      >
+        <Text style={styles.emptyLinkText}>Ver todos los planes</Text>
+      </Pressable>
+    );
 
   return (
     <ScreenBackground>
       <Head>
         <title>Progreso · Rutinia</title>
       </Head>
-      <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-        {/* ENCABEZADO ESTANDARIZADO CENTRADO */}
-        <EncabezadoSeccion
-          badgeText="MÉTRICAS & NUTRICIÓN"
-          titulo="Progreso"
-          subtitulo="Rendimiento de rutinas, récords de peso y hábitos saludables"
-        />
 
-        <ScrollView
-          contentContainerStyle={{
+      <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+        <View
+          style={{
+            flex: 1,
             width: '100%',
             maxWidth: contentMaxWidth,
             alignSelf: 'center',
             paddingHorizontal: gutter,
-            paddingTop: 10,
-            paddingBottom: 90,
-            gap: 18,
+            paddingBottom: tabBottomPadding,
           }}
-          showsVerticalScrollIndicator={false}
         >
-          {/* SELECTOR DE PERÍODO CON PILL LUMINOSO */}
-          <View style={styles.periodSelectorBox}>
-            {[
-              { id: 'mes', label: 'Este Mes' },
-              { id: '30dias', label: 'Últimos 30 Días' },
-              { id: 'anio', label: 'Este Año' },
-            ].map((item) => {
-              const active = periodo === item.id;
-              return (
-                <Pressable
-                  key={item.id}
-                  onPress={() => setPeriodo(item.id as PeriodoFiltro)}
-                  style={[
-                    styles.periodPill,
-                    {
-                      paddingVertical: isCompact ? 6 : 8,
-                      backgroundColor: active ? colores.primarioHover : 'transparent',
-                      borderColor: active ? '#FFF' : 'transparent',
-                    },
-                  ]}
-                >
-                  <Text
-                    style={{
-                      color: active ? '#FFF' : colores.suave,
-                      fontFamily: active ? fuentes.black : fuentes.bold,
-                      fontSize: isCompact ? 10.5 : 12,
-                    }}
-                    numberOfLines={1}
+          <EditorialHeader
+            title="Progreso"
+            style={{
+              paddingTop: isLandscape ? 2 : 4,
+              marginBottom: isLandscape ? 4 : 8,
+            }}
+          />
+
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* HERO EDITORIAL: LA MARCA APLICADA A LAS MÉTRICAS */}
+            <View style={styles.hero}>
+              <View style={styles.eyebrowRow}>
+                <View style={styles.eyebrowDot} />
+                <Text style={styles.eyebrowText}>PANEL DE RENDIMIENTO</Text>
+              </View>
+
+              <View
+                style={[
+                  styles.shinyTitleWrap,
+                  { height: tituloTamano * 1.4 },
+                ]}
+              >
+                <ShinyText
+                  text="Tu evolución"
+                  color={noir.platinum}
+                  shineColor="#FFFFFF"
+                  speed={3.2}
+                  fontSize={tituloTamano}
+                  fontFamily={fuentes.extraBold}
+                  align="left"
+                  width="100%"
+                  height={tituloTamano * 1.4}
+                  style={shinyWebStyle}
+                />
+              </View>
+
+              <Text style={styles.heroStats} numberOfLines={2}>
+                {hayActividad ? (
+                  <>
+                    <Text style={styles.heroStatsStrong}>
+                      {metricas.diasCompletados}{' '}
+                      {metricas.diasCompletados === 1 ? 'día activo' : 'días activos'}
+                    </Text>
+                    <Text style={styles.heroStatsSep}> · </Text>
+                    <Text style={styles.heroStatsStrong}>
+                      {numero(metricas.volumenTotalKg)} kg movidos
+                    </Text>
+                    <Text style={styles.heroStatsSep}> · </Text>
+                    {metricas.rachaDias}{' '}
+                    {metricas.rachaDias === 1 ? 'día de racha' : 'días de racha'}
+                  </>
+                ) : cargando ? (
+                  'Sincronizando tu progreso con los entrenamientos…'
+                ) : (
+                  'Tu primera marca aparecerá aquí al registrar un entrenamiento'
+                )}
+              </Text>
+            </View>
+
+            <SpotlightSegmentedTabs
+              tabs={PERIODOS}
+              activeTab={periodo}
+              onChangeTab={(id) => setPeriodo(id)}
+            />
+
+            {/* RESUMEN PRINCIPAL: VOLUMEN, CONSTANCIA Y MICRO-MÉTRICAS */}
+            <ProgressPanel
+              glow
+              radius={22}
+              style={[
+                styles.summaryPanel,
+                { padding: isCompact ? 13 : 16 },
+              ]}
+            >
+              <View style={styles.summaryHeader}>
+                <View style={styles.summaryHeaderLeft}>
+                  <PulseDot />
+                  <Text style={styles.summaryHeaderLabel}>
+                    RESUMEN DEL PERÍODO
+                  </Text>
+                </View>
+                <ProgressStatus loading={cargando} />
+              </View>
+
+              <View style={styles.summaryTop}>
+                <View style={styles.summaryMain}>
+                  <Text style={styles.summaryLabel}>VOLUMEN TOTAL</Text>
+                  <View style={styles.volumeLine}>
+                    <Text
+                      style={[
+                        styles.volumeValue,
+                        { fontSize: isCompact ? 30 : 36 },
+                      ]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.66}
+                    >
+                      {numero(metricas.volumenTotalKg)}
+                    </Text>
+                    <Text style={styles.volumeUnit}>kg</Text>
+                  </View>
+                  <Text style={styles.summaryMeta} numberOfLines={1}>
+                    {numero(metricas.seriesTotales)} series ·{' '}
+                    {entrenamientos}{' '}
+                    {entrenamientos === 1
+                      ? 'entrenamiento'
+                      : 'entrenamientos'}
+                  </Text>
+                </View>
+
+                <AdherenceRing
+                  value={pctConstancia}
+                  size={isCompact ? 82 : 92}
+                />
+              </View>
+
+              <View style={styles.summaryDivider} />
+
+              <View style={styles.metricsRow}>
+                <MiniMetric
+                  icon="calendar-outline"
+                  label="Días activos"
+                  value={String(metricas.diasCompletados)}
+                  color={noir.mint}
+                />
+                <MiniMetric
+                  icon="flame-outline"
+                  label="Racha"
+                  value={String(metricas.rachaDias)}
+                  color={noir.champagne}
+                />
+                <MiniMetric
+                  icon="trophy-outline"
+                  label="Récords"
+                  value={String(metricas.recordsPersonales.length)}
+                  color={noir.lavender}
+                />
+              </View>
+            </ProgressPanel>
+
+            {/* PROGRESO POR RUTINA + FILTRO DE PLANES */}
+            <ProgressPanel style={styles.sectionPanel}>
+              <ProgressSectionHeader
+                icon="barbell-outline"
+                title="Progreso por rutina"
+                meta={
+                  rutinasFiltradas.length > 0
+                    ? `${rutinasFiltradas.length} ${
+                        rutinasFiltradas.length === 1 ? 'rutina' : 'rutinas'
+                      }`
+                    : 'Sin actividad'
+                }
+                accent={noir.ice}
+              />
+
+              {planes.length > 0 ? (
+                <View style={styles.planRail}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.planRailContent}
                   >
-                    {item.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+                    <PlanPill
+                      label="Todos"
+                      selected={planSeleccionado === 'TODOS'}
+                      onPress={() => setPlanSeleccionado('TODOS')}
+                      icon="layers-outline"
+                    />
 
-          {/* TARJETAS KPI DE ALTO NIVEL */}
-          <View style={{ gap: 10 }}>
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              {/* Card 1: Tonelaje Total */}
-              <View style={styles.kpiCard}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="barbell" size={16} color={colores.primarioHover} />
-                  <Text style={styles.kpiLabelText}>Volumen Total</Text>
+                    {planes.map((plan) => (
+                      <PlanPill
+                        key={plan.id}
+                        label={plan.nombre}
+                        color={plan.color}
+                        selected={planSeleccionado === plan.id}
+                        onPress={() => setPlanSeleccionado(plan.id)}
+                      />
+                    ))}
+                  </ScrollView>
                 </View>
-                <Text style={styles.kpiValueText}>
-                  {metricas.volumenTotalKg.toLocaleString()}{' '}
-                  <Text style={styles.kpiUnitText}>kg</Text>
-                </Text>
-              </View>
+              ) : null}
 
-              {/* Card 2: Días Cumplidos */}
-              <View style={styles.kpiCard}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="calendar" size={16} color={colores.exito} />
-                  <Text style={styles.kpiLabelText}>Días Cumplidos</Text>
-                </View>
-                <Text style={styles.kpiValueText}>
-                  {metricas.diasCompletados}{' '}
-                  <Text style={styles.kpiUnitText}>días</Text>
-                </Text>
-              </View>
-            </View>
-
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              {/* Card 3: Series Totales */}
-              <View style={styles.kpiCard}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="repeat" size={16} color="#A855F7" />
-                  <Text style={styles.kpiLabelText}>Series Totales</Text>
-                </View>
-                <Text style={styles.kpiValueText}>
-                  {metricas.seriesTotales}{' '}
-                  <Text style={styles.kpiUnitText}>series</Text>
-                </Text>
-              </View>
-
-              {/* Card 4: Racha Activa */}
-              <View style={styles.kpiCard}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="flame" size={16} color={colores.hoy} />
-                  <Text style={styles.kpiLabelText}>Racha Activa</Text>
-                </View>
-                <Text style={styles.kpiValueText}>
-                  {metricas.rachaDias}{' '}
-                  <Text style={styles.kpiUnitText}>días</Text>
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* SECCIÓN 1: PROGRESO DE RUTINAS ESPECÍFICAS (CREADAS) */}
-          <View style={styles.sectionCardContainer}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Ionicons name="barbell-outline" size={20} color={colores.primarioHover} />
-                <Text style={{ color: colores.texto, fontSize: 18, fontFamily: fuentes.black }}>
-                  Progreso por Rutina
-                </Text>
-              </View>
-              {metricas.rutinasStats.length > 0 && (
-                <View style={styles.executionBadge}>
-                  <Text style={styles.executionBadgeText}>
-                    {rutinasFiltradas.length} {rutinasFiltradas.length === 1 ? 'rutina' : 'rutinas'}
-                  </Text>
+              {rutinasFiltradas.length === 0 ? (
+                <ProgressEmptyState
+                  icon="analytics-outline"
+                  accent={noir.ice}
+                  title={
+                    planSeleccionado === 'TODOS'
+                      ? 'Tu progreso empieza con una rutina'
+                      : 'Sin actividad en este plan'
+                  }
+                  text={
+                    planSeleccionado === 'TODOS'
+                      ? 'Crea una rutina y registra tus entrenamientos para ver la evolución de cada bloque de trabajo.'
+                      : 'Prueba otro plan o vuelve a la vista general para descubrir dónde se está acumulando tu volumen.'
+                  }
+                  action={emptyRoutineAction}
+                />
+              ) : (
+                <View style={styles.listGap}>
+                  {rutinasFiltradas.map((rutina, index) => (
+                    <RoutineProgressCard
+                      key={rutina.id}
+                      rutina={rutina}
+                      index={index}
+                      maxVolumen={maxVolumenRutina}
+                    />
+                  ))}
                 </View>
               )}
-            </View>
+            </ProgressPanel>
 
-            {/* FILTRO HORIZONTAL DE PLANES */}
-            {planes.length > 0 && (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ gap: 8, paddingVertical: 2 }}
-              >
-                <Pressable
-                  onPress={() => setPlanSeleccionado('TODOS')}
-                  style={[
-                    styles.planFilterPill,
-                    planSeleccionado === 'TODOS' && styles.planFilterPillActive,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.planFilterPillText,
-                      planSeleccionado === 'TODOS' && styles.planFilterPillTextActive,
-                    ]}
-                  >
-                    Todos los planes
-                  </Text>
-                </Pressable>
-                {planes.map((p) => {
-                  const isAct = planSeleccionado === p.id;
-                  return (
-                    <Pressable
-                      key={p.id}
-                      onPress={() => setPlanSeleccionado(p.id)}
-                      style={[
-                        styles.planFilterPill,
-                        isAct && { borderColor: p.color, backgroundColor: p.color + '25' },
-                      ]}
-                    >
-                      <View style={[styles.miniDot, { backgroundColor: p.color }]} />
-                      <Text
-                        style={[
-                          styles.planFilterPillText,
-                          isAct && { color: '#FFF', fontFamily: fuentes.bold },
-                        ]}
-                      >
-                        {p.nombre}
+            {/* HÁBITOS DE NUTRICIÓN Y SUPLEMENTACIÓN */}
+            <ProgressPanel style={styles.sectionPanel}>
+              <ProgressSectionHeader
+                icon="nutrition-outline"
+                title="Nutrición & suplementos"
+                meta="TRACKER"
+                accent={noir.champagne}
+              />
+
+              <Text style={styles.sectionIntro}>
+                Constancia de los hábitos que registras en tus notas diarias.
+              </Text>
+
+              {habitosOrdenados.length === 0 ? (
+                <ProgressEmptyState
+                  icon="leaf-outline"
+                  accent={noir.mint}
+                  title="Sin hábitos registrados"
+                  text="Añade una nota de nutrición o suplementación para empezar a medir tu constancia."
+                />
+              ) : (
+                <>
+                  <View style={styles.listGap}>
+                    {habitosOrdenados.map((habito, index) => (
+                      <HabitProgressCard
+                        key={habito.id}
+                        habito={habito}
+                        index={index}
+                        diasBase={diasTranscurridos}
+                      />
+                    ))}
+                  </View>
+
+                  {habitosOrdenados.every(
+                    (habito) => habito.totalDias === 0
+                  ) ? (
+                    <View style={styles.hintRow}>
+                      <Ionicons
+                        name="information-circle-outline"
+                        size={14}
+                        color={noir.muted2}
+                      />
+                      <Text style={styles.hintText}>
+                        Añade una nota de nutrición en tus días para activar el
+                        tracker de constancia.
                       </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            )}
-
-            {rutinasFiltradas.length === 0 ? (
-              <View style={styles.emptyDashedBox}>
-                <Ionicons name="fitness-outline" size={24} color={colores.suave} />
-                <Text style={{ color: colores.suave, fontSize: 13, fontStyle: 'italic', fontFamily: fuentes.regular }}>
-                  {metricas.rutinasStats.length === 0
-                    ? 'Crea y completa rutinas para ver su desglose individual.'
-                    : 'No hay rutinas con actividad en el plan seleccionado.'}
-                </Text>
-              </View>
-            ) : (
-              <View style={{ gap: 12 }}>
-                {rutinasFiltradas.map((r) => {
-                  const cardPlanColor = r.planColor || colores.primarioHover;
-                  return (
-                    <View
-                      key={r.id}
-                      style={[
-                        styles.routineStatCard,
-                        { borderLeftColor: cardPlanColor, borderLeftWidth: 3 },
-                      ]}
-                    >
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, paddingRight: 6 }}>
-                          <View style={[styles.routineIconBadge, { backgroundColor: cardPlanColor + '20' }]}>
-                            <Ionicons name="fitness" size={14} color={cardPlanColor} />
-                          </View>
-                          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                            {r.planNombre ? (
-                              <View
-                                style={[
-                                  styles.planTagChip,
-                                  { backgroundColor: cardPlanColor + '20', borderColor: cardPlanColor + '40' },
-                                ]}
-                              >
-                                <Text style={[styles.planTagChipText, { color: cardPlanColor }]}>
-                                  {r.planNombre}
-                                </Text>
-                              </View>
-                            ) : null}
-                            <Text style={{ color: colores.texto, fontSize: 15, fontFamily: fuentes.black }}>
-                              {r.nombre}
-                            </Text>
-                          </View>
-                        </View>
-                        <View style={styles.executionBadge}>
-                          <Text style={styles.executionBadgeText}>
-                            {r.vecesEjecutada} {r.vecesEjecutada === 1 ? 'ejecución' : 'ejecuciones'}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={{ flexDirection: 'row', gap: 16, marginTop: 4 }}>
-                        <View>
-                          <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, textTransform: 'uppercase' }}>Volumen Acumulado</Text>
-                          <Text style={{ color: colores.texto, fontSize: 15, fontFamily: fuentes.bold }}>
-                            {r.volumenTotalKg.toLocaleString()} kg
-                          </Text>
-                        </View>
-
-                        <View>
-                          <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, textTransform: 'uppercase' }}>Series Totales</Text>
-                          <Text style={{ color: colores.texto, fontSize: 15, fontFamily: fuentes.bold }}>
-                            {r.seriesTotales} series
-                          </Text>
-                        </View>
-                      </View>
-
-                      {r.ejerciciosStats.length > 0 && (
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-                          {r.ejerciciosStats.slice(0, 4).map((ej) => (
-                            <View key={ej.nombre} style={styles.exerciseChip}>
-                              <Text style={{ color: colores.suave, fontSize: 11, fontFamily: fuentes.medium }}>
-                                {ej.nombre}: <Text style={{ color: colores.texto, fontFamily: fuentes.bold }}>{ej.maxPeso > 0 ? `${ej.maxPeso}kg` : `${ej.series}s`}</Text>
-                              </Text>
-                            </View>
-                          ))}
-                        </View>
-                      )}
                     </View>
-                  );
-                })}
-              </View>
-            )}
-          </View>
+                  ) : null}
+                </>
+              )}
+            </ProgressPanel>
 
-          {/* SECCIÓN 2: SEGUIMIENTO DE HÁBITOS, NUTRICIÓN & SUPLEMENTOS (Creatina, Proteína, etc.) */}
-          <View style={styles.sectionCardContainer}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Ionicons name="sparkles" size={20} color={colores.hoy} />
-                <Text style={{ color: colores.texto, fontSize: 18, fontFamily: fuentes.black }}>
-                  Nutrición & Suplementos
-                </Text>
-              </View>
-              <View style={styles.habitBadgeLabel}>
-                <Text style={{ color: colores.hoy, fontSize: 10, fontFamily: fuentes.bold }}>TRACKER</Text>
-              </View>
-            </View>
+            {/* RÉCORDS PERSONALES: CARRUSEL SELECCIONABLE */}
+            <ProgressPanel style={styles.sectionPanel}>
+              <ProgressSectionHeader
+                icon="trophy-outline"
+                title="Récords personales"
+                meta={
+                  metricas.recordsPersonales.length > 0
+                    ? `${metricas.recordsPersonales.length} ${
+                        metricas.recordsPersonales.length === 1 ? 'PR' : 'PRs'
+                      }`
+                    : 'Sin PRs'
+                }
+                accent={noir.champagne}
+              />
 
-            {metricas.habitosStats.length === 0 ? (
-              <View style={styles.emptyDashedBox}>
-                <Ionicons name="leaf-outline" size={24} color={colores.suave} />
-                <Text style={{ color: colores.suave, fontSize: 13, fontStyle: 'italic', fontFamily: fuentes.regular }}>
-                  Añade notas en tus días como &quot;📌 [NUTRICIÓN] Toma de Creatina&quot; para rastrear tu constancia.
-                </Text>
-              </View>
-            ) : (
-              <View style={{ gap: 12 }}>
-                {metricas.habitosStats.map((h) => {
-                  const porcHabito = Math.min(100, Math.round((h.totalDias / (periodo === 'mes' ? 30 : 30)) * 100));
-                  return (
-                    <View key={h.id} style={styles.habitCardContainer}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <View style={[styles.habitIconBox, { backgroundColor: h.bgBadge }]}>
-                            <Ionicons name={h.icono as any} size={16} color={h.colorBadge} />
-                          </View>
-                          <View>
-                            <Text style={{ color: colores.texto, fontSize: 15, fontFamily: fuentes.bold }}>
-                              {h.titulo}
-                            </Text>
-                            <Text style={{ color: colores.suave, fontSize: 10, fontFamily: fuentes.bold, textTransform: 'uppercase' }}>
-                              {h.categoria}
-                            </Text>
-                          </View>
-                        </View>
+              {metricas.recordsPersonales.length === 0 ? (
+                <ProgressEmptyState
+                  icon="ribbon-outline"
+                  accent={noir.champagne}
+                  title="Aún no hay récords"
+                  text="Registra series con peso para que tus mejores marcas aparezcan aquí y puedas analizarlas."
+                />
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.prRail}
+                  decelerationRate="fast"
+                  snapToInterval={PR_CARD_WIDTH + 10}
+                  snapToAlignment="start"
+                >
+                  {metricas.recordsPersonales.map((record, index) => (
+                    <PRCard
+                      key={record.nombreEjercicio}
+                      record={record}
+                      index={index}
+                      selected={
+                        prDestacado?.nombreEjercicio ===
+                        record.nombreEjercicio
+                      }
+                      onPress={() =>
+                        setEjercicioSeleccionado(record.nombreEjercicio)
+                      }
+                    />
+                  ))}
+                </ScrollView>
+              )}
+            </ProgressPanel>
 
-                        <View style={{ alignItems: 'flex-end' }}>
-                          <Text style={{ color: h.colorBadge, fontSize: 16, fontFamily: fuentes.black }}>
-                            {h.totalDias} {h.totalDias === 1 ? 'día' : 'días'}
-                          </Text>
-                          {h.rachaActual > 0 && (
-                            <Text style={{ color: colores.hoy, fontSize: 11, fontFamily: fuentes.bold }}>
-                              ⚡ Racha {h.rachaActual}d
-                            </Text>
-                          )}
-                        </View>
-                      </View>
+            {/* ANÁLISIS DEL RÉCORD SELECCIONADO */}
+            {prDestacado ? (
+              <ProgressPanel
+                glow
+                radius={22}
+                style={styles.analysisPanel}
+              >
+                <LinearGradient
+                  pointerEvents="none"
+                  colors={[
+                    'rgba(255, 209, 102, 0.095)',
+                    'rgba(255, 209, 102, 0.01)',
+                    'transparent',
+                  ]}
+                  locations={[0, 0.44, 1]}
+                  style={styles.analysisGlow}
+                />
 
-                      {/* Bar de Progreso */}
-                      <View style={styles.progressBarTrack}>
-                        <View
-                          style={[
-                            styles.progressBarFill,
-                            { width: `${Math.max(5, porcHabito)}%`, backgroundColor: h.colorBadge },
-                          ]}
+                <Animated.View
+                  key={prDestacado.nombreEjercicio}
+                  entering={FadeInDown.duration(420)}
+                  style={styles.analysisInner}
+                >
+                  <View style={styles.analysisHeader}>
+                    <View style={styles.analysisHeaderLeft}>
+                      <View style={styles.analysisIcon}>
+                        <Ionicons
+                          name="pulse-outline"
+                          size={15}
+                          color={noir.champagne}
                         />
                       </View>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-
-          {/* SECCIÓN 3: SALÓN DE RÉCORDS PERSONALES (PRs) */}
-          <View style={styles.sectionCardContainer}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="trophy" size={20} color={colores.hoy} />
-              <Text style={{ color: colores.texto, fontSize: 18, fontFamily: fuentes.black }}>
-                Récords Personales (PRs)
-              </Text>
-            </View>
-
-            {metricas.recordsPersonales.length === 0 ? (
-              <View style={styles.emptyDashedBox}>
-                <Ionicons name="trophy-outline" size={26} color={colores.suave} />
-                <Text style={{ color: colores.suave, fontSize: 13, fontStyle: 'italic', fontFamily: fuentes.regular }}>
-                  Registra tus entrenamientos para generar tus primeros récords personales.
-                </Text>
-              </View>
-            ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-                {metricas.recordsPersonales.map((pr) => {
-                  const sel = ejercicioSeleccionado === pr.nombreEjercicio;
-                  return (
-                    <Pressable
-                      key={pr.nombreEjercicio}
-                      onPress={() => setEjercicioSeleccionado(pr.nombreEjercicio)}
-                      style={[
-                        styles.prItemCard,
-                        {
-                          borderColor: sel ? colores.hoy : colores.borde,
-                          backgroundColor: sel ? 'rgba(217, 119, 6, 0.12)' : 'rgba(10, 12, 18, 0.60)',
-                        },
-                      ]}
-                    >
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <View style={styles.prBadgeBox}>
-                          <Ionicons name="ribbon-outline" size={12} color={colores.hoy} />
-                          <Text style={styles.prBadgeText}>RÉCORD</Text>
-                        </View>
-                        {pr.esUnilateral && (
-                          <View style={styles.unilateralBadge}>
-                            <Text style={styles.unilateralBadgeText}>D/I</Text>
-                          </View>
-                        )}
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={styles.analysisKicker}>
+                          ANÁLISIS DE CARGA
+                        </Text>
+                        <Text
+                          style={styles.analysisTitle}
+                          numberOfLines={2}
+                        >
+                          {prDestacado.nombreEjercicio}
+                        </Text>
                       </View>
-
-                      <Text style={{ color: colores.texto, fontSize: 15, fontFamily: fuentes.black }} numberOfLines={1}>
-                        {pr.nombreEjercicio}
-                      </Text>
-
-                      <Text style={{ color: colores.hoy, fontSize: 24, fontFamily: fuentes.black }}>
-                        {pr.maxPeso} <Text style={{ fontSize: 13, color: colores.suave, fontFamily: fuentes.regular }}>kg</Text>
-                      </Text>
-
-                      <Text style={{ color: colores.suave, fontSize: 11, fontFamily: fuentes.regular }}>
-                        Mejor serie: {pr.maxReps} reps • {pr.fecha}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            )}
-          </View>
-
-          {/* SECCIÓN 4: DETECTOR DE SOBRECARGA PROGRESIVA DEL EJERCICIO SELECCIONADO */}
-          {prDestacado && (
-            <View style={styles.sectionCardContainer}>
-              <Text style={{ color: colores.primarioHover, fontSize: 11, fontFamily: fuentes.bold, textTransform: 'uppercase', letterSpacing: 1 }}>
-                ANÁLISIS DE SOBRECARGA PROGRESIVA
-              </Text>
-              <Text style={{ fontSize: 20, fontFamily: fuentes.black, color: colores.texto }}>
-                {prDestacado.nombreEjercicio}
-              </Text>
-
-              <View style={styles.analysisInnerBox}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ color: colores.suave, fontSize: 12, fontFamily: fuentes.bold }}>Carga Máxima Registrada</Text>
-                  <Text style={{ color: colores.exito, fontSize: 18, fontFamily: fuentes.black }}>{prDestacado.maxPeso} KG</Text>
-                </View>
-
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ color: colores.suave, fontSize: 12, fontFamily: fuentes.bold }}>Series Realizadas en Período</Text>
-                  <Text style={{ color: colores.texto, fontSize: 16, fontFamily: fuentes.bold }}>{prDestacado.totalSeries} series</Text>
-                </View>
-
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ color: colores.suave, fontSize: 12, fontFamily: fuentes.bold }}>Fecha de Marca Máxima</Text>
-                  <Text style={{ color: colores.texto, fontSize: 14, fontFamily: fuentes.bold }}>{prDestacado.fecha}</Text>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* SECCIÓN 5: DISTRIBUCIÓN DEL VOLUMEN POR EJERCICIO */}
-          <View style={styles.sectionCardContainer}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="pie-chart" size={18} color={colores.primarioHover} />
-              <Text style={{ color: colores.texto, fontSize: 18, fontFamily: fuentes.black }}>
-                Distribución de Series por Ejercicio
-              </Text>
-            </View>
-
-            {metricas.ejerciciosStats.length === 0 ? (
-              <Text style={{ color: colores.suave, fontSize: 13, fontStyle: 'italic', fontFamily: fuentes.regular }}>Sin estadísticas registradas.</Text>
-            ) : (
-              <View style={{ gap: 12 }}>
-                {metricas.ejerciciosStats.slice(0, 6).map((ej) => (
-                  <View key={ej.nombre} style={{ gap: 4 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text style={{ color: colores.texto, fontSize: 14, fontFamily: fuentes.bold }} numberOfLines={1}>
-                        {ej.nombre}
-                      </Text>
-                      <Text style={{ color: colores.primarioHover, fontSize: 12, fontFamily: fuentes.black }}>
-                        {ej.series} series ({ej.porcentaje}%)
-                      </Text>
                     </View>
-
-                    <View style={styles.progressBarTrack}>
-                      <View
-                        style={[
-                          styles.progressBarFill,
-                          { width: `${ej.porcentaje}%` },
-                        ]}
-                      />
+                    <View style={styles.focusChip}>
+                      <PulseDot color={noir.champagne} size={4} />
+                      <Text style={styles.focusChipText}>EN FOCO</Text>
                     </View>
                   </View>
-                ))}
-              </View>
-            )}
+
+                  <View style={styles.analysisHero}>
+                    <View style={styles.analysisMain}>
+                      <Text style={styles.analysisLabel}>
+                        CARGA MÁXIMA
+                      </Text>
+                      <View style={styles.analysisWeightLine}>
+                        <Text style={styles.analysisWeight}>
+                          {numero(prDestacado.maxPeso)}
+                        </Text>
+                        <Text style={styles.analysisWeightUnit}>kg</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.analysisDivider} />
+
+                    <View style={styles.analysisSide}>
+                      <Text style={styles.analysisLabel}>MEJOR SERIE</Text>
+                      <Text style={styles.analysisReps}>
+                        {numero(prDestacado.maxReps)}
+                        <Text style={styles.analysisRepsUnit}> reps</Text>
+                      </Text>
+                      <Text style={styles.analysisDate}>
+                        {fechaCorta(prDestacado.fecha)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.analysisFooter}>
+                    <View style={styles.analysisStat}>
+                      <Text style={styles.analysisStatLabel}>
+                        SERIES DEL PERÍODO
+                      </Text>
+                      <Text style={styles.analysisStatValue}>
+                        {numero(prDestacado.totalSeries)}
+                      </Text>
+                    </View>
+                    <View style={styles.analysisStat}>
+                      <Text style={styles.analysisStatLabel}>
+                        RÉCORDS TOTALES
+                      </Text>
+                      <Text style={styles.analysisStatValue}>
+                        {metricas.recordsPersonales.length}
+                      </Text>
+                    </View>
+                    <View style={styles.analysisStat}>
+                      <Text style={styles.analysisStatLabel}>TIPO</Text>
+                      <Text style={styles.analysisStatValue}>
+                        {prDestacado.esUnilateral ? 'UNI' : 'BIL'}
+                      </Text>
+                    </View>
+                  </View>
+                </Animated.View>
+              </ProgressPanel>
+            ) : null}
+
+            {/* DISTRIBUCIÓN DE SERIES POR EJERCICIO */}
+            <ProgressPanel style={styles.sectionPanel}>
+              <ProgressSectionHeader
+                icon="stats-chart-outline"
+                title="Distribución de series"
+                meta={
+                  topEjercicios.length > 0
+                    ? `TOP ${topEjercicios.length}`
+                    : 'Sin datos'
+                }
+                accent={noir.lavender}
+              />
+
+              {topEjercicios.length === 0 ? (
+                <ProgressEmptyState
+                  icon="stats-chart-outline"
+                  accent={noir.lavender}
+                  title="Sin series en este período"
+                  text="Cuando registres entrenamientos verás qué ejercicios concentran tu volumen de trabajo."
+                />
+              ) : (
+                <View style={styles.distributionList}>
+                  {topEjercicios.map((ejercicio, index) => (
+                    <View
+                      key={ejercicio.nombre}
+                      style={styles.distributionRow}
+                    >
+                      <View style={styles.distributionTop}>
+                        <Text
+                          style={styles.distributionName}
+                          numberOfLines={1}
+                        >
+                          {ejercicio.nombre}
+                        </Text>
+                        <Text style={styles.distributionValue}>
+                          {ejercicio.series}{' '}
+                          {ejercicio.series === 1 ? 'serie' : 'series'} ·{' '}
+                          {ejercicio.porcentaje}%
+                        </Text>
+                      </View>
+                      <ProgressBar
+                        value={ejercicio.porcentaje}
+                        color={
+                          COLORES_BARRAS[index % COLORES_BARRAS.length]
+                        }
+                        height={5}
+                        delay={index * 45}
+                      />
+                    </View>
+                  ))}
+                </View>
+              )}
+            </ProgressPanel>
+          </ScrollView>
+
+          {/* ACCIÓN PRINCIPAL: METAL LÍQUIDO */}
+          <View style={styles.ctaWrap}>
+            <LiquidMetalButton
+              titulo={cargando ? 'Actualizando…' : 'Actualizar métricas'}
+              onPress={recargar}
+              disabled={cargando}
+              activo={isFocused && !cargando}
+              height={54}
+              borderWidth={4}
+              tamano="lg"
+              icon={
+                <Ionicons
+                  name="pulse-outline"
+                  size={15}
+                  color="#FFFFFF"
+                />
+              }
+              style={{ alignSelf: 'stretch' }}
+            />
           </View>
-        </ScrollView>
+        </View>
       </SafeAreaView>
     </ScreenBackground>
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/*                              Subcomponentes                                */
+/* -------------------------------------------------------------------------- */
+
+function MiniMetric({
+  icon,
+  label,
+  value,
+  color,
+}: {
+  icon: IconName;
+  label: string;
+  value: string;
+  color: string;
+}) {
+  return (
+    <View style={styles.miniMetric}>
+      <View
+        style={[
+          styles.miniIcon,
+          {
+            backgroundColor: tint(color, '16'),
+            borderColor: tint(color, '34'),
+          },
+        ]}
+      >
+        <Ionicons name={icon} size={13} color={color} />
+      </View>
+      <Text style={styles.miniValue} numberOfLines={1}>
+        {value}
+      </Text>
+      <Text style={styles.miniLabel} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function PlanPill({
+  label,
+  color,
+  selected,
+  onPress,
+  icon,
+}: {
+  label: string;
+  color?: string;
+  selected: boolean;
+  onPress: () => void;
+  icon?: IconName;
+}) {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      style={({ pressed }) => [
+        styles.planPill,
+        selected && styles.planPillSelected,
+        hovered && !selected && styles.planPillHovered,
+        pressed && { opacity: 0.78, transform: [{ scale: 0.97 }] },
+      ]}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={`Filtrar por ${label}`}
+    >
+      {selected ? (
+        <LinearGradient
+          colors={['#FFFFFF', '#E8EEF8']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
+
+      {icon ? (
+        <Ionicons
+          name={icon}
+          size={12}
+          color={selected ? '#090B0F' : noir.muted2}
+        />
+      ) : (
+        <View
+          style={[
+            styles.planPillDot,
+            {
+              backgroundColor: color ?? noir.ice,
+              borderColor: selected
+                ? 'rgba(9, 11, 15, 0.18)'
+                : 'transparent',
+            },
+          ]}
+        />
+      )}
+
+      <Text
+        numberOfLines={1}
+        style={[
+          styles.planPillText,
+          selected && styles.planPillTextSelected,
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function RoutineProgressCard({
+  rutina,
+  index,
+  maxVolumen,
+}: {
+  rutina: EstadisticaRutina;
+  index: number;
+  maxVolumen: number;
+}) {
+  const color = rutina.planColor || noir.ice;
+  const porcentaje = Math.min(
+    100,
+    Math.round((rutina.volumenTotalKg / Math.max(1, maxVolumen)) * 100)
+  );
+
+  return (
+    <Animated.View
+      entering={FadeInDown.duration(390).delay(
+        Math.min(60 + index * 55, 340)
+      )}
+    >
+      <View style={styles.routineCard}>
+        <View
+          style={[styles.routineAccent, { backgroundColor: color }]}
+        />
+
+        <View style={styles.routineTopRow}>
+          <View
+            style={[
+              styles.routineIcon,
+              {
+                backgroundColor: tint(color, '18'),
+                borderColor: tint(color, '36'),
+              },
+            ]}
+          >
+            <Ionicons name="barbell-outline" size={15} color={color} />
+          </View>
+
+          <View style={styles.routineTitleWrap}>
+            {rutina.planNombre ? (
+              <View
+                style={[
+                  styles.planTag,
+                  {
+                    backgroundColor: tint(color, '16'),
+                    borderColor: tint(color, '36'),
+                  },
+                ]}
+              >
+                <Text
+                  style={[styles.planTagText, { color }]}
+                  numberOfLines={1}
+                >
+                  {rutina.planNombre}
+                </Text>
+              </View>
+            ) : null}
+
+            <Text style={styles.routineName} numberOfLines={1}>
+              {rutina.nombre}
+            </Text>
+          </View>
+
+          <View style={styles.executionChip}>
+            <Text style={styles.executionChipText}>
+              {rutina.vecesEjecutada}×
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.routineStatsRow}>
+          <View style={styles.routineStat}>
+            <Text style={styles.routineStatLabel}>Volumen</Text>
+            <Text style={styles.routineStatValue} numberOfLines={1}>
+              {numero(rutina.volumenTotalKg)}
+              <Text style={styles.routineStatUnit}> kg</Text>
+            </Text>
+          </View>
+          <View style={styles.routineStat}>
+            <Text style={styles.routineStatLabel}>Series</Text>
+            <Text style={styles.routineStatValue} numberOfLines={1}>
+              {numero(rutina.seriesTotales)}
+            </Text>
+          </View>
+          <View style={styles.routineStat}>
+            <Text style={styles.routineStatLabel}>Última</Text>
+            <Text style={styles.routineStatValue} numberOfLines={1}>
+              {fechaCorta(rutina.ultimaEjecucion)}
+            </Text>
+          </View>
+        </View>
+
+        {rutina.ejerciciosStats.length > 0 ? (
+          <View style={styles.exerciseChips}>
+            {rutina.ejerciciosStats.slice(0, 3).map((ejercicio) => (
+              <View
+                key={ejercicio.nombre}
+                style={styles.exerciseChip}
+              >
+                <Text style={styles.exerciseChipText} numberOfLines={1}>
+                  {ejercicio.nombre}
+                  {ejercicio.maxPeso > 0
+                    ? ` · ${numero(ejercicio.maxPeso)}kg`
+                    : ''}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        <View style={styles.routineBarRow}>
+          <View style={{ flex: 1 }}>
+            <ProgressBar
+              value={porcentaje}
+              color={color}
+              height={5}
+              delay={80 + index * 40}
+            />
+          </View>
+          <Text style={styles.routineBarPct}>{porcentaje}%</Text>
+        </View>
+      </View>
+    </Animated.View>
+  );
+}
+
+function HabitProgressCard({
+  habito,
+  index,
+  diasBase,
+}: {
+  habito: HabitoTrackerStat;
+  index: number;
+  diasBase: number;
+}) {
+  const color = habito.colorBadge || noir.mint;
+  const porcentaje = Math.min(
+    100,
+    Math.round(
+      (habito.totalDias / Math.max(1, diasBase)) * 100
+    )
+  );
+
+  return (
+    <Animated.View
+      entering={FadeInDown.duration(380).delay(
+        Math.min(80 + index * 55, 300)
+      )}
+    >
+      <View style={styles.habitCard}>
+        <View style={styles.habitTopRow}>
+          <View
+            style={[
+              styles.habitIcon,
+              {
+                backgroundColor: habito.bgBadge,
+                borderColor: tint(color, '36'),
+              },
+            ]}
+          >
+            <Ionicons
+              name={habito.icono as IconName}
+              size={16}
+              color={color}
+            />
+          </View>
+
+          <View style={styles.habitTitleWrap}>
+            <Text style={styles.habitTitle} numberOfLines={1}>
+              {habito.titulo}
+            </Text>
+            <Text style={styles.habitCategory} numberOfLines={1}>
+              {habito.categoria}
+            </Text>
+          </View>
+
+          <View style={styles.habitCountWrap}>
+            <Text style={[styles.habitCount, { color }]}>
+              {habito.totalDias}
+              <Text style={styles.habitCountUnit}> d</Text>
+            </Text>
+            <Text style={styles.habitStreak} numberOfLines={1}>
+              {habito.totalDias === 0
+                ? 'Sin registros'
+                : habito.rachaActual > 0
+                  ? `Racha ${habito.rachaActual}d`
+                  : 'Sin racha'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.habitBarRow}>
+          <View style={{ flex: 1 }}>
+            <ProgressBar
+              value={porcentaje}
+              color={color}
+              height={5}
+              delay={80 + index * 40}
+            />
+          </View>
+          <Text style={[styles.habitPct, { color }]}>
+            {porcentaje}%
+          </Text>
+        </View>
+      </View>
+    </Animated.View>
+  );
+}
+
+function PRCard({
+  record,
+  index,
+  selected,
+  onPress,
+}: {
+  record: RecordPersonal;
+  index: number;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <Animated.View
+      entering={FadeInRight.duration(360).delay(
+        Math.min(index * 50, 260)
+      )}
+      style={styles.prCardWrap}
+    >
+      <Pressable
+        onPress={onPress}
+        onHoverIn={() => setHovered(true)}
+        onHoverOut={() => setHovered(false)}
+        style={({ pressed }) => [
+          styles.prCard,
+          selected && styles.prCardSelected,
+          hovered && !selected && styles.prCardHovered,
+          pressed && { transform: [{ scale: 0.985 }] },
+        ]}
+        accessibilityRole="button"
+        accessibilityState={{ selected }}
+        accessibilityLabel={`Récord de ${record.nombreEjercicio}: ${record.maxPeso} kilos`}
+      >
+        {selected ? (
+          <LinearGradient
+            pointerEvents="none"
+            colors={[
+              'rgba(255, 209, 102, 0.105)',
+              'rgba(255, 209, 102, 0.012)',
+            ]}
+            style={StyleSheet.absoluteFill}
+          />
+        ) : null}
+
+        <View style={styles.prTopRow}>
+          <View
+            style={[
+              styles.prBadge,
+              selected && styles.prBadgeSelected,
+            ]}
+          >
+            <Ionicons
+              name="ribbon-outline"
+              size={11}
+              color={selected ? noir.champagne : noir.muted2}
+            />
+            <Text
+              style={[
+                styles.prBadgeText,
+                selected && { color: noir.champagne },
+              ]}
+            >
+              RÉCORD
+            </Text>
+          </View>
+
+          {record.esUnilateral ? (
+            <View style={styles.prUnilateral}>
+              <Text style={styles.prUnilateralText}>D/I</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <Text style={styles.prExercise} numberOfLines={2}>
+          {record.nombreEjercicio}
+        </Text>
+
+        <View style={styles.prWeightRow}>
+          <Text
+            style={[
+              styles.prWeight,
+              selected && { color: noir.champagne },
+            ]}
+          >
+            {numero(record.maxPeso)}
+          </Text>
+          <Text style={styles.prUnit}>kg</Text>
+        </View>
+
+        <Text style={styles.prMeta} numberOfLines={1}>
+          {numero(record.maxReps)} reps · {fechaCorta(record.fecha)}
+        </Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                   Styles                                   */
+/* -------------------------------------------------------------------------- */
+
 const styles = StyleSheet.create({
-  periodSelectorBox: {
+  scrollContent: {
+    paddingTop: 2,
+    paddingBottom: 6,
+    gap: 13,
+  },
+  hero: {
+    paddingHorizontal: 1,
+    flexShrink: 0,
+  },
+  eyebrowRow: {
     flexDirection: 'row',
-    backgroundColor: colores.tarjeta,
-    borderRadius: 14,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: colores.borde,
-  },
-  periodPill: {
-    flex: 1,
-    paddingVertical: 8,
     alignItems: 'center',
-    borderRadius: 10,
-    borderWidth: 1,
+    gap: 7,
   },
-  kpiCard: {
-    flex: 1,
-    backgroundColor: colores.tarjeta,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: colores.borde,
-    gap: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3,
+  eyebrowDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: noir.ice,
+    shadowColor: noir.ice,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 5,
+    elevation: 2,
   },
-  kpiLabelText: {
-    color: colores.suave,
-    fontSize: 11,
+  eyebrowText: {
+    color: noir.muted,
     fontFamily: fuentes.bold,
-    textTransform: 'uppercase',
+    fontSize: 9,
+    letterSpacing: 1.35,
   },
-  kpiValueText: {
-    color: colores.texto,
-    fontSize: 22,
-    fontFamily: fuentes.black,
+  shinyTitleWrap: {
+    justifyContent: 'center',
+    marginTop: 1,
   },
-  kpiUnitText: {
-    fontSize: 13,
-    color: colores.suave,
+  heroStats: {
+    color: noir.muted,
     fontFamily: fuentes.regular,
+    fontSize: 11.5,
+    lineHeight: 16,
+    marginTop: 3,
   },
-  sectionCardContainer: {
-    backgroundColor: colores.tarjeta,
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colores.borde,
-    gap: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+  heroStatsStrong: {
+    color: '#DCE3EC',
+    fontFamily: fuentes.semiBold,
   },
-  emptyDashedBox: {
-    paddingVertical: 18,
-    paddingHorizontal: 14,
+  heroStatsSep: {
+    color: 'rgba(255, 255, 255, 0.18)',
+  },
+  summaryPanel: {
+    padding: 16,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(10, 12, 18, 0.60)',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colores.borde,
-    borderStyle: 'dashed',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingBottom: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.055)',
+    marginBottom: 14,
   },
-  routineStatCard: {
-    backgroundColor: 'rgba(10, 12, 18, 0.60)',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: colores.borde,
+  summaryHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    flexShrink: 1,
+  },
+  summaryHeaderLabel: {
+    color: noir.muted,
+    fontFamily: fuentes.bold,
+    fontSize: 9.5,
+    letterSpacing: 1.05,
+  },
+  summaryTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  summaryMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  summaryLabel: {
+    color: noir.muted2,
+    fontFamily: fuentes.bold,
+    fontSize: 8.5,
+    letterSpacing: 1.05,
+  },
+  volumeLine: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 6,
+    marginTop: 4,
+  },
+  volumeValue: {
+    color: '#FFFFFF',
+    fontFamily: fuentes.extraBold,
+    fontSize: 36,
+    lineHeight: 40,
+    letterSpacing: -1.65,
+    flexShrink: 1,
+  },
+  volumeUnit: {
+    color: noir.platinum,
+    fontFamily: fuentes.bold,
+    fontSize: 12,
+    marginBottom: 5,
+  },
+  summaryMeta: {
+    color: noir.muted2,
+    fontFamily: fuentes.medium,
+    fontSize: 10.5,
+    lineHeight: 15,
+    marginTop: 2,
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.055)',
+    marginTop: 15,
+    marginBottom: 13,
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
     gap: 8,
   },
-  routineIconBadge: {
-    backgroundColor: colores.primarioSuave,
-    padding: 6,
+  miniMetric: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
+  },
+  miniIcon: {
+    width: 23,
+    height: 23,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colores.primarioGlow,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 1,
   },
-  executionBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.16)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+  miniValue: {
+    color: '#FFFFFF',
+    fontFamily: fuentes.extraBold,
+    fontSize: 17,
+    lineHeight: 20,
+    letterSpacing: -0.4,
+  },
+  miniLabel: {
+    color: noir.muted2,
+    fontFamily: fuentes.medium,
+    fontSize: 8.5,
+    lineHeight: 11,
+    letterSpacing: 0.45,
+    textTransform: 'uppercase',
+  },
+  sectionPanel: {
+    padding: 14,
+  },
+  sectionIntro: {
+    color: noir.muted2,
+    fontFamily: fuentes.regular,
+    fontSize: 11.5,
+    lineHeight: 17,
+    marginTop: -2,
+    marginBottom: 10,
+  },
+  planRail: {
+    backgroundColor: 'rgba(255, 255, 255, 0.035)',
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.30)',
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderRadius: 17,
+    padding: 4,
+    marginBottom: 12,
+    overflow: 'hidden',
   },
-  executionBadgeText: {
-    color: colores.exito,
-    fontSize: 11,
+  planRailContent: {
+    gap: 4,
+    paddingRight: 1,
+  },
+  planPill: {
+    minHeight: 34,
+    paddingHorizontal: 11,
+    borderRadius: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  planPillSelected: {
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  planPillHovered: {
+    backgroundColor: 'rgba(255, 255, 255, 0.055)',
+  },
+  planPillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    borderWidth: 1,
+  },
+  planPillText: {
+    color: noir.platinum,
+    fontFamily: fuentes.medium,
+    fontSize: 11.5,
+    letterSpacing: 0.05,
+    maxWidth: 130,
+  },
+  planPillTextSelected: {
+    color: '#090B0F',
     fontFamily: fuentes.bold,
   },
-  exerciseChip: {
+  listGap: {
+    gap: 9,
+  },
+  routineCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.028)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.065)',
+    borderRadius: 16,
+    padding: 12,
+    paddingLeft: 14,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  routineAccent: {
+    position: 'absolute',
+    left: 0,
+    top: 12,
+    bottom: 12,
+    width: 2,
+    borderRadius: 1,
+    opacity: 0.8,
+  },
+  routineTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  routineIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  routineTitleWrap: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
+  },
+  planTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 5,
+    borderWidth: 1,
+    maxWidth: 150,
+  },
+  planTagText: {
+    fontFamily: fuentes.bold,
+    fontSize: 7.5,
+    letterSpacing: 0.65,
+    textTransform: 'uppercase',
+  },
+  routineName: {
+    color: '#F4F7FB',
+    fontFamily: fuentes.bold,
+    fontSize: 13.5,
+    letterSpacing: -0.15,
+  },
+  executionChip: {
+    minWidth: 34,
+    height: 24,
+    paddingHorizontal: 7,
+    borderRadius: 12,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
-  habitBadgeLabel: {
-    backgroundColor: 'rgba(217, 119, 6, 0.16)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
+  executionChipText: {
+    color: '#E8EDF4',
+    fontFamily: fuentes.extraBold,
+    fontSize: 10.5,
+    letterSpacing: -0.15,
+  },
+  routineStatsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  routineStat: {
+    flex: 1,
+    minWidth: 0,
+  },
+  routineStatLabel: {
+    color: noir.muted2,
+    fontFamily: fuentes.bold,
+    fontSize: 7.5,
+    letterSpacing: 0.65,
+    textTransform: 'uppercase',
+  },
+  routineStatValue: {
+    color: noir.platinum,
+    fontFamily: fuentes.bold,
+    fontSize: 11.5,
+    lineHeight: 15,
+    marginTop: 2,
+  },
+  routineStatUnit: {
+    color: noir.muted2,
+    fontFamily: fuentes.medium,
+    fontSize: 8.5,
+  },
+  exerciseChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+    marginTop: 8,
+  },
+  exerciseChip: {
+    maxWidth: '100%',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.035)',
     borderWidth: 1,
-    borderColor: 'rgba(217, 119, 6, 0.35)',
+    borderColor: 'rgba(255, 255, 255, 0.055)',
   },
-  habitCardContainer: {
-    backgroundColor: 'rgba(10, 12, 18, 0.60)',
+  exerciseChipText: {
+    color: noir.muted,
+    fontFamily: fuentes.medium,
+    fontSize: 8.5,
+    letterSpacing: 0.1,
+  },
+  routineBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+  },
+  routineBarPct: {
+    width: 29,
+    color: noir.muted2,
+    fontFamily: fuentes.bold,
+    fontSize: 8,
+    textAlign: 'right',
+  },
+  habitCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.028)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.065)',
     borderRadius: 14,
-    padding: 14,
+    padding: 11,
+  },
+  habitTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  habitIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
     borderWidth: 1,
-    borderColor: colores.borde,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  habitTitleWrap: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  habitTitle: {
+    color: '#F4F7FB',
+    fontFamily: fuentes.bold,
+    fontSize: 12.5,
+    letterSpacing: -0.1,
+  },
+  habitCategory: {
+    color: noir.muted2,
+    fontFamily: fuentes.bold,
+    fontSize: 7.5,
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+  },
+  habitCountWrap: {
+    alignItems: 'flex-end',
+    flexShrink: 0,
+  },
+  habitCount: {
+    fontFamily: fuentes.extraBold,
+    fontSize: 16,
+    lineHeight: 19,
+    letterSpacing: -0.45,
+  },
+  habitCountUnit: {
+    color: noir.muted2,
+    fontFamily: fuentes.bold,
+    fontSize: 8,
+    letterSpacing: 0,
+  },
+  habitStreak: {
+    color: noir.muted2,
+    fontFamily: fuentes.medium,
+    fontSize: 8.5,
+    lineHeight: 11,
+    marginTop: 1,
+  },
+  habitBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 9,
+  },
+  habitPct: {
+    width: 30,
+    fontFamily: fuentes.bold,
+    fontSize: 8.5,
+    textAlign: 'right',
+  },
+  hintRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 7,
+    paddingTop: 10,
+    paddingHorizontal: 2,
+  },
+  hintText: {
+    flex: 1,
+    color: noir.muted2,
+    fontFamily: fuentes.regular,
+    fontSize: 10.5,
+    lineHeight: 15,
+  },
+  prRail: {
     gap: 10,
+    paddingTop: 1,
+    paddingBottom: 1,
+    paddingRight: 2,
   },
-  habitIconBox: {
-    padding: 8,
-    borderRadius: 10,
+  prCardWrap: {
+    width: PR_CARD_WIDTH,
   },
-  prItemCard: {
+  prCard: {
+    width: PR_CARD_WIDTH,
+    minHeight: 166,
+    padding: 12,
     borderRadius: 16,
-    padding: 14,
-    width: 170,
-    borderWidth: 1.5,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    backgroundColor: 'rgba(255, 255, 255, 0.028)',
+    overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.24,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  prCardHovered: {
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    backgroundColor: 'rgba(255, 255, 255, 0.045)',
+  },
+  prCardSelected: {
+    borderColor: 'rgba(255, 209, 102, 0.42)',
+    backgroundColor: 'rgba(255, 209, 102, 0.045)',
+    shadowColor: noir.champagne,
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
+  },
+  prTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 6,
   },
-  prBadgeBox: {
-    backgroundColor: 'rgba(217, 119, 6, 0.20)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
+  prBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
-    borderColor: 'rgba(217, 119, 6, 0.40)',
+    borderColor: 'rgba(255, 255, 255, 0.055)',
+  },
+  prBadgeSelected: {
+    backgroundColor: 'rgba(255, 209, 102, 0.10)',
+    borderColor: 'rgba(255, 209, 102, 0.28)',
   },
   prBadgeText: {
-    color: colores.hoy,
-    fontSize: 10,
+    color: noir.muted2,
     fontFamily: fuentes.bold,
-    textTransform: 'uppercase',
+    fontSize: 7,
+    letterSpacing: 0.8,
   },
-  unilateralBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.18)',
-    paddingHorizontal: 6,
+  prUnilateral: {
+    paddingHorizontal: 5,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.30)',
+    borderColor: 'rgba(255, 255, 255, 0.055)',
   },
-  unilateralBadgeText: {
-    color: colores.exito,
+  prUnilateralText: {
+    color: noir.muted2,
+    fontFamily: fuentes.bold,
+    fontSize: 7,
+    letterSpacing: 0.6,
+  },
+  prExercise: {
+    color: '#FFFFFF',
+    fontFamily: fuentes.bold,
+    fontSize: 13.5,
+    lineHeight: 18,
+    letterSpacing: -0.15,
+    marginTop: 13,
+    minHeight: 36,
+  },
+  prWeightRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 4,
+    marginTop: 4,
+  },
+  prWeight: {
+    color: '#FFFFFF',
+    fontFamily: fuentes.extraBold,
+    fontSize: 28,
+    lineHeight: 32,
+    letterSpacing: -1.1,
+  },
+  prUnit: {
+    color: noir.muted,
+    fontFamily: fuentes.bold,
+    fontSize: 10,
+    marginBottom: 4,
+  },
+  prMeta: {
+    color: noir.muted2,
+    fontFamily: fuentes.medium,
     fontSize: 9,
-    fontFamily: fuentes.black,
+    lineHeight: 13,
+    marginTop: 3,
   },
-  analysisInnerBox: {
-    backgroundColor: 'rgba(10, 12, 18, 0.60)',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: colores.borde,
-    gap: 10,
+  analysisPanel: {
+    padding: 16,
   },
-  progressBarTrack: {
-    height: 6,
-    backgroundColor: 'rgba(10, 12, 18, 0.80)',
-    borderRadius: 3,
-    overflow: 'hidden',
+  analysisGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 140,
   },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: colores.primarioHover,
-    borderRadius: 3,
+  analysisInner: {
+    position: 'relative',
+    zIndex: 1,
   },
-  planFilterPill: {
+  analysisHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  analysisHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    flex: 1,
+    minWidth: 0,
+  },
+  analysisIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 209, 102, 0.10)',
     borderWidth: 1,
-    borderColor: colores.borde,
-    backgroundColor: 'rgba(10, 12, 18, 0.60)',
+    borderColor: 'rgba(255, 209, 102, 0.26)',
+    flexShrink: 0,
   },
-  planFilterPillActive: {
-    borderColor: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  analysisKicker: {
+    color: noir.champagne,
+    fontFamily: fuentes.bold,
+    fontSize: 8,
+    letterSpacing: 1.05,
   },
-  planFilterPillText: {
-    color: colores.suave,
-    fontSize: 12,
+  analysisTitle: {
+    color: '#FFFFFF',
+    fontFamily: fuentes.extraBold,
+    fontSize: 18,
+    lineHeight: 22,
+    letterSpacing: -0.35,
+    marginTop: 1,
+  },
+  focusChip: {
+    minHeight: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 7,
+    borderRadius: 11,
+    backgroundColor: 'rgba(255, 209, 102, 0.075)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 209, 102, 0.22)',
+    flexShrink: 0,
+  },
+  focusChipText: {
+    color: noir.champagne,
+    fontFamily: fuentes.bold,
+    fontSize: 7,
+    letterSpacing: 0.8,
+  },
+  analysisHero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginTop: 16,
+  },
+  analysisMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  analysisLabel: {
+    color: noir.muted2,
+    fontFamily: fuentes.bold,
+    fontSize: 7.5,
+    letterSpacing: 0.75,
+  },
+  analysisWeightLine: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 5,
+    marginTop: 3,
+  },
+  analysisWeight: {
+    color: noir.champagne,
+    fontFamily: fuentes.extraBold,
+    fontSize: 38,
+    lineHeight: 42,
+    letterSpacing: -1.7,
+  },
+  analysisWeightUnit: {
+    color: noir.champagne,
+    fontFamily: fuentes.bold,
+    fontSize: 11,
+    marginBottom: 5,
+    opacity: 0.8,
+  },
+  analysisDivider: {
+    width: 1,
+    height: 48,
+    backgroundColor: 'rgba(255, 255, 255, 0.075)',
+  },
+  analysisSide: {
+    flex: 1,
+    minWidth: 0,
+  },
+  analysisReps: {
+    color: '#FFFFFF',
+    fontFamily: fuentes.extraBold,
+    fontSize: 18,
+    lineHeight: 22,
+    letterSpacing: -0.35,
+    marginTop: 3,
+  },
+  analysisRepsUnit: {
+    color: noir.muted,
+    fontFamily: fuentes.bold,
+    fontSize: 9,
+    letterSpacing: 0,
+  },
+  analysisDate: {
+    color: noir.muted2,
     fontFamily: fuentes.medium,
+    fontSize: 8.5,
+    lineHeight: 12,
+    marginTop: 2,
   },
-  planFilterPillTextActive: {
-    color: '#FFF',
+  analysisFooter: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  analysisStat: {
+    flex: 1,
+    minWidth: 0,
+  },
+  analysisStatLabel: {
+    color: noir.muted2,
     fontFamily: fuentes.bold,
+    fontSize: 6.8,
+    letterSpacing: 0.62,
   },
-  miniDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  analysisStatValue: {
+    color: noir.platinum,
+    fontFamily: fuentes.bold,
+    fontSize: 12,
+    lineHeight: 15,
+    marginTop: 3,
   },
-  planTagChip: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+  distributionList: {
+    gap: 11,
+  },
+  distributionRow: {
+    gap: 5,
+  },
+  distributionTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  distributionName: {
+    flex: 1,
+    color: noir.platinum,
+    fontFamily: fuentes.semiBold,
+    fontSize: 11.5,
+  },
+  distributionValue: {
+    color: noir.muted2,
+    fontFamily: fuentes.medium,
+    fontSize: 8.5,
+    flexShrink: 0,
+  },
+  emptyLink: {
+    minHeight: 38,
+    minWidth: 160,
+    paddingHorizontal: 14,
+    borderRadius: 12,
     borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
+    backgroundColor: 'rgba(255, 255, 255, 0.035)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  planTagChipText: {
-    fontSize: 10,
+  emptyLinkText: {
+    color: noir.platinum,
     fontFamily: fuentes.bold,
-    textTransform: 'uppercase',
+    fontSize: 11,
+    letterSpacing: 0.1,
+  },
+  ctaWrap: {
+    width: '100%',
+    paddingTop: 8,
+    flexShrink: 0,
   },
 });
