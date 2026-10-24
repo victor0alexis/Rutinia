@@ -7,11 +7,16 @@
     "icon": "./assets/images/icon.png",
     "scheme": "rutinia",
     "userInterfaceStyle": "dark",
+    "backgroundColor": "#080A0F",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "userInterfaceStyle": "dark",
+      "backgroundColor": "#080A0F"
     },
     "android": {
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "userInterfaceStyle": "dark",
+      "backgroundColor": "#080A0F"
     },
     "web": {
       "output": "single",

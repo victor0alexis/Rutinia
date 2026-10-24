@@ -18,6 +18,8 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Rutinia" />
         <meta name="theme-color" content="#080A0F" />
+        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#080A0F" />
+        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#080A0F" />
 
         {/* Iconos de pantalla de inicio para iOS (iPhone) y Web */}
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -42,30 +44,26 @@ export default function Root({ children }: PropsWithChildren) {
             -moz-osx-font-smoothing: grayscale;
           }
 
-          :root, html, body {
-            background-color: #080A0F !important;
+          :root {
             color-scheme: dark;
-            color: #F9FAFB;
+            background-color: #080A0F !important;
+          }
+
+          html {
+            color-scheme: dark;
+            background-color: #080A0F !important;
             width: 100%;
             height: 100%;
+            min-height: 100%;
             margin: 0;
             padding: 0;
             overflow: hidden !important;
-            overscroll-behavior: none !important;
-            -webkit-overscroll-behavior: none !important;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            touch-action: pan-x pan-y;
-            -webkit-user-select: none;
-            user-select: none;
           }
 
-          #root {
-            background-color: #080A0F !important;
+          body {
             color-scheme: dark;
+            background-color: #080A0F !important;
+            color: #F9FAFB;
             width: 100%;
             height: 100%;
             min-height: 100%;
@@ -75,11 +73,24 @@ export default function Root({ children }: PropsWithChildren) {
             overflow: hidden !important;
             overscroll-behavior: none !important;
             -webkit-overscroll-behavior: none !important;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            touch-action: pan-x pan-y;
+            -webkit-user-select: none;
+            user-select: none;
+          }
+
+          #root {
+            color-scheme: dark;
+            background-color: #080A0F !important;
+            width: 100%;
+            height: 100%;
+            min-height: 100%;
+            min-height: 100dvh;
+            min-height: -webkit-fill-available;
+            margin: 0;
+            padding: 0;
+            overflow: hidden !important;
+            overscroll-behavior: none !important;
+            -webkit-overscroll-behavior: none !important;
             display: flex;
             flex-direction: column;
           }

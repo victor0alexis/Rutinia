@@ -11,7 +11,7 @@ import {
 } from '@expo-google-fonts/outfit';
 import { DMSans_400Regular } from '@expo-google-fonts/dm-sans';
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, View, Platform } from 'react-native';
+import { ActivityIndicator, View, Platform, StatusBar as RNStatusBar } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { colores } from '../constants/colores';
 
@@ -21,6 +21,11 @@ import { RutiniaLogo } from '../components/RutiniaLogo';
 import { StatusBar } from 'expo-status-bar';
 
 export default function RootLayout() {
+  useEffect(() => {
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+      RNStatusBar.setBarStyle('light-content', true);
+    }
+  }, []);
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
     Outfit_500Medium,

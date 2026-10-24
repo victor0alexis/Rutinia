@@ -32,14 +32,10 @@ export default function Semana() {
     contentMaxWidth,
     isLandscape,
     isCompact,
-    bottomInset,
-    safeBottom,
   } = useLayout();
   // La barra flota sobre el contenido. Reservamos su alto + un respiro corto
   // (el mockup deja 6-8 px entre "Administrar" y el navbar).
-  const tabBottomPadding = isLandscape
-    ? 56 + Math.max(bottomInset, 8) + 6
-    : 64 + safeBottom;
+  const tabBottomPadding = isLandscape ? 50 : 66;
   const isFocused = useIsFocused();
   const [ref, setRef] = useState(new Date());
   const [diaActivo, setDiaActivo] = useState(new Date());
