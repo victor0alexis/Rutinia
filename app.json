@@ -14,7 +14,7 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png",
       "themeColor": "#080A0F",
       "backgroundColor": "#080A0F"
