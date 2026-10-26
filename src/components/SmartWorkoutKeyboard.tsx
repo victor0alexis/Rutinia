@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 99999,
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(9, 11, 16, 0.985)',
   },
   panelPrincipal: {
     width: '100%',

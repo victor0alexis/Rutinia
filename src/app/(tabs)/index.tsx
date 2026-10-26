@@ -32,10 +32,10 @@ export default function Semana() {
     contentMaxWidth,
     isLandscape,
     isCompact,
+    tabBarHeight,
   } = useLayout();
-  // La barra flota sobre el contenido. Reservamos su alto + un respiro corto
-  // (el mockup deja 6-8 px entre "Administrar" y el navbar).
-  const tabBottomPadding = isLandscape ? 50 : 66;
+  // El contenido y botón dock quedan exactamente a 12 px sobre la barra de pestañas
+  const tabBottomPadding = tabBarHeight + 12;
   const isFocused = useIsFocused();
   const [ref, setRef] = useState(new Date());
   const [diaActivo, setDiaActivo] = useState(new Date());

@@ -40,7 +40,7 @@ LocaleConfig.locales['es'] = {
 LocaleConfig.defaultLocale = 'es';
 
 export default function CalendarioScreen() {
-  const { gutter, contentMaxWidth } = useLayout();
+  const { gutter, contentMaxWidth, tabBarHeight } = useLayout();
   const [fechaReferencia, setFechaReferencia] = useState(new Date());
   const [fechaSeleccionadaISO, setFechaSeleccionadaISO] = useState(aISO(new Date()));
   const [registrosMes, setRegistrosMes] = useState<Registro[]>([]);
@@ -187,7 +187,7 @@ export default function CalendarioScreen() {
             alignSelf: 'center',
             paddingHorizontal: gutter,
             paddingTop: 10,
-            paddingBottom: 90,
+            paddingBottom: tabBarHeight + 12,
             gap: 14,
           }}
           showsVerticalScrollIndicator={false}

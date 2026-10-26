@@ -54,12 +54,12 @@ export default function Notas() {
     isLandscape,
     isCompact,
     bottomInset,
+    tabBarHeight,
   } = useLayout();
   const isFocused = useIsFocused();
 
-  // La barra flota sobre el contenido. Reservamos su alto + un respiro corto,
-  // igual que en el home, para que la última tarjeta nunca quede debajo.
-  const tabBottomPadding = isLandscape ? 50 : 66;
+  // El contenido y botón de notas quedan exactamente a 12 px sobre la barra de pestañas
+  const tabBottomPadding = tabBarHeight + 12;
 
   const [notas, setNotas] = useState<NotaEstandar[]>([]);
   const [cargando, setCargando] = useState(true);

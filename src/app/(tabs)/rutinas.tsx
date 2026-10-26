@@ -468,7 +468,7 @@ function ActionSheetModal({
 }
 
 export default function RutinasScreen() {
-  const { gutter, contentMaxWidth, safeBottom, isLandscape, isCompact } = useLayout();
+  const { gutter, contentMaxWidth, tabBarHeight, isLandscape, isCompact } = useLayout();
   const isFocused = useIsFocused();
 
   // Estados de datos
@@ -1198,7 +1198,7 @@ export default function RutinasScreen() {
             {
               paddingHorizontal: gutter,
               maxWidth: contentMaxWidth,
-              paddingBottom: (isLandscape ? 128 : 168) + safeBottom,
+              paddingBottom: tabBarHeight + (isLandscape ? 68 : 80),
             },
           ]}
           keyboardShouldPersistTaps="handled"
@@ -2112,7 +2112,7 @@ export default function RutinasScreen() {
             pointerEvents="box-none"
             style={[
               styles.undoLayer,
-              { bottom: safeBottom + (isLandscape ? 112 : 146) },
+              { bottom: tabBarHeight + (isLandscape ? 68 : 74) },
             ]}
           >
             <View
