@@ -52,12 +52,28 @@ export default function Root({ children }: PropsWithChildren) {
             --sar: env(safe-area-inset-right, 0px);
           }
 
-          html, body {
+          html {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
-            background: #080A0F;
+            background: linear-gradient(#080A0F calc(100% - 140px), #0B0D13 calc(100% - 140px));
+            background-color: #080A0F;
+            color: #F9FAFB;
+            overflow: hidden !important;
+            overscroll-behavior: none !important;
+            -webkit-overscroll-behavior: none !important;
+            touch-action: pan-x pan-y;
+            -webkit-user-select: none;
+            user-select: none;
+          }
+
+          body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
             color: #F9FAFB;
             overflow: hidden !important;
             overscroll-behavior: none !important;
@@ -146,6 +162,55 @@ export default function Root({ children }: PropsWithChildren) {
         ` }} />
 
         <ScrollViewStyleReset />
+
+        {/* Respaldo inline de viewport para iOS PWA standalone antes del montaje de React */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                if (typeof window === 'undefined') return;
+                var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+                var isStandalone = Boolean(navigator.standalone) || (window.matchMedia ? window.matchMedia('(display-mode: standalone)').matches : false);
+                if (!isIOS || !isStandalone) return;
+                function applyFix() {
+                  var root = document.getElementById('root');
+                  if (!root) return;
+                  var scrW = Math.min(window.screen.width, window.screen.height);
+                  var scrH = Math.max(window.screen.width, window.screen.height);
+                  var isLandscape = Math.abs(Number(window.orientation) || 0) === 90 || window.innerWidth > window.innerHeight;
+                  var targetHeight = isLandscape ? scrW : scrH;
+                  var currentInnerH = window.innerHeight;
+                  if (targetHeight - currentInnerH > 2) {
+                    root.style.position = 'fixed';
+                    root.style.top = '0px';
+                    root.style.bottom = 'auto';
+                    root.style.height = targetHeight + 'px';
+                    root.style.width = '100%';
+                  } else {
+                    root.style.position = 'fixed';
+                    root.style.top = '0px';
+                    root.style.bottom = '0px';
+                    root.style.height = '100%';
+                    root.style.width = '100%';
+                  }
+                }
+                function sched() {
+                  applyFix();
+                  setTimeout(applyFix, 150);
+                  setTimeout(applyFix, 300);
+                }
+                if (document.readyState === 'loading') {
+                  document.addEventListener('DOMContentLoaded', sched);
+                } else {
+                  sched();
+                }
+                window.addEventListener('resize', sched, { passive: true });
+                window.addEventListener('orientationchange', sched, { passive: true });
+                window.addEventListener('pageshow', sched, { passive: true });
+              })();
+            `,
+          }}
+        />
       </head>
       <body>{children}</body>
     </html>
