@@ -116,6 +116,7 @@ export default function SpotlightTabBar({
 
   return (
     <View
+      nativeID="spotlight-tabbar"
       pointerEvents="box-none"
       style={[
         styles.outerWrapper,
