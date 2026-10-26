@@ -39,6 +39,7 @@ import { formatearTiempo, formatearTiempoTexto } from '../utils/timer';
 import { vibrarBoton } from '../utils/haptics';
 import { confirmarAccion } from '../utils/errores';
 import { parsearEjercicioInfo } from '../utils/ejercicios';
+import { parsearNotasSesion } from '../utils/notasSesion';
 
 export interface RutinaLiveCardProps {
   registro: Registro;
@@ -129,10 +130,17 @@ export default function RutinaLiveCard({
   const segundosEnVivo = (sesionActivaInfo?.segsTranscurridos || 0) + segundosDelta;
 
   // Duración final guardada si está finalizada
-  const [duracionFinalSegs, setDuracionFinalSegs] = useState<number | null>(null);
+  const duracionDb = parsearNotasSesion(registro.notas).duracionSegundos;
+  const [duracionLocal, setDuracionLocal] = useState<{ id: string; segs: number } | null>(null);
+  const duracionFinalSegs =
+    duracionDb > 0
+      ? duracionDb
+      : duracionLocal?.id === registro.id
+      ? duracionLocal.segs
+      : null;
 
   useEffect(() => {
-    if (!estaFinalizada) return;
+    if (!estaFinalizada || duracionDb > 0) return;
     let activo = true;
 
     AsyncStorage.getItem(`rutinia_duracion_${registro.id}`)
@@ -141,7 +149,7 @@ export default function RutinaLiveCard({
         if (val) {
           const segs = Number(val);
           if (!isNaN(segs) && segs > 0) {
-            setDuracionFinalSegs(segs);
+            setDuracionLocal({ id: registro.id, segs });
           }
         }
       })
@@ -150,7 +158,7 @@ export default function RutinaLiveCard({
     return () => {
       activo = false;
     };
-  }, [estaFinalizada, registro.id]);
+  }, [estaFinalizada, registro.id, duracionDb]);
 
   // Datos de la rutina y ejercicios
   const nombrePlan =

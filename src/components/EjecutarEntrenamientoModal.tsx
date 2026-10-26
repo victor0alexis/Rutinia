@@ -19,18 +19,25 @@ import { LiquidMetalButton } from './LiquidMetalButton';
 import CarruselEjerciciosHeader from './entrenamiento/CarruselEjerciciosHeader';
 import HeroEjercicioActivo from './entrenamiento/HeroEjercicioActivo';
 import TablaSeriesFocus from './entrenamiento/TablaSeriesFocus';
-import ResumenEntrenamientoModal, { EjercicioResumen } from './ResumenEntrenamientoModal';
+import ResumenEntrenamientoModal from './ResumenEntrenamientoModal';
+import type { EdicionResumen, EjercicioResumen } from './ResumenEntrenamientoModal';
 import SelectorIntercambioModal from './SelectorIntercambioModal';
 import SmartWorkoutKeyboard, { CampoEntrenamiento } from './SmartWorkoutKeyboard';
 import {
   actualizarEjecucionEjercicio,
   actualizarEstadoRegistro,
+  guardarNotaSesion,
+  sincronizarNotasEjercicios,
   obtenerHistorialPrevioRutina,
   obtenerHistorialPrevioEjercicio,
 } from '../services/registros';
 import { reemplazarEjercicioEnRutina } from '../services/rutinas';
 import { seguro, mostrarMensaje } from '../utils/errores';
 import { parsearEjercicioInfo } from '../utils/ejercicios';
+import {
+  parsearNotaEjercicio,
+  parsearNotasSesion,
+} from '../utils/notasSesion';
 import { nombreDia } from '../utils/fechas';
 import { Registro } from '../types';
 import { calcularKgSugeridoDrop } from '../constants/entrenamiento';
@@ -211,12 +218,26 @@ export default function EjecutarEntrenamientoModal({
         }));
         notasTexto = borradorPrevio.notasSesion || '';
       } else {
+        const notaSesionGuardada = parsearNotasSesion(registro.notas);
+
+        // Las notas por ejercicio se guardan como filas 📌 para que conserven
+        // el nombre del ejercicio al que pertenecen.
+        const notasEjercicio = new Map<string, string>();
+        (registro.ejercicios_registro || []).forEach((fila) => {
+          const parsed = parsearNotaEjercicio(fila as any);
+          if (parsed && parsed.nota) {
+            notasEjercicio.set(parsed.nombreEjercicio.trim().toLowerCase(), parsed.nota);
+          }
+        });
+
         const obsExistente = (registro.ejercicios_registro || []).find((e) =>
           e.nombre.includes('📌 [OBSERVACIONES]')
         );
-        notasTexto = obsExistente
-          ? obsExistente.nombre.replace('📌 [OBSERVACIONES] ', '').trim()
-          : '';
+        notasTexto =
+          notaSesionGuardada.nota ||
+          (obsExistente
+            ? obsExistente.nombre.replace('📌 [OBSERVACIONES] ', '').trim()
+            : '');
 
         const ejsPure = (registro.ejercicios_registro || []).filter(
           (e) => !e.nombre.startsWith('📌')
@@ -276,6 +297,7 @@ export default function EjecutarEntrenamientoModal({
             sustituye_a_nombre: parsed.sustituyeANombre || (e as any).sustituye_a_nombre || null,
             sustituye_a_ejercicio_id: (e as any).sustituye_a_ejercicio_id || null,
             sustitucion_alcance: (e as any).sustitucion_alcance || null,
+            notaEjercicio: notasEjercicio.get(parsed.nombreLimpio.trim().toLowerCase()) || '',
           };
         });
       }
@@ -334,14 +356,18 @@ export default function EjecutarEntrenamientoModal({
 
       // Si estamos en modo resumen (sesión completada), no iniciar timer ni lobby
       if (esModoResumen) {
-        let duracionSegs = 0;
-        try {
-          const val = await AsyncStorage.getItem(`rutinia_duracion_${registro.id}`);
-          if (val) {
-            const num = Number(val);
-            if (!isNaN(num) && num > 0) duracionSegs = num;
-          }
-        } catch {}
+        let duracionSegs = parsearNotasSesion(registro.notas).duracionSegundos;
+
+        if (duracionSegs <= 0) {
+          try {
+            const val = await AsyncStorage.getItem(`rutinia_duracion_${registro.id}`);
+            if (val) {
+              const num = Number(val);
+              if (!isNaN(num) && num > 0) duracionSegs = num;
+            }
+          } catch {}
+        }
+
         if (!cancelado) {
           setEstadoTimer(null);
           setSegundosTranscurridos(duracionSegs);
@@ -484,6 +510,11 @@ export default function EjecutarEntrenamientoModal({
       notasSesion: nTexto,
       ejerciciosState: nextState,
     });
+  };
+
+  const cambiarNotasSesion = (texto: string) => {
+    setNotasSesion(texto);
+    guardarDraftAuto(ejerciciosState, texto);
   };
 
   const toggleUnilateralEjercicio = (ejIdx: number) => {
@@ -1157,6 +1188,15 @@ export default function EjecutarEntrenamientoModal({
         pesoMaximo: maxPeso,
         repsMaximas: maxReps,
         tieneSobrecarga,
+        notaEjercicio: ej.notaEjercicio?.trim() || '',
+        series: ej.series.map((s) => ({
+          peso: s.peso || '',
+          reps: s.reps || '',
+          pesoI: s.pesoI || '',
+          repsI: s.repsI || '',
+          rir: s.rir || '',
+          nota: s.nota || '',
+        })),
       };
     });
 
@@ -1169,6 +1209,7 @@ export default function EjecutarEntrenamientoModal({
     if (estadoTimer && !estadoTimer.pausado) {
       const pausado = await alternarPausaTimer(estadoTimer);
       setEstadoTimer(pausado);
+      setSegundosTranscurridos(calcularSegundosTranscurridos(pausado));
     }
     setResumenVisible(true);
   };
@@ -1187,99 +1228,119 @@ export default function EjecutarEntrenamientoModal({
     }
   };
 
+  const construirPayloadEjercicio = (ej: EjercicioState) => {
+    const primeraSerie = ej.series[0];
+    const numSeriesTotal = ej.series.length;
+    const repsPrimera = primeraSerie?.reps ? Number(primeraSerie.reps) : null;
+    const pesoPrimero = primeraSerie?.peso ? Number(primeraSerie.peso) : null;
+    const todasCompletadas = ej.series.every((s) => s.completado);
+
+    const tieneDatos = ej.series.some(
+      (s) => Boolean(s.peso || s.reps || s.pesoI || s.repsI || s.rir || s.nota || s.completado || s.tieneParciales || s.esDropset)
+    );
+    const resumenSeries = tieneDatos
+      ? ej.series
+          .map((s, idx) => {
+            let dropsStr = '';
+            if (s.esDropset && s.drops && s.drops.length > 0) {
+              dropsStr = s.drops.map((d) => ` → ${d.kg}k ${d.reps}r${d.rir ? ` RIR ${d.rir}` : ''}`).join('') + ' ↓';
+            }
+
+            if (ej.esUnilateral) {
+              const pD = s.peso ? `${s.peso}k` : '';
+              const rD = s.reps ? (s.repsParciales && s.repsParciales > 0 ? `${s.reps}+${s.repsParciales}p` : `${s.reps}r`) : '';
+              const strD = [pD, rD].filter(Boolean).join(' ');
+
+              const pesoIVal = s.pesoI !== undefined && s.pesoI !== '' ? s.pesoI : s.peso;
+              const repsIVal = s.repsI !== undefined && s.repsI !== '' ? s.repsI : s.reps;
+              const pI = pesoIVal ? `${pesoIVal}k` : '';
+              const rI = repsIVal ? (s.repsParciales && s.repsParciales > 0 ? `${repsIVal}+${s.repsParciales}p` : `${repsIVal}r`) : '';
+              const strI = [pI, rI].filter(Boolean).join(' ');
+
+              const rir = s.rir ? `RIR ${s.rir}` : '';
+              const n = s.nota ? `[${s.nota}]` : '';
+              const c = s.completado ? '✓' : '';
+
+              const resumenBrazo = `D ${strD} | I ${strI}`.trim();
+              return `${idx + 1}ª: ${[resumenBrazo, rir, dropsStr, n, c].filter(Boolean).join(' ')}`;
+            } else {
+              const p = s.peso ? `${s.peso}k` : '';
+              const r = s.reps ? (s.repsParciales && s.repsParciales > 0 ? `${s.reps}+${s.repsParciales}p` : `${s.reps}r`) : '';
+              const rir = s.rir ? `RIR ${s.rir}` : '';
+              const n = s.nota ? `[${s.nota}]` : '';
+              const c = s.completado ? '✓' : '';
+              return `${idx + 1}ª: ${[p, r, rir, dropsStr, n, c].filter(Boolean).join(' ')}`;
+            }
+          })
+          .join(' • ')
+      : '';
+
+    const tagU = ej.esUnilateral ? '[U] ' : '';
+    const nombreLimpio = ej.nombre.trim().replace(/^\[U(NILATERAL)?\]\s*/i, '');
+    const nombreBase = tagU + nombreLimpio;
+    const nombreConDetalle = resumenSeries ? `${nombreBase} (${resumenSeries})` : nombreBase;
+
+    const totalParciales = ej.series.reduce((acc, s) => acc + (s.repsParciales || 0), 0);
+    const allDrops = ej.series.flatMap((s) => (s.esDropset ? s.drops : []));
+
+    return {
+      nombreConDetalle,
+      numSeriesTotal,
+      repsPrimera,
+      pesoPrimero,
+      todasCompletadas,
+      totalParciales,
+      allDrops,
+    };
+  };
+
   // Confirmar y Guardar Sesión en Supabase
   const guardarSesionFinal = () =>
     seguro(async () => {
       setGuardando(true);
       try {
+        // El tiempo se calcula desde el estado real del cronómetro, no desde
+        // un valor de pantalla que puede tener hasta un segundo de retraso.
+        const segundosTimer = estadoTimer ? calcularSegundosTranscurridos(estadoTimer) : 0;
+        const segundosFinales = Math.max(segundosTranscurridos, segundosTimer);
+        setSegundosTranscurridos(segundosFinales);
+
+        // Guardamos primero una copia local; la BD se actualiza al completar
+        // el registro, pero así el tiempo no se pierde si falla la red.
+        if (segundosFinales > 0) {
+          try {
+            await AsyncStorage.setItem(`rutinia_duracion_${registro.id}`, segundosFinales.toString());
+          } catch (e) {
+            console.warn('Error guardando duración final:', e);
+          }
+        }
+
         for (const ej of ejerciciosState) {
-          const primeraSerie = ej.series[0];
-          const numSeriesTotal = ej.series.length;
-          const repsPrimera = primeraSerie?.reps ? Number(primeraSerie.reps) : null;
-          const pesoPrimero = primeraSerie?.peso ? Number(primeraSerie.peso) : null;
-          const todasCompletadas = ej.series.every((s) => s.completado);
-
-          const tieneDatos = ej.series.some(
-            (s) => Boolean(s.peso || s.reps || s.pesoI || s.repsI || s.rir || s.nota || s.completado || s.tieneParciales || s.esDropset)
-          );
-          const resumenSeries = tieneDatos
-            ? ej.series
-                .map((s, idx) => {
-                  let dropsStr = '';
-                  if (s.esDropset && s.drops && s.drops.length > 0) {
-                    dropsStr = s.drops.map((d) => ` → ${d.kg}k ${d.reps}r${d.rir ? ` RIR ${d.rir}` : ''}`).join('') + ' ↓';
-                  }
-
-                  if (ej.esUnilateral) {
-                    const pD = s.peso ? `${s.peso}k` : '';
-                    const rD = s.reps ? (s.repsParciales && s.repsParciales > 0 ? `${s.reps}+${s.repsParciales}p` : `${s.reps}r`) : '';
-                    const strD = [pD, rD].filter(Boolean).join(' ');
-
-                    const pesoIVal = s.pesoI !== undefined && s.pesoI !== '' ? s.pesoI : s.peso;
-                    const repsIVal = s.repsI !== undefined && s.repsI !== '' ? s.repsI : s.reps;
-                    const pI = pesoIVal ? `${pesoIVal}k` : '';
-                    const rI = repsIVal ? (s.repsParciales && s.repsParciales > 0 ? `${repsIVal}+${s.repsParciales}p` : `${repsIVal}r`) : '';
-                    const strI = [pI, rI].filter(Boolean).join(' ');
-
-                    const rir = s.rir ? `RIR ${s.rir}` : '';
-                    const n = s.nota ? `[${s.nota}]` : '';
-                    const c = s.completado ? '✓' : '';
-
-                    const resumenBrazo = `D ${strD} | I ${strI}`.trim();
-                    return `${idx + 1}ª: ${[resumenBrazo, rir, dropsStr, n, c].filter(Boolean).join(' ')}`;
-                  } else {
-                    const p = s.peso ? `${s.peso}k` : '';
-                    const r = s.reps ? (s.repsParciales && s.repsParciales > 0 ? `${s.reps}+${s.repsParciales}p` : `${s.reps}r`) : '';
-                    const rir = s.rir ? `RIR ${s.rir}` : '';
-                    const n = s.nota ? `[${s.nota}]` : '';
-                    const c = s.completado ? '✓' : '';
-                    return `${idx + 1}ª: ${[p, r, rir, dropsStr, n, c].filter(Boolean).join(' ')}`;
-                  }
-                })
-                .join(' • ')
-            : '';
-
-          const tagU = ej.esUnilateral ? '[U] ' : '';
-          const nombreLimpio = ej.nombre.trim().replace(/^\[U(NILATERAL)?\]\s*/i, '');
-          const nombreBase = tagU + nombreLimpio;
-          const nombreConDetalle = resumenSeries ? `${nombreBase} (${resumenSeries})` : nombreBase;
-
-          const totalParciales = ej.series.reduce((acc, s) => acc + (s.repsParciales || 0), 0);
-          const allDrops = ej.series.flatMap((s) => (s.esDropset ? s.drops : []));
+          const payload = construirPayloadEjercicio(ej);
+          const datos = {
+            nombre: payload.nombreConDetalle,
+            series: payload.numSeriesTotal,
+            repeticiones: payload.repsPrimera,
+            peso: payload.pesoPrimero,
+            completado: payload.todasCompletadas,
+            ejercicio_nombre: ej.nombre,
+            sustituye_a_nombre: ej.sustituye_a_nombre || null,
+            sustituye_a_ejercicio_id: ej.sustituye_a_ejercicio_id || null,
+            sustitucion_alcance: ej.sustitucion_alcance || null,
+            reps_parciales: payload.totalParciales,
+            drops: payload.allDrops,
+          };
 
           // Si el id es temporal generado por sustitución, insertamos nueva fila
           if (ej.id.includes('.')) {
             await supabase.from('ejercicios_registro').insert({
               registro_id: registro.id,
-              nombre: nombreConDetalle,
-              series: numSeriesTotal,
-              repeticiones: repsPrimera,
-              peso: pesoPrimero,
-              completado: todasCompletadas,
-              ejercicio_nombre: ej.nombre,
-              sustituye_a_nombre: ej.sustituye_a_nombre || null,
-              sustituye_a_ejercicio_id: ej.sustituye_a_ejercicio_id || null,
-              sustitucion_alcance: ej.sustitucion_alcance || null,
-              reps_parciales: totalParciales,
-              drops: allDrops,
+              ...datos,
             });
           } else {
-            await actualizarEjecucionEjercicio(ej.id, {
-              nombre: nombreConDetalle,
-              series: numSeriesTotal,
-              repeticiones: repsPrimera,
-              peso: pesoPrimero,
-              completado: todasCompletadas,
-              ejercicio_nombre: ej.nombre,
-              sustituye_a_nombre: ej.sustituye_a_nombre || null,
-              sustituye_a_ejercicio_id: ej.sustituye_a_ejercicio_id || null,
-              sustitucion_alcance: ej.sustitucion_alcance || null,
-              reps_parciales: totalParciales,
-              drops: allDrops,
-            });
+            await actualizarEjecucionEjercicio(ej.id, datos);
           }
         }
-
 
         const planNombreFinal = registro.plan_nombre || registro.planes_entrenamiento?.nombre || null;
         const rutinaNombreFinal = registro.rutina_nombre || registro.rutinas?.nombre || null;
@@ -1287,23 +1348,21 @@ export default function EjecutarEntrenamientoModal({
 
         await actualizarEstadoRegistro(registro.id, {
           completado: true,
-          notas: notasSesion.trim() || null,
           plan_id: planIdFinal,
           plan_nombre: planNombreFinal,
           rutina_nombre: rutinaNombreFinal,
         });
 
-        // Persistir la duración final de la sesión para la tarjeta de resumen
-        if (segundosTranscurridos > 0) {
-          try {
-            await AsyncStorage.setItem(`rutinia_duracion_${registro.id}`, segundosTranscurridos.toString());
-          } catch (e) {
-            console.warn('Error guardando duración final:', e);
-          }
-        }
+        // Nota general + duración real persistidas en el registro.
+        await guardarNotaSesion(registro.id, notasSesion, segundosFinales);
+
+        // Notas por ejercicio, siempre vinculadas al nombre del ejercicio.
+        await sincronizarNotasEjercicios(
+          registro.id,
+          ejerciciosState.map((ej) => ({ nombre: ej.nombre, nota: ej.notaEjercicio }))
+        );
 
         // Limpiar el borrador y timer en AsyncStorage
-
         await limpiarSesionActiva(registro.id);
 
         setResumenVisible(false);
@@ -1314,6 +1373,63 @@ export default function EjecutarEntrenamientoModal({
         setGuardando(false);
       }
     });
+
+  /**
+   * Edición de un resumen ya guardado: modifica únicamente series, notas y
+   * observaciones. No toca el estado de la sesión, la fecha ni la duración.
+   */
+  const guardarEdicionesResumen = async (edicion: EdicionResumen) => {
+    const cambiosPorId = new Map(edicion.ejercicios.map((item) => [item.id, item]));
+
+    const ejerciciosActualizados = ejerciciosState.map((ej) => {
+      const cambios = cambiosPorId.get(ej.id);
+      if (!cambios) return ej;
+
+      return {
+        ...ej,
+        notaEjercicio: cambios.notaEjercicio,
+        series: ej.series.map((serie, sIdx) => {
+          const serieEditada = cambios.series[sIdx];
+          if (!serieEditada) return serie;
+          return {
+            ...serie,
+            peso: serieEditada.peso,
+            reps: serieEditada.reps,
+            pesoI: serieEditada.pesoI,
+            repsI: serieEditada.repsI,
+            rir: serieEditada.rir,
+            nota: serieEditada.nota,
+          };
+        }),
+      };
+    });
+
+    for (const ej of ejerciciosActualizados) {
+      if (!cambiosPorId.has(ej.id) || ej.id.includes('.')) continue;
+
+      const payload = construirPayloadEjercicio(ej);
+      await actualizarEjecucionEjercicio(ej.id, {
+        nombre: payload.nombreConDetalle,
+        series: payload.numSeriesTotal,
+        repeticiones: payload.repsPrimera,
+        peso: payload.pesoPrimero,
+        completado: payload.todasCompletadas,
+        reps_parciales: payload.totalParciales,
+        drops: payload.allDrops,
+      });
+    }
+
+    await sincronizarNotasEjercicios(
+      registro.id,
+      ejerciciosActualizados.map((ej) => ({ nombre: ej.nombre, nota: ej.notaEjercicio }))
+    );
+
+    // Se conserva la duración ya registrada; solo cambia la nota visible.
+    await guardarNotaSesion(registro.id, edicion.notasSesion, segundosTranscurridos);
+
+    setEjerciciosState(ejerciciosActualizados);
+    setNotasSesion(edicion.notasSesion);
+  };
 
   // Descartar Sesión
   const descartarSesion = () =>
@@ -1641,7 +1757,7 @@ export default function EjecutarEntrenamientoModal({
                           multiline
                           numberOfLines={2}
                           value={notasSesion}
-                          onChangeText={setNotasSesion}
+                          onChangeText={cambiarNotasSesion}
                           inputMode="text"
                           keyboardType="default"
                           autoCapitalize="sentences"
@@ -1649,6 +1765,35 @@ export default function EjecutarEntrenamientoModal({
                           textAlignVertical="top"
                           style={styles.focusNotesInput}
                         />
+
+                        {ejerciciosState.some((ej) => Boolean(ej.notaEjercicio?.trim())) && (
+                          <View style={styles.focusExerciseNotesList}>
+                            <Text style={styles.focusExerciseNotesLabel}>NOTAS POR EJERCICIO</Text>
+                            {ejerciciosState.map((ej, idx) =>
+                              ej.notaEjercicio?.trim() ? (
+                                <Pressable
+                                  key={`nota-ej-${ej.id || idx}`}
+                                  onPress={() => {
+                                    setEjercicioActivoIndex(idx);
+                                    setModalNotaEjercicio({ ejIdx: idx, nota: ej.notaEjercicio || '' });
+                                  }}
+                                  style={({ pressed }) => [
+                                    styles.focusExerciseNoteItem,
+                                    pressed && { opacity: 0.78 },
+                                  ]}
+                                >
+                                  <View style={styles.focusExerciseNoteHeader}>
+                                    <Ionicons name="barbell-outline" size={10} color={noir.lavender} />
+                                    <Text style={styles.focusExerciseNoteName} numberOfLines={1}>
+                                      {ej.nombre}
+                                    </Text>
+                                  </View>
+                                  <Text style={styles.focusExerciseNoteText}>{ej.notaEjercicio}</Text>
+                                </Pressable>
+                              ) : null
+                            )}
+                          </View>
+                        )}
                       </View>
                     </>
                   )}
@@ -1758,23 +1903,26 @@ export default function EjecutarEntrenamientoModal({
       </KeyboardAvoidingView>
 
       {/* MODAL DE RESUMEN Y CONFIRMACIÓN */}
-      <ResumenEntrenamientoModal
-        visible={resumenVisible}
-        nombreRutina={registro.rutinas?.nombre || 'Entrenamiento del Día'}
-        fechaTexto={nombreDia(fecha)}
-        segundosTranscurridos={segundosTranscurridos}
-        totalSeriesEnSesion={totalSeriesEnSesion}
-        totalSeriesCompletadas={totalSeriesCompletadas}
-        volumenTotalKg={volumenTotalKg}
-        ejerciciosResumen={ejerciciosResumen}
-        notasSesion={notasSesion}
-        onChangeNotasSesion={setNotasSesion}
-        guardando={guardando}
-        onClose={volverAEditarDesdeResumen}
-        onConfirmarGuardar={guardarSesionFinal}
-        onDescartarSesion={descartarSesion}
-        esSoloLectura={esModoResumen}
-      />
+      {resumenVisible && (
+        <ResumenEntrenamientoModal
+          visible={resumenVisible}
+          nombreRutina={registro.rutina_nombre || registro.rutinas?.nombre || 'Entrenamiento del Día'}
+          fechaTexto={nombreDia(fecha)}
+          segundosTranscurridos={segundosTranscurridos}
+          totalSeriesEnSesion={totalSeriesEnSesion}
+          totalSeriesCompletadas={totalSeriesCompletadas}
+          volumenTotalKg={volumenTotalKg}
+          ejerciciosResumen={ejerciciosResumen}
+          notasSesion={notasSesion}
+          onChangeNotasSesion={cambiarNotasSesion}
+          guardando={guardando}
+          onClose={volverAEditarDesdeResumen}
+          onConfirmarGuardar={guardarSesionFinal}
+          onDescartarSesion={descartarSesion}
+          esSoloLectura={esModoResumen}
+          onGuardarEdiciones={guardarEdicionesResumen}
+        />
+      )}
 
       {/* MODAL / SHEET: SELECTOR DE INTERCAMBIO DE EJERCICIO */}
       {selectorIntercambio && (
@@ -3301,5 +3449,45 @@ const styles = StyleSheet.create({
     minHeight: 44,
     textAlignVertical: 'top',
     padding: 0,
+  },
+  focusExerciseNotesList: {
+    gap: 6,
+    marginTop: 10,
+    paddingTop: 9,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  focusExerciseNotesLabel: {
+    color: noir.muted2,
+    fontFamily: fuentes.bold,
+    fontSize: 7,
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+  },
+  focusExerciseNoteItem: {
+    backgroundColor: 'rgba(255, 255, 255, 0.025)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.055)',
+    borderRadius: 9,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    gap: 2,
+  },
+  focusExerciseNoteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  focusExerciseNoteName: {
+    flex: 1,
+    color: noir.platinum,
+    fontFamily: fuentes.bold,
+    fontSize: 9.5,
+  },
+  focusExerciseNoteText: {
+    color: noir.muted,
+    fontFamily: fuentes.regular,
+    fontSize: 10,
+    lineHeight: 14,
   },
 });

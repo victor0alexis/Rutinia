@@ -1,6 +1,7 @@
 import { registrosDeRango } from './registros';
 import { listarRutinas } from './rutinas';
 import { parsearEjercicioInfo } from '../utils/ejercicios';
+import { esNotaDeEjercicio, parsearNotasSesion } from '../utils/notasSesion';
 
 export type RecordPersonal = {
   nombreEjercicio: string;
@@ -92,7 +93,11 @@ export async function obtenerMetricasProgreso(desde: string, hasta: string): Pro
 
   registros.forEach((r) => {
     const ejs = (r.ejercicios_registro || []).filter((e) => !e.nombre.startsWith('📌'));
-    const notas = (r.ejercicios_registro || []).filter((e) => e.nombre.startsWith('📌'));
+    // Las notas por ejercicio pertenecen al entrenamiento, no son hábitos
+    // diarios de nutrición/suplementación.
+    const notas = (r.ejercicios_registro || []).filter(
+      (e) => e.nombre.startsWith('📌') && !esNotaDeEjercicio(e.nombre)
+    );
     const esCompletado = r.completado || (ejs.length > 0 && ejs.every((e) => e.completado));
 
     if (esCompletado) {
@@ -213,8 +218,9 @@ export async function obtenerMetricasProgreso(desde: string, hasta: string): Pro
     });
 
     // 3. Procesar notas / hábitos (Creatina, Proteína, Nutrición, etc.)
+    const notaSesion = parsearNotasSesion(r.notas).nota;
     const todasLasNotas = [
-      ...(r.notas ? [r.notas] : []),
+      ...(notaSesion ? [notaSesion] : []),
       ...notas.map((n) => n.nombre),
     ];
 

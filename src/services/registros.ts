@@ -2,6 +2,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { Registro, Rutina } from '../types';
 import { guardarCacheLocal, obtenerCacheLocal } from '../utils/offline';
+import {
+  PREFIJO_NOTA_EJERCICIO,
+  PREFIJO_OBSERVACIONES,
+  formatearNotaEjercicio,
+  parsearNotaEjercicio,
+  serializarNotasSesion,
+} from '../utils/notasSesion';
 
 /** Obtiene el usuario_id del usuario autenticado, o null si no hay sesión. */
 async function getUsuarioId(): Promise<string | null> {
@@ -206,18 +213,18 @@ export async function actualizarEstadoRegistro(
   registroId: string,
   datos: {
     completado?: boolean;
-    notas?: string | null;
     plan_id?: string | null;
     plan_nombre?: string | null;
     rutina_nombre?: string | null;
-  },
-  fecha?: string
+    notas?: string | null;
+  }
 ) {
   const updateData: any = {};
   if (datos.completado !== undefined) updateData.completado = datos.completado;
   if (datos.plan_id !== undefined) updateData.plan_id = datos.plan_id;
   if (datos.plan_nombre !== undefined) updateData.plan_nombre = datos.plan_nombre;
   if (datos.rutina_nombre !== undefined) updateData.rutina_nombre = datos.rutina_nombre;
+  if (datos.notas !== undefined) updateData.notas = datos.notas;
 
   if (Object.keys(updateData).length > 0) {
     const { error } = await supabase
@@ -226,16 +233,146 @@ export async function actualizarEstadoRegistro(
       .eq('id', registroId);
     if (error) throw error;
   }
+}
 
-  if (datos.notas && datos.notas.trim()) {
-    const { error: errorNota } = await supabase.from('ejercicios_registro').insert({
+/**
+ * Guarda la nota general de una sesión y su duración real.
+ * La nota visible se mantiene además como fila 📌 para que Inicio y Calendario
+ * la sigan mostrando sin cambios. Se actualiza la fila existente en lugar de
+ * insertar duplicados cada vez que se guarda o edita la sesión.
+ */
+export async function guardarNotaSesion(
+  registroId: string,
+  nota: string | null | undefined,
+  duracionSegundos?: number | null
+) {
+  const texto = (nota || '').trim();
+  const notasSerializadas = serializarNotasSesion(texto, duracionSegundos);
+
+  const { error } = await supabase
+    .from('registros_entrenamiento')
+    .update({ notas: notasSerializadas })
+    .eq('id', registroId);
+  if (error) throw error;
+
+  const { data: existentes, error: errorSelect } = await supabase
+    .from('ejercicios_registro')
+    .select('id')
+    .eq('registro_id', registroId)
+    .like('nombre', `${PREFIJO_OBSERVACIONES}%`)
+    .order('creado_en', { ascending: true });
+  if (errorSelect) throw errorSelect;
+
+  if (!texto) {
+    if (existentes && existentes.length > 0) {
+      const { error: errorDelete } = await supabase
+        .from('ejercicios_registro')
+        .delete()
+        .in('id', existentes.map((fila) => fila.id));
+      if (errorDelete) throw errorDelete;
+    }
+    return;
+  }
+
+  const nombre = `${PREFIJO_OBSERVACIONES}${texto}`;
+  if (existentes && existentes.length > 0) {
+    const [primera, ...sobrantes] = existentes;
+    const { error: errorUpdate } = await supabase
+      .from('ejercicios_registro')
+      .update({ nombre })
+      .eq('id', primera.id);
+    if (errorUpdate) throw errorUpdate;
+
+    if (sobrantes.length > 0) {
+      const { error: errorDelete } = await supabase
+        .from('ejercicios_registro')
+        .delete()
+        .in('id', sobrantes.map((fila) => fila.id));
+      if (errorDelete) throw errorDelete;
+    }
+  } else {
+    const { error: errorInsert } = await supabase.from('ejercicios_registro').insert({
       registro_id: registroId,
-      nombre: `📌 [OBSERVACIONES] ${datos.notas.trim()}`,
+      nombre,
       series: null,
       repeticiones: null,
       peso: null,
     });
-    if (errorNota) throw errorNota;
+    if (errorInsert) throw errorInsert;
+  }
+}
+
+/**
+ * Sincroniza las notas de ejercicio de una sesión.
+ * Cada nota vive como fila 📌 [ENTRENAMIENTO] <ejercicio>: <nota>, así que
+ * siempre se muestra junto al nombre del ejercicio al que pertenece.
+ */
+export async function sincronizarNotasEjercicios(
+  registroId: string,
+  notas: { nombre: string; nota?: string | null }[]
+) {
+  const { data: existentes, error: errorSelect } = await supabase
+    .from('ejercicios_registro')
+    .select('id, nombre, ejercicio_nombre')
+    .eq('registro_id', registroId)
+    .like('nombre', `${PREFIJO_NOTA_EJERCICIO}%`);
+  if (errorSelect) throw errorSelect;
+
+  const porEjercicio = new Map<string, { id: string; nombre: string; ejercicio_nombre?: string | null }>();
+  for (const fila of existentes || []) {
+    const parsed = parsearNotaEjercicio(fila as any);
+    if (parsed) porEjercicio.set(parsed.nombreEjercicio.trim().toLowerCase(), fila as any);
+  }
+
+  const nombresSesion = new Set(
+    notas.map((item) => item.nombre.trim().toLowerCase())
+  );
+
+  for (const item of notas) {
+    const key = item.nombre.trim().toLowerCase();
+    const existente = porEjercicio.get(key);
+    const texto = (item.nota || '').trim();
+
+    if (!texto) {
+      if (existente) {
+        const { error } = await supabase
+          .from('ejercicios_registro')
+          .delete()
+          .eq('id', existente.id);
+        if (error) throw error;
+      }
+      continue;
+    }
+
+    const nombreFila = formatearNotaEjercicio(item.nombre, texto);
+    if (existente) {
+      const { error } = await supabase
+        .from('ejercicios_registro')
+        .update({ nombre: nombreFila, ejercicio_nombre: item.nombre })
+        .eq('id', existente.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from('ejercicios_registro').insert({
+        registro_id: registroId,
+        nombre: nombreFila,
+        ejercicio_nombre: item.nombre,
+        series: null,
+        repeticiones: null,
+        peso: null,
+      });
+      if (error) throw error;
+    }
+  }
+
+  // Limpia notas huérfanas de ejercicios que ya no pertenecen a la sesión.
+  for (const [key, fila] of porEjercicio.entries()) {
+    if (!nombresSesion.has(key)) {
+      const { error } = await supabase
+        .from('ejercicios_registro')
+        .delete()
+        .eq('id', fila.id);
+      if (error) throw error;
+    }
   }
 }
 

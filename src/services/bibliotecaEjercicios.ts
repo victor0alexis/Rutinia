@@ -103,6 +103,114 @@ export const LISTA_EQUIPAMIENTOS: EquipamientoItem[] = [
   { id: 'ez-bar', nombre: 'Barra Z' },
 ];
 
+/** Acentos visuales por grupo muscular. Se usan en chips, listas y tarjetas. */
+export const COLORES_GRUPO: Record<string, string> = {
+  todos: '#5CC8FF',
+  pectorals: '#FF6B8A',
+  delts: '#FFC15C',
+  lats: '#5CC8FF',
+  'upper-back': '#7FA6FF',
+  traps: '#B394FF',
+  biceps: '#5CE1B9',
+  triceps: '#3FF2B0',
+  forearms: '#A3E635',
+  quads: '#FF9E7A',
+  hamstrings: '#F7A8B8',
+  glutes: '#FF8AD8',
+  calves: '#7CF3FF',
+  abs: '#FFD166',
+  spine: '#A8B8D8',
+  abductors: '#C4B5FD',
+  adductors: '#F0A6CA',
+  cardio: '#FF7A7A',
+};
+
+export function colorDeGrupo(grupo?: string): string {
+  return (grupo && COLORES_GRUPO[grupo]) || COLORES_GRUPO.todos;
+}
+
+export type OrdenBiblioteca =
+  | 'inteligente'
+  | 'favoritos'
+  | 'recientes'
+  | 'az'
+  | 'za';
+
+export interface OpcionOrdenBiblioteca {
+  id: OrdenBiblioteca;
+  nombre: string;
+  descripcion: string;
+  icono: string;
+}
+
+export const ORDENES_BIBLIOTECA: OpcionOrdenBiblioteca[] = [
+  {
+    id: 'inteligente',
+    nombre: 'Para ti',
+    descripcion: 'Prioriza tus grupos y ejercicios habituales',
+    icono: 'sparkles-outline',
+  },
+  {
+    id: 'favoritos',
+    nombre: 'Favoritos',
+    descripcion: 'Tus ejercicios guardados primero',
+    icono: 'heart-outline',
+  },
+  {
+    id: 'recientes',
+    nombre: 'Recientes',
+    descripcion: 'Lo último que has consultado',
+    icono: 'time-outline',
+  },
+  {
+    id: 'az',
+    nombre: 'A-Z',
+    descripcion: 'Orden alfabético ascendente',
+    icono: 'arrow-down-outline',
+  },
+  {
+    id: 'za',
+    nombre: 'Z-A',
+    descripcion: 'Orden alfabético descendente',
+    icono: 'arrow-up-outline',
+  },
+];
+
+/** Alias cotidianos para que la búsqueda entienda cómo habla el usuario. */
+const SINONIMOS_BUSQUEDA: Record<string, string[]> = {
+  pecho: ['pectorals', 'pectoral', 'chest', 'banca', 'bench'],
+  pectoral: ['pecho', 'pectorals', 'chest'],
+  espalda: ['back', 'lats', 'dorsal', 'upper-back', 'traps'],
+  dorsal: ['lats', 'espalda', 'back'],
+  hombro: ['delts', 'deltoides', 'shoulder'],
+  deltoide: ['delts', 'hombro', 'shoulder'],
+  biceps: ['biceps', 'braquial'],
+  triceps: ['triceps'],
+  pierna: ['quads', 'hamstrings', 'glutes', 'calves', 'legs', 'piernas'],
+  cuadriceps: ['quads', 'quadriceps'],
+  femoral: ['hamstrings', 'isquios'],
+  isquio: ['hamstrings', 'femoral'],
+  gluteo: ['glutes', 'gluteos'],
+  abdomen: ['abs', 'core', 'abdominales'],
+  core: ['abs', 'abdomen'],
+  mancuerna: ['dumbbell', 'mancuernas'],
+  mancuernas: ['dumbbell', 'mancuerna'],
+  barra: ['barbell', 'ez-bar'],
+  polea: ['cable'],
+  maquina: ['lever', 'machine', 'smith'],
+  smith: ['smith', 'maquina'],
+  peso: ['bodyweight', 'corporal'],
+  corporal: ['bodyweight', 'peso'],
+  banda: ['band', 'elastica'],
+  elastica: ['band', 'banda'],
+  kettlebell: ['kettlebell', 'rusa'],
+  empuje: ['press', 'empuje'],
+  jalon: ['pulldown'],
+  dominada: ['pull-up', 'pullup'],
+  sentadilla: ['squat'],
+  curl: ['curl'],
+};
+
 /** Semilla inicial offline de alta frecuencia para respuesta inmediata sin red */
 const EJERCICIOS_OFFLINE_BASE: EjercicioBiblioteca[] = [
   {
@@ -260,7 +368,7 @@ let memoriaCatalogo: EjercicioBiblioteca[] = [...EJERCICIOS_OFFLINE_BASE];
 let inicializado = false;
 let promesaCarga: Promise<EjercicioBiblioteca[]> | null = null;
 
-function normalizarTexto(texto: string): string {
+export function normalizarTextoBiblioteca(texto: string): string {
   return (texto || '')
     .toLowerCase()
     .normalize('NFD')
@@ -268,6 +376,8 @@ function normalizarTexto(texto: string): string {
     .replace(/[^a-z0-9]/g, ' ')
     .trim();
 }
+
+const normalizarTexto = normalizarTextoBiblioteca;
 
 /**
  * Carga el catálogo completo de 1.323 ejercicios desde jsDelivr
@@ -392,68 +502,254 @@ async function verificarActualizacionEnSegundoPlano() {
 // Iniciar precarga perezosa
 cargarBibliotecaEjercicios().catch(() => {});
 
-/**
- * Filtra los ejercicios por grupo muscular, término de búsqueda y equipamiento.
- * Búsqueda reactiva ultra rápida en memoria (<2ms).
- */
-export function filtrarEjerciciosBiblioteca(params: {
-  catalogo?: EjercicioBiblioteca[];
-  busqueda?: string;
-  grupoMuscular?: string;
-  equipamiento?: string;
-}): EjercicioBiblioteca[] {
-  const lista = params.catalogo && params.catalogo.length > 0 ? params.catalogo : memoriaCatalogo;
-  const q = normalizarTexto(params.busqueda || '');
-  const grupo = params.grupoMuscular && params.grupoMuscular !== 'todos' ? params.grupoMuscular : null;
-  const equip = params.equipamiento && params.equipamiento !== 'todos' ? params.equipamiento : null;
+interface IndiceBusquedaBiblioteca {
+  nombre: string;
+  musculo: string;
+  musculoId: string;
+  equipo: string;
+  equipoId: string;
+  id: string;
+  secundarios: string;
+}
 
-  if (!q && !grupo && !equip) {
-    return lista;
+const cacheIndices = new WeakMap<EjercicioBiblioteca, IndiceBusquedaBiblioteca>();
+
+function obtenerIndiceBusqueda(item: EjercicioBiblioteca): IndiceBusquedaBiblioteca {
+  const cacheado = cacheIndices.get(item);
+  if (cacheado) return cacheado;
+
+  const indice: IndiceBusquedaBiblioteca = {
+    nombre: normalizarTexto(item.name),
+    musculo: normalizarTexto(item.muscleLabel),
+    musculoId: normalizarTexto(item.muscle),
+    equipo: normalizarTexto(item.equipmentLabel),
+    equipoId: normalizarTexto(item.equipment),
+    id: normalizarTexto(item.id),
+    secundarios: item.secondaryMuscles
+      .map((musculo) => normalizarTexto(MAPA_GRUPOS[musculo] || musculo))
+      .join(' '),
+  };
+
+  cacheIndices.set(item, indice);
+  return indice;
+}
+
+function expandirPalabra(palabra: string): string[] {
+  const alias = SINONIMOS_BUSQUEDA[palabra] || [];
+  return Array.from(new Set([palabra, ...alias.map((a) => normalizarTexto(a))]));
+}
+
+function puntuarCoincidencia(item: EjercicioBiblioteca, palabras: string[]): number {
+  const indice = obtenerIndiceBusqueda(item);
+  const frase = palabras.join(' ');
+  let puntuacion = 0;
+
+  for (const palabra of palabras) {
+    let mejor = 0;
+
+    for (const variante of expandirPalabra(palabra)) {
+      if (indice.nombre === variante) {
+        mejor = Math.max(mejor, 90);
+      } else if (indice.nombre.startsWith(variante)) {
+        mejor = Math.max(mejor, 48);
+      } else if (indice.nombre.includes(variante)) {
+        mejor = Math.max(mejor, 32);
+      }
+
+      if (indice.musculo.includes(variante)) mejor = Math.max(mejor, 20);
+      if (indice.musculoId.includes(variante)) mejor = Math.max(mejor, 19);
+      if (indice.secundarios.includes(variante)) mejor = Math.max(mejor, 12);
+      if (indice.equipo.includes(variante)) mejor = Math.max(mejor, 14);
+      if (indice.equipoId.includes(variante)) mejor = Math.max(mejor, 13);
+      if (indice.id.includes(variante)) mejor = Math.max(mejor, 8);
+    }
+
+    // Cada palabra debe encontrar alguna coincidencia (nombre, grupo, equipo o alias).
+    if (mejor === 0) return 0;
+    puntuacion += mejor;
   }
 
-  const palabrasBusqueda = q.split(' ').filter((p) => p.length > 0);
+  if (frase.length > 0 && indice.nombre.includes(frase)) {
+    puntuacion += 36;
+  }
 
-  return lista.filter((item) => {
-    // 1. Filtro por grupo muscular
-    if (grupo) {
-      if (item.muscle !== grupo) {
-        // También verificar si el grupo coincide en músculos secundarios
-        const coincideSecundario = item.secondaryMuscles.includes(grupo);
-        if (!coincideSecundario) return false;
-      }
-    }
+  return puntuacion;
+}
 
-    // 2. Filtro por equipamiento
-    if (equip) {
-      if (equip === 'machine' || equip === 'lever' || equip === 'smith') {
-        const esTipoMaquina = item.equipment === 'lever' || item.equipment === 'machine' || item.equipment === 'smith';
-        if (!esTipoMaquina && item.equipment !== equip) return false;
-      } else if (item.equipment !== equip) {
-        return false;
-      }
-    }
+function coincideEquipo(item: EjercicioBiblioteca, equipo: string): boolean {
+  if (equipo === 'lever' || equipo === 'machine') {
+    return item.equipment === 'lever' || item.equipment === 'machine';
+  }
+  if (equipo === 'smith') {
+    return item.equipment === 'smith';
+  }
+  return item.equipment === equipo;
+}
 
-    // 3. Filtro por texto de búsqueda
-    if (palabrasBusqueda.length > 0) {
-      const nombreNorm = normalizarTexto(item.name);
-      const muscleNorm = normalizarTexto(item.muscleLabel);
-      const equipNorm = normalizarTexto(item.equipmentLabel);
-      const idNorm = normalizarTexto(item.id);
+function calcularAfinidad(
+  item: EjercicioBiblioteca,
+  favoritosSet: Set<string>,
+  gruposFavoritos: Map<string, number>,
+  indiceReciente: Map<string, number>
+): number {
+  let afinidad = 0;
 
-      // Todas las palabras ingresadas deben coincidir en alguno de los campos
-      const coincideTodas = palabrasBusqueda.every(
-        (palabra) =>
-          nombreNorm.includes(palabra) ||
-          muscleNorm.includes(palabra) ||
-          equipNorm.includes(palabra) ||
-          idNorm.includes(palabra)
-      );
+  if (favoritosSet.has(item.id)) afinidad += 48;
 
-      if (!coincideTodas) return false;
-    }
+  afinidad += (gruposFavoritos.get(item.muscle) || 0) * 14;
+  for (const secundario of item.secondaryMuscles) {
+    afinidad += (gruposFavoritos.get(secundario) || 0) * 4;
+  }
 
-    return true;
+  const reciente = indiceReciente.get(item.id);
+  if (reciente !== undefined) {
+    afinidad += Math.max(6, 34 - reciente * 3);
+  }
+
+  return afinidad;
+}
+
+export interface FiltroBibliotecaParams {
+  catalogo?: EjercicioBiblioteca[];
+  busqueda?: string;
+  /** Compatibilidad con la API anterior: un único grupo. */
+  grupoMuscular?: string;
+  /** Compatibilidad con la API anterior: un único equipo. */
+  equipamiento?: string;
+  gruposMusculares?: string[];
+  equipamientos?: string[];
+  soloFavoritos?: boolean;
+  favoritos?: string[];
+  recientes?: string[];
+  orden?: OrdenBiblioteca;
+  limite?: number;
+}
+
+/**
+ * Filtra y ordena el catálogo combinando búsqueda difusa, varios grupos,
+ * varios equipamientos, favoritos y señales de uso reciente.
+ */
+export function filtrarEjerciciosBiblioteca(params: FiltroBibliotecaParams): EjercicioBiblioteca[] {
+  const lista = params.catalogo ?? memoriaCatalogo;
+  const q = normalizarTexto(params.busqueda || '');
+  const palabras = q.split(' ').filter((p) => p.length > 0);
+
+  const grupos = new Set(
+    [
+      ...(params.gruposMusculares || []),
+      ...(params.grupoMuscular ? [params.grupoMuscular] : []),
+    ].filter((grupo) => grupo && grupo !== 'todos')
+  );
+
+  const equipos = new Set(
+    [
+      ...(params.equipamientos || []),
+      ...(params.equipamiento ? [params.equipamiento] : []),
+    ].filter((equipo) => equipo && equipo !== 'todos')
+  );
+
+  const favoritosSet = new Set(params.favoritos || []);
+  const soloFavoritos = Boolean(params.soloFavoritos);
+  const orden: OrdenBiblioteca = params.orden || 'inteligente';
+
+  // Afinidad "Para ti": grupos que más aparecen en favoritos.
+  const mapaCatalogo = new Map(lista.map((item) => [item.id, item]));
+  const gruposFavoritos = new Map<string, number>();
+  for (const id of params.favoritos || []) {
+    const item = mapaCatalogo.get(id);
+    if (!item) continue;
+    gruposFavoritos.set(item.muscle, (gruposFavoritos.get(item.muscle) || 0) + 1);
+  }
+
+  const indiceReciente = new Map<string, number>();
+  (params.recientes || []).forEach((id, index) => {
+    if (!indiceReciente.has(id)) indiceReciente.set(id, index);
   });
+
+  const resultados: {
+    item: EjercicioBiblioteca;
+    puntuacion: number;
+    afinidad: number;
+    posicion: number;
+  }[] = [];
+
+  lista.forEach((item, posicion) => {
+    if (soloFavoritos && !favoritosSet.has(item.id)) return;
+
+    if (grupos.size > 0) {
+      const coincideGrupo =
+        grupos.has(item.muscle) ||
+        item.secondaryMuscles.some((secundario) => grupos.has(secundario));
+      if (!coincideGrupo) return;
+    }
+
+    if (equipos.size > 0) {
+      const coincideAlguno = Array.from(equipos).some((equipo) =>
+        coincideEquipo(item, equipo)
+      );
+      if (!coincideAlguno) return;
+    }
+
+    const puntuacion = palabras.length > 0 ? puntuarCoincidencia(item, palabras) : 0;
+    if (palabras.length > 0 && puntuacion === 0) return;
+
+    resultados.push({
+      item,
+      puntuacion,
+      afinidad: calcularAfinidad(
+        item,
+        favoritosSet,
+        gruposFavoritos,
+        indiceReciente
+      ),
+      posicion,
+    });
+  });
+
+  resultados.sort((a, b) => {
+    if (orden === 'az' || orden === 'za') {
+      const comparacion = a.item.name.localeCompare(b.item.name, 'es', {
+        sensitivity: 'base',
+      });
+      return orden === 'az' ? comparacion : -comparacion;
+    }
+
+    if (orden === 'recientes') {
+      const posA = indiceReciente.get(a.item.id);
+      const posB = indiceReciente.get(b.item.id);
+      if (posA !== undefined && posB !== undefined) return posA - posB;
+      if (posA !== undefined) return -1;
+      if (posB !== undefined) return 1;
+    }
+
+    if (orden === 'favoritos') {
+      const favA = favoritosSet.has(a.item.id) ? 1 : 0;
+      const favB = favoritosSet.has(b.item.id) ? 1 : 0;
+      if (favA !== favB) return favB - favA;
+    }
+
+    if (orden === 'inteligente' || orden === 'favoritos' || orden === 'recientes') {
+      if (palabras.length > 0 && b.puntuacion !== a.puntuacion) {
+        return b.puntuacion - a.puntuacion;
+      }
+      if (b.afinidad !== a.afinidad) return b.afinidad - a.afinidad;
+    }
+
+    // Con búsqueda activa, la relevancia manda incluso en órdenes manuales
+    // cuando no hay un criterio alternativo que desempate.
+    if (palabras.length > 0 && b.puntuacion !== a.puntuacion) {
+      return b.puntuacion - a.puntuacion;
+    }
+
+    return a.posicion - b.posicion;
+  });
+
+  const fin =
+    typeof params.limite === 'number' && params.limite > 0
+      ? params.limite
+      : resultados.length;
+
+  return resultados.slice(0, fin).map((resultado) => resultado.item);
 }
 
 /**
