@@ -18,6 +18,7 @@ import Animated, {
 import { fuentes, noir } from '../constants/colores';
 import { vibrarBoton } from '../utils/haptics';
 import { useLayout } from '../hooks/useLayout';
+import { isIOSStandalone } from '../utils/viewportFix';
 
 type TabRouteMeta = {
   name: string;
@@ -109,6 +110,7 @@ export default function SpotlightTabBar({
   };
 
   const isWeb = Platform.OS === 'web';
+  const isStandalone = isWeb && isIOSStandalone();
   const realBottomInset = Math.max(insets.bottom, bottomInset);
   const bottomInsetToUse = realBottomInset;
   const contentHeight = isLandscape ? 44 : 52;
@@ -121,6 +123,7 @@ export default function SpotlightTabBar({
       style={[
         styles.outerWrapper,
         isWeb && styles.outerWrapperWeb,
+        isStandalone && styles.outerWrapperStandalone,
       ]}
     >
       <View
@@ -271,6 +274,15 @@ const styles = StyleSheet.create({
   outerWrapperWeb: {
     // @ts-ignore
     position: 'fixed',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    backgroundColor: '#0B0D13',
+  },
+  outerWrapperStandalone: {
+    // @ts-ignore
+    position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
