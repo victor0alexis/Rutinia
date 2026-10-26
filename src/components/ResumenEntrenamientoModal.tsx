@@ -353,7 +353,9 @@ export default function ResumenEntrenamientoModal({
                     <Ionicons name="time-outline" size={15} color={noir.champagne} />
                   </View>
                   <Text style={styles.metricValue}>
-                    {formatearTiempoTexto(segundosTranscurridos)}
+                    {segundosTranscurridos > 0
+                      ? formatearTiempoTexto(segundosTranscurridos)
+                      : '—'}
                   </Text>
                   <Text style={styles.metricLabel}>DURACIÓN</Text>
                 </View>
