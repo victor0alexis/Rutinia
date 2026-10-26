@@ -133,6 +133,7 @@ function SelectorBibliotecaContenido({
         : [],
   });
   const [tecladoVisible, setTecladoVisible] = useState(false);
+  const [altoTeclado, setAltoTeclado] = useState(380);
   const [filtrosVisible, setFiltrosVisible] = useState(false);
   const [ejercicioTutorial, setEjercicioTutorial] =
     useState<EjercicioBiblioteca | null>(null);
@@ -353,6 +354,15 @@ function SelectorBibliotecaContenido({
         : vista === 'listas' && listaAbierta
           ? 'BUSCAR EN ESTA LISTA'
           : 'BUSCAR EN EL CATÁLOGO';
+
+  const resumenTeclado =
+    vista === 'listas' && !listaAbierta
+      ? `${listasFiltradas.length} ${
+          listasFiltradas.length === 1 ? 'lista' : 'listas'
+        }`
+      : `${ejerciciosFiltrados.length} ${
+          ejerciciosFiltrados.length === 1 ? 'resultado' : 'resultados'
+        }`;
 
   const sugerenciasTeclado = useMemo<SugerenciaTeclado[]>(() => {
     if (vista === 'listas' && !listaAbierta) {
@@ -1362,6 +1372,7 @@ function SelectorBibliotecaContenido({
                   accessibilityState={
                     filtros.grupos.length === 0 ? { selected: true } : {}
                   }
+                  hitSlop={{ top: 7, bottom: 7 }}
                 >
                   <Ionicons
                     name="grid-outline"
@@ -1401,6 +1412,7 @@ function SelectorBibliotecaContenido({
                         ]}
                         accessibilityRole="button"
                         accessibilityState={activo ? { selected: true } : {}}
+                        hitSlop={{ top: 7, bottom: 7 }}
                       >
                         <Ionicons
                           name={grupo.icono as any}
@@ -1487,7 +1499,7 @@ function SelectorBibliotecaContenido({
                   contentContainerStyle={[
                     styles.listaEjercicios,
                     tecladoVisible && {
-                      paddingBottom: 330 + Math.max(bottomInset, 8),
+                      paddingBottom: altoTeclado + 16,
                     },
                   ]}
                   keyboardShouldPersistTaps="handled"
@@ -1565,11 +1577,13 @@ function SelectorBibliotecaContenido({
                 titulo={tituloTeclado}
                 placeholder={placeholderBusqueda}
                 sugerencias={sugerenciasTeclado}
+                resumen={resumenTeclado}
                 maxLength={64}
                 textoListo="Listo"
                 onCambiar={setBusqueda}
                 onCerrar={cerrarTeclado}
                 onSubmit={cerrarTeclado}
+                onHeightChange={setAltoTeclado}
               />
             </View>
           ) : null}
@@ -2278,22 +2292,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   gruposWrapper: {
-    marginTop: 8,
+    // El ScrollView horizontal de RN trae flexGrow: 1 por defecto y se
+    // estiraba ocupando media pantalla. Aquí lo fijamos al alto del chip.
+    flexGrow: 0,
+    flexShrink: 0,
+    height: 34,
+    marginTop: 7,
   },
   gruposScroll: {
+    alignItems: 'center',
     paddingHorizontal: 16,
-    gap: 5,
+    gap: 6,
   },
   chipGrupo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
+    height: 30,
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.07)',
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 10,
   },
   chipGrupoText: {
     color: noir.muted,
@@ -2305,9 +2325,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 7,
     paddingHorizontal: 18,
-    paddingTop: 9,
-    paddingBottom: 3,
-    minHeight: 27,
+    paddingTop: 6,
+    paddingBottom: 2,
+    minHeight: 23,
   },
   resultsText: {
     color: noir.muted2,

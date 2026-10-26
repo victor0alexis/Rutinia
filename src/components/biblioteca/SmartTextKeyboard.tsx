@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  LayoutChangeEvent,
   Platform,
   Pressable,
   ScrollView,
@@ -26,11 +27,14 @@ interface Props {
   titulo: string;
   placeholder?: string;
   sugerencias?: SugerenciaTeclado[];
+  /** Texto corto a la derecha del título, p. ej. «1323 resultados». */
+  resumen?: string;
   maxLength?: number;
   textoListo?: string;
   onCambiar: (valor: string) => void;
   onCerrar: () => void;
   onSubmit?: () => void;
+  onHeightChange?: (height: number) => void;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -58,14 +62,16 @@ function SmartTextKeyboardPanel({
   titulo,
   placeholder = 'Escribe aquí…',
   sugerencias = [],
+  resumen,
   maxLength = 80,
   textoListo = 'Listo',
   onCambiar,
   onCerrar,
   onSubmit,
+  onHeightChange,
   style,
 }: Omit<Props, 'visible'>) {
-  const { bottomInset, isLandscape, isTablet } = useLayout();
+  const { bottomInset, height, isLandscape, isTablet } = useLayout();
   const [modoNumerico, setModoNumerico] = useState(false);
   const [mayusculas, setMayusculas] = useState(false);
 
@@ -161,7 +167,19 @@ function SmartTextKeyboardPanel({
       .slice(0, 4);
   }, [sugerencias]);
 
-  const altoTecla = isLandscape ? 33 : 39;
+  const manejarLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      onHeightChange?.(event.nativeEvent.layout.height);
+    },
+    [onHeightChange]
+  );
+
+  // En pantallas muy bajas reducimos un poco para que quepan los resultados
+  // visibles, pero manteniendo teclas claramente más grandes que antes.
+  const pantallaBaja = !isLandscape && height < 700;
+  const altoTecla = isLandscape ? 38 : pantallaBaja ? 42 : 46;
+  const altoAcento = isLandscape ? 30 : pantallaBaja ? 30 : 33;
+  const tamanoTecla = isLandscape ? 17.5 : pantallaBaja ? 18 : 19.5;
 
   return (
     <View
@@ -171,33 +189,71 @@ function SmartTextKeyboardPanel({
         isTablet && styles.panelTablet,
         style,
       ]}
+      onLayout={onHeightChange ? manejarLayout : undefined}
     >
+      <LinearGradient
+        pointerEvents="none"
+        colors={['rgba(92, 200, 255, 0.075)', 'transparent']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.85, y: 1 }}
+        style={styles.panelGlow}
+      />
+
       <View style={styles.handle} />
 
       <View style={styles.header}>
         <View style={styles.headerCopy}>
           <View style={styles.headerIcon}>
-            <Ionicons name="sparkles" size={11} color={noir.info} />
+            <Ionicons name="sparkles" size={12} color={noir.info} />
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {titulo}
-            </Text>
+            <View style={styles.headerTitleRow}>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {titulo}
+              </Text>
+              {resumen ? (
+                <View style={styles.resumenPill}>
+                  <Text style={styles.resumenText} numberOfLines={1}>
+                    {resumen}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
             <Text style={styles.headerValue} numberOfLines={1}>
               {valor || placeholder}
             </Text>
           </View>
         </View>
 
-        <Pressable
-          onPress={confirmar}
-          style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.7 }]}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Cerrar teclado"
-        >
-          <Ionicons name="chevron-down" size={18} color={noir.platinum} />
-        </Pressable>
+        <View style={styles.headerActions}>
+          {valor.length > 0 ? (
+            <Pressable
+              onPress={limpiar}
+              style={({ pressed }) => [
+                styles.headerClearBtn,
+                pressed && { opacity: 0.7 },
+              ]}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Borrar texto"
+            >
+              <Ionicons name="close-circle" size={18} color={noir.muted} />
+            </Pressable>
+          ) : null}
+
+          <Pressable
+            onPress={confirmar}
+            style={({ pressed }) => [
+              styles.closeBtn,
+              pressed && { opacity: 0.7 },
+            ]}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Cerrar teclado"
+          >
+            <Ionicons name="chevron-down" size={20} color={noir.platinum} />
+          </Pressable>
+        </View>
       </View>
 
       {sugerenciasUnicas.length > 0 ? (
@@ -243,6 +299,7 @@ function SmartTextKeyboardPanel({
               onPress={() => agregar(mayusculas ? acento.toUpperCase() : acento)}
               style={({ pressed }) => [
                 styles.acentoBtn,
+                { height: altoAcento },
                 pressed && styles.teclaPressed,
               ]}
               accessibilityRole="button"
@@ -281,7 +338,7 @@ function SmartTextKeyboardPanel({
               >
                 <Ionicons
                   name={mayusculas ? 'arrow-up' : 'arrow-up-outline'}
-                  size={16}
+                  size={19}
                   color={mayusculas ? noir.info : noir.platinum}
                 />
               </Pressable>
@@ -290,7 +347,11 @@ function SmartTextKeyboardPanel({
             {fila.map((tecla) => (
               <Pressable
                 key={`${filaIdx}-${tecla}`}
-                onPress={() => agregar(mayusculas ? tecla.toUpperCase() : tecla)}
+                onPress={() => {
+                  agregar(mayusculas ? tecla.toUpperCase() : tecla);
+                  // Como en iOS: mayúsculas se desactiva tras escribir.
+                  if (mayusculas) setMayusculas(false);
+                }}
                 style={({ pressed }) => [
                   styles.tecla,
                   { height: altoTecla },
@@ -299,7 +360,7 @@ function SmartTextKeyboardPanel({
                 accessibilityRole="button"
                 accessibilityLabel={tecla === ' ' ? 'Espacio' : `Tecla ${tecla}`}
               >
-                <Text style={styles.teclaText}>
+                <Text style={[styles.teclaText, { fontSize: tamanoTecla }]}>
                   {mayusculas ? tecla.toUpperCase() : tecla}
                 </Text>
               </Pressable>
@@ -319,7 +380,7 @@ function SmartTextKeyboardPanel({
                 accessibilityRole="button"
                 accessibilityLabel="Borrar letra"
               >
-                <Ionicons name="backspace-outline" size={19} color={noir.platinum} />
+                <Ionicons name="backspace-outline" size={22} color={noir.platinum} />
               </Pressable>
             ) : null}
           </View>
@@ -372,9 +433,9 @@ function SmartTextKeyboardPanel({
               colors={['#8CFFD6', noir.mint]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={[StyleSheet.absoluteFill, { borderRadius: 8 }]}
+              style={[StyleSheet.absoluteFill, { borderRadius: 10 }]}
             />
-            <Ionicons name="checkmark" size={16} color="#06120D" />
+            <Ionicons name="checkmark" size={18} color="#06120D" />
             <Text style={styles.teclaListoText}>{textoListo}</Text>
           </Pressable>
         </View>
@@ -386,7 +447,7 @@ function SmartTextKeyboardPanel({
 const styles = StyleSheet.create({
   panel: {
     width: '100%',
-    paddingHorizontal: 10,
+    paddingHorizontal: 6,
     paddingTop: 6,
     backgroundColor: 'rgba(9, 11, 16, 0.995)',
     borderTopLeftRadius: 24,
@@ -398,6 +459,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.38,
     shadowRadius: 24,
     elevation: 24,
+  },
+  panelGlow: {
+    position: 'absolute',
+    top: 1,
+    left: 1,
+    right: 1,
+    height: 110,
+    borderTopLeftRadius: 23,
+    borderTopRightRadius: 23,
   },
   panelTablet: {
     maxWidth: 620,
@@ -412,14 +482,15 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
     alignSelf: 'center',
-    marginBottom: 6,
+    marginBottom: 7,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
-    paddingBottom: 6,
+    paddingHorizontal: 2,
+    paddingBottom: 7,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
@@ -427,52 +498,85 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: 8,
     minWidth: 0,
   },
   headerIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 8,
+    width: 27,
+    height: 27,
+    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(92, 200, 255, 0.09)',
     borderWidth: 1,
     borderColor: 'rgba(92, 200, 255, 0.22)',
   },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   headerTitle: {
+    flexShrink: 1,
     color: noir.info,
     fontFamily: fuentes.bold,
-    fontSize: 8,
+    fontSize: 8.5,
     letterSpacing: 0.75,
     textTransform: 'uppercase',
+  },
+  resumenPill: {
+    flexShrink: 0,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.055)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.075)',
+  },
+  resumenText: {
+    color: noir.muted,
+    fontFamily: fuentes.bold,
+    fontSize: 8,
+    fontVariant: ['tabular-nums'],
   },
   headerValue: {
     color: noir.platinum,
     fontFamily: fuentes.medium,
-    fontSize: 11.5,
+    fontSize: 13,
     marginTop: 1,
   },
-  closeBtn: {
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  headerClearBtn: {
     width: 30,
     height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeBtn: {
+    width: 34,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.045)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.09)',
-    borderRadius: 15,
+    borderRadius: 17,
   },
   sugerenciasRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 7,
+    gap: 7,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
   },
   sugerenciasLabel: {
-    width: 22,
-    height: 22,
-    borderRadius: 7,
+    width: 24,
+    height: 24,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255, 209, 102, 0.08)',
@@ -480,9 +584,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 209, 102, 0.2)',
   },
   sugerenciaChip: {
-    height: 24,
-    paddingHorizontal: 9,
-    borderRadius: 12,
+    height: 30,
+    paddingHorizontal: 11,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.045)',
@@ -497,17 +601,17 @@ const styles = StyleSheet.create({
   sugerenciaText: {
     color: noir.platinum,
     fontFamily: fuentes.medium,
-    fontSize: 9.5,
+    fontSize: 11,
   },
   acentosRow: {
     flexDirection: 'row',
-    gap: 4,
-    paddingBottom: 5,
+    gap: 5,
+    paddingHorizontal: 1,
+    paddingBottom: 6,
   },
   acentoBtn: {
     flex: 1,
-    height: 27,
-    borderRadius: 7,
+    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255, 209, 102, 0.055)',
@@ -517,41 +621,41 @@ const styles = StyleSheet.create({
   acentoText: {
     color: '#FFE6A8',
     fontFamily: fuentes.bold,
-    fontSize: 12,
+    fontSize: 16,
   },
   teclado: {
-    gap: 5,
+    gap: 6,
   },
   fila: {
     flexDirection: 'row',
-    gap: 4,
+    gap: 5,
   },
   filaBottom: {
     flexDirection: 'row',
-    gap: 5,
+    gap: 6,
     marginTop: 1,
   },
   tecla: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.055)',
-    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.072)',
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.075)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   teclaPressed: {
-    backgroundColor: 'rgba(92, 200, 255, 0.18)',
-    borderColor: 'rgba(92, 200, 255, 0.45)',
+    backgroundColor: 'rgba(92, 200, 255, 0.2)',
+    borderColor: 'rgba(92, 200, 255, 0.5)',
     transform: [{ scale: 0.96 }],
   },
   teclaText: {
     color: noir.text,
-    fontSize: 15,
+    fontSize: 19.5,
     fontFamily: fuentes.semiBold,
   },
   teclaAccion: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
   teclaShift: {
     flex: 1.2,
@@ -565,7 +669,7 @@ const styles = StyleSheet.create({
   },
   teclaModoText: {
     color: noir.muted,
-    fontSize: 10,
+    fontSize: 11.5,
     fontFamily: fuentes.bold,
   },
   teclaEspacio: {
@@ -573,23 +677,23 @@ const styles = StyleSheet.create({
   },
   teclaEspacioText: {
     color: noir.muted,
-    fontSize: 10.5,
+    fontSize: 12,
     fontFamily: fuentes.medium,
   },
   teclaListo: {
     flex: 1.25,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: noir.mint,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    gap: 3,
+    gap: 4,
     overflow: 'hidden',
   },
   teclaListoText: {
     color: '#06120D',
-    fontSize: 9.5,
+    fontSize: 10.5,
     fontFamily: fuentes.black,
     letterSpacing: 0.2,
   },
