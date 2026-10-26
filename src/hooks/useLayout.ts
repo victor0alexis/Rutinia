@@ -55,6 +55,8 @@ export type Layout = {
   keyboardHeight: number;
   /** true if virtual keyboard is open */
   isKeyboardVisible: boolean;
+  /** Altura total de la barra de pestañas (contentHeight + bottom inset) */
+  tabBarHeight: number;
   /** Typography scale (slightly adjusted on isCompact) */
   fontScale: FontScale;
   /** Spacing scale */
@@ -82,32 +84,40 @@ export function useLayout(): Layout {
   // Content max width: ~720 centered on tablet/landscape, full width on portrait mobile
   const contentMaxWidth = isTablet || isLandscape ? Math.min(width - gutter * 2, 720) : width;
 
-  const isIOS =
-    Platform.OS === 'ios' ||
-    (Platform.OS === 'web' &&
-      typeof navigator !== 'undefined' &&
-      /iPhone|iPad|iPod/i.test(navigator.userAgent || ''));
+  // Insets: en web NO usar iosBottomFallback (34/12 px).
+  // Usar exclusivamente el valor real de env(safe-area-inset-*).
+  // Mantener fallback únicamente para plataformas nativas donde insets.bottom sea 0.
+  let resolvedBottomInset = insets.bottom;
+  let resolvedTopInset = insets.top;
 
-  const isIPhone =
-    isIOS &&
-    (Platform.OS === 'ios'
-      ? !isTablet
-      : typeof navigator !== 'undefined' && /iPhone/i.test(navigator.userAgent || ''));
+  if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      try {
+        const computed = window.getComputedStyle(document.documentElement);
+        if (resolvedBottomInset === 0) {
+          const sabVal = parseFloat(computed.getPropertyValue('--sab'));
+          if (!isNaN(sabVal) && sabVal > 0) {
+            resolvedBottomInset = sabVal;
+          }
+        }
+        if (resolvedTopInset === 0) {
+          const satVal = parseFloat(computed.getPropertyValue('--sat'));
+          if (!isNaN(satVal) && satVal > 0) {
+            resolvedTopInset = satVal;
+          }
+        }
+      } catch {}
+    }
+  } else if (Platform.OS === 'ios' && resolvedBottomInset === 0) {
+    resolvedBottomInset = isLandscape ? 12 : 34;
+  }
 
-  // Respaldo de home indicator para iPhone (34 px en vertical, 12 px en horizontal) y iPad (20 px)
-  const iosBottomFallback = isIPhone
-    ? (isLandscape ? 12 : 34)
-    : isIOS
-      ? 20
-      : 0;
+  // Safe bottom padding para barras de pestañas, docks y scrollviews (exacto sin dobles fallbacks)
+  const safeBottom = resolvedBottomInset;
 
-  const resolvedBottomInset = Math.max(insets.bottom, iosBottomFallback);
-
-  // Safe bottom padding para barras de pestañas, docks y scrollviews
-  const safeBottom = Math.max(
-    resolvedBottomInset,
-    isIOS ? (isLandscape ? 12 : 34) : 12
-  );
+  // Altura estandarizada de la barra de pestañas: contentHeight (52 vertical / 44 horizontal) + bottom inset real
+  const contentHeight = isLandscape ? 44 : 52;
+  const tabBarHeight = contentHeight + resolvedBottomInset;
 
   // Web visualViewport & Native Keyboard listener
   useEffect(() => {
@@ -171,9 +181,10 @@ export function useLayout(): Layout {
     isTablet,
     gutter,
     contentMaxWidth,
-    topInset: insets.top,
+    topInset: resolvedTopInset,
     bottomInset: resolvedBottomInset,
     safeBottom,
+    tabBarHeight,
     leftInset: insets.left,
     rightInset: insets.right,
     keyboardHeight,

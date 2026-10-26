@@ -9,18 +9,12 @@ type Props = {
 };
 
 export default function DockPrincipal({ children }: Props) {
-  const { isLandscape, bottomInset, safeBottom, gutter, contentMaxWidth, isKeyboardVisible } = useLayout();
+  const { isLandscape, gutter, contentMaxWidth, isKeyboardVisible, tabBarHeight } = useLayout();
 
   // If the keyboard is actively open on mobile web/native, hide the dock to not obstruct inputs
   if (isKeyboardVisible) return null;
 
-  const tabBarHeight = isLandscape
-    ? 48 + Math.max(bottomInset, 4)
-    : 60 + safeBottom;
-
-  const protrusion = isLandscape ? 4 : 12;
-  const air = isLandscape ? 8 : 16;
-  const bottomPosition = tabBarHeight + protrusion + air;
+  const bottomPosition = tabBarHeight + 12;
 
   return (
     <View pointerEvents="box-none" style={[styles.dockWrapper, { bottom: bottomPosition }]}>

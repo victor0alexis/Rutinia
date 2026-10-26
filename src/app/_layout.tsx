@@ -12,6 +12,7 @@ import {
 import { DMSans_400Regular } from '@expo-google-fonts/dm-sans';
 import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, View, Platform, StatusBar as RNStatusBar } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import { colores } from '../constants/colores';
 
@@ -93,13 +94,15 @@ export default function RootLayout() {
   }
 
   return (
-    <View style={{ flex: 1, width: '100%', height: '100%', backgroundColor: '#080A0F', overflow: 'hidden' }}>
-      <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#080A0F' } }}>
-        <Stack.Screen name="(tabs)" />
-      </Stack>
-      <ConfirmModalGlobal />
-    </View>
+    <SafeAreaProvider style={{ flex: 1, backgroundColor: '#080A0F' }}>
+      <View style={{ flex: 1, width: '100%', height: '100%', backgroundColor: '#080A0F', overflow: 'hidden' }}>
+        <StatusBar style="light" />
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#080A0F' } }}>
+          <Stack.Screen name="(tabs)" />
+        </Stack>
+        <ConfirmModalGlobal />
+      </View>
+    </SafeAreaProvider>
   );
 }
 

@@ -65,7 +65,7 @@ export default function SpotlightTabBar({
   navigation,
   insets,
 }: BottomTabBarProps) {
-  const { isLandscape, isCompact } = useLayout();
+  const { isLandscape, isCompact, bottomInset } = useLayout();
   const [containerWidth, setContainerWidth] = useState(0);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
@@ -109,7 +109,8 @@ export default function SpotlightTabBar({
   };
 
   const isWeb = Platform.OS === 'web';
-  const bottomInsetToUse = isLandscape ? 4 : (insets.bottom > 0 ? 10 : 6);
+  const realBottomInset = Math.max(insets.bottom, bottomInset);
+  const bottomInsetToUse = realBottomInset;
   const contentHeight = isLandscape ? 44 : 52;
   const totalNavHeight = contentHeight + bottomInsetToUse;
 
@@ -273,6 +274,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     width: '100%',
+    backgroundColor: '#0B0D13',
   },
   navbarContainer: {
     width: '100%',
