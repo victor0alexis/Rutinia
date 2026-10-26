@@ -9,7 +9,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, shrink-to-fit=no"
+          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
         />
 
         {/* PWA / iOS Web App Meta Tags */}
@@ -46,30 +46,19 @@ export default function Root({ children }: PropsWithChildren) {
 
           :root {
             color-scheme: dark;
-            background-color: #080A0F !important;
+            --sat: env(safe-area-inset-top, 0px);
+            --sab: env(safe-area-inset-bottom, 0px);
+            --sal: env(safe-area-inset-left, 0px);
+            --sar: env(safe-area-inset-right, 0px);
           }
 
-          html {
-            color-scheme: dark;
-            background-color: #080A0F !important;
-            width: 100%;
-            height: 100%;
-            min-height: 100%;
+          html, body {
             margin: 0;
             padding: 0;
-            overflow: hidden !important;
-          }
-
-          body {
-            color-scheme: dark;
-            background-color: #080A0F !important;
+            width: 100%;
+            height: 100%;
+            background: #080A0F;
             color: #F9FAFB;
-            width: 100%;
-            height: 100%;
-            min-height: 100%;
-            min-height: -webkit-fill-available;
-            margin: 0;
-            padding: 0;
             overflow: hidden !important;
             overscroll-behavior: none !important;
             -webkit-overscroll-behavior: none !important;
@@ -79,20 +68,19 @@ export default function Root({ children }: PropsWithChildren) {
           }
 
           #root {
-            color-scheme: dark;
-            background-color: #080A0F !important;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             width: 100%;
             height: 100%;
-            min-height: 100%;
-            min-height: 100dvh;
-            min-height: -webkit-fill-available;
-            margin: 0;
-            padding: 0;
+            display: flex;
+            flex-direction: column;
+            background: #080A0F;
             overflow: hidden !important;
             overscroll-behavior: none !important;
             -webkit-overscroll-behavior: none !important;
-            display: flex;
-            flex-direction: column;
           }
 
           /* Aplicar Outfit por defecto a todo texto en la web salvo Ionicons */
