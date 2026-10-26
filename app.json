@@ -19,7 +19,7 @@
       "backgroundColor": "#080A0F"
     },
     "web": {
-      "output": "single",
+      "output": "static",
       "favicon": "./assets/images/favicon.png",
       "themeColor": "#080A0F",
       "backgroundColor": "#080A0F"
