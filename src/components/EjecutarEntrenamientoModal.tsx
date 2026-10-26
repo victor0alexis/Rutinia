@@ -30,6 +30,7 @@ import {
   sincronizarNotasEjercicios,
   obtenerHistorialPrevioRutina,
   obtenerHistorialPrevioEjercicio,
+  eliminarEjerciciosObsoletos,
 } from '../services/registros';
 import { reemplazarEjercicioEnRutina } from '../services/rutinas';
 import { seguro, mostrarMensaje } from '../utils/errores';
@@ -53,6 +54,7 @@ import {
   guardarBorradorSesion,
   obtenerBorradorSesion,
   limpiarSesionActiva,
+  emitirCambioSesionActiva,
 } from '../utils/sesionActiva';
 
 export type FocusTeclado = {
@@ -125,6 +127,72 @@ type HistoricoEjercicio = {
 
 type HistoricoMap = Record<string, HistoricoEjercicio>;
 
+function limitarIndiceEjercicio(index: number, total: number): number {
+  if (total <= 0) return 0;
+  return Math.min(Math.max(0, Math.floor(index)), total - 1);
+}
+
+/**
+ * Si un borrador antiguo no guardó el ejercicio activo, inferimos el más
+ * probable: el que tiene progreso parcial, luego el primero incompleto.
+ */
+function inferirEjercicioActivo(ejercicios: EjercicioState[]): number {
+  if (ejercicios.length === 0) return 0;
+
+  const enProgreso = ejercicios.findIndex(
+    (ej) => ej.series.some((s) => s.completado) && ej.series.some((s) => !s.completado)
+  );
+  if (enProgreso >= 0) return enProgreso;
+
+  const primeroIncompleto = ejercicios.findIndex((ej) =>
+    ej.series.some((s) => !s.completado)
+  );
+  if (primeroIncompleto >= 0) return primeroIncompleto;
+
+  return ejercicios.length - 1;
+}
+
+function generarIdTemporal(): string {
+  return `${Date.now()}.${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function crearSerieVacia(): SerieEjecucion {
+  return {
+    id: generarIdTemporal(),
+    peso: '',
+    reps: '',
+    pesoI: '',
+    repsI: '',
+    rir: '',
+    nota: '',
+    completado: false,
+    repsParciales: 0,
+    tieneParciales: false,
+    esDropset: false,
+    drops: [],
+  };
+}
+
+/** Copia profunda de series para que el nuevo ejercicio no comparta referencias. */
+function heredarSeries(series: SerieEjecucion[]): SerieEjecucion[] {
+  return series.map((serie) => ({
+    ...serie,
+    id: generarIdTemporal(),
+    drops: (serie.drops || []).map((drop) => ({ ...drop })),
+  }));
+}
+
+function esIdTemporal(id: string): boolean {
+  return id.includes('.') || id.startsWith('draft_') || id.startsWith('temp_');
+}
+
+/** Convierte un valor numérico de texto a número, o null si no es válido. */
+function numeroONull(valor?: string): number | null {
+  if (!valor) return null;
+  const numero = Number(valor);
+  return Number.isFinite(numero) ? numero : null;
+}
+
 export default function EjecutarEntrenamientoModal({
   visible,
   registro,
@@ -154,6 +222,9 @@ export default function EjecutarEntrenamientoModal({
 
   const [ejerciciosState, setEjerciciosState] = useState<EjercicioState[]>([]);
   const [ejercicioActivoIndex, setEjercicioActivoIndex] = useState(0);
+  // Espejo síncrono del índice activo: evita que un guardado en vuelo escriba
+  // un índice anterior y que la sesión reanude en el ejercicio equivocado.
+  const ejercicioActivoIndexRef = useRef(0);
   const [notasSesion, setNotasSesion] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [historialMap, setHistorialMap] = useState<HistoricoMap>({});
@@ -177,9 +248,10 @@ export default function EjecutarEntrenamientoModal({
   const [confirmacionPermanente, setConfirmacionPermanente] = useState<{
     ejIdx: number;
     nombreOriginal: string;
+    nombreRutinaOriginal: string;
     nuevoNombre: string;
-    seriesHeredadas: SerieEjecucion[];
-    seriesCompletadas: SerieEjecucion[];
+    ejercicioAnterior: EjercicioState;
+    ejercicioNuevo: EjercicioState;
   } | null>(null);
 
   // SNACKBAR CON DESHACER (6 SEGUNDOS)
@@ -302,8 +374,15 @@ export default function EjecutarEntrenamientoModal({
         });
       }
 
+      const indiceRestaurado = limitarIndiceEjercicio(
+        borradorPrevio?.ejercicioActivoIndex ?? inferirEjercicioActivo(parsedEjercicios),
+        parsedEjercicios.length
+      );
+
       setNotasSesion(notasTexto);
       setEjerciciosState(parsedEjercicios);
+      ejercicioActivoIndexRef.current = indiceRestaurado;
+      setEjercicioActivoIndex(indiceRestaurado);
 
       // Guardar borrador inicial solo si la sesión está en curso o nueva (no en modo resumen)
       if (!esModoResumen) {
@@ -313,6 +392,7 @@ export default function EjecutarEntrenamientoModal({
           fechaISO: registro.fecha,
           notasSesion: notasTexto,
           ejerciciosState: parsedEjercicios,
+          ejercicioActivoIndex: indiceRestaurado,
         });
       }
 
@@ -499,9 +579,15 @@ export default function EjecutarEntrenamientoModal({
     if (!estadoTimer) return;
     const nuevoSt = await alternarPausaTimer(estadoTimer);
     setEstadoTimer(nuevoSt);
+    setSegundosTranscurridos(calcularSegundosTranscurridos(nuevoSt));
+    await emitirCambioSesionActiva();
   };
 
-  const guardarDraftAuto = (nextState: EjercicioState[], nTexto: string = notasSesion) => {
+  const guardarDraftAuto = (
+    nextState: EjercicioState[],
+    nTexto: string = notasSesion,
+    indiceActivo: number = ejercicioActivoIndexRef.current
+  ) => {
     if (!registro || esModoResumen) return;
     const nombreRutina = registro.rutinas?.nombre || 'Entrenamiento';
     guardarBorradorSesion(registro.id, {
@@ -509,7 +595,21 @@ export default function EjecutarEntrenamientoModal({
       fechaISO: registro.fecha,
       notasSesion: nTexto,
       ejerciciosState: nextState,
+      ejercicioActivoIndex: limitarIndiceEjercicio(indiceActivo, nextState.length),
     });
+  };
+
+  const fijarIndiceActivo = (index: number, total: number = ejerciciosState.length) => {
+    const siguiente = limitarIndiceEjercicio(index, total);
+    ejercicioActivoIndexRef.current = siguiente;
+    setEjercicioActivoIndex(siguiente);
+    return siguiente;
+  };
+
+  const seleccionarEjercicioActivo = (index: number) => {
+    const siguiente = fijarIndiceActivo(index);
+    setFocusTeclado(null);
+    guardarDraftAuto(ejerciciosState, notasSesion, siguiente);
   };
 
   const cambiarNotasSesion = (texto: string) => {
@@ -712,6 +812,7 @@ export default function EjecutarEntrenamientoModal({
     if (sIdx + 1 < ej.series.length) {
       setFocusTeclado({ ejIdx, sIdx: sIdx + 1, campo: 'peso' });
     } else if (ejIdx + 1 < ejerciciosState.length) {
+      seleccionarEjercicioActivo(ejIdx + 1);
       setFocusTeclado({ ejIdx: ejIdx + 1, sIdx: 0, campo: 'peso' });
     } else {
       setFocusTeclado(null);
@@ -955,169 +1056,177 @@ export default function EjecutarEntrenamientoModal({
   ) => {
     const ejActual = ejerciciosState[ejIdx];
     if (!ejActual) return;
-    const nombreOriginal = ejActual.nombre;
 
-    const yaExiste = ejerciciosState.some(
-      (e, i) => i !== ejIdx && e.nombre.trim().toLowerCase() === nuevoNombre.trim().toLowerCase()
-    );
-    if (yaExiste) {
-      mostrarMensaje('Ejercicio ya presente', `"${nuevoNombre}" ya está en este entrenamiento.`);
+    const nombreOriginal = ejActual.nombre;
+    const nombreNuevoLimpio = nuevoNombre.trim();
+    if (
+      !nombreNuevoLimpio ||
+      nombreNuevoLimpio.toLowerCase() === nombreOriginal.trim().toLowerCase()
+    ) {
       return;
     }
 
-    const seriesCompletadas = ejActual.series.filter((s) => s.completado);
-    const seriesNoCompletadas = ejActual.series.filter((s) => !s.completado);
-
-    const seriesHeredadas: SerieEjecucion[] = (
-      seriesNoCompletadas.length > 0 ? seriesNoCompletadas : [ejActual.series[0]]
-    ).map((s, idx) => ({
-      id: Date.now().toString() + Math.random().toString(),
-      peso: '',
-      reps: '',
-      pesoI: '',
-      repsI: '',
-      rir: '',
-      nota: '',
-      completado: false,
-      repsParciales: 0,
-      tieneParciales: false,
-      esDropset: false,
-      drops: [],
-    }));
+    const yaExiste = ejerciciosState.some(
+      (e, i) =>
+        i !== ejIdx &&
+        e.nombre.trim().toLowerCase() === nombreNuevoLimpio.toLowerCase()
+    );
+    if (yaExiste) {
+      mostrarMensaje(
+        'Ejercicio ya presente',
+        `"${nombreNuevoLimpio}" ya está en este entrenamiento.`
+      );
+      return;
+    }
 
     // Cargar historial del nuevo ejercicio
-    const histNuevo = await obtenerHistorialPrevioEjercicio(nuevoNombre, registro?.fecha);
+    const histNuevo = await obtenerHistorialPrevioEjercicio(
+      nombreNuevoLimpio,
+      registro?.fecha
+    );
     if (histNuevo) {
       setHistorialMap((prev) => ({
         ...prev,
-        [nuevoNombre]: histNuevo,
+        [nombreNuevoLimpio]: histNuevo,
       }));
     }
 
-    const esUnilateralNuevo = parsearEjercicioInfo({ nombre: nuevoNombre }).esUnilateral;
+    const esUnilateralNuevo = parsearEjercicioInfo({
+      nombre: nombreNuevoLimpio,
+    }).esUnilateral;
+
+    // Reutilizamos el id real del registro para que el guardado actualice la
+    // misma fila y el ejercicio anterior desaparezca también de la base de datos.
+    const idEjercicio = esIdTemporal(ejActual.id)
+      ? generarIdTemporal()
+      : ejActual.id;
+
+    const ejercicioNuevo: EjercicioState = {
+      ...ejActual,
+      id: idEjercicio,
+      nombre: nombreNuevoLimpio,
+      esUnilateral: esUnilateralNuevo,
+      series:
+        modo === 'rutina'
+          ? heredarSeries(ejActual.series)
+          : [crearSerieVacia()],
+      sustituye_a_nombre: ejActual.sustituye_a_nombre || nombreOriginal,
+      sustituye_a_ejercicio_id: ejActual.sustituye_a_ejercicio_id || null,
+      sustitucion_alcance: modo,
+      notaEjercicio: '',
+    };
+
+    setSelectorIntercambio(null);
 
     if (modo === 'solo_hoy') {
-      let nuevoEjerciciosState: EjercicioState[] = [];
-      if (seriesCompletadas.length > 0) {
-        const ejOriginalRestante: EjercicioState = {
-          ...ejActual,
-          series: seriesCompletadas,
-        };
-        const ejNuevoState: EjercicioState = {
-          id: Date.now().toString() + Math.random().toString(),
-          nombre: nuevoNombre,
-          esUnilateral: esUnilateralNuevo,
-          series: seriesHeredadas,
-          sustituye_a_nombre: nombreOriginal,
-          sustitucion_alcance: 'solo_hoy',
-        };
-        nuevoEjerciciosState = [
-          ...ejerciciosState.slice(0, ejIdx),
-          ejOriginalRestante,
-          ejNuevoState,
-          ...ejerciciosState.slice(ejIdx + 1),
-        ];
-      } else {
-        const ejNuevoState: EjercicioState = {
-          ...ejActual,
-          nombre: nuevoNombre,
-          esUnilateral: esUnilateralNuevo,
-          series: seriesHeredadas,
-          sustituye_a_nombre: nombreOriginal,
-          sustitucion_alcance: 'solo_hoy',
-        };
-        nuevoEjerciciosState = [
-          ...ejerciciosState.slice(0, ejIdx),
-          ejNuevoState,
-          ...ejerciciosState.slice(ejIdx + 1),
-        ];
-      }
-
+      const nuevoEjerciciosState = ejerciciosState.map((ejercicio, index) =>
+        index === ejIdx ? ejercicioNuevo : ejercicio
+      );
       setEjerciciosState(nuevoEjerciciosState);
-      guardarDraftAuto(nuevoEjerciciosState);
-      setSelectorIntercambio(null);
-      mostrarMensaje('Sustitución aplicada', `"${nombreOriginal}" ha sido sustituido por "${nuevoNombre}" para hoy.`);
-    } else {
-      setSelectorIntercambio(null);
-      setConfirmacionPermanente({
-        ejIdx,
-        nombreOriginal,
-        nuevoNombre,
-        seriesHeredadas,
-        seriesCompletadas,
-      });
+      guardarDraftAuto(nuevoEjerciciosState, notasSesion, ejIdx);
+
+      mostrarSnackbar(
+        `"${nombreNuevoLimpio}" sustituye a "${nombreOriginal}" solo por hoy`,
+        () => {
+          setEjerciciosState((prev) => {
+            if (prev[ejIdx]?.id !== ejercicioNuevo.id) return prev;
+            const restaurado = [...prev];
+            restaurado[ejIdx] = ejActual;
+            guardarDraftAuto(restaurado, notasSesion, ejIdx);
+            return restaurado;
+          });
+        }
+      );
+      return;
     }
+
+    setConfirmacionPermanente({
+      ejIdx,
+      nombreOriginal,
+      nombreRutinaOriginal:
+        ejActual.sustitucion_alcance === 'solo_hoy' && ejActual.sustituye_a_nombre
+          ? ejActual.sustituye_a_nombre
+          : nombreOriginal,
+      nuevoNombre: nombreNuevoLimpio,
+      ejercicioAnterior: ejActual,
+      ejercicioNuevo,
+    });
   };
 
   const consolidarCambioPermanente = (conf: {
     ejIdx: number;
     nombreOriginal: string;
+    nombreRutinaOriginal: string;
     nuevoNombre: string;
-    seriesHeredadas: SerieEjecucion[];
-    seriesCompletadas: SerieEjecucion[];
+    ejercicioAnterior: EjercicioState;
+    ejercicioNuevo: EjercicioState;
   }) => {
-    const { ejIdx, nombreOriginal, nuevoNombre, seriesHeredadas, seriesCompletadas } = conf;
-    const ejActual = ejerciciosState[ejIdx];
-    const prevEjerciciosState = [...ejerciciosState];
+    const { ejIdx, nombreOriginal, nuevoNombre, ejercicioAnterior, ejercicioNuevo } =
+      conf;
 
-    const esUnilateralNuevo = parsearEjercicioInfo({ nombre: nuevoNombre }).esUnilateral;
-
-    let nuevoEjerciciosState: EjercicioState[] = [];
-    if (seriesCompletadas.length > 0) {
-      const ejOriginalRestante: EjercicioState = {
-        ...ejActual,
-        series: seriesCompletadas,
-      };
-      const ejNuevoState: EjercicioState = {
-        id: Date.now().toString() + Math.random().toString(),
-        nombre: nuevoNombre,
-        esUnilateral: esUnilateralNuevo,
-        series: seriesHeredadas,
-        sustituye_a_nombre: nombreOriginal,
-        sustitucion_alcance: 'rutina',
-      };
-      nuevoEjerciciosState = [
-        ...ejerciciosState.slice(0, ejIdx),
-        ejOriginalRestante,
-        ejNuevoState,
-        ...ejerciciosState.slice(ejIdx + 1),
-      ];
-    } else {
-      const ejNuevoState: EjercicioState = {
-        ...ejActual,
-        nombre: nuevoNombre,
-        esUnilateral: esUnilateralNuevo,
-        series: seriesHeredadas,
-        sustituye_a_nombre: nombreOriginal,
-        sustitucion_alcance: 'rutina',
-      };
-      nuevoEjerciciosState = [
-        ...ejerciciosState.slice(0, ejIdx),
-        ejNuevoState,
-        ...ejerciciosState.slice(ejIdx + 1),
-      ];
-    }
-
+    const nuevoEjerciciosState = ejerciciosState.map((ejercicio, index) =>
+      index === ejIdx ? ejercicioNuevo : ejercicio
+    );
     setEjerciciosState(nuevoEjerciciosState);
-    guardarDraftAuto(nuevoEjerciciosState);
+    guardarDraftAuto(nuevoEjerciciosState, notasSesion, ejIdx);
+
+    const serieReferencia =
+      ejercicioNuevo.series.find((serie) => serie.reps || serie.peso) ||
+      ejercicioNuevo.series[0];
+    const herencia = {
+      series: ejercicioNuevo.series.length,
+      repeticiones: numeroONull(serieReferencia?.reps),
+      peso: numeroONull(serieReferencia?.peso),
+    };
 
     let consolidado = false;
-    let timerConsolidar: any = setTimeout(async () => {
+    const timerConsolidar = setTimeout(async () => {
       consolidado = true;
       if (registro?.rutina_id) {
-        await reemplazarEjercicioEnRutina(registro.rutina_id, nombreOriginal, nuevoNombre).catch((err) =>
+        await reemplazarEjercicioEnRutina(
+          registro.rutina_id,
+          nombreOriginal,
+          nuevoNombre,
+          {
+            herencia,
+            nombreRespaldo:
+              ejercicioAnterior.sustitucion_alcance &&
+              ejercicioAnterior.sustituye_a_nombre
+                ? ejercicioAnterior.sustituye_a_nombre
+                : undefined,
+          }
+        ).catch((err) =>
           console.warn('Error reemplazando ejercicio en rutina:', err)
         );
       }
     }, 6000);
 
-    mostrarSnackbar(`Cambio aplicado en la rutina: "${nuevoNombre}"`, () => {
-      if (!consolidado) {
+    mostrarSnackbar(
+      `Cambio aplicado en la rutina: "${nuevoNombre}" heredó ${ejercicioNuevo.series.length} ${
+        ejercicioNuevo.series.length === 1 ? 'serie' : 'series'
+      }`,
+      () => {
+        if (consolidado) return;
         clearTimeout(timerConsolidar);
-        setEjerciciosState(prevEjerciciosState);
-        guardarDraftAuto(prevEjerciciosState);
+        setEjerciciosState((prev) => {
+          if (prev[ejIdx]?.id !== ejercicioNuevo.id) return prev;
+          const restaurado = [...prev];
+          restaurado[ejIdx] = ejercicioAnterior;
+          guardarDraftAuto(restaurado, notasSesion, ejIdx);
+          return restaurado;
+        });
       }
-    });
+    );
+  };
+
+  const resumenHerenciaPermanente = (ejercicio: EjercicioState): string => {
+    const total = ejercicio.series.length;
+    const referencia =
+      ejercicio.series.find((serie) => serie.reps || serie.peso) || ejercicio.series[0];
+    const partes = [`${total} ${total === 1 ? 'serie' : 'series'}`];
+    if (referencia?.reps) partes.push(`${referencia.reps} reps`);
+    if (referencia?.peso) partes.push(`${referencia.peso} kg`);
+    return partes.join(', ');
   };
 
   const eliminarEjercicioDeSesion = (ejIdx: number) => {
@@ -1126,15 +1235,23 @@ export default function EjecutarEntrenamientoModal({
       return;
     }
     const ejEliminado = ejerciciosState[ejIdx];
+    const indiceAnterior = ejercicioActivoIndex;
     const nextState = ejerciciosState.filter((_, i) => i !== ejIdx);
+    const siguienteIndice = limitarIndiceEjercicio(
+      ejIdx < indiceAnterior ? indiceAnterior - 1 : indiceAnterior,
+      nextState.length
+    );
     setEjerciciosState(nextState);
-    guardarDraftAuto(nextState);
+    fijarIndiceActivo(siguienteIndice, nextState.length);
+    guardarDraftAuto(nextState, notasSesion, siguienteIndice);
 
     mostrarSnackbar(`"${ejEliminado.nombre}" eliminado`, () => {
       const restaurado = [...nextState];
       restaurado.splice(ejIdx, 0, ejEliminado);
+      const indiceRestaurado = limitarIndiceEjercicio(indiceAnterior, restaurado.length);
       setEjerciciosState(restaurado);
-      guardarDraftAuto(restaurado);
+      fijarIndiceActivo(indiceRestaurado, restaurado.length);
+      guardarDraftAuto(restaurado, notasSesion, indiceRestaurado);
     });
   };
 
@@ -1210,6 +1327,7 @@ export default function EjecutarEntrenamientoModal({
       const pausado = await alternarPausaTimer(estadoTimer);
       setEstadoTimer(pausado);
       setSegundosTranscurridos(calcularSegundosTranscurridos(pausado));
+      await emitirCambioSesionActiva();
     }
     setResumenVisible(true);
   };
@@ -1225,6 +1343,8 @@ export default function EjecutarEntrenamientoModal({
     if (estadoTimer && estadoTimer.pausado) {
       const reanudado = await alternarPausaTimer(estadoTimer);
       setEstadoTimer(reanudado);
+      setSegundosTranscurridos(calcularSegundosTranscurridos(reanudado));
+      await emitirCambioSesionActiva();
     }
   };
 
@@ -1315,6 +1435,12 @@ export default function EjecutarEntrenamientoModal({
           }
         }
 
+        const idsConservados: string[] = [];
+        // Si una inserción no devuelve su id (por ejemplo, por permisos de
+        // lectura), no podemos distinguirla de una fila obsoleta: mejor no
+        // borrar nada que arriesgar datos válidos.
+        let limpiezaSegura = true;
+
         for (const ej of ejerciciosState) {
           const payload = construirPayloadEjercicio(ej);
           const datos = {
@@ -1332,14 +1458,29 @@ export default function EjecutarEntrenamientoModal({
           };
 
           // Si el id es temporal generado por sustitución, insertamos nueva fila
-          if (ej.id.includes('.')) {
-            await supabase.from('ejercicios_registro').insert({
-              registro_id: registro.id,
-              ...datos,
-            });
+          if (esIdTemporal(ej.id)) {
+            const { data: filaInsertada, error: errorInsert } = await supabase
+              .from('ejercicios_registro')
+              .insert({
+                registro_id: registro.id,
+                ...datos,
+              })
+              .select('id')
+              .single();
+
+            if (errorInsert) throw errorInsert;
+            if (filaInsertada?.id) idsConservados.push(filaInsertada.id);
+            else limpiezaSegura = false;
           } else {
             await actualizarEjecucionEjercicio(ej.id, datos);
+            idsConservados.push(ej.id);
           }
+        }
+
+        // Quita de la base cualquier ejercicio que haya quedado obsoleto por
+        // una sustitución o eliminación durante la sesión.
+        if (limpiezaSegura) {
+          await eliminarEjerciciosObsoletos(registro.id, idsConservados);
         }
 
         const planNombreFinal = registro.plan_nombre || registro.planes_entrenamiento?.nombre || null;
@@ -1591,10 +1732,7 @@ export default function EjecutarEntrenamientoModal({
                 <CarruselEjerciciosHeader
                   ejercicios={itemsCarrusel}
                   activoIndex={indexValido}
-                  onSelectEjercicio={(idx) => {
-                    setEjercicioActivoIndex(idx);
-                    setFocusTeclado(null);
-                  }}
+                  onSelectEjercicio={seleccionarEjercicioActivo}
                   style={{ marginHorizontal: gutter, marginBottom: 10 }}
                 />
 
@@ -1774,7 +1912,7 @@ export default function EjecutarEntrenamientoModal({
                                 <Pressable
                                   key={`nota-ej-${ej.id || idx}`}
                                   onPress={() => {
-                                    setEjercicioActivoIndex(idx);
+                                    seleccionarEjercicioActivo(idx);
                                     setModalNotaEjercicio({ ejIdx: idx, nota: ej.notaEjercicio || '' });
                                   }}
                                   style={({ pressed }) => [
@@ -1848,8 +1986,7 @@ export default function EjecutarEntrenamientoModal({
                         if (indiceSerieDock !== null) {
                           toggleCompletarSerie(indexValido, indiceSerieDock);
                         } else if (siguienteEjercicioIdx !== null) {
-                          setEjercicioActivoIndex(siguienteEjercicioIdx);
-                          setFocusTeclado(null);
+                          seleccionarEjercicioActivo(siguienteEjercicioIdx);
                         } else {
                           abrirResumenConfirmacion();
                         }
@@ -2157,7 +2294,7 @@ export default function EjecutarEntrenamientoModal({
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.sheetOptionText}>Intercambiar solo en este entrenamiento</Text>
-                      <Text style={styles.sheetOptionSubtext}>Sustituye hoy; series previas se conservan</Text>
+                      <Text style={styles.sheetOptionSubtext}>Solo hoy · el nuevo empieza sin series ni reps</Text>
                     </View>
                   </Pressable>
 
@@ -2175,7 +2312,7 @@ export default function EjecutarEntrenamientoModal({
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.sheetOptionText}>Intercambiar en la rutina (permanente)</Text>
-                      <Text style={styles.sheetOptionSubtext}>Actualiza la plantilla de rutina para futuros días</Text>
+                      <Text style={styles.sheetOptionSubtext}>Hereda series, reps y peso · se usa en próximos días</Text>
                     </View>
                   </Pressable>
 
@@ -2240,8 +2377,36 @@ export default function EjecutarEntrenamientoModal({
               <Text style={styles.dialogTitle}>¿Cambiar en la rutina?</Text>
             </View>
             <Text style={styles.dialogText}>
-              Se reemplazará <Text style={{ fontFamily: fuentes.bold, color: colores.texto }}>&quot;{confirmacionPermanente?.nombreOriginal}&quot;</Text> por <Text style={{ fontFamily: fuentes.bold, color: colores.primarioHover }}>&quot;{confirmacionPermanente?.nuevoNombre}&quot;</Text> en la rutina base. Las próximas sesiones usarán este nuevo ejercicio.
+              Se reemplazará{' '}
+              <Text style={{ fontFamily: fuentes.bold, color: colores.texto }}>
+                &quot;{confirmacionPermanente?.nombreRutinaOriginal}&quot;
+              </Text>{' '}
+              por{' '}
+              <Text style={{ fontFamily: fuentes.bold, color: colores.primarioHover }}>
+                &quot;{confirmacionPermanente?.nuevoNombre}&quot;
+              </Text>{' '}
+              en la rutina base.{' '}
+              {confirmacionPermanente?.nombreRutinaOriginal !==
+              confirmacionPermanente?.nombreOriginal ? (
+                <Text>
+                  {`El cambio temporal "${confirmacionPermanente?.nombreOriginal}" desaparecerá de esta sesión.`}
+                </Text>
+              ) : (
+                <Text>El original desaparecerá también de esta sesión y las próximas.</Text>
+              )}
             </Text>
+            {confirmacionPermanente && (
+              <View style={styles.dialogInheritanceBox}>
+                <Ionicons name="git-merge-outline" size={14} color={noir.lavender} />
+                <Text style={styles.dialogInheritanceText}>
+                  Heredará{' '}
+                  <Text style={styles.dialogInheritanceStrong}>
+                    {resumenHerenciaPermanente(confirmacionPermanente.ejercicioNuevo)}
+                  </Text>
+                  .
+                </Text>
+              </View>
+            )}
             <Text style={styles.dialogSubtext}>
               Tendrás 6 segundos para deshacer la acción mediante la barra inferior.
             </Text>
@@ -3189,6 +3354,29 @@ const styles = StyleSheet.create({
     fontFamily: fuentes.medium,
     marginTop: 6,
     lineHeight: 15,
+  },
+  dialogInheritanceBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: 'rgba(179, 148, 255, 0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(179, 148, 255, 0.18)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginTop: 10,
+  },
+  dialogInheritanceText: {
+    flex: 1,
+    color: noir.muted,
+    fontFamily: fuentes.regular,
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  dialogInheritanceStrong: {
+    color: noir.text,
+    fontFamily: fuentes.bold,
   },
   dialogActions: {
     flexDirection: 'row',

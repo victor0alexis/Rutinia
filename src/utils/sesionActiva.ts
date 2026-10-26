@@ -41,6 +41,8 @@ export type BorradorSesion = {
   fechaISO: string;
   notasSesion: string;
   ejerciciosState: EjercicioStateDraft[];
+  /** Último ejercicio que el usuario tenía seleccionado en la sesión. */
+  ejercicioActivoIndex?: number;
   updatedAt: number;
 };
 
@@ -51,6 +53,10 @@ export type SesionActivaInfo = {
   segsTranscurridos: number;
   seriesCompletadas: number;
   totalSeries: number;
+  /** Indica si el cronómetro está detenido por una pausa manual. */
+  pausado: boolean;
+  /** Momento en el que se calculó `segsTranscurridos` (para animar sin desfases). */
+  actualizadoEn: number;
 };
 
 const BORRADOR_PREFIX = 'rutinia_sesion_borrador_';
@@ -103,6 +109,7 @@ export async function guardarBorradorSesion(
     fechaISO: string;
     notasSesion: string;
     ejerciciosState: EjercicioStateDraft[];
+    ejercicioActivoIndex?: number;
   }
 ): Promise<void> {
   try {
@@ -112,6 +119,7 @@ export async function guardarBorradorSesion(
       fechaISO: data.fechaISO,
       notasSesion: data.notasSesion,
       ejerciciosState: data.ejerciciosState,
+      ejercicioActivoIndex: Math.max(0, Math.floor(data.ejercicioActivoIndex ?? 0)),
       updatedAt: Date.now(),
     };
     await AsyncStorage.setItem(getBorradorKey(registroId), JSON.stringify(borrador));
@@ -165,6 +173,8 @@ export async function obtenerSesionActivaInfo(): Promise<SesionActivaInfo | null
       segsTranscurridos,
       seriesCompletadas,
       totalSeries,
+      pausado: timerState.pausado,
+      actualizadoEn: Date.now(),
     };
   } catch (err) {
     console.warn('Error obteniendo sesión activa:', err);

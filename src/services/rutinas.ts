@@ -18,6 +18,18 @@ export type EjercicioNuevo = {
   peso: number | null;
 };
 
+/** Configuración que hereda un ejercicio al reemplazar a otro en la rutina. */
+export type HerenciaEjercicioRutina = {
+  series: number | null;
+  repeticiones: number | null;
+  peso: number | null;
+};
+
+/** Normaliza nombres con tags [U], detalles entre paréntesis o texto de sustitución. */
+function normalizarNombreEjercicio(nombre: string): string {
+  return parsearEjercicioInfo({ nombre }).nombreLimpio.trim().toLowerCase();
+}
+
 /** Obtiene el usuario_id del usuario autenticado, o null si no hay sesión. */
 async function getUsuarioId(): Promise<string | null> {
   try {
@@ -531,12 +543,53 @@ export async function actualizarRutina(
   await sincronizarRutinaConRegistrosYActiva(rutinaId, nombre, ejercicios);
 }
 
+/** Opciones para reemplazar un ejercicio dentro de una rutina. */
+export type OpcionesReemplazoRutina = {
+  herencia?: HerenciaEjercicioRutina;
+  /**
+   * Nombre que tenía el ejercicio en la rutina antes de una sustitución
+   * previa. Solo se usa cuando el nombre principal no existe en la rutina,
+   * para que un cambio temporal seguido de uno permanente no se pierda.
+   */
+  nombreRespaldo?: string;
+};
+
+/**
+ * Devuelve el nombre normalizado que existe en la lista, priorizando el
+ * nombre principal sobre el de respaldo.
+ */
+function elegirNombreExistente(
+  existentes: string[],
+  principal: string,
+  respaldo?: string
+): string | null {
+  const normalizados = existentes.map(normalizarNombreEjercicio);
+  const principalNorm = normalizarNombreEjercicio(principal);
+  if (normalizados.includes(principalNorm)) return principalNorm;
+
+  if (respaldo) {
+    const respaldoNorm = normalizarNombreEjercicio(respaldo);
+    if (normalizados.includes(respaldoNorm)) return respaldoNorm;
+  }
+
+  return null;
+}
+
 export async function reemplazarEjercicioEnRutina(
   rutinaId: string,
   nombreOriginal: string,
-  nombreNuevo: string
+  nombreNuevo: string,
+  opciones?: OpcionesReemplazoRutina
 ): Promise<void> {
-  const nombreOrigLimpio = nombreOriginal.trim().toLowerCase();
+  const nombreNuevoFinal = nombreNuevo.trim();
+  const { herencia, nombreRespaldo } = opciones ?? {};
+  const camposHerencia = herencia
+    ? {
+        series: herencia.series,
+        repeticiones: herencia.repeticiones,
+        peso: herencia.peso,
+      }
+    : {};
 
   if (!rutinaId.startsWith('local_')) {
     const { data: ejs, error } = await supabase
@@ -546,14 +599,21 @@ export async function reemplazarEjercicioEnRutina(
 
     if (error) throw error;
 
-    for (const ej of ejs || []) {
-      const ejLimpio = ej.nombre.replace(/\s*\(.*\)$/, '').trim().toLowerCase();
-      if (ejLimpio === nombreOrigLimpio) {
-        const nuevoNombreFinal = nombreNuevo.trim();
-        await supabase
-          .from('ejercicios_rutina')
-          .update({ nombre: nuevoNombreFinal })
-          .eq('id', ej.id);
+    const objetivo = elegirNombreExistente(
+      (ejs || []).map((ej) => ej.nombre),
+      nombreOriginal,
+      nombreRespaldo
+    );
+
+    if (objetivo) {
+      for (const ej of ejs || []) {
+        if (normalizarNombreEjercicio(ej.nombre) === objetivo) {
+          const { error: errUpdate } = await supabase
+            .from('ejercicios_rutina')
+            .update({ nombre: nombreNuevoFinal, ...camposHerencia })
+            .eq('id', ej.id);
+          if (errUpdate) throw errUpdate;
+        }
       }
     }
   }
@@ -563,12 +623,19 @@ export async function reemplazarEjercicioEnRutina(
     'rutinas',
     existentes.map((r) => {
       if (r.id !== rutinaId) return r;
+
+      const objetivo = elegirNombreExistente(
+        r.ejercicios_rutina.map((e) => e.nombre),
+        nombreOriginal,
+        nombreRespaldo
+      );
+      if (!objetivo) return r;
+
       return {
         ...r,
         ejercicios_rutina: r.ejercicios_rutina.map((e) => {
-          const eLimpio = e.nombre.replace(/\s*\(.*\)$/, '').trim().toLowerCase();
-          if (eLimpio === nombreOrigLimpio) {
-            return { ...e, nombre: nombreNuevo.trim() };
+          if (normalizarNombreEjercicio(e.nombre) === objetivo) {
+            return { ...e, nombre: nombreNuevoFinal, ...camposHerencia };
           }
           return e;
         }),
@@ -591,12 +658,18 @@ export async function reemplazarEjercicioEnRutina(
           .select('*')
           .eq('registro_id', r.id);
 
+        const objetivo = elegirNombreExistente(
+          (ejsReg || []).map((er) => er.nombre),
+          nombreOriginal,
+          nombreRespaldo
+        );
+        if (!objetivo) continue;
+
         for (const er of ejsReg || []) {
-          const erLimpio = er.nombre.replace(/\s*\(.*\)$/, '').trim().toLowerCase();
-          if (erLimpio === nombreOrigLimpio) {
+          if (normalizarNombreEjercicio(er.nombre) === objetivo) {
             await supabase
               .from('ejercicios_registro')
-              .update({ nombre: nombreNuevo.trim() })
+              .update({ nombre: nombreNuevoFinal, ...camposHerencia })
               .eq('id', er.id);
           }
         }
@@ -610,12 +683,18 @@ export async function reemplazarEjercicioEnRutina(
       const raw = await AsyncStorage.getItem(bk);
       if (raw) {
         const b = JSON.parse(raw) as BorradorSesion;
+        const objetivo = elegirNombreExistente(
+          (b.ejerciciosState || []).map((es) => es.nombre),
+          nombreOriginal,
+          nombreRespaldo
+        );
+        if (!objetivo) continue;
+
         let cambiado = false;
         const nextStates = (b.ejerciciosState || []).map((es) => {
-          const esLimpio = es.nombre.replace(/\s*\(.*\)$/, '').trim().toLowerCase();
-          if (esLimpio === nombreOrigLimpio) {
+          if (normalizarNombreEjercicio(es.nombre) === objetivo) {
             cambiado = true;
-            return { ...es, nombre: nombreNuevo.trim() };
+            return { ...es, nombre: nombreNuevoFinal };
           }
           return es;
         });

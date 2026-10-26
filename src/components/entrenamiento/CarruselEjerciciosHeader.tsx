@@ -1,31 +1,20 @@
-/* eslint-disable react-hooks/immutability */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   LayoutChangeEvent,
   Pressable,
+  ScrollView,
   StyleProp,
   StyleSheet,
   Text,
   View,
   ViewStyle,
 } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  Extrapolation,
-  cancelAnimation,
-  interpolate,
-  runOnJS,
-  type SharedValue,
-  useAnimatedReaction,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fuentes, noir } from '../../constants/colores';
 import { vibrarBoton } from '../../utils/haptics';
 import { obtenerGifEjercicio } from '../../services/ejerciciosGifs';
+import { parsearEjercicioInfo } from '../../utils/ejercicios';
 import { useLayout } from '../../hooks/useLayout';
 import EjercicioGif from './EjercicioGif';
 
@@ -44,18 +33,15 @@ interface Props {
   style?: StyleProp<ViewStyle>;
 }
 
-const SNAP_SPRING = {
-  damping: 24,
-  stiffness: 140,
-  mass: 0.7,
-} as const;
+const CARD_GAP = 8;
 
 /**
- * Carrusel 3D de ejercicios.
+ * Filmstrip horizontal de ejercicios.
  *
- * Reutiliza la mecánica cilíndrica de `Semana3DCarousel`: arrastre con snap,
- * caras con perspectiva, selección blanca perla y estado semántico. En este
- * caso las caras son GIFs anatómicos en modo oscuro en lugar de días.
+ * Cada ejercicio ocupa una tarjeta fija sin solaparse. La tarjeta activa se
+ * ilumina en blanco perla, agranda su GIF y se centra automáticamente al
+ * cambiar de ejercicio, mientras las demás muestran su progreso en segundo
+ * plano.
  */
 export default function CarruselEjerciciosHeader({
   ejercicios,
@@ -64,432 +50,502 @@ export default function CarruselEjerciciosHeader({
   style,
 }: Props) {
   const { isCompact } = useLayout();
-  const [containerWidth, setContainerWidth] = useState(350);
+  const scrollRef = useRef<ScrollView | null>(null);
+  const [viewportWidth, setViewportWidth] = useState(0);
 
   const total = ejercicios.length;
   const safeIndex = Math.min(Math.max(activoIndex, 0), Math.max(total - 1, 0));
-  // Con 2 ejercicios usamos media vuelta de 120° para que ambos sean visibles.
-  const step = total > 1 ? (total === 2 ? 120 : 360 / total) : 0;
-  const degreesPerPixel = step > 0 ? step / 40 : 0;
 
-  const rotation = useSharedValue<number>(-safeIndex * step);
-  const dragOrigin = useSharedValue<number>(-safeIndex * step);
-  const isDragging = useSharedValue(false);
+  const activeWidth = isCompact ? 112 : 124;
+  const inactiveWidth = isCompact ? 72 : 80;
+  const cardHeight = isCompact ? 96 : 100;
 
-  // Sincroniza la rotación cuando el ejercicio activo cambia desde fuera.
+  const cardWidthFor = useCallback(
+    (index: number) => (index === safeIndex ? activeWidth : inactiveWidth),
+    [activeWidth, inactiveWidth, safeIndex]
+  );
+
+  // Solo depende del número de tarjetas y de sus anchos: así los cambios de
+  // series o de texto no vuelven a disparar el auto-centrado en cada tecla.
+  const offsets = useMemo(() => {
+    const result: number[] = [];
+    let x = 0;
+    for (let index = 0; index < total; index += 1) {
+      result.push(x);
+      x += cardWidthFor(index) + CARD_GAP;
+    }
+    return result;
+  }, [cardWidthFor, total]);
+
+  // Centra la tarjeta activa sin mover el resto de la tira.
   useEffect(() => {
-    if (isDragging.value || step <= 0) return;
-    const currentRot = rotation.value;
-    const baseTarget = -safeIndex * step;
-    const diff = ((((baseTarget - currentRot) % 360) + 540) % 360) - 180;
-    rotation.value = withSpring(currentRot + diff, SNAP_SPRING);
-  }, [safeIndex, step, rotation, isDragging]);
-
-  const handleIndexChange = useCallback(
-    (index: number) => {
-      if (index >= 0 && index < total && index !== safeIndex) {
-        vibrarBoton();
-        onSelectEjercicio(index);
-      }
-    },
-    [safeIndex, total, onSelectEjercicio]
-  );
-
-  useAnimatedReaction(
-    () => {
-      if (step <= 0 || total <= 0) return 0;
-      const idx = Math.round(-rotation.value / step) % total;
-      return idx < 0 ? idx + total : idx;
-    },
-    (current, previous) => {
-      if (previous !== null && current !== previous) {
-        runOnJS(handleIndexChange)(current);
-      }
-    },
-    [handleIndexChange, step, total]
-  );
-
-  const panGesture = useMemo(
-    () =>
-      Gesture.Pan()
-        .enabled(step > 0)
-        .activeOffsetX([-8, 8])
-        .onBegin(() => {
-          isDragging.value = true;
-          cancelAnimation(rotation);
-          dragOrigin.value = rotation.value;
-        })
-        .onUpdate((event) => {
-          rotation.value = dragOrigin.value + event.translationX * degreesPerPixel;
-        })
-        .onEnd((event) => {
-          if (step <= 0) {
-            isDragging.value = false;
-            return;
-          }
-          const velocity = event.velocityX * degreesPerPixel;
-          const projected = rotation.value + velocity * 0.28;
-          const snapped = Math.round(projected / step) * step;
-          rotation.value = withSpring(
-            snapped,
-            {
-              ...SNAP_SPRING,
-              velocity,
-            },
-            () => {
-              isDragging.value = false;
-            }
-          );
-        }),
-    [degreesPerPixel, dragOrigin, isDragging, rotation, step]
-  );
-
-  const handleLayout = (event: LayoutChangeEvent) => {
-    const { width } = event.nativeEvent.layout;
-    if (width > 0) setContainerWidth(width);
-  };
+    if (viewportWidth <= 0 || total === 0) return;
+    const timeout = setTimeout(() => {
+      const width = cardWidthFor(safeIndex);
+      // +2 compensa el paddingHorizontal de scrollContent.
+      const x = (offsets[safeIndex] ?? 0) + 2;
+      scrollRef.current?.scrollTo({
+        x: Math.max(0, x - (viewportWidth - width) / 2),
+        animated: true,
+      });
+    }, 60);
+    return () => clearTimeout(timeout);
+  }, [cardWidthFor, offsets, safeIndex, total, viewportWidth]);
 
   const irA = (index: number) => {
-    if (index < 0 || index >= total) return;
+    if (index < 0 || index >= total || index === safeIndex) return;
     vibrarBoton();
-    const currentRot = rotation.value;
-    const baseTarget = -index * step;
-    const diff = ((((baseTarget - currentRot) % 360) + 540) % 360) - 180;
-    rotation.value = withSpring(currentRot + diff, SNAP_SPRING);
     onSelectEjercicio(index);
   };
 
-  const maxSpan = Math.min(Math.max(containerWidth - 80, 220) * 0.46, 150);
-  const cardWidth = isCompact ? 50 : 54;
-  const cardHeight = isCompact ? 60 : 64;
+  const seriesCompletadasSesion = ejercicios.reduce(
+    (acc, item) => acc + item.seriesCompletadas,
+    0
+  );
+  const totalSeriesSesion = ejercicios.reduce((acc, item) => acc + item.totalSeries, 0);
+  const progresoSesion =
+    totalSeriesSesion > 0
+      ? Math.min(100, Math.round((seriesCompletadasSesion / totalSeriesSesion) * 100))
+      : 0;
+
+  const handleViewportLayout = (event: LayoutChangeEvent) => {
+    const { width } = event.nativeEvent.layout;
+    if (width > 0 && Math.abs(width - viewportWidth) > 1) {
+      setViewportWidth(width);
+    }
+  };
 
   return (
-    <View style={[styles.outerContainer, style]} onLayout={handleLayout}>
-      <View style={styles.carouselRow}>
-        <Pressable
-          onPress={() => irA(safeIndex - 1)}
-          disabled={safeIndex <= 0}
-          style={({ pressed }) => [
-            styles.navArrowButton,
-            safeIndex <= 0 && styles.navArrowDisabled,
-            pressed && safeIndex > 0 && { opacity: 0.65 },
-          ]}
-          hitSlop={8}
-          accessibilityLabel="Ejercicio anterior"
-        >
-          <Ionicons name="chevron-back" size={13} color={noir.platinum} />
-        </Pressable>
+    <View style={[styles.outerContainer, style]}>
+      <View style={styles.headerRow}>
+        <View style={styles.headerCopy}>
+          <View style={styles.eyebrowRow}>
+            <View style={styles.liveDot} />
+            <Text style={styles.eyebrow}>SESIÓN EN VIVO</Text>
+          </View>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            Ejercicio {safeIndex + 1} de {Math.max(total, 1)}
+          </Text>
+        </View>
 
-        <GestureDetector gesture={panGesture}>
-          <View style={[styles.cylinderStage, { height: cardHeight + 16 }]}>
-            {total === 0 ? (
-              <Text style={styles.emptyText}>Sin ejercicios</Text>
-            ) : (
-              ejercicios.map((ejercicio, index) => (
-                <Carousel3DEjercicioFace
+        <View style={styles.headerStats}>
+          <Text style={styles.headerStatsValue}>
+            {seriesCompletadasSesion}
+            <Text style={styles.headerStatsMuted}>/{totalSeriesSesion}</Text>
+          </Text>
+          <Text style={styles.headerStatsLabel}>SERIES</Text>
+        </View>
+      </View>
+
+      <View style={styles.overallTrack}>
+        <View style={[styles.overallFill, { width: `${progresoSesion}%` }]} />
+      </View>
+
+      <View style={styles.filmstripRow}>
+        {total > 1 && (
+          <Pressable
+            onPress={() => irA(safeIndex - 1)}
+            disabled={safeIndex <= 0}
+            style={({ pressed }) => [
+              styles.navArrowButton,
+              safeIndex <= 0 && styles.navArrowDisabled,
+              pressed && safeIndex > 0 && { opacity: 0.65 },
+            ]}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: safeIndex <= 0 }}
+            accessibilityLabel="Ejercicio anterior"
+          >
+            <Ionicons name="chevron-back" size={14} color={noir.platinum} />
+          </Pressable>
+        )}
+
+        <View style={styles.scrollWrap} onLayout={handleViewportLayout}>
+          {total === 0 ? (
+            <Text style={styles.emptyText}>Sin ejercicios</Text>
+          ) : (
+            <ScrollView
+              ref={scrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              bounces={false}
+              contentContainerStyle={styles.scrollContent}
+            >
+              {ejercicios.map((ejercicio, index) => (
+                <CarouselEjercicioCard
                   key={ejercicio.id || `${ejercicio.nombre}-${index}`}
-                  index={index}
                   item={ejercicio}
                   activo={index === safeIndex}
-                  cardWidth={cardWidth}
-                  cardHeight={cardHeight}
-                  rotation={rotation}
-                  maxSpan={maxSpan}
-                  step={step}
+                  width={cardWidthFor(index)}
+                  height={cardHeight}
                   onPress={() => irA(index)}
                 />
-              ))
-            )}
-          </View>
-        </GestureDetector>
+              ))}
+            </ScrollView>
+          )}
+        </View>
 
-        <Pressable
-          onPress={() => irA(safeIndex + 1)}
-          disabled={safeIndex >= total - 1}
-          style={({ pressed }) => [
-            styles.navArrowButton,
-            safeIndex >= total - 1 && styles.navArrowDisabled,
-            pressed && safeIndex < total - 1 && { opacity: 0.65 },
-          ]}
-          hitSlop={8}
-          accessibilityLabel="Ejercicio siguiente"
-        >
-          <Ionicons name="chevron-forward" size={13} color={noir.platinum} />
-        </Pressable>
+        {total > 1 && (
+          <Pressable
+            onPress={() => irA(safeIndex + 1)}
+            disabled={safeIndex >= total - 1}
+            style={({ pressed }) => [
+              styles.navArrowButton,
+              safeIndex >= total - 1 && styles.navArrowDisabled,
+              pressed && safeIndex < total - 1 && { opacity: 0.65 },
+            ]}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: safeIndex >= total - 1 }}
+            accessibilityLabel="Ejercicio siguiente"
+          >
+            <Ionicons name="chevron-forward" size={14} color={noir.platinum} />
+          </Pressable>
+        )}
       </View>
     </View>
   );
 }
 
-interface FaceProps {
-  index: number;
+interface CardProps {
   item: EjercicioCarruselItem;
   activo: boolean;
-  cardWidth: number;
-  cardHeight: number;
-  rotation: SharedValue<number>;
-  maxSpan: number;
-  step: number;
+  width: number;
+  height: number;
   onPress: () => void;
 }
 
-function Carousel3DEjercicioFace({
-  index,
-  item,
-  activo,
-  cardWidth,
-  cardHeight,
-  rotation,
-  maxSpan,
-  step,
-  onPress,
-}: FaceProps) {
-  const gifInfo = obtenerGifEjercicio(item.nombre);
-  const nombreCorto =
-    item.nombre.replace(/^\[U(NILATERAL)?\]\s*/i, '').split(' ')[0] || 'Ej.';
+function CarouselEjercicioCard({ item, activo, width, height, onPress }: CardProps) {
+  const nombreVisible =
+    parsearEjercicioInfo({ nombre: item.nombre }).nombreLimpio || item.nombre;
+  const gifInfo = obtenerGifEjercicio(nombreVisible);
   const completado =
-    item.completado || (item.totalSeries > 0 && item.seriesCompletadas >= item.totalSeries);
-
-  const animatedFaceStyle = useAnimatedStyle(() => {
-    'worklet';
-    if (step <= 0) {
-      return {
-        opacity: 1,
-        zIndex: 200,
-        transform: [{ perspective: 700 }],
-      };
-    }
-
-    const angle = rotation.value + index * step;
-    const norm = ((((angle % 360) + 540) % 360) - 180);
-    const absNorm = Math.abs(norm);
-    const sign = norm >= 0 ? 1 : -1;
-    const t = Math.min(absNorm / 180, 1);
-
-    // Distribución curva tipo cilindro: más cerca del centro = más grande.
-    const translateX = sign * maxSpan * Math.pow(t, 0.72);
-    const scale = interpolate(
-      absNorm,
-      [0, 180],
-      [1.08, 0.62],
-      Extrapolation.CLAMP
-    );
-    const opacity = interpolate(
-      absNorm,
-      [0, 90, 150, 180],
-      [1, 0.62, 0.22, 0],
-      Extrapolation.CLAMP
-    );
-    const rotateY = `${sign * Math.min(absNorm * 0.28, 38)}deg`;
-    const translateY = interpolate(
-      absNorm,
-      [0, 60],
-      [-2, 0],
-      Extrapolation.CLAMP
-    );
-    const zIndex = Math.round(200 - absNorm);
-
-    return {
-      opacity,
-      zIndex,
-      transform: [
-        { perspective: 700 },
-        { translateX },
-        { translateY },
-        { rotateY },
-        { scale },
-      ],
-    };
-  }, [index, maxSpan, step]);
+    item.completado ||
+    (item.totalSeries > 0 && item.seriesCompletadas >= item.totalSeries);
+  const progreso =
+    item.totalSeries > 0
+      ? Math.min(100, Math.round((item.seriesCompletadas / item.totalSeries) * 100))
+      : 0;
 
   return (
-    <Animated.View
-      style={[
-        styles.faceItem,
-        {
-          width: cardWidth,
-          height: cardHeight,
-          marginLeft: -cardWidth / 2,
-        },
-        animatedFaceStyle,
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.card,
+        { width, height },
+        activo ? styles.cardActive : styles.cardInactive,
+        pressed && { opacity: 0.9, transform: [{ scale: 0.985 }] },
       ]}
+      accessibilityRole="button"
+      accessibilityState={{ selected: activo }}
+      accessibilityLabel={`${item.nombre}. ${item.seriesCompletadas} de ${item.totalSeries} series completadas`}
     >
-      <Pressable
-        onPress={onPress}
-        style={({ pressed }) => [
-          styles.chip,
-          activo ? styles.chipActive : styles.chipInactive,
-          pressed && { opacity: 0.86 },
-        ]}
-        accessibilityRole="button"
-        accessibilityState={{ selected: activo }}
-        accessibilityLabel={`${item.nombre}. ${item.seriesCompletadas} de ${item.totalSeries} series`}
-      >
-        {activo && (
-          <LinearGradient
-            pointerEvents="none"
-            colors={['#FFFFFF', '#EDF2F9', '#C9D4E3']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={[StyleSheet.absoluteFill, { borderRadius: 12 }]}
-          />
-        )}
+      {activo && (
+        <LinearGradient
+          pointerEvents="none"
+          colors={['#FFFFFF', '#F1F5FB', '#CFD9E7']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.35, y: 1 }}
+          style={[StyleSheet.absoluteFill, { borderRadius: 14 }]}
+        />
+      )}
 
-        <View style={[styles.thumbCircle, activo && styles.thumbCircleActive]}>
+      <View style={styles.cardTopRow}>
+        <View
+          style={[
+            styles.thumb,
+            activo && styles.thumbActive,
+            completado && !activo && styles.thumbDone,
+          ]}
+        >
           <EjercicioGif
             uri={gifInfo.gifUrl}
             style={styles.thumbImage}
             contentFit="contain"
-            animated={false}
+            animated={activo}
+            paused={!activo}
           />
         </View>
 
-        <Text
-          numberOfLines={1}
-          style={[
-            styles.chipLabel,
-            activo ? styles.chipLabelActive : styles.chipLabelInactive,
-          ]}
-        >
-          {nombreCorto}
-        </Text>
-
         <View
           style={[
-            styles.statusDot,
-            completado
-              ? styles.statusDotDone
-              : activo
-              ? styles.statusDotActive
-              : styles.statusDotIdle,
+            styles.statusChip,
+            activo && styles.statusChipActive,
+            completado && styles.statusChipDone,
+          ]}
+        >
+          {completado ? (
+            <Ionicons
+              name="checkmark"
+              size={10}
+              color={activo ? '#0A6B4B' : noir.mint}
+            />
+          ) : (
+            <Text style={[styles.statusText, activo && styles.statusTextActive]}>
+              {item.seriesCompletadas}/{item.totalSeries}
+            </Text>
+          )}
+        </View>
+      </View>
+
+      <Text
+        numberOfLines={2}
+        style={[styles.cardName, activo ? styles.cardNameActive : styles.cardNameInactive]}
+      >
+        {nombreVisible}
+      </Text>
+
+      <View style={[styles.cardTrack, activo && styles.cardTrackActive]}>
+        <View
+          style={[
+            styles.cardFill,
+            { width: `${progreso}%` },
+            activo
+              ? styles.cardFillActive
+              : completado
+              ? styles.cardFillDone
+              : styles.cardFillIdle,
           ]}
         />
-      </Pressable>
-    </Animated.View>
+      </View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   outerContainer: {
-    backgroundColor: 'rgba(10, 12, 17, 0.86)',
-    borderRadius: 15,
+    backgroundColor: 'rgba(10, 12, 17, 0.9)',
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.075)',
-    paddingVertical: 4,
-    paddingHorizontal: 4,
+    paddingTop: 10,
+    paddingBottom: 8,
+    paddingHorizontal: 8,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.26,
     shadowRadius: 16,
     elevation: 5,
   },
-  carouselRow: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+    gap: 10,
+  },
+  headerCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  eyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  liveDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: noir.mint,
+  },
+  eyebrow: {
+    color: noir.muted2,
+    fontFamily: fuentes.bold,
+    fontSize: 7.5,
+    letterSpacing: 1,
+  },
+  headerTitle: {
+    color: noir.text,
+    fontFamily: fuentes.extraBold,
+    fontSize: 12.5,
+    letterSpacing: -0.15,
+    marginTop: 1,
+  },
+  headerStats: {
+    alignItems: 'flex-end',
+    minWidth: 46,
+  },
+  headerStatsValue: {
+    color: noir.text,
+    fontFamily: fuentes.black,
+    fontSize: 14,
+    lineHeight: 15,
+  },
+  headerStatsMuted: {
+    color: noir.muted2,
+    fontFamily: fuentes.bold,
+    fontSize: 9,
+  },
+  headerStatsLabel: {
+    color: noir.muted2,
+    fontFamily: fuentes.bold,
+    fontSize: 6.5,
+    letterSpacing: 0.9,
+    marginTop: 1,
+  },
+  overallTrack: {
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    overflow: 'hidden',
+    marginTop: 7,
+    marginBottom: 8,
+    marginHorizontal: 2,
+  },
+  overallFill: {
+    height: '100%',
+    borderRadius: 2,
+    backgroundColor: noir.pearl,
+  },
+  filmstripRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
   },
   navArrowButton: {
-    width: 22,
-    height: 52,
-    borderRadius: 7,
+    width: 24,
+    height: 42,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.035)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    zIndex: 2,
   },
   navArrowDisabled: {
-    opacity: 0.25,
+    opacity: 0.22,
   },
-  cylinderStage: {
+  scrollWrap: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    overflow: 'visible',
-  },
-  faceItem: {
-    position: 'absolute',
-    top: 8,
-    left: '50%',
-  },
-  chip: {
-    flex: 1,
-    width: '100%',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    paddingVertical: 4,
-    borderWidth: 1,
+    minWidth: 0,
     overflow: 'hidden',
   },
-  chipInactive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.032)',
+  scrollContent: {
+    alignItems: 'center',
+    gap: CARD_GAP,
+    paddingHorizontal: 2,
+    paddingVertical: 2,
+  },
+  card: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 7,
+    justifyContent: 'space-between',
+  },
+  cardInactive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.035)',
     borderColor: 'rgba(255, 255, 255, 0.065)',
   },
-  chipActive: {
+  cardActive: {
     backgroundColor: '#FFFFFF',
-    borderColor: 'rgba(255, 255, 255, 0.82)',
+    borderColor: 'rgba(255, 255, 255, 0.9)',
     shadowColor: '#CEE1F7',
-    shadowOffset: { width: 0, height: 9 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    elevation: 5,
   },
-  thumbCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 2,
+  },
+  thumb: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: 'rgba(9, 11, 15, 0.72)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.11)',
+    borderColor: 'rgba(255, 255, 255, 0.09)',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  thumbCircleActive: {
+  thumbActive: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: '#090B0F',
-    borderColor: 'rgba(9, 11, 15, 0.28)',
+    borderColor: 'rgba(9, 11, 15, 0.22)',
+  },
+  thumbDone: {
+    borderColor: 'rgba(63, 242, 176, 0.3)',
   },
   thumbImage: {
     width: '94%',
     height: '94%',
   },
-  chipLabel: {
-    maxWidth: '100%',
-    paddingHorizontal: 2,
+  statusChip: {
+    minWidth: 20,
+    height: 15,
+    paddingHorizontal: 3,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.055)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusChipActive: {
+    backgroundColor: 'rgba(9, 12, 18, 0.08)',
+  },
+  statusChipDone: {
+    backgroundColor: 'rgba(63, 242, 176, 0.16)',
+  },
+  statusText: {
+    color: noir.muted,
     fontFamily: fuentes.bold,
-    fontSize: 6.8,
-    lineHeight: 8,
-    letterSpacing: 0.25,
+    fontSize: 6.5,
+    letterSpacing: 0.1,
+  },
+  statusTextActive: {
+    color: 'rgba(9, 12, 18, 0.62)',
+  },
+  cardName: {
+    fontFamily: fuentes.bold,
     textTransform: 'uppercase',
-    textAlign: 'center',
+    letterSpacing: 0.2,
+    marginTop: 4,
   },
-  chipLabelActive: {
+  cardNameActive: {
     color: '#090B0F',
+    fontSize: 9.5,
+    lineHeight: 11.5,
   },
-  chipLabelInactive: {
-    color: 'rgba(255, 255, 255, 0.5)',
+  cardNameInactive: {
+    color: 'rgba(255, 255, 255, 0.52)',
+    fontSize: 8,
+    lineHeight: 10,
   },
-  statusDot: {
-    position: 'absolute',
-    top: 3,
-    right: 3,
-    width: 4,
-    height: 4,
+  cardTrack: {
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    overflow: 'hidden',
+    marginTop: 5,
+  },
+  cardTrackActive: {
+    backgroundColor: 'rgba(9, 12, 18, 0.12)',
+  },
+  cardFill: {
+    height: '100%',
     borderRadius: 2,
   },
-  statusDotDone: {
+  cardFillActive: {
+    backgroundColor: '#090B0F',
+  },
+  cardFillIdle: {
+    backgroundColor: 'rgba(255, 255, 255, 0.36)',
+  },
+  cardFillDone: {
     backgroundColor: noir.mint,
-  },
-  statusDotActive: {
-    backgroundColor: 'rgba(9, 12, 18, 0.6)',
-  },
-  statusDotIdle: {
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
   },
   emptyText: {
     color: noir.muted2,
     fontFamily: fuentes.medium,
     fontSize: 10,
+    paddingVertical: 18,
+    textAlign: 'center',
   },
 });

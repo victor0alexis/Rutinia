@@ -209,6 +209,52 @@ export async function actualizarEjecucionEjercicio(
   if (error) throw error;
 }
 
+/**
+ * Elimina filas de ejercicios que ya no forman parte de la sesión guardada.
+ * Es la red de seguridad para sustituciones/eliminaciones: evita que el
+ * ejercicio anterior quede huérfano en la base de datos y reaparezca en el
+ * historial. Nunca toca las filas de notas (📌).
+ */
+export async function eliminarEjerciciosObsoletos(
+  registroId: string,
+  idsConservados: string[]
+): Promise<void> {
+  if (idsConservados.length === 0) return;
+
+  const { data, error } = await supabase
+    .from('ejercicios_registro')
+    .select('id, nombre')
+    .eq('registro_id', registroId);
+
+  if (error) {
+    console.warn('No se pudieron revisar ejercicios obsoletos:', error.message);
+    return;
+  }
+
+  const ids = new Set(idsConservados);
+  const idsObsoletos = (data ?? [])
+    .filter((fila) => {
+      if (ids.has(fila.id)) return false;
+      const nombre = fila.nombre || '';
+      return (
+        !nombre.startsWith(PREFIJO_OBSERVACIONES) &&
+        !nombre.startsWith(PREFIJO_NOTA_EJERCICIO)
+      );
+    })
+    .map((fila) => fila.id);
+
+  if (idsObsoletos.length === 0) return;
+
+  const { error: errorDelete } = await supabase
+    .from('ejercicios_registro')
+    .delete()
+    .in('id', idsObsoletos);
+
+  if (errorDelete) {
+    console.warn('No se pudieron eliminar ejercicios obsoletos:', errorDelete.message);
+  }
+}
+
 export async function actualizarEstadoRegistro(
   registroId: string,
   datos: {

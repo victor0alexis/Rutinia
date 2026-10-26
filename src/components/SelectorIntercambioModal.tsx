@@ -130,9 +130,18 @@ export default function SelectorIntercambioModal({
           <View style={styles.sheetHeader}>
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Ionicons name="swap-horizontal" size={16} color={noir.info} />
-                <Text style={styles.headerSubtitle}>
-                  {modo === 'solo_hoy' ? 'SUSTITUIR SOLO HOY' : 'REEMPLAZO PERMANENTE EN RUTINA'}
+                <Ionicons
+                  name={modo === 'solo_hoy' ? 'today-outline' : 'repeat'}
+                  size={16}
+                  color={modo === 'solo_hoy' ? noir.info : noir.lavender}
+                />
+                <Text
+                  style={[
+                    styles.headerSubtitle,
+                    modo === 'rutina' && { color: noir.lavender },
+                  ]}
+                >
+                  {modo === 'solo_hoy' ? 'CAMBIO SOLO POR HOY' : 'CAMBIO PERMANENTE EN RUTINA'}
                 </Text>
               </View>
               <Text style={styles.headerTitle} numberOfLines={1}>
@@ -168,6 +177,41 @@ export default function SelectorIntercambioModal({
                 <Ionicons name="close-circle" size={16} color={noir.muted} />
               </Pressable>
             )}
+          </View>
+
+          {/* Explicación del alcance del cambio */}
+          <View
+            style={[
+              styles.modeBanner,
+              modo === 'solo_hoy' ? styles.modeBannerTemporal : styles.modeBannerPermanente,
+            ]}
+          >
+            <View
+              style={[
+                styles.modeBannerIcon,
+                modo === 'solo_hoy'
+                  ? styles.modeBannerIconTemporal
+                  : styles.modeBannerIconPermanente,
+              ]}
+            >
+              <Ionicons
+                name={modo === 'solo_hoy' ? 'today-outline' : 'repeat'}
+                size={16}
+                color={modo === 'solo_hoy' ? noir.info : noir.lavender}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.modeBannerTitle}>
+                {modo === 'solo_hoy'
+                  ? 'El original desaparece solo de esta sesión'
+                  : 'El original desaparece de la rutina'}
+              </Text>
+              <Text style={styles.modeBannerText}>
+                {modo === 'solo_hoy'
+                  ? 'El nuevo ejercicio empieza sin series ni repeticiones: añádelas a tu medida. Podrás deshacerlo al instante.'
+                  : 'El nuevo ejercicio hereda las series, repeticiones y peso del original, y se usará en las próximas sesiones.'}
+              </Text>
+            </View>
           </View>
 
           {/* Botón Acceso Rápido a Biblioteca Anatómica con GIFs */}
@@ -444,6 +488,52 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontFamily: fuentes.medium,
     padding: 0,
+  },
+  modeBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 9,
+    borderRadius: 11,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    marginTop: 9,
+  },
+  modeBannerTemporal: {
+    backgroundColor: 'rgba(92, 200, 255, 0.045)',
+    borderColor: 'rgba(92, 200, 255, 0.16)',
+  },
+  modeBannerPermanente: {
+    backgroundColor: 'rgba(179, 148, 255, 0.045)',
+    borderColor: 'rgba(179, 148, 255, 0.18)',
+  },
+  modeBannerIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  modeBannerIconTemporal: {
+    backgroundColor: 'rgba(92, 200, 255, 0.1)',
+    borderColor: 'rgba(92, 200, 255, 0.2)',
+  },
+  modeBannerIconPermanente: {
+    backgroundColor: 'rgba(179, 148, 255, 0.1)',
+    borderColor: 'rgba(179, 148, 255, 0.22)',
+  },
+  modeBannerTitle: {
+    color: noir.text,
+    fontFamily: fuentes.bold,
+    fontSize: 11.5,
+  },
+  modeBannerText: {
+    color: noir.muted,
+    fontFamily: fuentes.regular,
+    fontSize: 9.5,
+    lineHeight: 13,
+    marginTop: 2,
   },
   scrollList: {
     marginTop: 10,

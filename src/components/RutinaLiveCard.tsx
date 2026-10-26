@@ -82,6 +82,7 @@ export default function RutinaLiveCard({
   const estaEnProceso = Boolean(
     sesionActivaInfo && sesionActivaInfo.registroId === registro.id
   );
+  const estaPausada = estaEnProceso && Boolean(sesionActivaInfo?.pausado);
   const estaFinalizada = Boolean(registro.completado && !estaEnProceso);
   const estaPendiente = !estaFinalizada && !estaEnProceso;
 
@@ -92,7 +93,7 @@ export default function RutinaLiveCard({
 
   useEffect(() => {
     cancelAnimation(livePulso);
-    if (!estaEnProceso || reduceMotion) {
+    if (!estaEnProceso || estaPausada || reduceMotion) {
       livePulso.value = 0;
       return;
     }
@@ -107,27 +108,33 @@ export default function RutinaLiveCard({
     );
 
     return () => cancelAnimation(livePulso);
-  }, [estaEnProceso, livePulso, reduceMotion]);
+  }, [estaEnProceso, estaPausada, livePulso, reduceMotion]);
 
   const livePulseStyle = useAnimatedStyle(() => ({
     opacity: 0.38 + livePulso.value * 0.28,
     transform: [{ scale: 1 + livePulso.value * 1.15 }],
   }));
 
-  // Cronómetro en vivo si está en proceso
-  const [segundosDelta, setSegundosDelta] = useState(0);
+  // Cronómetro en vivo. Se ancla al último cálculo persistido para evitar
+  // saltos cuando la sesión emite actualizaciones (series, notas, pausa...).
+  const [nowTick, setNowTick] = useState(() => Date.now());
 
   useEffect(() => {
-    if (!estaEnProceso) return;
+    if (!estaEnProceso || estaPausada) return;
 
     const interval = setInterval(() => {
-      setSegundosDelta((prev) => prev + 1);
+      setNowTick(Date.now());
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [estaEnProceso]);
+  }, [estaEnProceso, estaPausada]);
 
-  const segundosEnVivo = (sesionActivaInfo?.segsTranscurridos || 0) + segundosDelta;
+  const segundosBase = sesionActivaInfo?.segsTranscurridos || 0;
+  const segundosDesdeActualizacion =
+    estaPausada || !sesionActivaInfo?.actualizadoEn
+      ? 0
+      : Math.max(0, Math.floor((nowTick - sesionActivaInfo.actualizadoEn) / 1000));
+  const segundosEnVivo = segundosBase + segundosDesdeActualizacion;
 
   // Duración final guardada si está finalizada
   const duracionDb = parsearNotasSesion(registro.notas).duracionSegundos;
@@ -380,24 +387,44 @@ export default function RutinaLiveCard({
           {/* Badge de Estado */}
           {estaEnProceso &&
             (esHome ? (
-              <LinearGradient
-                colors={[
-                  'rgba(63, 242, 176, 0.22)',
-                  'rgba(63, 242, 176, 0.06)',
-                ]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.badgeLiveHome}
-              >
-                <View style={styles.liveDotWrap}>
-                  <Animated.View
-                    pointerEvents="none"
-                    style={[styles.liveDotHalo, livePulseStyle]}
-                  />
-                  <View style={styles.liveDotCore} />
-                </View>
-                <Text style={styles.badgeLiveTextHome}>EN PROCESO</Text>
-              </LinearGradient>
+              estaPausada ? (
+                <LinearGradient
+                  colors={[
+                    'rgba(255, 209, 102, 0.2)',
+                    'rgba(255, 209, 102, 0.05)',
+                  ]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.badgePausedHome}
+                >
+                  <Ionicons name="pause" size={10} color="#FFD166" />
+                  <Text style={styles.badgePausedTextHome}>PAUSADO</Text>
+                </LinearGradient>
+              ) : (
+                <LinearGradient
+                  colors={[
+                    'rgba(63, 242, 176, 0.22)',
+                    'rgba(63, 242, 176, 0.06)',
+                  ]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.badgeLiveHome}
+                >
+                  <View style={styles.liveDotWrap}>
+                    <Animated.View
+                      pointerEvents="none"
+                      style={[styles.liveDotHalo, livePulseStyle]}
+                    />
+                    <View style={styles.liveDotCore} />
+                  </View>
+                  <Text style={styles.badgeLiveTextHome}>EN PROCESO</Text>
+                </LinearGradient>
+              )
+            ) : estaPausada ? (
+              <View style={styles.badgePausado}>
+                <Ionicons name="pause" size={10} color="#FFD166" />
+                <Text style={styles.badgePausadoText}>PAUSADO</Text>
+              </View>
             ) : (
               <View style={styles.badgeEnProceso}>
                 <View style={styles.dotLivePulse} />
@@ -493,12 +520,18 @@ export default function RutinaLiveCard({
           {estaEnProceso && (
             <View style={styles.timerSectionLive}>
               <View style={styles.timerPillsRowLive}>
-                <View style={styles.timerBoxHome}>
-                  <Ionicons name="time-outline" size={14} color="#FFD166" />
+                <View style={[styles.timerBoxHome, estaPausada && styles.timerBoxHomePaused]}>
+                  <Ionicons
+                    name={estaPausada ? 'pause' : 'time-outline'}
+                    size={14}
+                    color="#FFD166"
+                  />
                   <Text style={styles.timerTextHome}>
                     {formatearTiempo(segundosEnVivo)}
                   </Text>
-                  <Text style={styles.timerLabelHome}>CRONÓMETRO EN VIVO</Text>
+                  <Text style={styles.timerLabelHome}>
+                    {estaPausada ? 'CRONÓMETRO PAUSADO' : 'CRONÓMETRO EN VIVO'}
+                  </Text>
                 </View>
 
                 {totalSeriesLive > 0 && (
@@ -665,12 +698,18 @@ export default function RutinaLiveCard({
           {estaEnProceso && (
             <View style={styles.timerSectionLive}>
               <View style={styles.timerPillsRowLive}>
-                <View style={styles.timerBoxLive}>
-                  <Ionicons name="time" size={14} color="#F59E0B" />
+                <View style={[styles.timerBoxLive, estaPausada && styles.timerBoxLivePaused]}>
+                  <Ionicons
+                    name={estaPausada ? 'pause' : 'time'}
+                    size={14}
+                    color="#F59E0B"
+                  />
                   <Text style={styles.timerTextLive}>
                     {formatearTiempo(segundosEnVivo)}
                   </Text>
-                  <Text style={styles.timerLabelLive}>CRONÓMETRO EN VIVO</Text>
+                  <Text style={styles.timerLabelLive}>
+                    {estaPausada ? 'CRONÓMETRO PAUSADO' : 'CRONÓMETRO EN VIVO'}
+                  </Text>
                 </View>
 
                 {totalSeriesLive > 0 && (
@@ -1054,6 +1093,23 @@ const styles = StyleSheet.create({
     fontSize: 9.5,
     letterSpacing: 0.5,
   },
+  badgePausado: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 209, 102, 0.14)',
+    borderColor: 'rgba(255, 209, 102, 0.4)',
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  badgePausadoText: {
+    color: '#FFD166',
+    fontFamily: fuentes.bold,
+    fontSize: 9.5,
+    letterSpacing: 0.5,
+  },
   badgeFinalizada: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1105,6 +1161,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: 'rgba(245, 158, 11, 0.25)',
+  },
+  timerBoxLivePaused: {
+    backgroundColor: 'rgba(245, 158, 11, 0.06)',
+    borderColor: 'rgba(245, 158, 11, 0.16)',
   },
   timerTextLive: {
     fontFamily: fuentes.bold,
@@ -1461,6 +1521,22 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 0.8,
   },
+  badgePausedHome: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 9999,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 209, 102, 0.5)',
+  },
+  badgePausedTextHome: {
+    color: '#FFD166',
+    fontFamily: fuentes.bold,
+    fontSize: 10,
+    letterSpacing: 0.8,
+  },
   iconButtonHome: {
     backgroundColor: noir.glass,
     borderColor: noir.line,
@@ -1519,6 +1595,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 209, 102, 0.45)',
     backgroundColor: 'rgba(255, 209, 102, 0.08)',
     alignSelf: 'flex-start',
+  },
+  timerBoxHomePaused: {
+    borderColor: 'rgba(255, 209, 102, 0.24)',
+    backgroundColor: 'rgba(255, 209, 102, 0.045)',
   },
   timerTextHome: {
     fontFamily: fuentes.bold,
