@@ -57,7 +57,8 @@ export default function Root({ children }: PropsWithChildren) {
             padding: 0;
             width: 100%;
             height: 100%;
-            background: #080A0F;
+            background: linear-gradient(to bottom, #080A0F calc(100% - 90px), #0B0D13 calc(100% - 64px), #0B0D13 100%);
+            background-color: #0B0D13;
             color: #F9FAFB;
             overflow: hidden !important;
             overscroll-behavior: none !important;
@@ -77,7 +78,8 @@ export default function Root({ children }: PropsWithChildren) {
             height: 100%;
             display: flex;
             flex-direction: column;
-            background: #080A0F;
+            background: linear-gradient(to bottom, #080A0F calc(100% - 90px), #0B0D13 calc(100% - 64px), #0B0D13 100%);
+            background-color: #080A0F;
             overflow: hidden !important;
             overscroll-behavior: none !important;
             -webkit-overscroll-behavior: none !important;
