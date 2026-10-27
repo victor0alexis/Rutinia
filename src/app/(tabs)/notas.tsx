@@ -58,8 +58,8 @@ export default function Notas() {
   } = useLayout();
   const isFocused = useIsFocused();
 
-  // El contenido y botón de notas quedan exactamente a 12 px sobre la barra de pestañas
-  const tabBottomPadding = tabBarHeight + 12;
+  // Padding inferior para listas: exactamente a 16 px sobre la barra de pestañas
+  const tabBottomPadding = tabBarHeight + 16;
 
   const [notas, setNotas] = useState<NotaEstandar[]>([]);
   const [cargando, setCargando] = useState(true);

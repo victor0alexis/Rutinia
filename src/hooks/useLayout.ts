@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Keyboard, Platform, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { isIOSStandalone } from '../utils/viewportFix';
 
 export type FontScale = {
   xs: number;
@@ -111,10 +110,19 @@ export function useLayout(): Layout {
 
       // Si env(safe-area-inset-bottom) sigue en 0 en un iPhone con home indicator (screen.height >= 812),
       // usa un fallback de 34 px en portrait y 21 px en landscape SOLO en iOS web standalone
-      if (resolvedBottomInset === 0 && isIOSStandalone()) {
-        const scrH = Math.max(window.screen.width, window.screen.height);
-        if (scrH >= 812) {
-          resolvedBottomInset = isLandscape ? 21 : 34;
+      if (resolvedBottomInset === 0) {
+        const isIOS =
+          /iPhone|iPad|iPod/i.test(navigator.userAgent || '') ||
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isStandalone =
+          Boolean((navigator as any)?.standalone) ||
+          (window.matchMedia ? window.matchMedia('(display-mode: standalone)').matches : false);
+
+        if (isIOS && isStandalone) {
+          const scrH = Math.max(window.screen.width, window.screen.height);
+          if (scrH >= 812) {
+            resolvedBottomInset = isLandscape ? 21 : 34;
+          }
         }
       }
     }

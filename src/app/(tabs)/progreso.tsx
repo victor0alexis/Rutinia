@@ -116,7 +116,7 @@ export default function ProgresoScreen() {
     tabBarHeight,
   } = useLayout();
   const isFocused = useIsFocused();
-  const tabBottomPadding = tabBarHeight + 12;
+  const tabBottomPadding = tabBarHeight + 16;
 
   const [periodo, setPeriodo] = useState<PeriodoFiltro>('mes');
   const [planes, setPlanes] = useState<PlanEntrenamiento[]>([]);

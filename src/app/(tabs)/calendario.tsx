@@ -187,7 +187,7 @@ export default function CalendarioScreen() {
             alignSelf: 'center',
             paddingHorizontal: gutter,
             paddingTop: 10,
-            paddingBottom: tabBarHeight + 12,
+            paddingBottom: tabBarHeight + 16,
             gap: 14,
           }}
           showsVerticalScrollIndicator={false}
