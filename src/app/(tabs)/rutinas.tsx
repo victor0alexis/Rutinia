@@ -28,14 +28,12 @@ import ScreenBackground from '../../components/ScreenBackground';
 import DockPrincipal from '../../components/DockPrincipal';
 import ShinyText from '../../components/ShinyText';
 import YoungNewtButton from '../../components/YoungNewtButton';
-import GradientText from '../../components/GradientText';
-import { RutiniaLogo } from '../../components/RutiniaLogo';
 import { LiquidMetalButton } from '../../components/LiquidMetalButton';
 import GestionarPlanModal from '../../components/GestionarPlanModal';
 import EliminarPlanModal from '../../components/EliminarPlanModal';
 import AplicarPlanSemanaModal from '../../components/AplicarPlanSemanaModal';
 import GestionarRutinaModal from '../../components/GestionarRutinaModal';
-import { supabase } from '../../lib/supabase';
+import EditorialHeader from '../../components/EditorialHeader';
 import { subscribirCambioDatos } from '../../utils/sincronizacion';
 import { diasDeSemana } from '../../utils/fechas';
 import { vibrarBoton } from '../../utils/haptics';
@@ -58,7 +56,6 @@ import { PlanEntrenamiento, Rutina } from '../../types';
 import { useLayout } from '../../hooks/useLayout';
 import { mostrarMensaje, seguro } from '../../utils/errores';
 
-const TITLE_GRADIENT_COLORS = ['#F2F6FC', '#C9D1DD', '#FFFFFF', '#C9D1DD', '#F2F6FC'];
 const DANGER = '#F08A9B';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
@@ -517,10 +514,6 @@ export default function RutinasScreen() {
   const undoTimerRef = useRef<any>(null);
   const undoIntervalRef = useRef<any>(null);
 
-  // Menú de cuenta
-  const [avatarInicial, setAvatarInicial] = useState('A');
-  const [emailCuenta, setEmailCuenta] = useState('');
-  const [menuCuentaVisible, setMenuCuentaVisible] = useState(false);
 
   // Referencias para evitar condiciones de carrera o closures obsoletas al cambiar de nivel
   const planSeleccionadoRef = useRef<PlanEntrenamiento | null>(null);
@@ -558,18 +551,6 @@ export default function RutinasScreen() {
     viendoSinPlanRef.current = viendoSinPlan;
   }, [viendoSinPlan]);
 
-  useEffect(() => {
-    seguro(async () => {
-      const { data } = await supabase.auth.getSession();
-      const user = data.session?.user;
-      const nombre =
-        (user?.user_metadata?.nombre as string | undefined) ||
-        user?.email?.split('@')[0] ||
-        'Atleta';
-      setAvatarInicial(nombre.charAt(0).toUpperCase());
-      setEmailCuenta(user?.email || '');
-    });
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -695,12 +676,6 @@ export default function RutinasScreen() {
     }, 6000);
   };
 
-  const cerrarSesion = () => {
-    setMenuCuentaVisible(false);
-    seguro(async () => {
-      await supabase.auth.signOut();
-    });
-  };
 
   const toggleBusquedaDetalle = () => {
     setBusquedaDetalleVisible((visible) => {
@@ -1116,79 +1091,7 @@ export default function RutinasScreen() {
             },
           ]}
         >
-          <View
-            style={[
-              styles.headerWrap,
-              { justifyContent: 'space-between' },
-            ]}
-          >
-            <View style={styles.brandLockup}>
-              <RutiniaLogo size={30} />
-
-              <View style={styles.brandWordmark}>
-                <GradientText
-                  colors={TITLE_GRADIENT_COLORS}
-                  animationSpeed={8}
-                  direction="horizontal"
-                  scale={3}
-                  style={{
-                    fontSize: isCompact ? 19 : 21,
-                    lineHeight: 24,
-                    fontFamily: fuentes.extraBold,
-                    letterSpacing: -0.55,
-                  }}
-                >
-                  Rutinas
-                </GradientText>
-                <View style={styles.brandDotSmall} />
-              </View>
-            </View>
-
-            <View style={styles.avatarWrap}>
-              <Pressable
-                onPress={() => setMenuCuentaVisible((visible) => !visible)}
-                style={({ pressed }) => [
-                  styles.avatarButton,
-                  pressed && { opacity: 0.82, transform: [{ scale: 0.94 }] },
-                ]}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel="Abrir menú de cuenta"
-              >
-                <LinearGradient
-                  colors={['#232631', '#13151B']}
-                  start={{ x: 0.3, y: 0.1 }}
-                  end={{ x: 0.7, y: 0.95 }}
-                  style={styles.avatarGradient}
-                >
-                  <Text style={styles.avatarText}>{avatarInicial}</Text>
-                </LinearGradient>
-              </Pressable>
-              <View pointerEvents="none" style={styles.avatarStatus} />
-            </View>
-
-            {menuCuentaVisible && (
-              <View style={styles.accountMenu}>
-                <Text style={styles.accountMenuLabel}>CUENTA</Text>
-                <Text numberOfLines={1} style={styles.accountMenuEmail}>
-                  {emailCuenta || 'Sesión activa'}
-                </Text>
-                <View style={styles.accountMenuDivider} />
-                <Pressable
-                  onPress={cerrarSesion}
-                  style={({ pressed }) => [
-                    styles.accountMenuLogout,
-                    pressed && { opacity: 0.68 },
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Cerrar sesión"
-                >
-                  <Ionicons name="log-out-outline" size={15} color={noir.platinum} />
-                  <Text style={styles.accountMenuLogoutText}>Cerrar sesión</Text>
-                </Pressable>
-              </View>
-            )}
-          </View>
+          <EditorialHeader title="Rutinas" />
         </View>
 
         <ScrollView

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Modal,
   Pressable,
   StyleProp,
   StyleSheet,
@@ -9,13 +8,13 @@ import {
   ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 import { fuentes, noir } from '../constants/colores';
 import { useLayout } from '../hooks/useLayout';
 import { supabase } from '../lib/supabase';
 import { vibrarBoton } from '../utils/haptics';
 import GradientText from './GradientText';
 import { RutiniaLogo } from './RutiniaLogo';
+import MenuOpcionesModal from './MenuOpcionesModal';
 
 const TITLE_GRADIENT_COLORS = [
   '#FFFFFF',
@@ -33,24 +32,17 @@ type Props = {
 /**
  * Cabecera editorial compartida por las secciones principales.
  * Reproduce el lockup de marca con el logotipo oficial de Rutinia y el título de la sección,
- * y conserva el menú de cuenta detrás del avatar.
+ * y conserva el menú de cuenta y ajustes detrás del avatar.
  */
 export default function EditorialHeader({ title = 'Semana', style }: Props) {
-  const { gutter, topInset, isCompact, width, contentMaxWidth } = useLayout();
-  // El avatar vive dentro del contenido centrado; el menú debe nacer de su
-  // borde derecho también en tablet/escritorio, no del borde de la pantalla.
-  const menuRight = Math.max(gutter, (width - contentMaxWidth) / 2 + gutter);
+  const { isCompact } = useLayout();
   const [avatarInicial, setAvatarInicial] = useState('A');
-  const [emailCuenta, setEmailCuenta] = useState('');
   const [menuVisible, setMenuVisible] = useState(false);
 
-  useEffect(() => {
-    let activo = true;
-
+  const cargarInfoUsuario = () => {
     supabase.auth
       .getSession()
       .then(({ data }) => {
-        if (!activo) return;
         const user = data.session?.user;
         const nombre =
           user?.user_metadata?.full_name ||
@@ -59,22 +51,19 @@ export default function EditorialHeader({ title = 'Semana', style }: Props) {
           '';
         if (typeof nombre === 'string' && nombre.trim().length > 0) {
           setAvatarInicial(nombre.trim().charAt(0).toUpperCase());
+        } else {
+          setAvatarInicial('A');
         }
         setEmailCuenta(user?.email ?? '');
       })
       .catch(() => {
-        // El avatar de respaldo mantiene la cabecera estable sin sesión.
+        // Fallback
       });
-
-    return () => {
-      activo = false;
-    };
-  }, []);
-
-  const cerrarSesion = () => {
-    setMenuVisible(false);
-    supabase.auth.signOut();
   };
+
+  useEffect(() => {
+    cargarInfoUsuario();
+  }, []);
 
   return (
     <>
@@ -113,7 +102,7 @@ export default function EditorialHeader({ title = 'Semana', style }: Props) {
             ]}
             hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel="Abrir menú de cuenta"
+            accessibilityLabel="Abrir menú de cuenta y ajustes"
           >
             <LinearGradient
               colors={['#232631', '#13151B']}
@@ -128,49 +117,11 @@ export default function EditorialHeader({ title = 'Semana', style }: Props) {
         </View>
       </View>
 
-      <Modal
+      <MenuOpcionesModal
         visible={menuVisible}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setMenuVisible(false)}
-      >
-        <View style={styles.menuOverlay}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setMenuVisible(false)}
-            accessibilityLabel="Cerrar menú de cuenta"
-          />
-
-          <View
-            style={[
-              styles.accountMenu,
-              {
-                top: topInset + 46,
-                right: menuRight,
-              },
-            ]}
-          >
-            <Text style={styles.accountMenuLabel}>CUENTA</Text>
-            <Text numberOfLines={1} style={styles.accountMenuEmail}>
-              {emailCuenta || 'Sesión activa'}
-            </Text>
-            <View style={styles.accountMenuDivider} />
-            <Pressable
-              onPress={cerrarSesion}
-              style={({ pressed }) => [
-                styles.accountMenuLogout,
-                pressed && { opacity: 0.68 },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Cerrar sesión"
-            >
-              <Ionicons name="log-out-outline" size={15} color={noir.platinum} />
-              <Text style={styles.accountMenuLogoutText}>Cerrar sesión</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setMenuVisible(false)}
+        onSessionChange={cargarInfoUsuario}
+      />
     </>
   );
 }
@@ -247,56 +198,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.55,
     shadowRadius: 4,
     elevation: 2,
-  },
-  menuOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
-  },
-  accountMenu: {
-    position: 'absolute',
-    width: 218,
-    padding: 10,
-    borderRadius: 14,
-    backgroundColor: 'rgba(18, 20, 26, 0.98)',
-    borderWidth: 1,
-    borderColor: noir.lineStrong,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.55,
-    shadowRadius: 24,
-    elevation: 18,
-  },
-  accountMenuLabel: {
-    color: noir.muted2,
-    fontFamily: fuentes.bold,
-    fontSize: 8.5,
-    letterSpacing: 1.2,
-    paddingHorizontal: 4,
-    paddingTop: 2,
-  },
-  accountMenuEmail: {
-    color: noir.text,
-    fontFamily: fuentes.medium,
-    fontSize: 12,
-    paddingHorizontal: 4,
-    paddingTop: 4,
-  },
-  accountMenuDivider: {
-    height: 1,
-    backgroundColor: noir.line,
-    marginVertical: 8,
-  },
-  accountMenuLogout: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  accountMenuLogoutText: {
-    color: noir.platinum,
-    fontFamily: fuentes.semiBold,
-    fontSize: 12,
   },
 });
