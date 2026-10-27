@@ -19,7 +19,6 @@ import { colores } from '../constants/colores';
 import ConfirmModalGlobal from '../components/ConfirmModalGlobal';
 import { RutiniaLogo } from '../components/RutiniaLogo';
 import DebugViewportOverlay from '../components/DebugViewportOverlay';
-import { initViewportFix } from '../utils/viewportFix';
 
 import { StatusBar } from 'expo-status-bar';
 
@@ -45,7 +44,6 @@ export default function RootLayout() {
 
     // Inyectar fuente de iconos Ionicons en la web si no está cargada
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      initViewportFix();
       const styleId = 'expo-vector-icons-ionicons';
       if (!document.getElementById(styleId)) {
         try {

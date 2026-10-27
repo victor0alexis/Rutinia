@@ -18,7 +18,6 @@ import Animated, {
 import { fuentes, noir } from '../constants/colores';
 import { vibrarBoton } from '../utils/haptics';
 import { useLayout } from '../hooks/useLayout';
-import { isIOSStandalone } from '../utils/viewportFix';
 
 type TabRouteMeta = {
   name: string;
@@ -110,7 +109,6 @@ export default function SpotlightTabBar({
   };
 
   const isWeb = Platform.OS === 'web';
-  const isStandalone = isWeb && isIOSStandalone();
   const realBottomInset = Math.max(insets.bottom, bottomInset);
   const bottomInsetToUse = realBottomInset;
   const contentHeight = isLandscape ? 44 : 52;
@@ -123,7 +121,6 @@ export default function SpotlightTabBar({
       style={[
         styles.outerWrapper,
         isWeb && styles.outerWrapperWeb,
-        isStandalone && styles.outerWrapperStandalone,
       ]}
     >
       <View
@@ -253,8 +250,6 @@ export default function SpotlightTabBar({
           })}
         </View>
       </View>
-      {/* Extensión hacia abajo para garantizar 100% fondo sólido detrás del home indicator y en overscroll */}
-      <View pointerEvents="none" style={styles.bottomFiller} />
     </View>
   );
 }
@@ -274,15 +269,6 @@ const styles = StyleSheet.create({
   outerWrapperWeb: {
     // @ts-ignore
     position: 'fixed',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: '100%',
-    backgroundColor: '#0B0D13',
-  },
-  outerWrapperStandalone: {
-    // @ts-ignore
-    position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
@@ -309,14 +295,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.65,
     shadowRadius: 16,
     elevation: 16,
-  },
-  bottomFiller: {
-    position: 'absolute',
-    bottom: -300,
-    left: 0,
-    right: 0,
-    height: 300,
-    backgroundColor: '#0B0D13',
   },
   navbarContainerLandscape: {
     maxWidth: '100%',
