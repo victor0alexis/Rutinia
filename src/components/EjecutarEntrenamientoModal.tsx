@@ -19,9 +19,10 @@ import { LiquidMetalButton } from './LiquidMetalButton';
 import CarruselEjerciciosHeader from './entrenamiento/CarruselEjerciciosHeader';
 import HeroEjercicioActivo from './entrenamiento/HeroEjercicioActivo';
 import TablaSeriesFocus from './entrenamiento/TablaSeriesFocus';
+import HistorialEjercicioModal from './entrenamiento/HistorialEjercicioModal';
 import ResumenEntrenamientoModal from './ResumenEntrenamientoModal';
 import type { EdicionResumen, EjercicioResumen } from './ResumenEntrenamientoModal';
-import SelectorIntercambioModal from './SelectorIntercambioModal';
+import SelectorBibliotecaModal from './SelectorBibliotecaModal';
 import SmartWorkoutKeyboard, { CampoEntrenamiento } from './SmartWorkoutKeyboard';
 import {
   actualizarEjecucionEjercicio,
@@ -32,6 +33,7 @@ import {
   obtenerHistorialPrevioEjercicio,
   eliminarEjerciciosObsoletos,
 } from '../services/registros';
+import type { SesionHistorialEjercicio } from '../services/registros';
 import { reemplazarEjercicioEnRutina } from '../services/rutinas';
 import { seguro, mostrarMensaje } from '../utils/errores';
 import { parsearEjercicioInfo } from '../utils/ejercicios';
@@ -193,6 +195,17 @@ function numeroONull(valor?: string): number | null {
   return Number.isFinite(numero) ? numero : null;
 }
 
+const SUGERENCIAS_NOTA_EJERCICIO = [
+  'Asiento 4',
+  'Altura 5',
+  'Agarre medio',
+  'Tempo 3-1-1',
+  'Pausa 2 s',
+  'Rango completo',
+  'Control excéntrico',
+  'Sin molestias',
+];
+
 export default function EjecutarEntrenamientoModal({
   visible,
   registro,
@@ -244,6 +257,9 @@ export default function EjecutarEntrenamientoModal({
   const [serieMenu, setSerieMenu] = useState<{ ejIdx: number; sIdx: number } | null>(null);
   const [ejercicioMenu, setEjercicioMenu] = useState<number | null>(null);
   const [selectorIntercambio, setSelectorIntercambio] = useState<{ ejIdx: number; modo: 'solo_hoy' | 'rutina' } | null>(null);
+  const [reemplazoMenu, setReemplazoMenu] = useState<{ ejIdx: number } | null>(null);
+  const [previaEjercicio, setPreviaEjercicio] = useState<{ ejIdx: number; nombre: string } | null>(null);
+  const [solicitudTutorial, setSolicitudTutorial] = useState(0);
   const [modalNotaEjercicio, setModalNotaEjercicio] = useState<{ ejIdx: number; nota: string } | null>(null);
   const [confirmacionPermanente, setConfirmacionPermanente] = useState<{
     ejIdx: number;
@@ -615,6 +631,16 @@ export default function EjecutarEntrenamientoModal({
   const cambiarNotasSesion = (texto: string) => {
     setNotasSesion(texto);
     guardarDraftAuto(ejerciciosState, texto);
+  };
+
+  const agregarSugerenciaNota = (sugerencia: string) => {
+    setModalNotaEjercicio((prev) => {
+      if (!prev) return prev;
+      const actual = prev.nota.trim();
+      if (actual.toLowerCase().includes(sugerencia.toLowerCase())) return prev;
+      const nota = actual ? `${actual} · ${sugerencia}` : sugerencia;
+      return { ...prev, nota };
+    });
   };
 
   const toggleUnilateralEjercicio = (ejIdx: number) => {
@@ -1015,30 +1041,42 @@ export default function EjecutarEntrenamientoModal({
     });
   };
 
-  const copiarSeriesHistorial = (ejIndex: number) => {
-    const ej = ejerciciosState[ejIndex];
-    if (!ej) return;
-    const hist = historialMap[ej.nombre];
-    if (!hist || !hist.series.length) return;
+  const aplicarSeriesHistorial = (
+    ejIndex: number,
+    sesion: SesionHistorialEjercicio
+  ) => {
+    if (!sesion.series.length) return;
 
     setEjerciciosState((prev) => {
-      const next = prev.map((e, i) => {
-        if (i !== ejIndex) return e;
+      const next = prev.map((ej, i) => {
+        if (i !== ejIndex) return ej;
         return {
-          ...e,
-          series: e.series.map((s, sIdx) => {
-            const hPrev = hist.series[sIdx] || hist.series[hist.series.length - 1];
+          ...ej,
+          series: ej.series.map((serie, serieIdx) => {
+            const historica =
+              sesion.series[serieIdx] ||
+              sesion.series[sesion.series.length - 1];
+            if (!historica) return serie;
+
             return {
-              ...s,
-              peso: hPrev?.peso ? hPrev.peso : s.peso,
-              reps: hPrev?.reps ? hPrev.reps : s.reps,
-              rir: hPrev?.rir ? hPrev.rir : s.rir,
-              repsParciales: hPrev?.repsParciales !== undefined ? hPrev.repsParciales : s.repsParciales,
-              tieneParciales: Boolean(hPrev?.repsParciales && hPrev.repsParciales > 0),
-              esDropset: Boolean(hPrev?.esDropset || (hPrev?.drops && hPrev.drops.length > 0)),
-              drops: hPrev?.drops && hPrev.drops.length > 0
-                ? hPrev.drops.map((d) => ({ ...d }))
-                : s.drops,
+              ...serie,
+              peso: historica.pesoD > 0 ? String(historica.pesoD) : '',
+              reps: historica.repsD > 0 ? String(historica.repsD) : '',
+              pesoI: historica.pesoI > 0 ? String(historica.pesoI) : '',
+              repsI: historica.repsI > 0 ? String(historica.repsI) : '',
+              rir: historica.rir !== null ? String(historica.rir) : '',
+              nota: historica.nota || '',
+              repsParciales: historica.repsParciales || 0,
+              tieneParciales: Boolean(historica.repsParciales > 0),
+              esDropset: Boolean(
+                historica.esDropset || historica.drops.length > 0
+              ),
+              drops: historica.drops.map((drop) => ({
+                orden: drop.orden,
+                kg: drop.kg > 0 ? String(drop.kg) : '',
+                reps: drop.reps > 0 ? String(drop.reps) : '',
+                rir: drop.rir !== null ? String(drop.rir) : '',
+              })),
             };
           }),
         };
@@ -1046,6 +1084,32 @@ export default function EjecutarEntrenamientoModal({
       guardarDraftAuto(next);
       return next;
     });
+
+    mostrarSnackbar(
+      `Series copiadas desde tu sesión del ${sesion.fecha
+        .split('-')
+        .reverse()
+        .join('/')}.`
+    );
+  };
+
+  const abrirPrevia = (ejIdx: number) => {
+    const ej = ejerciciosState[ejIdx];
+    if (!ej) return;
+    setPreviaEjercicio({ ejIdx, nombre: ej.nombre });
+  };
+
+  const abrirReemplazo = (ejIdx: number) => {
+    setReemplazoMenu({ ejIdx });
+  };
+
+  const elegirModoReemplazo = (modo: 'solo_hoy' | 'rutina') => {
+    const ejIdx = reemplazoMenu?.ejIdx;
+    setReemplazoMenu(null);
+    if (ejIdx === undefined) return;
+    setTimeout(() => {
+      setSelectorIntercambio({ ejIdx, modo });
+    }, 160);
   };
 
   // Intercambiar Ejercicio
@@ -1765,19 +1829,9 @@ export default function EjecutarEntrenamientoModal({
                         }
                         indiceEjercicio={indexValido}
                         totalEjercicios={ejerciciosState.length}
-                        tieneHistorialPrevio={Boolean(historialMap[ejActivo.nombre]?.series?.length)}
-                        onCopiarHistorial={() => {
-                          copiarSeriesHistorial(indexValido);
-                        }}
-                        onReemplazar={() => {
-                          setSelectorIntercambio({ ejIdx: indexValido, modo: 'solo_hoy' });
-                        }}
-                        onNotas={() => {
-                          setModalNotaEjercicio({
-                            ejIdx: indexValido,
-                            nota: ejActivo.notaEjercicio || '',
-                          });
-                        }}
+                        solicitudTutorial={solicitudTutorial}
+                        onVerPrevia={() => abrirPrevia(indexValido)}
+                        onReemplazar={() => abrirReemplazo(indexValido)}
                         onOpciones={() => {
                           setEjercicioMenu(indexValido);
                         }}
@@ -1904,34 +1958,77 @@ export default function EjecutarEntrenamientoModal({
                           style={styles.focusNotesInput}
                         />
 
-                        {ejerciciosState.some((ej) => Boolean(ej.notaEjercicio?.trim())) && (
-                          <View style={styles.focusExerciseNotesList}>
-                            <Text style={styles.focusExerciseNotesLabel}>NOTAS POR EJERCICIO</Text>
-                            {ejerciciosState.map((ej, idx) =>
-                              ej.notaEjercicio?.trim() ? (
+                        <View style={styles.focusExerciseNotesList}>
+                          <View style={styles.focusExerciseNotesHeader}>
+                            <View style={styles.focusExerciseNotesHeading}>
+                              <Ionicons name="barbell-outline" size={10} color={noir.lavender} />
+                              <Text style={styles.focusExerciseNotesLabel}>NOTAS POR EJERCICIO</Text>
+                            </View>
+                            <View style={styles.focusExerciseNotesCount}>
+                              <Text style={styles.focusExerciseNotesCountText}>
+                                {ejerciciosState.filter((ej) => Boolean(ej.notaEjercicio?.trim())).length}
+                                /{ejerciciosState.length}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={styles.focusExerciseNotesHint}>
+                            Toca un ejercicio para ajustar máquina, técnica o sensaciones.
+                          </Text>
+
+                          <View style={styles.focusExerciseNotesGrid}>
+                            {ejerciciosState.map((ej, idx) => {
+                              const tieneNota = Boolean(ej.notaEjercicio?.trim());
+                              const activo = idx === indexValido;
+                              return (
                                 <Pressable
                                   key={`nota-ej-${ej.id || idx}`}
                                   onPress={() => {
                                     seleccionarEjercicioActivo(idx);
-                                    setModalNotaEjercicio({ ejIdx: idx, nota: ej.notaEjercicio || '' });
+                                    setModalNotaEjercicio({
+                                      ejIdx: idx,
+                                      nota: ej.notaEjercicio || '',
+                                    });
                                   }}
                                   style={({ pressed }) => [
-                                    styles.focusExerciseNoteItem,
+                                    styles.focusExerciseNoteChip,
+                                    tieneNota && styles.focusExerciseNoteChipConNota,
+                                    activo && styles.focusExerciseNoteChipActivo,
                                     pressed && { opacity: 0.78 },
                                   ]}
                                 >
-                                  <View style={styles.focusExerciseNoteHeader}>
-                                    <Ionicons name="barbell-outline" size={10} color={noir.lavender} />
-                                    <Text style={styles.focusExerciseNoteName} numberOfLines={1}>
+                                  <View style={styles.focusExerciseNoteChipHead}>
+                                    <View
+                                      style={[
+                                        styles.focusExerciseNoteDot,
+                                        tieneNota && styles.focusExerciseNoteDotOn,
+                                      ]}
+                                    />
+                                    <Text
+                                      style={styles.focusExerciseNoteChipName}
+                                      numberOfLines={1}
+                                    >
                                       {ej.nombre}
                                     </Text>
+                                    <Ionicons
+                                      name={tieneNota ? 'create-outline' : 'add'}
+                                      size={11}
+                                      color={tieneNota ? noir.lavender : noir.muted}
+                                    />
                                   </View>
-                                  <Text style={styles.focusExerciseNoteText}>{ej.notaEjercicio}</Text>
+                                  <Text
+                                    style={[
+                                      styles.focusExerciseNoteChipText,
+                                      !tieneNota && styles.focusExerciseNoteChipPlaceholder,
+                                    ]}
+                                    numberOfLines={2}
+                                  >
+                                    {tieneNota ? ej.notaEjercicio : 'Añadir nota'}
+                                  </Text>
                                 </Pressable>
-                              ) : null
-                            )}
+                              );
+                            })}
                           </View>
-                        )}
+                        </View>
                       </View>
                     </>
                   )}
@@ -2061,17 +2158,26 @@ export default function EjecutarEntrenamientoModal({
         />
       )}
 
-      {/* MODAL / SHEET: SELECTOR DE INTERCAMBIO DE EJERCICIO */}
+      {/* MODAL / SHEET: BIBLIOTECA COMPLETA PARA REEMPLAZAR EJERCICIO */}
       {selectorIntercambio && (
-        <SelectorIntercambioModal
-          visible={Boolean(selectorIntercambio)}
-          ejercicioActualNombre={ejerciciosState[selectorIntercambio.ejIdx]?.nombre || ''}
-          ejerciciosEnRutina={ejerciciosState.map((e) => e.nombre)}
-          modo={selectorIntercambio.modo}
-          onSeleccionar={(nuevoNombre, modo) => {
-            aplicarIntercambioEjercicio(selectorIntercambio.ejIdx, nuevoNombre, modo);
-          }}
+        <SelectorBibliotecaModal
+          visible
           onClose={() => setSelectorIntercambio(null)}
+          titulo="Reemplazar ejercicio"
+          subtitulo={
+            selectorIntercambio.modo === 'solo_hoy'
+              ? 'Solo por esta sesión · elige cualquier ejercicio de la biblioteca completa'
+              : 'Cambio permanente en la rutina · elige cualquier ejercicio de la biblioteca completa'
+          }
+          onSeleccionar={(seleccionado) => {
+            const pendiente = selectorIntercambio;
+            setSelectorIntercambio(null);
+            void aplicarIntercambioEjercicio(
+              pendiente.ejIdx,
+              seleccionado.nombre,
+              pendiente.modo
+            );
+          }}
         />
       )}
 
@@ -2276,65 +2382,69 @@ export default function EjecutarEntrenamientoModal({
                       {ej.nombre}
                     </Text>
                     <Text style={styles.sheetSubtitle}>
-                      {ej.series.length} {ej.series.length === 1 ? 'serie registrada' : 'series registradas'}
+                      4 acciones · {ej.series.length}{' '}
+                      {ej.series.length === 1 ? 'serie registrada' : 'series registradas'}
                     </Text>
                   </View>
 
-                  {/* Intercambiar solo hoy */}
+                  {/* Tutorial */}
                   <Pressable
                     onPress={() => {
-                      const idx = ejercicioMenu;
                       setEjercicioMenu(null);
-                      setSelectorIntercambio({ ejIdx: idx, modo: 'solo_hoy' });
+                      setTimeout(() => {
+                        setSolicitudTutorial((valor) => valor + 1);
+                      }, 160);
                     }}
                     style={styles.sheetOption}
                   >
-                    <View style={[styles.sheetIconBox, { backgroundColor: 'rgba(96, 165, 250, 0.15)' }]}>
-                      <Ionicons name="swap-horizontal" size={18} color="#60A5FA" />
+                    <View style={[styles.sheetIconBox, { backgroundColor: 'rgba(92, 200, 255, 0.13)' }]}>
+                      <Ionicons name="play" size={18} color={noir.info} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.sheetOptionText}>Intercambiar solo en este entrenamiento</Text>
-                      <Text style={styles.sheetOptionSubtext}>Solo hoy · el nuevo empieza sin series ni reps</Text>
+                      <Text style={styles.sheetOptionText}>Tutorial</Text>
+                      <Text style={styles.sheetOptionSubtext}>Técnica, animación y anatomía del ejercicio</Text>
                     </View>
+                    <Ionicons name="chevron-forward" size={15} color={noir.muted} />
                   </Pressable>
 
-                  {/* Intercambiar en la rutina (permanente) */}
+                  {/* Previa / Historial */}
                   <Pressable
                     onPress={() => {
                       const idx = ejercicioMenu;
                       setEjercicioMenu(null);
-                      setSelectorIntercambio({ ejIdx: idx, modo: 'rutina' });
+                      setTimeout(() => {
+                        abrirPrevia(idx);
+                      }, 160);
                     }}
                     style={styles.sheetOption}
                   >
-                    <View style={[styles.sheetIconBox, { backgroundColor: 'rgba(168, 85, 247, 0.15)' }]}>
-                      <Ionicons name="repeat" size={18} color="#A855F7" />
+                    <View style={[styles.sheetIconBox, { backgroundColor: 'rgba(63, 242, 176, 0.12)' }]}>
+                      <Ionicons name="analytics-outline" size={18} color={noir.mint} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.sheetOptionText}>Intercambiar en la rutina (permanente)</Text>
-                      <Text style={styles.sheetOptionSubtext}>Hereda series, reps y peso · se usa en próximos días</Text>
+                      <Text style={styles.sheetOptionText}>Previa</Text>
+                      <Text style={styles.sheetOptionSubtext}>Historial completo, récords y evolución</Text>
                     </View>
+                    <Ionicons name="chevron-forward" size={15} color={noir.muted} />
                   </Pressable>
 
-                  {/* Nota del Ejercicio */}
+                  {/* Reemplazar */}
                   <Pressable
                     onPress={() => {
                       const idx = ejercicioMenu;
-                      const notaActual = ej.notaEjercicio || '';
                       setEjercicioMenu(null);
-                      setModalNotaEjercicio({ ejIdx: idx, nota: notaActual });
+                      abrirReemplazo(idx);
                     }}
                     style={styles.sheetOption}
                   >
-                    <View style={[styles.sheetIconBox, { backgroundColor: colores.primarioSuave }]}>
-                      <Ionicons name="create-outline" size={18} color={colores.primarioHover} />
+                    <View style={[styles.sheetIconBox, { backgroundColor: 'rgba(168, 85, 247, 0.13)' }]}>
+                      <Ionicons name="swap-horizontal" size={18} color="#B394FF" />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.sheetOptionText}>
-                        {ej.notaEjercicio ? 'Editar nota del ejercicio' : 'Añadir nota del ejercicio'}
-                      </Text>
-                      <Text style={styles.sheetOptionSubtext}>Ajustes de máquina, alturas, sensaciones</Text>
+                      <Text style={styles.sheetOptionText}>Reemplazar</Text>
+                      <Text style={styles.sheetOptionSubtext}>Por esta sesión o permanente · biblioteca completa</Text>
                     </View>
+                    <Ionicons name="chevron-forward" size={15} color={noir.muted} />
                   </Pressable>
 
                   {/* Eliminar Ejercicio */}
@@ -2350,7 +2460,7 @@ export default function EjecutarEntrenamientoModal({
                       <Ionicons name="trash-outline" size={18} color="#EF4444" />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.sheetOptionText, { color: '#EF4444' }]}>Eliminar ejercicio</Text>
+                      <Text style={[styles.sheetOptionText, { color: '#EF4444' }]}>Eliminar Ejercicio</Text>
                       <Text style={styles.sheetOptionSubtext}>Quitar de esta sesión de entrenamiento</Text>
                     </View>
                   </Pressable>
@@ -2360,6 +2470,138 @@ export default function EjecutarEntrenamientoModal({
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* MODAL / SHEET: ALCANCE DEL REEMPLAZO */}
+      <Modal
+        visible={reemplazoMenu !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setReemplazoMenu(null)}
+      >
+        <Pressable
+          style={styles.sheetBackdrop}
+          onPress={() => setReemplazoMenu(null)}
+        >
+          <Pressable
+            style={styles.sheetContent}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <View style={styles.sheetHandle} />
+            {reemplazoMenu !== null &&
+              ejerciciosState[reemplazoMenu.ejIdx] &&
+              (() => {
+                const ej = ejerciciosState[reemplazoMenu.ejIdx];
+                return (
+                  <View style={{ gap: 10 }}>
+                    <View
+                      style={{
+                        paddingBottom: 6,
+                        borderBottomWidth: 1,
+                        borderColor: colores.borde,
+                      }}
+                    >
+                      <Text style={styles.sheetTitle}>Reemplazar ejercicio</Text>
+                      <Text style={styles.sheetSubtitle} numberOfLines={1}>
+                        {ej.nombre} · elige cómo aplicar el cambio
+                      </Text>
+                    </View>
+
+                    <Pressable
+                      onPress={() => elegirModoReemplazo('solo_hoy')}
+                      style={styles.sheetOption}
+                    >
+                      <View
+                        style={[
+                          styles.sheetIconBox,
+                          { backgroundColor: 'rgba(92, 200, 255, 0.13)' },
+                        ]}
+                      >
+                        <Ionicons
+                          name="today-outline"
+                          size={18}
+                          color={noir.info}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.sheetOptionText}>
+                          Solo por esta sesión
+                        </Text>
+                        <Text style={styles.sheetOptionSubtext}>
+                          El nuevo empieza sin series ni reps · podrás
+                          deshacerlo
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={15}
+                        color={noir.muted}
+                      />
+                    </Pressable>
+
+                    <Pressable
+                      onPress={() => elegirModoReemplazo('rutina')}
+                      style={styles.sheetOption}
+                    >
+                      <View
+                        style={[
+                          styles.sheetIconBox,
+                          { backgroundColor: 'rgba(179, 148, 255, 0.13)' },
+                        ]}
+                      >
+                        <Ionicons
+                          name="repeat"
+                          size={18}
+                          color={noir.lavender}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.sheetOptionText}>
+                          Permanente en la rutina
+                        </Text>
+                        <Text style={styles.sheetOptionSubtext}>
+                          Hereda series, reps y peso · se usará en próximos días
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={15}
+                        color={noir.muted}
+                      />
+                    </Pressable>
+
+                    <Pressable
+                      onPress={() => setReemplazoMenu(null)}
+                      style={{ alignSelf: 'center', padding: 10 }}
+                    >
+                      <Text
+                        style={{
+                          color: noir.muted,
+                          fontFamily: fuentes.bold,
+                          fontSize: 12,
+                        }}
+                      >
+                        Cancelar
+                      </Text>
+                    </Pressable>
+                  </View>
+                );
+              })()}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* MODAL: HISTORIAL COMPLETO / EVOLUCIÓN DEL EJERCICIO */}
+      {previaEjercicio && (
+        <HistorialEjercicioModal
+          visible
+          nombreEjercicio={previaEjercicio.nombre}
+          registroActualId={registro?.id}
+          onClose={() => setPreviaEjercicio(null)}
+          onUsarSesion={(sesion) => {
+            aplicarSeriesHistorial(previaEjercicio.ejIdx, sesion);
+          }}
+        />
+      )}
 
       {/* MODAL CONFIRMACIÓN: CAMBIO PERMANENTE EN RUTINA */}
       <Modal
@@ -2440,57 +2682,131 @@ export default function EjecutarEntrenamientoModal({
         animationType="fade"
         onRequestClose={() => setModalNotaEjercicio(null)}
       >
-        <Pressable style={styles.sheetBackdrop} onPress={() => setModalNotaEjercicio(null)}>
-          <Pressable style={styles.dialogCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.dialogTitle}>Nota del Ejercicio</Text>
-            <Text style={styles.dialogSubtext}>
-              {modalNotaEjercicio && ejerciciosState[modalNotaEjercicio.ejIdx]?.nombre}
-            </Text>
-            <TextInput
-              placeholder="Ej. Asiento posición 4, polea a la altura del hombro..."
-              placeholderTextColor={colores.suave}
-              multiline
-              numberOfLines={3}
-              value={modalNotaEjercicio?.nota || ''}
-              onChangeText={(val) => {
-                if (modalNotaEjercicio) {
-                  setModalNotaEjercicio({ ...modalNotaEjercicio, nota: val });
-                }
-              }}
-              inputMode="text"
-              keyboardType="default"
-              autoCapitalize="sentences"
-              autoCorrect={true}
-              textAlignVertical="top"
-              style={[styles.inputBase, { height: 75, textAlignVertical: 'top', marginVertical: 10 }]}
-            />
-            <View style={styles.dialogActions}>
-              <Pressable
-                onPress={() => setModalNotaEjercicio(null)}
-                style={styles.dialogBtnSecondary}
-              >
-                <Text style={styles.dialogBtnSecondaryText}>Cancelar</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => {
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+        >
+          <Pressable
+            style={styles.noteOverlay}
+            onPress={() => setModalNotaEjercicio(null)}
+          >
+            <Pressable
+              style={styles.noteSheet}
+              onPress={(event) => event.stopPropagation()}
+            >
+              <View style={styles.noteSheetHeader}>
+                <View style={styles.noteSheetIcon}>
+                  <Ionicons
+                    name="barbell-outline"
+                    size={18}
+                    color={noir.lavender}
+                  />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.noteSheetKicker}>NOTA DEL EJERCICIO</Text>
+                  <Text style={styles.noteSheetTitle} numberOfLines={1}>
+                    {modalNotaEjercicio &&
+                      ejerciciosState[modalNotaEjercicio.ejIdx]?.nombre}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => setModalNotaEjercicio(null)}
+                  style={styles.noteSheetClose}
+                  hitSlop={8}
+                >
+                  <Ionicons name="close" size={18} color={noir.text} />
+                </Pressable>
+              </View>
+
+              <Text style={styles.noteSheetHint}>
+                Ajustes de máquina, técnica o sensaciones. Se guardará junto a
+                este ejercicio y aparecerá en el resumen de la sesión.
+              </Text>
+
+              <TextInput
+                placeholder="Ej. Asiento posición 4, polea a la altura del hombro..."
+                placeholderTextColor="rgba(255, 255, 255, 0.26)"
+                multiline
+                numberOfLines={4}
+                value={modalNotaEjercicio?.nota || ''}
+                onChangeText={(val) => {
                   if (modalNotaEjercicio) {
+                    setModalNotaEjercicio({ ...modalNotaEjercicio, nota: val });
+                  }
+                }}
+                inputMode="text"
+                keyboardType="default"
+                autoCapitalize="sentences"
+                autoCorrect={true}
+                textAlignVertical="top"
+                style={styles.noteSheetInput}
+              />
+
+              <View style={styles.noteSuggestionHeader}>
+                <Ionicons name="sparkles" size={10} color={noir.champagne} />
+                <Text style={styles.noteSuggestionLabel}>
+                  SUGERENCIAS RÁPIDAS
+                </Text>
+              </View>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.noteSuggestionRow}
+                keyboardShouldPersistTaps="handled"
+              >
+                {SUGERENCIAS_NOTA_EJERCICIO.map((sugerencia) => (
+                  <Pressable
+                    key={sugerencia}
+                    onPress={() => agregarSugerenciaNota(sugerencia)}
+                    style={({ pressed }) => [
+                      styles.noteSuggestionChip,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                  >
+                    <Text style={styles.noteSuggestionChipText}>
+                      + {sugerencia}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+
+              <View style={styles.noteSheetActions}>
+                <Pressable
+                  onPress={() => setModalNotaEjercicio(null)}
+                  style={styles.noteSheetSecondary}
+                >
+                  <Text style={styles.noteSheetSecondaryText}>Cancelar</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    if (!modalNotaEjercicio) return;
+                    const nota = modalNotaEjercicio.nota.trim();
                     setEjerciciosState((prev) => {
                       const next = prev.map((e, i) =>
-                        i === modalNotaEjercicio.ejIdx ? { ...e, notaEjercicio: modalNotaEjercicio.nota } : e
+                        i === modalNotaEjercicio.ejIdx
+                          ? { ...e, notaEjercicio: nota }
+                          : e
                       );
                       guardarDraftAuto(next);
                       return next;
                     });
                     setModalNotaEjercicio(null);
-                  }
-                }}
-                style={styles.dialogBtnPrimary}
-              >
-                <Text style={styles.dialogBtnPrimaryText}>Guardar</Text>
-              </Pressable>
-            </View>
+                    mostrarSnackbar(
+                      nota
+                        ? 'Nota del ejercicio guardada.'
+                        : 'Nota del ejercicio eliminada.'
+                    );
+                  }}
+                  style={styles.noteSheetPrimary}
+                >
+                  <Ionicons name="checkmark" size={14} color="#07110D" />
+                  <Text style={styles.noteSheetPrimaryText}>Guardar nota</Text>
+                </Pressable>
+              </View>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* SNACKBAR DESHACER (6 SEGUNDOS) */}
@@ -3645,6 +3961,17 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
+  focusExerciseNotesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  focusExerciseNotesHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   focusExerciseNotesLabel: {
     color: noir.muted2,
     fontFamily: fuentes.bold,
@@ -3652,30 +3979,235 @@ const styles = StyleSheet.create({
     letterSpacing: 0.7,
     textTransform: 'uppercase',
   },
-  focusExerciseNoteItem: {
-    backgroundColor: 'rgba(255, 255, 255, 0.025)',
+  focusExerciseNotesCount: {
+    minWidth: 24,
+    height: 17,
+    paddingHorizontal: 6,
+    borderRadius: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.035)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  focusExerciseNotesCountText: {
+    color: noir.muted,
+    fontFamily: fuentes.bold,
+    fontSize: 7,
+  },
+  focusExerciseNotesHint: {
+    color: noir.muted,
+    fontFamily: fuentes.regular,
+    fontSize: 8.5,
+    lineHeight: 11.5,
+    marginTop: -1,
+  },
+  focusExerciseNotesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
+  },
+  focusExerciseNoteChip: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    minWidth: 140,
+    minHeight: 48,
+    backgroundColor: 'rgba(255, 255, 255, 0.022)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.055)',
-    borderRadius: 9,
+    borderRadius: 10,
     paddingHorizontal: 8,
     paddingVertical: 7,
-    gap: 2,
-  },
-  focusExerciseNoteHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 4,
   },
-  focusExerciseNoteName: {
+  focusExerciseNoteChipConNota: {
+    backgroundColor: 'rgba(179, 148, 255, 0.045)',
+    borderColor: 'rgba(179, 148, 255, 0.16)',
+  },
+  focusExerciseNoteChipActivo: {
+    borderColor: 'rgba(92, 200, 255, 0.28)',
+    backgroundColor: 'rgba(92, 200, 255, 0.035)',
+  },
+  focusExerciseNoteChipHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  focusExerciseNoteDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+  },
+  focusExerciseNoteDotOn: {
+    backgroundColor: noir.lavender,
+    shadowColor: noir.lavender,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 3,
+  },
+  focusExerciseNoteChipName: {
     flex: 1,
     color: noir.platinum,
     fontFamily: fuentes.bold,
-    fontSize: 9.5,
+    fontSize: 9,
   },
-  focusExerciseNoteText: {
+  focusExerciseNoteChipText: {
+    color: noir.platinum,
+    fontFamily: fuentes.regular,
+    fontSize: 8.5,
+    lineHeight: 11.5,
+  },
+  focusExerciseNoteChipPlaceholder: {
+    color: noir.muted2,
+    fontStyle: 'italic',
+  },
+  noteOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.78)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 24,
+  },
+  noteSheet: {
+    width: '100%',
+    maxWidth: 520,
+    backgroundColor: noir.surface,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 16,
+    gap: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.4,
+    shadowRadius: 28,
+    elevation: 22,
+  },
+  noteSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  noteSheetIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(179, 148, 255, 0.09)',
+    borderWidth: 1,
+    borderColor: 'rgba(179, 148, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noteSheetKicker: {
+    color: noir.lavender,
+    fontFamily: fuentes.bold,
+    fontSize: 7.5,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  noteSheetTitle: {
+    color: noir.text,
+    fontFamily: fuentes.black,
+    fontSize: 16,
+    letterSpacing: -0.2,
+    marginTop: 2,
+  },
+  noteSheetClose: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.09)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noteSheetHint: {
     color: noir.muted,
     fontFamily: fuentes.regular,
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: 9.5,
+    lineHeight: 13,
+    marginTop: -2,
+  },
+  noteSheetInput: {
+    minHeight: 88,
+    maxHeight: 140,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.09)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    color: noir.text,
+    fontFamily: fuentes.regular,
+    fontSize: 12,
+    lineHeight: 17,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    textAlignVertical: 'top',
+  },
+  noteSuggestionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: -2,
+  },
+  noteSuggestionLabel: {
+    color: noir.champagne,
+    fontFamily: fuentes.bold,
+    fontSize: 7,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  noteSuggestionRow: {
+    gap: 6,
+    paddingRight: 12,
+  },
+  noteSuggestionChip: {
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 209, 102, 0.14)',
+    backgroundColor: 'rgba(255, 209, 102, 0.04)',
+  },
+  noteSuggestionChipText: {
+    color: noir.champagne,
+    fontFamily: fuentes.medium,
+    fontSize: 9,
+  },
+  noteSheetActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 2,
+  },
+  noteSheetSecondary: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.09)',
+    backgroundColor: 'rgba(255, 255, 255, 0.035)',
+  },
+  noteSheetSecondaryText: {
+    color: noir.platinum,
+    fontFamily: fuentes.bold,
+    fontSize: 11,
+  },
+  noteSheetPrimary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: noir.mint,
+  },
+  noteSheetPrimaryText: {
+    color: '#07110D',
+    fontFamily: fuentes.bold,
+    fontSize: 11,
   },
 });

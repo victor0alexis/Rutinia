@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -57,10 +57,10 @@ interface Props {
   indiceEjercicio?: number;
   totalEjercicios?: number;
   onReemplazar?: () => void;
-  onNotas?: () => void;
   onOpciones?: () => void;
-  onCopiarHistorial?: () => void;
-  tieneHistorialPrevio?: boolean;
+  onVerPrevia?: () => void;
+  /** Incrementar este contador abre el tutorial desde fuera del hero. */
+  solicitudTutorial?: number;
 }
 
 export default function HeroEjercicioActivo({
@@ -72,12 +72,20 @@ export default function HeroEjercicioActivo({
   indiceEjercicio,
   totalEjercicios,
   onReemplazar,
-  onNotas,
   onOpciones,
-  onCopiarHistorial,
-  tieneHistorialPrevio,
+  onVerPrevia,
+  solicitudTutorial = 0,
 }: Props) {
   const [modalTutorialVisible, setModalTutorialVisible] = useState(false);
+
+  useEffect(() => {
+    if (solicitudTutorial <= 0) return;
+
+    const frame = requestAnimationFrame(() => {
+      setModalTutorialVisible(true);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [solicitudTutorial]);
   const { isCompact } = useLayout();
   const infoParsed = parsearEjercicioInfo({ nombre: nombreEjercicio });
   const nombreParaBuscar = infoParsed.nombreLimpio || nombreEjercicio;
@@ -197,15 +205,17 @@ export default function HeroEjercicioActivo({
             </Pressable>
           )}
 
-          {Boolean(onCopiarHistorial && tieneHistorialPrevio) && (
+          {Boolean(onVerPrevia) && (
             <Pressable
               onPress={() => {
                 vibrarBoton(12);
-                onCopiarHistorial?.();
+                onVerPrevia?.();
               }}
               style={({ pressed }) => [styles.pillBtn, pressed && styles.pillBtnPressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Ver historial y evolución del ejercicio"
             >
-              <Ionicons name="copy-outline" size={10} color={noir.mint} />
+              <Ionicons name="analytics-outline" size={11} color={noir.mint} />
               <Text numberOfLines={1} style={styles.pillText}>Previa</Text>
             </Pressable>
           )}

@@ -2,11 +2,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { Registro, Rutina } from '../types';
 import { guardarCacheLocal, obtenerCacheLocal } from '../utils/offline';
+import { parsearEjercicioInfo } from '../utils/ejercicios';
 import {
   PREFIJO_NOTA_EJERCICIO,
   PREFIJO_OBSERVACIONES,
   formatearNotaEjercicio,
   parsearNotaEjercicio,
+  parsearNotasSesion,
   serializarNotasSesion,
 } from '../utils/notasSesion';
 
@@ -535,5 +537,497 @@ export async function obtenerHistorialPrevioEjercicio(
     console.warn('Error obteniendo historial previo de ejercicio:', err);
     return null;
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Historial completo por ejercicio (Previa / evolución)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type DropHistorialEjercicio = {
+  orden: number;
+  kg: number;
+  reps: number;
+  rir: number | null;
+};
+
+export type SerieHistorialEjercicio = {
+  setNum: number;
+  pesoD: number;
+  repsD: number;
+  pesoI: number;
+  repsI: number;
+  rir: number | null;
+  nota: string;
+  completado: boolean;
+  repsParciales: number;
+  esDropset: boolean;
+  drops: DropHistorialEjercicio[];
+  volumenKg: number;
+  e1RM: number;
+};
+
+export type SesionHistorialEjercicio = {
+  /** id de la fila en ejercicios_registro */
+  id: string;
+  registroId: string;
+  fecha: string;
+  creadoEn: string;
+  rutinaNombre: string | null;
+  planNombre: string | null;
+  esUnilateral: boolean;
+  series: SerieHistorialEjercicio[];
+  seriesCompletadas: number;
+  mejorPeso: number;
+  repsMejorPeso: number;
+  mejorE1RM: number;
+  mejorReps: number;
+  totalReps: number;
+  volumenKg: number;
+  notaEjercicio: string;
+  notaSesion: string;
+};
+
+type RelacionNombre = { nombre?: string | null } | { nombre?: string | null }[] | null;
+
+type RelacionRegistro = {
+  id: string;
+  fecha: string;
+  completado: boolean;
+  notas?: string | null;
+  rutina_nombre?: string | null;
+  plan_nombre?: string | null;
+  rutinas?: RelacionNombre;
+  planes_entrenamiento?: RelacionNombre;
+};
+
+type FilaHistorialEjercicio = {
+  id: string;
+  nombre: string;
+  series?: number | null;
+  repeticiones?: number | null;
+  peso?: number | null;
+  completado?: boolean | null;
+  ejercicio_nombre?: string | null;
+  creado_en?: string | null;
+  registros_entrenamiento?: RelacionRegistro | RelacionRegistro[] | null;
+};
+
+const SELECT_HISTORIAL_EJERCICIO = `
+  id,
+  nombre,
+  series,
+  repeticiones,
+  peso,
+  completado,
+  ejercicio_nombre,
+  creado_en,
+  registros_entrenamiento!inner(
+    id,
+    fecha,
+    completado,
+    notas,
+    rutina_nombre,
+    plan_nombre,
+    rutinas(nombre),
+    planes_entrenamiento(nombre)
+  )
+`;
+
+function nombreDeRelacion(valor: RelacionNombre | undefined): string | null {
+  if (!valor) return null;
+  const item = Array.isArray(valor) ? valor[0] : valor;
+  return item?.nombre?.trim() || null;
+}
+
+function obtenerRegistroDeFila(
+  fila: FilaHistorialEjercicio
+): RelacionRegistro | null {
+  const valor = fila.registros_entrenamiento;
+  if (!valor) return null;
+  return Array.isArray(valor) ? valor[0] ?? null : valor;
+}
+
+/**
+ * Normaliza nombres para agrupar variantes habituales del mismo ejercicio:
+ * mayúsculas, tildes, puntuación y plurales simples (Dominada / Dominadas,
+ * Elevación lateral / Elevaciones laterales).
+ */
+function sinAcentos(texto: string): string {
+  return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function normalizarNombreEjercicio(nombre?: string | null): string {
+  return sinAcentos(nombre || '')
+    .toLowerCase()
+    .replace(/[.,;:()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .map((palabra) => {
+      if (palabra.length > 4 && palabra.endsWith('es')) {
+        return palabra.slice(0, -2);
+      }
+      if (
+        palabra.length > 3 &&
+        palabra.endsWith('s') &&
+        !palabra.endsWith('ss')
+      ) {
+        return palabra.slice(0, -1);
+      }
+      return palabra;
+    })
+    .join(' ');
+}
+
+function numero(valor: string | number | null | undefined): number {
+  const n = Number(valor);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function numeroOpcional(
+  valor: string | number | null | undefined
+): number | null {
+  if (valor === null || valor === undefined || valor === '') return null;
+  const n = Number(valor);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** 1RM estimado con la fórmula de Epley. */
+function calcularE1RM(kg: number, reps: number): number {
+  if (kg <= 0 || reps <= 0) return 0;
+  return kg * (1 + reps / 30);
+}
+
+function construirSeriesHistorial(
+  fila: FilaHistorialEjercicio,
+  esUnilateral: boolean,
+  detalles: ReturnType<typeof parsearEjercicioInfo>['detallesSets']
+): SerieHistorialEjercicio[] {
+  if (detalles.length === 0) {
+    const peso = numero(fila.peso);
+    const reps = numero(fila.repeticiones);
+    if (peso <= 0 && reps <= 0) return [];
+
+    return [
+      {
+        setNum: 1,
+        pesoD: peso,
+        repsD: reps,
+        pesoI: 0,
+        repsI: 0,
+        rir: null,
+        nota: '',
+        completado: Boolean(fila.completado),
+        repsParciales: 0,
+        esDropset: false,
+        drops: [],
+        volumenKg: peso * reps,
+        e1RM: calcularE1RM(peso, reps),
+      },
+    ];
+  }
+
+  return detalles.map((detalle, index) => {
+    let pesoD = numero(detalle.pesoD);
+    let repsD = numero(detalle.repsD);
+
+    // Compatibilidad con resúmenes antiguos que no siguieron el formato exacto.
+    if (pesoD <= 0 && detalle.resumen) {
+      const matchKg = detalle.resumen.match(/(\d+(?:\.\d+)?)k/);
+      if (matchKg) pesoD = numero(matchKg[1]);
+    }
+    if (repsD <= 0 && detalle.resumen) {
+      const matchReps = detalle.resumen.match(/(\d+)r/);
+      if (matchReps) repsD = numero(matchReps[1]);
+    }
+
+    const pesoI = esUnilateral ? numero(detalle.pesoI) : 0;
+    const repsI = esUnilateral ? numero(detalle.repsI) : 0;
+
+    const drops: DropHistorialEjercicio[] = (detalle.drops || []).map(
+      (drop, dropIndex) => ({
+        orden: drop.orden || dropIndex + 1,
+        kg: numero(drop.kg),
+        reps: numero(drop.reps),
+        rir: numeroOpcional(drop.rir),
+      })
+    );
+
+    const volumenD = pesoD * repsD;
+    const volumenI = pesoI * repsI;
+    const volumenDrops = drops.reduce(
+      (total, drop) => total + drop.kg * drop.reps,
+      0
+    );
+
+    return {
+      setNum: detalle.setNum || index + 1,
+      pesoD,
+      repsD,
+      pesoI,
+      repsI,
+      rir: numeroOpcional(detalle.rir),
+      nota: detalle.nota || '',
+      completado: Boolean(detalle.completado),
+      repsParciales: detalle.repsParciales || 0,
+      esDropset: Boolean(detalle.esDropset || drops.length > 0),
+      drops,
+      volumenKg: volumenD + volumenI + volumenDrops,
+      e1RM: Math.max(
+        calcularE1RM(pesoD, repsD),
+        calcularE1RM(pesoI, repsI)
+      ),
+    };
+  });
+}
+
+function construirSesionHistorial(
+  fila: FilaHistorialEjercicio,
+  notaEjercicio: string
+): SesionHistorialEjercicio | null {
+  const registro = obtenerRegistroDeFila(fila);
+  if (!registro?.fecha) return null;
+
+  const parsed = parsearEjercicioInfo({
+    nombre: fila.nombre,
+    series: fila.series,
+    repeticiones: fila.repeticiones,
+    peso: fila.peso,
+    completado: Boolean(fila.completado),
+  });
+
+  const series = construirSeriesHistorial(
+    fila,
+    parsed.esUnilateral,
+    parsed.detallesSets
+  );
+  if (series.length === 0) return null;
+
+  const tieneDatos = series.some(
+    (serie) =>
+      serie.pesoD > 0 ||
+      serie.repsD > 0 ||
+      serie.pesoI > 0 ||
+      serie.repsI > 0 ||
+      Boolean(serie.nota)
+  );
+  if (!tieneDatos && !notaEjercicio) return null;
+
+  const seriesCompletadas = series.filter((serie) => serie.completado).length;
+
+  // Las filas de ejercicios que se saltaron en una sesión completada conservan
+  // la prescripción (peso/reps de la rutina) pero ninguna serie con ✓. No son
+  // historial real, así que se descartan.
+  if (!fila.completado && seriesCompletadas === 0) return null;
+
+  let mejorPeso = 0;
+  let repsMejorPeso = 0;
+  let mejorE1RM = 0;
+  let mejorReps = 0;
+  let totalReps = 0;
+  let volumenKg = 0;
+
+  for (const serie of series) {
+    volumenKg += serie.volumenKg;
+    mejorE1RM = Math.max(mejorE1RM, serie.e1RM);
+    mejorReps = Math.max(mejorReps, serie.repsD, serie.repsI);
+    totalReps +=
+      serie.repsD +
+      (parsed.esUnilateral ? serie.repsI : 0) +
+      serie.drops.reduce((total, drop) => total + drop.reps, 0);
+
+    const lados = [
+      { peso: serie.pesoD, reps: serie.repsD },
+      ...(parsed.esUnilateral
+        ? [{ peso: serie.pesoI, reps: serie.repsI }]
+        : []),
+    ];
+
+    for (const lado of lados) {
+      if (
+        lado.peso > mejorPeso ||
+        (lado.peso === mejorPeso && lado.reps > repsMejorPeso)
+      ) {
+        mejorPeso = lado.peso;
+        repsMejorPeso = lado.reps;
+      }
+    }
+  }
+
+  return {
+    id: fila.id,
+    registroId: registro.id,
+    fecha: registro.fecha,
+    creadoEn: fila.creado_en || '',
+    rutinaNombre:
+      registro.rutina_nombre?.trim() ||
+      nombreDeRelacion(registro.rutinas) ||
+      null,
+    planNombre:
+      registro.plan_nombre?.trim() ||
+      nombreDeRelacion(registro.planes_entrenamiento) ||
+      null,
+    esUnilateral: parsed.esUnilateral,
+    series,
+    seriesCompletadas,
+    mejorPeso,
+    repsMejorPeso,
+    mejorE1RM,
+    mejorReps,
+    totalReps,
+    volumenKg,
+    notaEjercicio: notaEjercicio.trim(),
+    notaSesion: parsearNotasSesion(registro.notas).nota,
+  };
+}
+
+async function obtenerNotasHistorial(
+  registroIds: string[],
+  nombreEjercicio: string
+): Promise<Map<string, string>> {
+  const notas = new Map<string, string>();
+  const objetivo = normalizarNombreEjercicio(nombreEjercicio);
+
+  for (let i = 0; i < registroIds.length; i += 100) {
+    const lote = registroIds.slice(i, i + 100);
+    const { data, error } = await supabase
+      .from('ejercicios_registro')
+      .select('registro_id, nombre, ejercicio_nombre')
+      .in('registro_id', lote)
+      .like('nombre', `${PREFIJO_NOTA_EJERCICIO}%`);
+
+    if (error) {
+      console.warn('Error obteniendo notas del historial:', error);
+      continue;
+    }
+
+    for (const fila of data || []) {
+      const parsed = parsearNotaEjercicio(fila);
+      if (
+        parsed &&
+        parsed.nota &&
+        normalizarNombreEjercicio(parsed.nombreEjercicio) === objetivo
+      ) {
+        notas.set(fila.registro_id, parsed.nota);
+      }
+    }
+  }
+
+  return notas;
+}
+
+/**
+ * Devuelve todo el historial real de un ejercicio para la Previa:
+ * sesiones finalizadas, series, fechas, contexto de rutina/plan y notas.
+ */
+export async function obtenerHistorialEjercicio(
+  nombreEjercicio: string,
+  registroActualId?: string | null
+): Promise<SesionHistorialEjercicio[]> {
+  const nombreLimpio = parsearEjercicioInfo({
+    nombre: nombreEjercicio,
+  }).nombreLimpio;
+  const objetivo = normalizarNombreEjercicio(nombreLimpio);
+
+  if (!objetivo) return [];
+
+  // La primera palabra sin tildes permite encontrar variantes naturales
+  // (Elevación / Elevaciones, Jalón / Jalones) sin abrir demasiado el filtro.
+  const primeraPalabra = sinAcentos(nombreLimpio.split(/\s+/)[0] || '');
+
+  const [porNombre, porCampo, porPalabra] = await Promise.all([
+    supabase
+      .from('ejercicios_registro')
+      .select(SELECT_HISTORIAL_EJERCICIO)
+      .eq('registros_entrenamiento.completado', true)
+      .ilike('nombre', `%${nombreLimpio}%`)
+      .order('creado_en', { ascending: false }),
+    supabase
+      .from('ejercicios_registro')
+      .select(SELECT_HISTORIAL_EJERCICIO)
+      .eq('registros_entrenamiento.completado', true)
+      .eq('ejercicio_nombre', nombreLimpio)
+      .order('creado_en', { ascending: false }),
+    primeraPalabra.length >= 3
+      ? supabase
+          .from('ejercicios_registro')
+          .select(SELECT_HISTORIAL_EJERCICIO)
+          .eq('registros_entrenamiento.completado', true)
+          .ilike('nombre', `%${primeraPalabra}%`)
+          .order('creado_en', { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (porNombre.error && porCampo.error && porPalabra.error) {
+    throw new Error(
+      porNombre.error.message ||
+        porCampo.error.message ||
+        porPalabra.error.message ||
+        'Error de conexión'
+    );
+  }
+
+  if (porNombre.error) {
+    console.warn('Error en historial por nombre:', porNombre.error);
+  }
+  if (porCampo.error) {
+    console.warn('Error en historial por ejercicio_nombre:', porCampo.error);
+  }
+  if (porPalabra.error) {
+    console.warn('Error en historial por palabra clave:', porPalabra.error);
+  }
+
+  const filas = [
+    ...((porNombre.data || []) as unknown as FilaHistorialEjercicio[]),
+    ...((porCampo.data || []) as unknown as FilaHistorialEjercicio[]),
+    ...((porPalabra.data || []) as unknown as FilaHistorialEjercicio[]),
+  ];
+
+  const filasUnicas = new Map<string, FilaHistorialEjercicio>();
+
+  for (const fila of filas) {
+    if (!fila?.id || !fila.nombre) continue;
+    if (fila.nombre.startsWith('📌')) continue;
+
+    const registro = obtenerRegistroDeFila(fila);
+    if (!registro || registro.id === registroActualId) continue;
+    if (!registro.completado) continue;
+
+    const parsed = parsearEjercicioInfo({ nombre: fila.nombre });
+    if (normalizarNombreEjercicio(parsed.nombreLimpio) !== objetivo) continue;
+
+    filasUnicas.set(fila.id, fila);
+  }
+
+  if (filasUnicas.size === 0) return [];
+
+  const registroIds = Array.from(
+    new Set(
+      Array.from(filasUnicas.values())
+        .map((fila) => obtenerRegistroDeFila(fila)?.id)
+        .filter((id): id is string => Boolean(id))
+    )
+  );
+
+  const notasPorRegistro = await obtenerNotasHistorial(
+    registroIds,
+    nombreLimpio
+  );
+
+  const sesiones = Array.from(filasUnicas.values())
+    .map((fila) => {
+      const registro = obtenerRegistroDeFila(fila);
+      const nota = registro
+        ? notasPorRegistro.get(registro.id) || ''
+        : '';
+      return construirSesionHistorial(fila, nota);
+    })
+    .filter((sesion): sesion is SesionHistorialEjercicio => Boolean(sesion));
+
+  return sesiones.sort((a, b) => {
+    const porFecha = b.fecha.localeCompare(a.fecha);
+    if (porFecha !== 0) return porFecha;
+    return b.creadoEn.localeCompare(a.creadoEn);
+  });
 }
 
