@@ -71,7 +71,7 @@ function SmartTextKeyboardPanel({
   onHeightChange,
   style,
 }: Omit<Props, 'visible'>) {
-  const { bottomInset, height, isLandscape, isTablet } = useLayout();
+  const { barBottomPadding, height, isLandscape, isTablet } = useLayout();
   const [modoNumerico, setModoNumerico] = useState(false);
   const [mayusculas, setMayusculas] = useState(false);
 
@@ -185,7 +185,7 @@ function SmartTextKeyboardPanel({
     <View
       style={[
         styles.panel,
-        { paddingBottom: Math.max(bottomInset, 8) },
+        { paddingBottom: Math.max(barBottomPadding, 8) },
         isTablet && styles.panelTablet,
         style,
       ]}

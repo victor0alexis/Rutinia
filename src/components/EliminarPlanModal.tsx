@@ -36,7 +36,7 @@ export default function EliminarPlanModal({
   onArchivarEnLugarDeEliminar,
   onConfirmarEliminar,
 }: Props) {
-  const { isLandscape, gutter, contentMaxWidth, bottomInset } = useLayout();
+  const { isLandscape, gutter, contentMaxWidth, barBottomPadding } = useLayout();
   const [opcion, setOpcion] = useState<'mover' | 'desvincular' | 'borrar'>('desvincular');
   const [planDestinoId, setPlanDestinoId] = useState<string>(otrosPlanes[0]?.id || '');
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
@@ -96,7 +96,7 @@ export default function EliminarPlanModal({
               width: '100%',
               alignSelf: 'center',
               paddingHorizontal: gutter,
-              paddingBottom: Math.max(20, bottomInset + 10),
+              paddingBottom: Math.max(20, barBottomPadding + 10),
               maxHeight: isLandscape ? '98%' : '88%',
             },
           ]}

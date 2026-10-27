@@ -60,7 +60,7 @@ function FiltrosBibliotecaContenido({
   onClose,
   onAplicar,
 }: Omit<Props, 'visible'>) {
-  const { isTablet, contentMaxWidth, bottomInset } = useLayout();
+  const { isTablet, contentMaxWidth, barBottomPadding } = useLayout();
   const [borrador, setBorrador] = useState<FiltrosBibliotecaState>(filtros);
 
   const activos =
@@ -82,7 +82,7 @@ function FiltrosBibliotecaContenido({
         style={[
           styles.sheet,
           isTablet && { maxWidth: contentMaxWidth || 620, alignSelf: 'center' },
-          { paddingBottom: Math.max(bottomInset, 14) },
+          { paddingBottom: Math.max(barBottomPadding, 14) },
         ]}
       >
         <View style={styles.handle} />

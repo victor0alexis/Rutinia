@@ -36,7 +36,7 @@ function CrearListaContenido({
   onClose,
   onCrear,
 }: Omit<Props, 'visible'>) {
-  const { isTablet, contentMaxWidth, bottomInset } = useLayout();
+  const { isTablet, contentMaxWidth, barBottomPadding } = useLayout();
   const [nombre, setNombre] = useState('');
   const [grupo, setGrupo] = useState(grupoInicial || 'todos');
   const [tecladoVisible, setTecladoVisible] = useState(false);
@@ -62,7 +62,7 @@ function CrearListaContenido({
           isTablet && { maxWidth: contentMaxWidth || 620, alignSelf: 'center' },
           tecladoVisible
             ? { paddingBottom: 0 }
-            : { paddingBottom: Math.max(bottomInset, 14) },
+            : { paddingBottom: Math.max(barBottomPadding, 14) },
         ]}
       >
         <View style={styles.handle} />

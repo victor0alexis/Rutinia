@@ -29,7 +29,7 @@ export default function AplicarPlanSemanaModal({
   onClose,
   onAplicado,
 }: Props) {
-  const { isLandscape, gutter, contentMaxWidth, bottomInset } = useLayout();
+  const { isLandscape, gutter, contentMaxWidth, barBottomPadding } = useLayout();
   const [fechaSemana] = useState(new Date());
   const [rutinasPlan, setRutinasPlan] = useState<Rutina[]>([]);
   const [registrosSemana, setRegistrosSemana] = useState<Registro[]>([]);
@@ -117,7 +117,7 @@ export default function AplicarPlanSemanaModal({
               width: '100%',
               alignSelf: 'center',
               paddingHorizontal: gutter,
-              paddingBottom: Math.max(20, bottomInset + 10),
+              paddingBottom: Math.max(20, barBottomPadding + 10),
               maxHeight: isLandscape ? '98%' : '90%',
             },
           ]}

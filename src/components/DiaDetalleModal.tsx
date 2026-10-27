@@ -468,7 +468,7 @@ export default function DiaDetalleModal({
   onReanudarRutina,
   onVerResumenRutina,
 }: Props) {
-  const { topInset, bottomInset, leftInset, rightInset, gutter, contentMaxWidth } = useLayout();
+  const { topInset, barBottomPadding, leftInset, rightInset, gutter, contentMaxWidth } = useLayout();
   const [tab, setTab] = useState<'actividad' | 'rutina' | 'notas'>('actividad');
 
   // Planes y Rutinas para vincular
@@ -613,7 +613,7 @@ export default function DiaDetalleModal({
               maxWidth: contentMaxWidth,
               alignSelf: 'center',
               paddingTop: Math.max(12, topInset),
-              paddingBottom: Math.max(12, bottomInset),
+              paddingBottom: Math.max(12, barBottomPadding),
               paddingLeft: Math.max(gutter, leftInset),
               paddingRight: Math.max(gutter, rightInset),
               gap: 16,

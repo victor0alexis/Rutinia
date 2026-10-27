@@ -44,7 +44,7 @@ export default function SelectorPlanRutina({
   onSeleccionarEjercicioIndividual,
   onCrearRutinaEnPlan,
 }: Props) {
-  const { isLandscape, gutter, contentMaxWidth, bottomInset } = useLayout();
+  const { isLandscape, gutter, contentMaxWidth, barBottomPadding } = useLayout();
 
   // Paso actual: 1 = "Elige un plan", 2 = "Elige una rutina"
   const [paso, setPaso] = useState<1 | 2>(1);
@@ -159,7 +159,7 @@ export default function SelectorPlanRutina({
               width: '100%',
               alignSelf: 'center',
               paddingHorizontal: gutter,
-              paddingBottom: Math.max(20, bottomInset + 10),
+              paddingBottom: Math.max(20, barBottomPadding + 10),
               maxHeight: isLandscape ? '98%' : '90%',
             },
           ]}

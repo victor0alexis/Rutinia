@@ -745,7 +745,7 @@ export default function HistorialEjercicioModal({
   onClose,
   onUsarSesion,
 }: Props) {
-  const { topInset, bottomInset, gutter, contentMaxWidth } = useLayout();
+  const { topInset, barBottomPadding, gutter, contentMaxWidth } = useLayout();
   const [sesiones, setSesiones] = useState<SesionHistorialEjercicio[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1032,7 +1032,7 @@ export default function HistorialEjercicioModal({
             styles.scrollContent,
             {
               paddingHorizontal: gutter,
-              paddingBottom: Math.max(bottomInset, 18) + 34,
+              paddingBottom: Math.max(barBottomPadding, 18) + 34,
             },
           ]}
           showsVerticalScrollIndicator={false}

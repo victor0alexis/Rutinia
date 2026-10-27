@@ -119,7 +119,7 @@ function SelectorBibliotecaContenido({
   titulo = 'Biblioteca de Ejercicios',
   subtitulo = 'Selecciona un movimiento con técnica y animación GIF',
 }: Props) {
-  const { isTablet, contentMaxWidth, bottomInset } = useLayout();
+  const { isTablet, contentMaxWidth, barBottomPadding } = useLayout();
 
   const [catalogo, setCatalogo] = useState<EjercicioBiblioteca[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -841,7 +841,7 @@ function SelectorBibliotecaContenido({
           style={[
             styles.modalSheet,
             isTablet && { maxWidth: contentMaxWidth || 680, alignSelf: 'center' },
-            { paddingBottom: Math.max(bottomInset, 16) },
+            { paddingBottom: Math.max(barBottomPadding, 16) },
           ]}
         >
           <LinearGradient
@@ -1631,7 +1631,7 @@ function SelectorBibliotecaContenido({
                     maxWidth: contentMaxWidth || 620,
                     alignSelf: 'center',
                   },
-                  { paddingBottom: Math.max(bottomInset, 14) },
+                  { paddingBottom: Math.max(barBottomPadding, 14) },
                 ]}
               >
                 <View style={styles.handle} />

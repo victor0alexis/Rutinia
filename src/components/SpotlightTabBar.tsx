@@ -109,10 +109,12 @@ export default function SpotlightTabBar({
   };
 
   const isWeb = Platform.OS === 'web';
-  const realBottomInset = Math.max(insets.bottom, bottomInset);
-  const bottomInsetToUse = realBottomInset;
+  const effectiveBottomInset = Math.max(insets.bottom, bottomInset);
+  const barBottomPadding = isLandscape
+    ? 4
+    : Math.max(8, Math.round(effectiveBottomInset * 0.3));
   const contentHeight = isLandscape ? 44 : 52;
-  const totalNavHeight = contentHeight + bottomInsetToUse;
+  const totalNavHeight = contentHeight + barBottomPadding;
 
   return (
     <View
@@ -129,7 +131,7 @@ export default function SpotlightTabBar({
           styles.navbarContainer,
           {
             height: totalNavHeight,
-            paddingBottom: bottomInsetToUse,
+            paddingBottom: barBottomPadding,
           },
           isLandscape && styles.navbarContainerLandscape,
           isWeb && styles.navbarContainerWeb,

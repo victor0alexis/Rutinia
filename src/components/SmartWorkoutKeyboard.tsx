@@ -48,7 +48,7 @@ export default function SmartWorkoutKeyboard({
   onCompletarSerie,
   onClose,
 }: Props) {
-  const { bottomInset, isLandscape, isTablet } = useLayout();
+  const { barBottomPadding, isLandscape, isTablet } = useLayout();
   const [mostrarCalculadoraDiscos, setMostrarCalculadoraDiscos] = useState(false);
 
   // Determinar si el campo activo admite decimales
@@ -193,7 +193,7 @@ export default function SmartWorkoutKeyboard({
       style={[
         styles.contenedorOverlay,
         {
-          paddingBottom: Math.max(bottomInset, 8),
+          paddingBottom: Math.max(barBottomPadding, 8),
         },
       ]}
     >

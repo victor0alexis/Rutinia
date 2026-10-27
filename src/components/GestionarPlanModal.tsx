@@ -102,7 +102,7 @@ export default function GestionarPlanModal({
   onClose,
   onGuardar,
 }: Props) {
-  const { isLandscape, gutter, contentMaxWidth, bottomInset } = useLayout();
+  const { isLandscape, gutter, contentMaxWidth, barBottomPadding } = useLayout();
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [objetivo, setObjetivo] = useState('');
@@ -220,7 +220,7 @@ export default function GestionarPlanModal({
             {
               maxWidth: sheetMaxWidth,
               paddingHorizontal: gutter,
-              paddingBottom: Math.max(12, bottomInset + 8),
+              paddingBottom: Math.max(12, barBottomPadding + 8),
               height: isLandscape ? '98%' : '94%',
             },
           ]}

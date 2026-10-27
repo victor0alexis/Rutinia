@@ -222,7 +222,7 @@ export default function GestionarRutinaModal({
   onGuardado,
   onProgramarSemana,
 }: Props) {
-  const { isLandscape, isTablet, gutter, contentMaxWidth, bottomInset } = useLayout();
+  const { isLandscape, isTablet, gutter, contentMaxWidth, barBottomPadding } = useLayout();
   const [nombreRutina, setNombreRutina] = useState('');
   const [planId, setPlanId] = useState<string | null>(null);
   const [diaSugerido, setDiaSugerido] = useState<number | null>(null);
@@ -574,7 +574,7 @@ export default function GestionarRutinaModal({
             {
               maxWidth: sheetMaxWidth,
               paddingHorizontal: gutter,
-              paddingBottom: Math.max(12, bottomInset + 8),
+              paddingBottom: Math.max(12, barBottomPadding + 8),
               height: isLandscape ? '98%' : '94%',
             },
           ]}

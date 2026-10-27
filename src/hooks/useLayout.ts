@@ -55,8 +55,10 @@ export type Layout = {
   keyboardHeight: number;
   /** true if virtual keyboard is open */
   isKeyboardVisible: boolean;
-  /** Altura total de la barra de pestañas (contentHeight + bottom inset) */
+  /** Altura total de la barra de pestañas (contentHeight + barBottomPadding) */
   tabBarHeight: number;
+  /** Relleno inferior optimizado de la barra sobre el borde físico (≈10 px portrait / 4 px landscape) */
+  barBottomPadding: number;
   /** Typography scale (slightly adjusted on isCompact) */
   fontScale: FontScale;
   /** Spacing scale */
@@ -133,9 +135,11 @@ export function useLayout(): Layout {
   // Safe bottom padding para barras de pestañas, docks y scrollviews (exacto sin dobles fallbacks)
   const safeBottom = resolvedBottomInset;
 
-  // Altura estandarizada de la barra de pestañas: contentHeight (52 vertical / 44 horizontal) + bottom inset real
+  // Altura estandarizada de la barra de pestañas:
+  // contentHeight (52 vertical / 44 horizontal) + barBottomPadding (Math.max(8, Math.round(bottomInset * 0.3)) en portrait / 4 en landscape)
   const contentHeight = isLandscape ? 44 : 52;
-  const tabBarHeight = contentHeight + resolvedBottomInset;
+  const barBottomPadding = isLandscape ? 4 : Math.max(8, Math.round(resolvedBottomInset * 0.3));
+  const tabBarHeight = contentHeight + barBottomPadding;
 
   // Web visualViewport & Native Keyboard listener
   useEffect(() => {
@@ -203,6 +207,7 @@ export function useLayout(): Layout {
     bottomInset: resolvedBottomInset,
     safeBottom,
     tabBarHeight,
+    barBottomPadding,
     leftInset: insets.left,
     rightInset: insets.right,
     keyboardHeight,

@@ -36,7 +36,7 @@ export default function SelectorIntercambioModal({
   onSeleccionar,
 }: Props) {
   const { height } = useWindowDimensions();
-  const { bottomInset } = useLayout();
+  const { barBottomPadding } = useLayout();
   const [busqueda, setBusqueda] = useState('');
   const [catalogo, setCatalogo] = useState<EjercicioCatalogo[]>([]);
   const [creando, setCreando] = useState(false);
@@ -125,7 +125,7 @@ export default function SelectorIntercambioModal({
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
 
-        <View style={[styles.sheetContainer, { maxHeight: maxSheetHeight, paddingBottom: Math.max(bottomInset, 16) }]}>
+        <View style={[styles.sheetContainer, { maxHeight: maxSheetHeight, paddingBottom: Math.max(barBottomPadding, 16) }]}>
           {/* Header */}
           <View style={styles.sheetHeader}>
             <View style={{ flex: 1 }}>

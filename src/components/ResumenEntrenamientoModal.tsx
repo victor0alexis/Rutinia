@@ -89,7 +89,7 @@ export default function ResumenEntrenamientoModal({
   esSoloLectura = false,
   onGuardarEdiciones,
 }: Props) {
-  const { topInset, bottomInset, leftInset, rightInset, gutter, contentMaxWidth } = useLayout();
+  const { topInset, barBottomPadding, leftInset, rightInset, gutter, contentMaxWidth } = useLayout();
   const [modoEdicion, setModoEdicion] = useState(false);
   const [ejercicioEditando, setEjercicioEditando] = useState<string | null>(null);
   const [notaDraft, setNotaDraft] = useState(notasSesion);
@@ -772,7 +772,7 @@ export default function ResumenEntrenamientoModal({
             style={[
               styles.dock,
               {
-                paddingBottom: Math.max(bottomInset, 12),
+                paddingBottom: Math.max(barBottomPadding, 12),
                 paddingHorizontal: Math.max(gutter, leftInset, rightInset),
               },
             ]}

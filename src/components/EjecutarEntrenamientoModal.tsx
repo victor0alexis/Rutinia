@@ -225,13 +225,13 @@ export default function EjecutarEntrenamientoModal({
     gutter,
     contentMaxWidth,
     topInset,
-    bottomInset,
+    barBottomPadding,
     isKeyboardVisible,
   } = useLayout();
 
   const dockHeight = isLandscape ? 76 : 98;
   const [focusTeclado, setFocusTeclado] = useState<FocusTeclado>(null);
-  const scrollBottomPad = (focusTeclado ? 320 : isKeyboardVisible ? 16 : dockHeight) + bottomInset + 20;
+  const scrollBottomPad = (focusTeclado ? 320 : isKeyboardVisible ? 16 : dockHeight) + barBottomPadding + 20;
 
   const [ejerciciosState, setEjerciciosState] = useState<EjercicioState[]>([]);
   const [ejercicioActivoIndex, setEjercicioActivoIndex] = useState(0);
@@ -1728,7 +1728,7 @@ export default function EjecutarEntrenamientoModal({
                 </View>
 
                 {/* Botón de Inicio de Impacto */}
-                <View style={{ paddingBottom: Math.max(bottomInset, 16), paddingTop: 10 }}>
+                <View style={{ paddingBottom: Math.max(barBottomPadding, 16), paddingTop: 10 }}>
                   <LiquidMetalButton
                     titulo="¡INICIAR ENTRENAMIENTO!"
                     onPress={iniciarEntrenamiento}
@@ -2041,7 +2041,7 @@ export default function EjecutarEntrenamientoModal({
                       styles.focusDockWrap,
                       {
                         paddingHorizontal: gutter,
-                        paddingBottom: Math.max(bottomInset, 10),
+                        paddingBottom: Math.max(barBottomPadding, 10),
                       },
                     ]}
                     pointerEvents="box-none"
@@ -2815,7 +2815,7 @@ export default function EjecutarEntrenamientoModal({
           style={[
             styles.snackbarContainer,
             {
-              bottom: bottomInset + (isLandscape ? 60 : 76),
+              bottom: barBottomPadding + (isLandscape ? 60 : 76),
               left: isLandscape || isTablet ? 'auto' : gutter,
               right: isLandscape || isTablet ? 'auto' : gutter,
               width: isLandscape || isTablet ? Math.min(width - gutter * 2, 600) : undefined,
