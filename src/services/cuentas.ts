@@ -363,8 +363,23 @@ function traducirErrorAuth(error: { message?: string; code?: string } | null): E
   if (minusculas.includes('unable to validate email') || minusculas.includes('invalid email')) {
     return new Error('El correo electrónico no es válido.');
   }
-  if (minusculas.includes('rate limit') || minusculas.includes('too many requests')) {
-    return new Error('Demasiados intentos. Espera unos minutos antes de volver a intentarlo.');
+  if (
+    error?.code === 'over_email_send_rate_limit' ||
+    minusculas.includes('email rate limit exceeded') ||
+    minusculas.includes('rate limit') ||
+    minusculas.includes('too many requests')
+  ) {
+    return new Error(
+      'Supabase alcanzó el límite de correos. Con el servicio integrado solo permite 2 por hora; espera o configura un SMTP propio.'
+    );
+  }
+  if (
+    error?.code === 'email_address_not_authorized' ||
+    minusculas.includes('email address not authorized')
+  ) {
+    return new Error(
+      'Supabase no autorizó el envío a este correo. El servicio integrado solo envía a miembros del equipo del proyecto; configura un SMTP propio en Authentication → Emails.'
+    );
   }
   if (minusculas.includes('network request failed') || minusculas.includes('fetch')) {
     return new Error('No hay conexión con Supabase. Revisa tu red e intenta de nuevo.');
@@ -518,6 +533,15 @@ export async function crearCuenta(datos: {
   }
 
   if (data.user) {
+    // Con la confirmación activada, Supabase devuelve un usuario «falso» con
+    // identities vacío cuando el correo ya está registrado. No lo añadimos al
+    // selector ni decimos que se creó una cuenta nueva.
+    if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      throw new Error(
+        'Ya existe una cuenta con este correo. Inicia sesión o usa «Reenviar confirmación» si aún no la has confirmado.'
+      );
+    }
+
     // La cuenta existe pero Supabase exige confirmar el correo. La dejamos
     // anotada para que aparezca en el selector y pueda entrar luego.
     const registro = await leerRegistro();
@@ -530,8 +554,27 @@ export async function crearCuenta(datos: {
     requiereConfirmacion: true,
     email,
     mensaje:
-      'Cuenta creada. Revisa tu correo para confirmarla y después inicia sesión.',
+      'Cuenta creada. Te enviamos un correo para confirmarla. Si no llega, revisa Spam o usa «Reenviar confirmación».',
   };
+}
+
+/**
+ * Vuelve a pedir el correo de confirmación de una cuenta pendiente.
+ *
+ * Supabase no revela si el correo existe, así que la UI debe mostrar un
+ * mensaje neutro. Con el SMTP integrado el envío puede fallar por límite o
+ * porque la dirección no pertenece al equipo del proyecto.
+ */
+export async function reenviarConfirmacion(email: string): Promise<void> {
+  const correo = email.trim();
+  if (!correo) throw new Error('Ingresa el correo de la cuenta.');
+
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email: correo,
+  });
+
+  if (error) throw traducirErrorAuth(error);
 }
 
 /**

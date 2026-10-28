@@ -31,6 +31,7 @@ import {
   iniciarSesion,
   obtenerEstadoCuentas,
   quitarCuentaDelDispositivo,
+  reenviarConfirmacion,
   SesionExpiradaError,
   subscribirCambioCuenta,
 } from '../services/cuentas';
@@ -303,6 +304,7 @@ export default function MenuOpcionesModal({
   const [confirmarPassword, setConfirmarPassword] = useState('');
   const [verPassword, setVerPassword] = useState(false);
   const [cargandoAuth, setCargandoAuth] = useState(false);
+  const [reenviandoConfirmacion, setReenviandoConfirmacion] = useState(false);
   const [avisoAuth, setAvisoAuth] = useState<Aviso | null>(null);
 
   // Edición de perfil
@@ -557,6 +559,31 @@ export default function MenuOpcionesModal({
       });
     } finally {
       setCargandoAuth(false);
+    }
+  };
+
+  const reenviarCorreoConfirmacion = async () => {
+    if (!emailValido(emailInput)) {
+      setAvisoAuth({ tipo: 'error', texto: 'Ingresa el correo de la cuenta.' });
+      return;
+    }
+
+    setReenviandoConfirmacion(true);
+    setAvisoAuth(null);
+    try {
+      await reenviarConfirmacion(emailInput);
+      setAvisoAuth({
+        tipo: 'info',
+        texto:
+          'Si la cuenta existe y sigue pendiente, enviamos un nuevo enlace. Revisa también la carpeta de Spam.',
+      });
+    } catch (err) {
+      setAvisoAuth({
+        tipo: 'error',
+        texto: err instanceof Error ? err.message : 'No se pudo reenviar el correo.',
+      });
+    } finally {
+      setReenviandoConfirmacion(false);
     }
   };
 
@@ -1283,6 +1310,31 @@ export default function MenuOpcionesModal({
             ? 'Al crear una cuenta aceptas que tus datos de entrenamiento se guarden en Supabase.'
             : 'Si olvidaste tu contraseña, puedes restablecerla desde el panel de Supabase.'}
         </Text>
+
+        {modoAuth === 'login' ? (
+          <Pressable
+            onPress={() => {
+              if (reenviandoConfirmacion) return;
+              vibrarBoton(15);
+              void reenviarCorreoConfirmacion();
+            }}
+            disabled={reenviandoConfirmacion}
+            style={({ pressed }) => [
+              styles.authReenviarBoton,
+              (pressed || reenviandoConfirmacion) && { opacity: 0.65 },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Reenviar correo de confirmación"
+          >
+            {reenviandoConfirmacion ? (
+              <ActivityIndicator size="small" color={noir.champagne} />
+            ) : (
+              <Text style={styles.authReenviarTexto}>
+                ¿No llegó el correo? Reenviar confirmación
+              </Text>
+            )}
+          </Pressable>
+        ) : null}
       </View>
     </>
   );
@@ -2164,6 +2216,18 @@ const styles = StyleSheet.create({
     lineHeight: 14,
     textAlign: 'center',
     marginTop: 10,
+  },
+  authReenviarBoton: {
+    minHeight: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  authReenviarTexto: {
+    color: noir.champagne,
+    fontFamily: fuentes.medium,
+    fontSize: 10.5,
+    textAlign: 'center',
   },
   perfilHero: {
     flexDirection: 'row',

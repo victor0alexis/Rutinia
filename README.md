@@ -1,4 +1,4 @@
-# Rutinia
+# RutinIA
 
 Aplicación móvil de rutinas, hábitos y progreso construida con Expo, React Native (Expo Router) y Supabase.
 
@@ -26,6 +26,25 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=TU_ANON_PUBLIC_KEY
 - **Datos antiguos de una sola cuenta:** al final de `supabase_multicuenta.sql` hay un bloque opcional para reivindicarlos. Sustituye `<UUID>` por el ID de `auth.users` y ejecútalo por separado. No incluye el catálogo base.
 
 Sin ejecutar `supabase_multicuenta.sql`, el botón «Eliminar mi cuenta» no puede borrar la cuenta y el aislamiento real entre cuentas no está garantizado.
+
+### Correos de confirmación
+
+El servicio SMTP integrado de Supabase **solo entrega correos a miembros del equipo del proyecto** y está limitado a **2 correos por hora**. Por eso un registro con un correo normal puede completarse en la app pero nunca recibir el enlace.
+
+Para que lleguen a cualquier usuario:
+
+1. Configura un SMTP propio en **Authentication → Emails → SMTP Settings** (Resend, Brevo, Postmark, SES…).
+2. Revisa **Authentication → URL Configuration**: `Site URL` y `Redirect URLs` deben apuntar a una URL válida (por ejemplo, `rutinia://` en la app o el dominio web).
+3. Comprueba los logs en **Authentication → Logs** si el correo sigue sin llegar.
+4. Para pruebas locales puedes desactivar temporalmente **Confirm email** en **Authentication → Providers → Email**, pero vuelve a activarlo antes de publicar.
+
+La app incluye «Reenviar confirmación» en la pantalla de inicio de sesión.
+
+### Migrar el progreso anterior
+
+Las filas creadas antes del multicuenta tienen `usuario_id IS NULL` y siguen existiendo como datos del perfil invitado. **No se borran al crear una cuenta**, pero una cuenta nueva no las ve porque su espacio es independiente.
+
+Para pasarlas a una cuenta concreta, ejecuta el bloque opcional de `supabase_multicuenta.sql` con el UUID de esa cuenta. El bloque **mueve** las filas (no las copia): después dejarán de aparecer en el perfil invitado. Haz una copia de seguridad antes. Si quieres conservar ambas copias, pide una migración basada en duplicar filas.
 
 ## Cuentas
 
