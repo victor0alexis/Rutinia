@@ -17,6 +17,54 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+function decodificarBase64Url(segmento: string): string | null {
+  try {
+    const base64 = segmento.replace(/-/g, '+').replace(/_/g, '/');
+    const atobGlobal = (globalThis as { atob?: (valor: string) => string }).atob;
+    if (typeof atobGlobal === 'function') return atobGlobal(base64);
+
+    const alfabeto =
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    let salida = '';
+    let buffer = 0;
+    let bits = 0;
+    for (const caracter of base64.replace(/=+$/, '')) {
+      const valor = alfabeto.indexOf(caracter);
+      if (valor < 0) continue;
+      buffer = (buffer << 6) | valor;
+      bits += 6;
+      if (bits >= 8) {
+        bits -= 8;
+        salida += String.fromCharCode((buffer >> bits) & 0xff);
+      }
+    }
+    return salida;
+  } catch {
+    return null;
+  }
+}
+
+function rolDeLaClave(clave: string): string | null {
+  const payload = clave.split('.')[1];
+  if (!payload) return null;
+  const decodificado = decodificarBase64Url(payload);
+  if (!decodificado) return null;
+  try {
+    const datos = JSON.parse(decodificado) as { role?: unknown };
+    return typeof datos.role === 'string' ? datos.role : null;
+  } catch {
+    return null;
+  }
+}
+
+if (rolDeLaClave(supabaseAnonKey) === 'service_role') {
+  console.warn(
+    '[Supabase] Estás usando la service_role key en la app. Esta clave ignora RLS y ' +
+      'permite leer los datos de todas las cuentas. Cámbiala por la anon public key ' +
+      '(Settings → API) y ejecuta supabase_multicuenta.sql.'
+  );
+}
+
 const customStorage =
   Platform.OS === 'web' && typeof window === 'undefined'
     ? {

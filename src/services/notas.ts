@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { guardarCacheLocal, obtenerCacheLocal } from '../utils/offline';
+import { filtrarPorPropietario, obtenerUsuarioIdActual } from '../utils/usuario';
 
 export type CategoriaNota = 'Nutrición' | 'Entrenamiento' | 'Suplementos' | 'Recuperación' | 'General';
 
@@ -15,14 +16,7 @@ export type NotaEstandar = {
 const STORAGE_KEY = 'notas';
 
 /** Obtiene el usuario_id del usuario autenticado, o null si no hay sesión. */
-async function getUsuarioId(): Promise<string | null> {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.id ?? null;
-  } catch {
-    return null;
-  }
-}
+const getUsuarioId = obtenerUsuarioIdActual;
 
 // Notas por defecto iniciales
 const NOTAS_POR_DEFECTO: NotaEstandar[] = [
@@ -44,10 +38,11 @@ const NOTAS_POR_DEFECTO: NotaEstandar[] = [
 
 export async function obtenerNotasEstandar(): Promise<NotaEstandar[]> {
   try {
-    const { data, error } = await supabase
-      .from('notas')
-      .select('*')
-      .order('creado_en', { ascending: false });
+    const usuarioId = await getUsuarioId();
+    const { data, error } = await filtrarPorPropietario(
+      supabase.from('notas').select('*'),
+      usuarioId
+    ).order('creado_en', { ascending: false });
 
     if (error) throw error;
 
@@ -131,14 +126,17 @@ export async function guardarNotaEstandar(
 
   // Caso 1: Actualizar nota existente que ya tiene ID real en la BD
   if (nota.id && !nota.id.startsWith('local_') && !nota.id.startsWith('def_')) {
-    const { error } = await supabase
-      .from('notas')
-      .update({
-        titulo: nota.titulo,
-        categoria: nota.categoria,
-        contenido: nota.contenido,
-      })
-      .eq('id', nota.id);
+    const { error } = await filtrarPorPropietario(
+      supabase
+        .from('notas')
+        .update({
+          titulo: nota.titulo,
+          categoria: nota.categoria,
+          contenido: nota.contenido,
+        })
+        .eq('id', nota.id),
+      usuarioId
+    );
 
     if (error) {
       throw new Error(`Error actualizando nota en Supabase: ${error.message} (Código: ${error.code})`);
@@ -203,10 +201,11 @@ export async function eliminarNotaEstandar(id: string): Promise<void> {
   }
 
   // Eliminar de Supabase BD con confirmación RETURNING
-  const { data: eliminada, error } = await supabase
-    .from('notas')
-    .delete()
-    .eq('id', id)
+  const usuarioId = await getUsuarioId();
+  const { data: eliminada, error } = await filtrarPorPropietario(
+    supabase.from('notas').delete().eq('id', id),
+    usuarioId
+  )
     .select('id')
     .maybeSingle();
 

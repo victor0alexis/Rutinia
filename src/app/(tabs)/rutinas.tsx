@@ -943,7 +943,6 @@ export default function RutinasScreen() {
   const diasDetalle = diasPlanificados.size || (planSeleccionado?.diasPorSemana ?? 0);
   const metalActivo =
     isFocused &&
-    !menuCuentaVisible &&
     !modalPlanVisible &&
     !modalEliminarPlanVisible &&
     !modalAplicarVisible &&
@@ -1071,15 +1070,6 @@ export default function RutinasScreen() {
         </title>
       </Head>
       <SafeAreaView edges={['top']} style={styles.screen}>
-        {menuCuentaVisible ? (
-          <Pressable
-            style={styles.accountScrim}
-            onPress={() => setMenuCuentaVisible(false)}
-            accessibilityRole="button"
-            accessibilityLabel="Cerrar menú de cuenta"
-          />
-        ) : null}
-
         {/* CABECERA: MARCA (SOLO EN DETALLE) + AVATAR */}
         <View
           style={[
@@ -2057,15 +2047,6 @@ export default function RutinasScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-  },
-  accountScrim: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 50,
-    backgroundColor: 'rgba(4, 5, 7, 0.30)',
   },
   headerOuter: {
     width: '100%',

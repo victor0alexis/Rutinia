@@ -1,7 +1,23 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
+import {
+  escribirLocal,
+  leerLocal,
+  obtenerNamespaceDatos,
+} from '../utils/offline';
+import { filtrarPorPropietario, obtenerUsuarioIdActual } from '../utils/usuario';
 
-const STORAGE_KEY = '@rutinia_biblioteca_favoritos_v2';
+const STORAGE_SUFIJO = 'biblioteca_favoritos_v2';
+const STORAGE_LEGACY_BASE = '@rutinia_biblioteca_favoritos_v2';
+const getStorageKeyLegacy = () =>
+  `${STORAGE_LEGACY_BASE}:${obtenerNamespaceDatos()}`;
+const getLegacyKeys = () => {
+  const claves = [getStorageKeyLegacy()];
+  // La versión original guardaba una única clave global. Solo se adopta en el
+  // perfil invitado, que es el único que podía usarla antes del multicuenta.
+  if (obtenerNamespaceDatos() === 'invitado') claves.push(STORAGE_LEGACY_BASE);
+  return claves;
+};
 const MAX_RECIENTES = 16;
 const MAX_NOMBRE_LISTA = 42;
 const MAX_LISTAS = 40;
@@ -74,18 +90,53 @@ function sanearEstado(valor: unknown): EstadoBibliotecaFavoritos {
 
 let colaGuardado: Promise<void> = Promise.resolve();
 
+/**
+ * Lee el estado local usando el almacenamiento con espacio de nombres.
+ * Migra la clave antigua `@rutinia_biblioteca_favoritos_v2:<cuenta>` la
+ * primera vez, para no perder favoritos ni listas al actualizar.
+ */
+async function cargarEstadoLocal(): Promise<EstadoBibliotecaFavoritos> {
+  const actual = await leerLocal(STORAGE_SUFIJO);
+  if (actual) {
+    try {
+      return sanearEstado(JSON.parse(actual));
+    } catch {
+      // Si el JSON está corrupto, probamos la clave heredada.
+    }
+  }
+
+  for (const clave of getLegacyKeys()) {
+    try {
+      const legacy = await AsyncStorage.getItem(clave);
+      if (legacy) {
+        await escribirLocal(STORAGE_SUFIJO, legacy);
+        await AsyncStorage.removeItem(clave).catch(() => {});
+        return sanearEstado(JSON.parse(legacy));
+      }
+    } catch {
+      // Probamos la siguiente clave heredada.
+    }
+  }
+
+  return { ...ESTADO_FAVORITOS_INICIAL };
+}
+
 /** Sincroniza en segundo plano las listas y favoritos con Supabase */
 async function sincronizarCloud(estado: EstadoBibliotecaFavoritos): Promise<void> {
   try {
+    const usuarioId = await obtenerUsuarioIdActual();
+    const filaFavoritos: Record<string, unknown> = {
+      id: usuarioId ?? 'invitado',
+      favoritos: estado.favoritos,
+      recientes: estado.recientes,
+      actualizado_en: new Date().toISOString(),
+    };
+    if (usuarioId) filaFavoritos.usuario_id = usuarioId;
+
     // Sincronizar favoritos y recientes
     await supabase
       .from('favoritos_biblioteca')
-      .upsert({
-        id: 'default',
-        favoritos: estado.favoritos,
-        recientes: estado.recientes,
-        actualizado_en: new Date().toISOString(),
-      })
+      .upsert(filaFavoritos)
       .then(({ error }) => {
         if (error && error.code !== 'PGRST204') {
           // Si la tabla no existe en la BD todavía, no interrumpir
@@ -101,6 +152,7 @@ async function sincronizarCloud(estado: EstadoBibliotecaFavoritos): Promise<void
         ejercicio_ids: l.ejercicioIds,
         creada_en: l.creadaEn,
         actualizada_en: l.actualizadaEn,
+        usuario_id: usuarioId,
       }));
 
       await supabase
@@ -124,27 +176,27 @@ async function sincronizarCloud(estado: EstadoBibliotecaFavoritos): Promise<void
  */
 export async function cargarEstadoFavoritosBiblioteca(): Promise<EstadoBibliotecaFavoritos> {
   // 1. Cargar caché local inmediato de AsyncStorage (0 ms)
-  let estadoLocal: EstadoBibliotecaFavoritos = { ...ESTADO_FAVORITOS_INICIAL };
-  try {
-    await colaGuardado.catch(() => {});
-    const guardado = await AsyncStorage.getItem(STORAGE_KEY);
-    if (guardado) {
-      estadoLocal = sanearEstado(JSON.parse(guardado));
-    }
-  } catch {}
+  await colaGuardado.catch(() => {});
+  const estadoLocal = await cargarEstadoLocal();
 
   // 2. Intentar sincronizar con Supabase
   try {
+    const usuarioId = await obtenerUsuarioIdActual();
     const [resListas, resFav] = await Promise.all([
-      supabase
-        .from('listas_biblioteca')
-        .select('*')
-        .order('actualizada_en', { ascending: false }),
-      supabase
-        .from('favoritos_biblioteca')
-        .select('*')
-        .eq('id', 'default')
-        .maybeSingle(),
+      filtrarPorPropietario(
+        supabase
+          .from('listas_biblioteca')
+          .select('*')
+          .order('actualizada_en', { ascending: false }),
+        usuarioId
+      ),
+      filtrarPorPropietario(
+        supabase
+          .from('favoritos_biblioteca')
+          .select('*')
+          .eq('id', usuarioId ?? 'invitado'),
+        usuarioId
+      ).maybeSingle(),
     ]);
 
     if (!resListas.error && resListas.data) {
@@ -188,7 +240,7 @@ export async function cargarEstadoFavoritosBiblioteca(): Promise<EstadoBibliotec
       };
 
       // Actualizar AsyncStorage para próximas aperturas offline
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(estadoFinal)).catch(() => {});
+      void escribirLocal(STORAGE_SUFIJO, JSON.stringify(estadoFinal));
       return estadoFinal;
     }
   } catch (err) {
@@ -205,10 +257,10 @@ export function guardarEstadoFavoritosBiblioteca(
 ): Promise<void> {
   const limpio = sanearEstado(estado);
 
-  // 1. Guardar siempre en local de forma inmediata
+  // 1. Guardar siempre en local de forma inmediata (por cuenta)
   colaGuardado = colaGuardado
     .catch(() => {})
-    .then(() => AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(limpio)))
+    .then(() => escribirLocal(STORAGE_SUFIJO, JSON.stringify(limpio)))
     .catch(() => {});
 
   // 2. Sincronizar en segundo plano con Supabase
@@ -254,18 +306,20 @@ export function agregarListaFavoritos(
   nueva: ListaFavoritosBiblioteca
 ): ListaFavoritosBiblioteca[] {
   // Disparar inserción inmediata de la nueva lista en Supabase
-  try {
-    ejecutarEnSegundoPlano(
-      supabase.from('listas_biblioteca').upsert({
+  ejecutarEnSegundoPlano(
+    (async () => {
+      const usuarioId = await obtenerUsuarioIdActual();
+      await supabase.from('listas_biblioteca').upsert({
         id: nueva.id,
         nombre: nueva.nombre,
         grupo_muscular: nueva.grupoMuscular,
         ejercicio_ids: nueva.ejercicioIds,
         creada_en: nueva.creadaEn,
         actualizada_en: nueva.actualizadaEn,
-      })
-    );
-  } catch {}
+        usuario_id: usuarioId,
+      });
+    })()
+  );
 
   return [nueva, ...listas].slice(0, MAX_LISTAS);
 }
@@ -292,18 +346,20 @@ export function alternarEjercicioEnLista(
   // Disparar upsert de la lista modificada en Supabase
   const listaModificada = actualizadas.find((l) => l.id === listaId);
   if (listaModificada) {
-    try {
-      ejecutarEnSegundoPlano(
-        supabase.from('listas_biblioteca').upsert({
+    ejecutarEnSegundoPlano(
+      (async () => {
+        const usuarioId = await obtenerUsuarioIdActual();
+        await supabase.from('listas_biblioteca').upsert({
           id: listaModificada.id,
           nombre: listaModificada.nombre,
           grupo_muscular: listaModificada.grupoMuscular,
           ejercicio_ids: listaModificada.ejercicioIds,
           creada_en: listaModificada.creadaEn,
           actualizada_en: listaModificada.actualizadaEn,
-        })
-      );
-    } catch {}
+          usuario_id: usuarioId,
+        });
+      })()
+    );
   }
 
   return actualizadas;
@@ -314,11 +370,15 @@ export function eliminarListaFavoritos(
   listaId: string
 ): ListaFavoritosBiblioteca[] {
   // Disparar borrado en Supabase en segundo plano
-  try {
-    ejecutarEnSegundoPlano(
-      supabase.from('listas_biblioteca').delete().eq('id', listaId)
-    );
-  } catch {}
+  ejecutarEnSegundoPlano(
+    (async () => {
+      const usuarioId = await obtenerUsuarioIdActual();
+      await filtrarPorPropietario(
+        supabase.from('listas_biblioteca').delete().eq('id', listaId),
+        usuarioId
+      );
+    })()
+  );
 
   return listas.filter((lista) => lista.id !== listaId);
 }

@@ -1,7 +1,13 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { Registro, Rutina } from '../types';
-import { guardarCacheLocal, obtenerCacheLocal } from '../utils/offline';
+import {
+  escribirLocal,
+  guardarCacheLocal,
+  leerLocal,
+  listarSufijosLocales,
+  obtenerCacheLocal,
+} from '../utils/offline';
+import { filtrarPorPropietario, obtenerUsuarioIdActual } from '../utils/usuario';
 import { parsearEjercicioInfo } from '../utils/ejercicios';
 import {
   BorradorSesion,
@@ -31,23 +37,22 @@ function normalizarNombreEjercicio(nombre: string): string {
 }
 
 /** Obtiene el usuario_id del usuario autenticado, o null si no hay sesión. */
-async function getUsuarioId(): Promise<string | null> {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.id ?? null;
-  } catch {
-    return null;
-  }
-}
+const getUsuarioId = obtenerUsuarioIdActual;
 
 export async function listarRutinas(): Promise<Rutina[]> {
   try {
-    const { data, error } = await supabase
-      .from('rutinas')
-      .select('*, ejercicios_rutina(*), planes_entrenamiento(*)')
+    const usuarioId = await getUsuarioId();
+    const query = filtrarPorPropietario(
+      supabase
+        .from('rutinas')
+        .select('*, ejercicios_rutina(*), planes_entrenamiento(*)'),
+      usuarioId
+    )
       .order('orden_en_plan', { ascending: true })
       .order('dia_sugerido', { ascending: true })
       .order('creado_en', { ascending: false });
+
+    const { data, error } = await query;
 
     if (error) throw error;
 
@@ -319,13 +324,13 @@ export async function sincronizarRutinaConRegistrosYActiva(
 
     // 2. En AsyncStorage: actualizar cachés de registros locales
     try {
-      const allKeys = await AsyncStorage.getAllKeys();
-      const regCacheKeys = allKeys.filter(
-        (k) => k.startsWith('rutinia_cache_registros_') || k.startsWith('rutinia_registros_')
+      const sufijos = await listarSufijosLocales();
+      const regCacheKeys = sufijos.filter(
+        (k) => k.startsWith('cache_registros_') || k.startsWith('registros_')
       );
 
       for (const k of regCacheKeys) {
-        const raw = await AsyncStorage.getItem(k);
+        const raw = await leerLocal(k);
         if (raw) {
           let modificado = false;
           const listaRegs = JSON.parse(raw) as Registro[];
@@ -353,7 +358,7 @@ export async function sincronizarRutinaConRegistrosYActiva(
           });
 
           if (modificado) {
-            await AsyncStorage.setItem(k, JSON.stringify(nuevaLista));
+            await escribirLocal(k, JSON.stringify(nuevaLista));
           }
         }
       }
@@ -363,11 +368,11 @@ export async function sincronizarRutinaConRegistrosYActiva(
 
     // 3. En AsyncStorage: Sincronizar borradores de sesión en curso (rutinia_sesion_borrador_*)
     try {
-      const allKeys = await AsyncStorage.getAllKeys();
-      const borradorKeys = allKeys.filter((k) => k.startsWith('rutinia_sesion_borrador_'));
+      const sufijos = await listarSufijosLocales();
+      const borradorKeys = sufijos.filter((k) => k.startsWith('sesion_borrador_'));
 
       for (const bKey of borradorKeys) {
-        const rawB = await AsyncStorage.getItem(bKey);
+        const rawB = await leerLocal(bKey);
         if (rawB) {
           const borrador = JSON.parse(rawB) as BorradorSesion;
           const regCoincide =
@@ -427,7 +432,7 @@ export async function sincronizarRutinaConRegistrosYActiva(
             borrador.nombreRutina = nuevoNombre;
             borrador.ejerciciosState = nuevosStates;
             borrador.updatedAt = Date.now();
-            await AsyncStorage.setItem(bKey, JSON.stringify(borrador));
+            await escribirLocal(bKey, JSON.stringify(borrador));
           }
         }
       }
@@ -676,11 +681,11 @@ export async function reemplazarEjercicioEnRutina(
       }
     }
 
-    // Actualizar borradores activos en AsyncStorage
-    const allKeys = await AsyncStorage.getAllKeys();
-    const bKeys = allKeys.filter((k) => k.startsWith('rutinia_sesion_borrador_'));
+    // Actualizar borradores activos de la cuenta actual
+    const sufijos = await listarSufijosLocales();
+    const bKeys = sufijos.filter((k) => k.startsWith('sesion_borrador_'));
     for (const bk of bKeys) {
-      const raw = await AsyncStorage.getItem(bk);
+      const raw = await leerLocal(bk);
       if (raw) {
         const b = JSON.parse(raw) as BorradorSesion;
         const objetivo = elegirNombreExistente(
@@ -701,7 +706,7 @@ export async function reemplazarEjercicioEnRutina(
         if (cambiado) {
           b.ejerciciosState = nextStates;
           b.updatedAt = Date.now();
-          await AsyncStorage.setItem(bk, JSON.stringify(b));
+          await escribirLocal(bk, JSON.stringify(b));
         }
       }
     }

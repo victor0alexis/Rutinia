@@ -1,7 +1,12 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { Registro, Rutina } from '../types';
-import { guardarCacheLocal, obtenerCacheLocal } from '../utils/offline';
+import {
+  guardarCacheLocal,
+  leerLocal,
+  listarSufijosLocales,
+  obtenerCacheLocal,
+} from '../utils/offline';
+import { filtrarPorPropietario, obtenerUsuarioIdActual } from '../utils/usuario';
 import { parsearEjercicioInfo } from '../utils/ejercicios';
 import {
   PREFIJO_NOTA_EJERCICIO,
@@ -13,20 +18,17 @@ import {
 } from '../utils/notasSesion';
 
 /** Obtiene el usuario_id del usuario autenticado, o null si no hay sesión. */
-async function getUsuarioId(): Promise<string | null> {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.id ?? null;
-  } catch {
-    return null;
-  }
-}
+const getUsuarioId = obtenerUsuarioIdActual;
 
 export async function registrosDeRango(desde: string, hasta: string): Promise<Registro[]> {
   try {
-    const { data, error } = await supabase
-      .from('registros_entrenamiento')
-      .select('*, rutinas(nombre, plan_id, dia_sugerido), planes_entrenamiento(*), ejercicios_registro(*)')
+    const usuarioId = await getUsuarioId();
+    const { data, error } = await filtrarPorPropietario(
+      supabase
+        .from('registros_entrenamiento')
+        .select('*, rutinas(nombre, plan_id, dia_sugerido), planes_entrenamiento(*), ejercicios_registro(*)'),
+      usuarioId
+    )
       .gte('fecha', desde)
       .lte('fecha', hasta)
       .order('fecha', { ascending: true });
@@ -41,12 +43,12 @@ export async function registrosDeRango(desde: string, hasta: string): Promise<Re
     const cache = await obtenerCacheLocal<Registro[]>(`registros_${desde}_${hasta}`);
     if (cache && cache.length > 0) return cache;
 
-    // Fallback inteligente: buscar en cualquier rango cacheado en almacenamiento local
+    // Fallback inteligente: buscar en cualquier rango cacheado de esta cuenta
     try {
-      const keys = await AsyncStorage.getAllKeys();
-      const regKeys = keys.filter((k) => k.startsWith('rutinia_registros_'));
+      const sufijos = await listarSufijosLocales();
+      const regKeys = sufijos.filter((k) => k.startsWith('registros_'));
       for (const k of regKeys) {
-        const raw = await AsyncStorage.getItem(k);
+        const raw = await leerLocal(k);
         if (raw) {
           const arr = JSON.parse(raw) as Registro[];
           const filtrados = arr.filter((r) => r.fecha >= desde && r.fecha <= hasta);
@@ -152,11 +154,14 @@ export async function agregarActividad(
 ) {
   const usuarioId = await getUsuarioId();
 
-  const { data: existente } = await supabase
-    .from('registros_entrenamiento')
-    .select('id')
-    .eq('fecha', fecha)
-    .is('rutina_id', null)
+  const { data: existente } = await filtrarPorPropietario(
+    supabase
+      .from('registros_entrenamiento')
+      .select('id')
+      .eq('fecha', fecha)
+      .is('rutina_id', null),
+    usuarioId
+  )
     .limit(1)
     .maybeSingle();
 
@@ -437,10 +442,14 @@ export async function obtenerHistorialPrevioRutina(
   if (!rutinaId || rutinaId.startsWith('local_')) return null;
 
   try {
-    let query = supabase
-      .from('registros_entrenamiento')
-      .select('*, rutinas(nombre), ejercicios_registro(*)')
-      .eq('rutina_id', rutinaId)
+    const usuarioId = await getUsuarioId();
+    let query = filtrarPorPropietario(
+      supabase
+        .from('registros_entrenamiento')
+        .select('*, rutinas(nombre), ejercicios_registro(*)')
+        .eq('rutina_id', rutinaId),
+      usuarioId
+    )
       .order('fecha', { ascending: false })
       .limit(3);
 
@@ -468,11 +477,15 @@ export async function obtenerHistorialPrevioEjercicio(
 
   try {
     const nombreLimpio = nombreEjercicio.trim().replace(/^\[U(NILATERAL)?\]\s*/i, '');
+    const usuarioId = await getUsuarioId();
 
-    let query = supabase
-      .from('ejercicios_registro')
-      .select('*, registros_entrenamiento!inner(fecha, completado)')
-      .ilike('nombre', `%${nombreLimpio}%`)
+    let query = filtrarPorPropietario(
+      supabase
+        .from('ejercicios_registro')
+        .select('*, registros_entrenamiento!inner(fecha, completado)')
+        .ilike('nombre', `%${nombreLimpio}%`),
+      usuarioId
+    )
       .order('creado_en', { ascending: false })
       .limit(5);
 
@@ -887,14 +900,17 @@ async function obtenerNotasHistorial(
 ): Promise<Map<string, string>> {
   const notas = new Map<string, string>();
   const objetivo = normalizarNombreEjercicio(nombreEjercicio);
+  const usuarioId = await getUsuarioId();
 
   for (let i = 0; i < registroIds.length; i += 100) {
     const lote = registroIds.slice(i, i + 100);
-    const { data, error } = await supabase
-      .from('ejercicios_registro')
-      .select('registro_id, nombre, ejercicio_nombre')
-      .in('registro_id', lote)
-      .like('nombre', `${PREFIJO_NOTA_EJERCICIO}%`);
+    const { data, error } = await filtrarPorPropietario(
+      supabase
+        .from('ejercicios_registro')
+        .select('registro_id, nombre, ejercicio_nombre')
+        .in('registro_id', lote),
+      usuarioId
+    ).like('nombre', `${PREFIJO_NOTA_EJERCICIO}%`);
 
     if (error) {
       console.warn('Error obteniendo notas del historial:', error);
@@ -934,27 +950,34 @@ export async function obtenerHistorialEjercicio(
   // La primera palabra sin tildes permite encontrar variantes naturales
   // (Elevación / Elevaciones, Jalón / Jalones) sin abrir demasiado el filtro.
   const primeraPalabra = sinAcentos(nombreLimpio.split(/\s+/)[0] || '');
+  const usuarioId = await getUsuarioId();
 
   const [porNombre, porCampo, porPalabra] = await Promise.all([
-    supabase
-      .from('ejercicios_registro')
-      .select(SELECT_HISTORIAL_EJERCICIO)
-      .eq('registros_entrenamiento.completado', true)
-      .ilike('nombre', `%${nombreLimpio}%`)
-      .order('creado_en', { ascending: false }),
-    supabase
-      .from('ejercicios_registro')
-      .select(SELECT_HISTORIAL_EJERCICIO)
-      .eq('registros_entrenamiento.completado', true)
-      .eq('ejercicio_nombre', nombreLimpio)
-      .order('creado_en', { ascending: false }),
+    filtrarPorPropietario(
+      supabase
+        .from('ejercicios_registro')
+        .select(SELECT_HISTORIAL_EJERCICIO)
+        .eq('registros_entrenamiento.completado', true)
+        .ilike('nombre', `%${nombreLimpio}%`),
+      usuarioId
+    ).order('creado_en', { ascending: false }),
+    filtrarPorPropietario(
+      supabase
+        .from('ejercicios_registro')
+        .select(SELECT_HISTORIAL_EJERCICIO)
+        .eq('registros_entrenamiento.completado', true)
+        .eq('ejercicio_nombre', nombreLimpio),
+      usuarioId
+    ).order('creado_en', { ascending: false }),
     primeraPalabra.length >= 3
-      ? supabase
-          .from('ejercicios_registro')
-          .select(SELECT_HISTORIAL_EJERCICIO)
-          .eq('registros_entrenamiento.completado', true)
-          .ilike('nombre', `%${primeraPalabra}%`)
-          .order('creado_en', { ascending: false })
+      ? filtrarPorPropietario(
+          supabase
+            .from('ejercicios_registro')
+            .select(SELECT_HISTORIAL_EJERCICIO)
+            .eq('registros_entrenamiento.completado', true)
+            .ilike('nombre', `%${primeraPalabra}%`),
+          usuarioId
+        ).order('creado_en', { ascending: false })
       : Promise.resolve({ data: [], error: null }),
   ]);
 

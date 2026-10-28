@@ -1,5 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { calcularSegundosTranscurridos, limpiarTimerSesion, obtenerOIniciarTimer } from './timer';
+import { eliminarLocal, escribirLocal, leerLocal } from './offline';
 
 export type DropDraftItem = {
   orden: number;
@@ -59,11 +59,11 @@ export type SesionActivaInfo = {
   actualizadoEn: number;
 };
 
-const BORRADOR_PREFIX = 'rutinia_sesion_borrador_';
-const SESION_ACTIVA_KEY = 'rutinia_sesion_activa_id';
+const BORRADOR_SUFIJO = 'sesion_borrador_';
+const SESION_ACTIVA_SUFIJO = 'sesion_activa_id';
 
-function getBorradorKey(registroId: string): string {
-  return `${BORRADOR_PREFIX}${registroId}`;
+function getBorradorSufijo(registroId: string): string {
+  return `${BORRADOR_SUFIJO}${registroId}`;
 }
 
 type SesionListener = (info: SesionActivaInfo | null) => void;
@@ -122,8 +122,8 @@ export async function guardarBorradorSesion(
       ejercicioActivoIndex: Math.max(0, Math.floor(data.ejercicioActivoIndex ?? 0)),
       updatedAt: Date.now(),
     };
-    await AsyncStorage.setItem(getBorradorKey(registroId), JSON.stringify(borrador));
-    await AsyncStorage.setItem(SESION_ACTIVA_KEY, registroId);
+    await escribirLocal(getBorradorSufijo(registroId), JSON.stringify(borrador));
+    await escribirLocal(SESION_ACTIVA_SUFIJO, registroId);
     await emitirCambioSesionActiva();
   } catch (err) {
     console.warn('Error guardando borrador de sesión:', err);
@@ -135,7 +135,7 @@ export async function guardarBorradorSesion(
  */
 export async function obtenerBorradorSesion(registroId: string): Promise<BorradorSesion | null> {
   try {
-    const raw = await AsyncStorage.getItem(getBorradorKey(registroId));
+    const raw = await leerLocal(getBorradorSufijo(registroId));
     if (raw) {
       return JSON.parse(raw) as BorradorSesion;
     }
@@ -150,7 +150,7 @@ export async function obtenerBorradorSesion(registroId: string): Promise<Borrado
  */
 export async function obtenerSesionActivaInfo(): Promise<SesionActivaInfo | null> {
   try {
-    const activeId = await AsyncStorage.getItem(SESION_ACTIVA_KEY);
+    const activeId = await leerLocal(SESION_ACTIVA_SUFIJO);
     if (!activeId) return null;
 
     const borrador = await obtenerBorradorSesion(activeId);
@@ -187,10 +187,10 @@ export async function obtenerSesionActivaInfo(): Promise<SesionActivaInfo | null
  */
 export async function limpiarSesionActiva(registroId: string): Promise<void> {
   try {
-    await AsyncStorage.removeItem(getBorradorKey(registroId));
-    const activeId = await AsyncStorage.getItem(SESION_ACTIVA_KEY);
+    await eliminarLocal(getBorradorSufijo(registroId));
+    const activeId = await leerLocal(SESION_ACTIVA_SUFIJO);
     if (activeId === registroId) {
-      await AsyncStorage.removeItem(SESION_ACTIVA_KEY);
+      await eliminarLocal(SESION_ACTIVA_SUFIJO);
     }
     await limpiarTimerSesion(registroId);
     await emitirCambioSesionActiva();

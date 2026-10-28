@@ -1,24 +1,25 @@
 import { supabase } from '../lib/supabase';
 import { EjercicioCatalogo } from '../types';
 import { guardarCacheLocal, obtenerCacheLocal } from '../utils/offline';
+import { obtenerUsuarioIdActual } from '../utils/usuario';
 
-async function getUsuarioId(): Promise<string | null> {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.id ?? null;
-  } catch {
-    return null;
-  }
-}
+const getUsuarioId = obtenerUsuarioIdActual;
 
-const CACHE_CATALOGO_KEY = 'rutinia_ejercicios_catalogo';
+const CACHE_CATALOGO_KEY = 'ejercicios_catalogo';
 
 export async function listarEjerciciosCatalogo(): Promise<EjercicioCatalogo[]> {
   try {
-    const { data, error } = await supabase
-      .from('ejercicios_catalogo')
-      .select('*')
-      .order('nombre', { ascending: true });
+    const usuarioId = await getUsuarioId();
+    // El catálogo base es global (`usuario_id = null`); cada cuenta añade sus
+    // propios ejercicios personalizados.
+    const query = usuarioId
+      ? supabase
+          .from('ejercicios_catalogo')
+          .select('*')
+          .or(`usuario_id.is.null,usuario_id.eq.${usuarioId}`)
+      : supabase.from('ejercicios_catalogo').select('*').is('usuario_id', null);
+
+    const { data, error } = await query.order('nombre', { ascending: true });
 
     if (error) throw error;
     const catalogo = (data || []) as EjercicioCatalogo[];

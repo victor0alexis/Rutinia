@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import {
   useFonts,
@@ -13,8 +13,8 @@ import { DMSans_400Regular } from '@expo-google-fonts/dm-sans';
 import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, View, Platform, StatusBar as RNStatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { supabase } from '../lib/supabase';
 import { colores } from '../constants/colores';
+import { inicializarCuentas } from '../services/cuentas';
 
 import ConfirmModalGlobal from '../components/ConfirmModalGlobal';
 import { RutiniaLogo } from '../components/RutiniaLogo';
@@ -23,11 +23,28 @@ import DebugViewportOverlay from '../components/DebugViewportOverlay';
 import { StatusBar } from 'expo-status-bar';
 
 export default function RootLayout() {
+  const [cuentasListas, setCuentasListas] = useState(false);
+
   useEffect(() => {
     if (Platform.OS === 'ios' || Platform.OS === 'android') {
       RNStatusBar.setBarStyle('light-content', true);
     }
   }, []);
+
+  // La sesión y el espacio de nombres de las cachés deben estar resueltos antes
+  // de montar cualquier pantalla que consulte datos.
+  useEffect(() => {
+    let activo = true;
+    inicializarCuentas()
+      .catch((err) => console.warn('No se pudo inicializar la sesión:', err))
+      .finally(() => {
+        if (activo) setCuentasListas(true);
+      });
+    return () => {
+      activo = false;
+    };
+  }, []);
+
   const [fontsLoaded] = useFonts({
     Outfit_400Regular,
     Outfit_500Medium,
@@ -40,8 +57,6 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {});
-
     // Inyectar fuente de iconos Ionicons en la web si no está cargada
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const styleId = 'expo-vector-icons-ionicons';
@@ -77,15 +92,12 @@ export default function RootLayout() {
       };
       document.addEventListener('touchmove', preventElasticScroll, { passive: false });
       return () => {
-        subscription.unsubscribe();
         document.removeEventListener('touchmove', preventElasticScroll);
       };
     }
-
-    return () => subscription.unsubscribe();
   }, []);
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded || !cuentasListas) {
     return (
       <View style={{ flex: 1, width: '100%', height: '100%', backgroundColor: colores.fondo, justifyContent: 'center', alignItems: 'center' }}>
         <RutiniaLogo size={84} />

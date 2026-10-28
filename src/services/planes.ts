@@ -1,38 +1,28 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { PlanEntrenamiento, Rutina } from '../types';
-import { guardarCacheLocal, obtenerCacheLocal } from '../utils/offline';
+import {
+  guardarCacheLocal,
+  leerLocal,
+  obtenerCacheLocal,
+  escribirLocal,
+} from '../utils/offline';
+import { filtrarPorPropietario, obtenerUsuarioIdActual } from '../utils/usuario';
 import { EjercicioNuevo } from './rutinas';
 import { aISO, diasDeSemana } from '../utils/fechas';
 
-const KEY_ULTIMO_PLAN = 'rutinia_ultimo_plan_usado';
+const KEY_ULTIMO_PLAN = 'ultimo_plan_usado';
 
 /** Obtiene el usuario_id del usuario autenticado, o null si no hay sesión. */
-async function getUsuarioId(): Promise<string | null> {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.id ?? null;
-  } catch {
-    return null;
-  }
-}
+const getUsuarioId = obtenerUsuarioIdActual;
 
 /** Obtiene el ID del último plan usado persistido localmente */
 export async function obtenerUltimoPlanUsadoId(): Promise<string | null> {
-  try {
-    return await AsyncStorage.getItem(KEY_ULTIMO_PLAN);
-  } catch {
-    return null;
-  }
+  return leerLocal(KEY_ULTIMO_PLAN);
 }
 
 /** Guarda el ID del último plan usado */
 export async function guardarUltimoPlanUsadoId(planId: string): Promise<void> {
-  try {
-    await AsyncStorage.setItem(KEY_ULTIMO_PLAN, planId);
-  } catch (err) {
-    console.warn('Error guardando último plan usado:', err);
-  }
+  await escribirLocal(KEY_ULTIMO_PLAN, planId);
 }
 
 /**
@@ -40,9 +30,13 @@ export async function guardarUltimoPlanUsadoId(planId: string): Promise<void> {
  */
 export async function listarPlanes(opciones: { incluirArchivados?: boolean } = {}): Promise<PlanEntrenamiento[]> {
   try {
-    let query = supabase
-      .from('planes_entrenamiento')
-      .select('*, rutinas(id, dia_sugerido, archivado:id)')
+    const usuarioId = await getUsuarioId();
+    let query = filtrarPorPropietario(
+      supabase
+        .from('planes_entrenamiento')
+        .select('*, rutinas(id, dia_sugerido, archivado:id)'),
+      usuarioId
+    )
       .order('activo', { ascending: false })
       .order('orden', { ascending: true })
       .order('creado_en', { ascending: true });
@@ -342,9 +336,13 @@ export async function eliminarPlan(
  */
 export async function listarRutinasDePlan(planId: string | null): Promise<Rutina[]> {
   try {
-    let query = supabase
-      .from('rutinas')
-      .select('*, ejercicios_rutina(*), planes_entrenamiento(*)')
+    const usuarioId = await getUsuarioId();
+    let query = filtrarPorPropietario(
+      supabase
+        .from('rutinas')
+        .select('*, ejercicios_rutina(*), planes_entrenamiento(*)'),
+      usuarioId
+    )
       .order('orden_en_plan', { ascending: true })
       .order('dia_sugerido', { ascending: true })
       .order('creado_en', { ascending: true });
@@ -509,10 +507,13 @@ export async function aplicarPlanASemana(
     const fechaISO = aISO(diasSemana[diaIndex]);
 
     // Verificar si ya existe un registro con rutina en esta fecha
-    const { data: registrosExistentes } = await supabase
-      .from('registros_entrenamiento')
-      .select('id, rutina_id')
-      .eq('fecha', fechaISO);
+    const { data: registrosExistentes } = await filtrarPorPropietario(
+      supabase
+        .from('registros_entrenamiento')
+        .select('id, rutina_id')
+        .eq('fecha', fechaISO),
+      usuarioId
+    );
 
     const tieneRutina = (registrosExistentes || []).some((r) => r.rutina_id !== null);
 

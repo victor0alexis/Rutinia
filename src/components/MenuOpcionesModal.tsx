@@ -15,8 +15,27 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fuentes, noir } from '../constants/colores';
-import { supabase } from '../lib/supabase';
+import { colores, COLORES_PLANES, fuentes, noir } from '../constants/colores';
+import { useLayout } from '../hooks/useLayout';
+import {
+  actualizarEmailActual,
+  actualizarPasswordActual,
+  actualizarPerfilActual,
+  cambiarCuenta,
+  cerrarSesionActual,
+  crearCuenta,
+  CuentaRutinia,
+  eliminarCuentaActual,
+  EliminacionNoConfiguradaError,
+  EstadoCuentas,
+  iniciarSesion,
+  obtenerEstadoCuentas,
+  quitarCuentaDelDispositivo,
+  SesionExpiradaError,
+  subscribirCambioCuenta,
+} from '../services/cuentas';
+import { limpiarCacheDatosLocales } from '../utils/offline';
+import { confirmarAccion, mostrarMensaje } from '../utils/errores';
 import { vibrarBoton } from '../utils/haptics';
 import { emitirCambioDatos } from '../utils/sincronizacion';
 import { RutiniaLogo } from './RutiniaLogo';
@@ -25,63 +44,376 @@ export const KEY_PREF_UNIDAD = 'rutinia_pref_unidad_peso';
 export const KEY_PREF_HAPTICOS = 'rutinia_pref_hapticos';
 export const KEY_PREF_TIMER_AUTO = 'rutinia_pref_timer_auto';
 
+const DANGER = '#F08A9B';
+const SUCCESS = '#3FF2B0';
+const WARNING = noir.champagne;
+
+type Vista = 'menu' | 'cuentas' | 'auth' | 'perfil';
+type ModoAuth = 'login' | 'registro';
+type Aviso = { tipo: 'error' | 'exito' | 'info'; texto: string };
+
 interface Props {
   visible: boolean;
   onClose: () => void;
   onSessionChange?: () => void;
 }
 
-export default function MenuOpcionesModal({ visible, onClose, onSessionChange }: Props) {
-  // Estado de usuario y autenticación
-  const [usuario, setUsuario] = useState<any>(null);
-  const [cargandoAuth, setCargandoAuth] = useState(false);
-  const [mostrandoFormAuth, setMostrandoFormAuth] = useState(false);
-  const [tipoFormAuth, setTipoFormAuth] = useState<'login' | 'registro'>('login');
+const TITULOS: Record<Vista, string> = {
+  menu: 'Menú & Ajustes',
+  cuentas: 'Cambiar de cuenta',
+  auth: 'Tu cuenta',
+  perfil: 'Mi cuenta',
+};
+
+function emailValido(valor: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor.trim());
+}
+
+function inicialDe(cuenta?: CuentaRutinia | null): string {
+  return cuenta?.nombre?.trim().charAt(0).toUpperCase() || 'A';
+}
+
+function AvatarCuenta({
+  cuenta,
+  size = 44,
+}: {
+  cuenta: CuentaRutinia;
+  size?: number;
+}) {
+  const esNube = cuenta.tipo === 'nube';
+  const radio = size / 2;
+
+  return (
+    <View
+      style={[
+        styles.avatar,
+        { width: size, height: size, borderRadius: radio },
+      ]}
+    >
+      <LinearGradient
+        colors={
+          esNube
+            ? [cuenta.color || colores.primario, '#15171F']
+            : ['#242833', '#12141A']
+        }
+        start={{ x: 0.25, y: 0.1 }}
+        end={{ x: 0.8, y: 0.95 }}
+        style={styles.avatarGradient}
+      >
+        <Text style={[styles.avatarText, { fontSize: size * 0.38 }]}>
+          {inicialDe(cuenta)}
+        </Text>
+      </LinearGradient>
+      <View
+        style={[
+          styles.avatarDot,
+          {
+            backgroundColor: esNube ? SUCCESS : WARNING,
+            shadowColor: esNube ? SUCCESS : WARNING,
+          },
+        ]}
+      />
+    </View>
+  );
+}
+
+function Alerta({ aviso }: { aviso: Aviso }) {
+  const color =
+    aviso.tipo === 'error' ? DANGER : aviso.tipo === 'exito' ? SUCCESS : noir.info;
+  const icono =
+    aviso.tipo === 'error'
+      ? 'alert-circle'
+      : aviso.tipo === 'exito'
+        ? 'checkmark-circle'
+        : 'information-circle';
+
+  return (
+    <View
+      style={[
+        styles.alerta,
+        {
+          borderColor: `${color}55`,
+          backgroundColor: `${color}14`,
+        },
+      ]}
+    >
+      <Ionicons name={icono as any} size={16} color={color} />
+      <Text style={[styles.alertaTexto, { color }]}>{aviso.texto}</Text>
+    </View>
+  );
+}
+
+type CampoProps = React.ComponentProps<typeof TextInput> & {
+  icono: keyof typeof Ionicons.glyphMap;
+  mostrarOcultar?: boolean;
+  oculto?: boolean;
+  onMostrarOcultar?: () => void;
+};
+
+function Campo({
+  icono,
+  mostrarOcultar,
+  oculto,
+  onMostrarOcultar,
+  style,
+  ...props
+}: CampoProps) {
+  const [enfocado, setEnfocado] = useState(false);
+
+  return (
+    <View style={[styles.campoWrap, enfocado && styles.campoWrapFocus]}>
+      <Ionicons
+        name={icono}
+        size={17}
+        color={enfocado ? noir.platinum : noir.muted2}
+        style={styles.campoIcono}
+      />
+      <TextInput
+        {...props}
+        placeholderTextColor={noir.muted2}
+        selectionColor={noir.ice}
+        onFocus={(event) => {
+          setEnfocado(true);
+          props.onFocus?.(event);
+        }}
+        onBlur={(event) => {
+          setEnfocado(false);
+          props.onBlur?.(event);
+        }}
+        style={[styles.campoInput, style]}
+      />
+      {mostrarOcultar ? (
+        <Pressable
+          onPress={onMostrarOcultar}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={oculto ? 'Mostrar contraseña' : 'Ocultar contraseña'}
+        >
+          <Ionicons
+            name={oculto ? 'eye-outline' : 'eye-off-outline'}
+            size={18}
+            color={noir.muted2}
+          />
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+function BotonPrimario({
+  texto,
+  icono,
+  onPress,
+  cargando,
+  disabled,
+}: {
+  texto: string;
+  icono?: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
+  cargando?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={() => {
+        if (disabled || cargando) return;
+        vibrarBoton();
+        onPress();
+      }}
+      disabled={disabled || cargando}
+      style={({ pressed }) => [
+        styles.botonPrimario,
+        (disabled || cargando) && { opacity: 0.55 },
+        pressed && { opacity: 0.86, transform: [{ scale: 0.985 }] },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={texto}
+    >
+      <LinearGradient
+        colors={['#C2243D', '#7E1422']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.botonPrimarioGradient}
+      >
+        {cargando ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        ) : (
+          <>
+            {icono ? <Ionicons name={icono} size={17} color="#FFFFFF" /> : null}
+            <Text style={styles.botonPrimarioTexto}>{texto}</Text>
+          </>
+        )}
+      </LinearGradient>
+    </Pressable>
+  );
+}
+
+function BotonSecundario({
+  texto,
+  icono,
+  onPress,
+  cargando,
+  disabled,
+}: {
+  texto: string;
+  icono?: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
+  cargando?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={() => {
+        if (disabled || cargando) return;
+        vibrarBoton();
+        onPress();
+      }}
+      disabled={disabled || cargando}
+      style={({ pressed }) => [
+        styles.botonSecundario,
+        (disabled || cargando) && { opacity: 0.55 },
+        pressed && { opacity: 0.72 },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={texto}
+    >
+      {icono ? <Ionicons name={icono} size={16} color={noir.platinum} /> : null}
+      <Text style={styles.botonSecundarioTexto}>{texto}</Text>
+    </Pressable>
+  );
+}
+
+export default function MenuOpcionesModal({
+  visible,
+  onClose,
+  onSessionChange,
+}: Props) {
+  const { contentMaxWidth, isCompact } = useLayout();
+
+  const [vista, setVista] = useState<Vista>('menu');
+  const [estado, setEstado] = useState<EstadoCuentas | null>(null);
+  const [cambiandoId, setCambiandoId] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<Aviso | null>(null);
+
+  // Autenticación
+  const [modoAuth, setModoAuth] = useState<ModoAuth>('login');
+  const [nombreInput, setNombreInput] = useState('');
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
-  const [nombreInput, setNombreInput] = useState('');
-  const [mensajeAuth, setMensajeAuth] = useState<{ tipo: 'error' | 'exito'; texto: string } | null>(null);
+  const [confirmarPassword, setConfirmarPassword] = useState('');
+  const [verPassword, setVerPassword] = useState(false);
+  const [cargandoAuth, setCargandoAuth] = useState(false);
+  const [avisoAuth, setAvisoAuth] = useState<Aviso | null>(null);
+
+  // Edición de perfil
+  const [nombrePerfil, setNombrePerfil] = useState('');
+  const [colorPerfil, setColorPerfil] = useState<string>(COLORES_PLANES[0]);
+  const [emailPerfil, setEmailPerfil] = useState('');
+  const [passwordNueva, setPasswordNueva] = useState('');
+  const [passwordNueva2, setPasswordNueva2] = useState('');
+  const [verPasswordNueva, setVerPasswordNueva] = useState(false);
+  const [guardandoPerfil, setGuardandoPerfil] = useState(false);
+  const [guardandoEmail, setGuardandoEmail] = useState(false);
+  const [guardandoPassword, setGuardandoPassword] = useState(false);
+  const [avisoPerfil, setAvisoPerfil] = useState<Aviso | null>(null);
 
   // Preferencias
   const [unidadPeso, setUnidadPeso] = useState<'kg' | 'lbs'>('kg');
   const [hapticosActivos, setHapticosActivos] = useState(true);
   const [timerAutoActivo, setTimerAutoActivo] = useState(true);
-  const [sincronizando, setSincronizando] = useState(false);
+  const [recargando, setRecargando] = useState(false);
   const [mensajeSincro, setMensajeSincro] = useState<string | null>(null);
 
-  // Cargar sesión y preferencias al abrir (asíncrono sin setStates síncronos en el cuerpo del efecto)
+  const cargarCuentas = () => {
+    obtenerEstadoCuentas()
+      .then(setEstado)
+      .catch((err) => {
+        console.warn('No se pudo cargar el estado de las cuentas:', err);
+      });
+  };
+
+  const cargarPerfil = (cuenta: CuentaRutinia) => {
+    setNombrePerfil(cuenta.nombre);
+    setColorPerfil(cuenta.color || COLORES_PLANES[0]);
+    setEmailPerfil(cuenta.email || '');
+  };
+
+  const manejarApertura = () => {
+    setVista('menu');
+    setAviso(null);
+    setAvisoAuth(null);
+    setAvisoPerfil(null);
+  };
+
   useEffect(() => {
     if (!visible) return;
     let activo = true;
 
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!activo) return;
-      setUsuario(data.session?.user || null);
+    cargarCuentas();
 
-      const [prefUnidad, prefHapticos, prefTimer] = await Promise.all([
-        AsyncStorage.getItem(KEY_PREF_UNIDAD),
-        AsyncStorage.getItem(KEY_PREF_HAPTICOS),
-        AsyncStorage.getItem(KEY_PREF_TIMER_AUTO),
-      ]);
-
+    Promise.all([
+      AsyncStorage.getItem(KEY_PREF_UNIDAD),
+      AsyncStorage.getItem(KEY_PREF_HAPTICOS),
+      AsyncStorage.getItem(KEY_PREF_TIMER_AUTO),
+    ]).then(([prefUnidad, prefHapticos, prefTimer]) => {
       if (!activo) return;
       if (prefUnidad === 'lbs' || prefUnidad === 'kg') setUnidadPeso(prefUnidad);
       if (prefHapticos !== null) setHapticosActivos(prefHapticos === 'true');
       if (prefTimer !== null) setTimerAutoActivo(prefTimer === 'true');
-    }).catch(() => {});
+    });
 
     return () => {
       activo = false;
     };
   }, [visible]);
 
+  useEffect(() => {
+    if (!visible) return;
+    return subscribirCambioCuenta(cargarCuentas);
+  }, [visible]);
+
+  const cuentaActiva = estado?.activa ?? null;
+  const otrasCuentas = estado?.cuentas.filter((c) => c.id !== cuentaActiva?.id) ?? [];
+
   const manejarCierre = () => {
-    setMensajeAuth(null);
-    setMensajeSincro(null);
+    if (cambiandoId || cargandoAuth) return;
+    setAviso(null);
+    setAvisoAuth(null);
+    setAvisoPerfil(null);
+    setVista('menu');
     onClose();
   };
 
-  // Manejo de Preferencias
+  const volverAlMenu = () => {
+    setVista('menu');
+    setAvisoAuth(null);
+    setAvisoPerfil(null);
+  };
+
+  const abrirAuth = (modo: ModoAuth, email?: string | null, mensaje?: string) => {
+    vibrarBoton();
+    setModoAuth(modo);
+    setNombreInput('');
+    setEmailInput(email || '');
+    setPasswordInput('');
+    setConfirmarPassword('');
+    setVerPassword(false);
+    setAvisoAuth(mensaje ? { tipo: 'info', texto: mensaje } : null);
+    setVista('auth');
+  };
+
+  const abrirPerfil = () => {
+    if (!cuentaActiva || cuentaActiva.tipo !== 'nube') return;
+    vibrarBoton();
+    cargarPerfil(cuentaActiva);
+    setPasswordNueva('');
+    setPasswordNueva2('');
+    setVerPasswordNueva(false);
+    setAvisoPerfil(null);
+    setVista('perfil');
+  };
+
+  // ── Preferencias ──────────────────────────────────────────────────────────
   const cambiarUnidadPeso = async (nueva: 'kg' | 'lbs') => {
     vibrarBoton(15);
     setUnidadPeso(nueva);
@@ -101,32 +433,75 @@ export default function MenuOpcionesModal({ visible, onClose, onSessionChange }:
     await AsyncStorage.setItem(KEY_PREF_TIMER_AUTO, String(valor));
   };
 
-  // Manejo de Autenticación
-  const ejecutarLogin = async () => {
-    if (!emailInput.trim() || !passwordInput.trim()) {
-      setMensajeAuth({ tipo: 'error', texto: 'Ingresa correo y contraseña.' });
+  // ── Cambio de cuenta ──────────────────────────────────────────────────────
+  const seleccionarCuenta = async (cuenta: CuentaRutinia) => {
+    if (!estado || cuenta.id === estado.activaId || cambiandoId) return;
+
+    if (cuenta.tipo === 'nube' && !cuenta.sesionGuardada) {
+      abrirAuth(
+        'login',
+        cuenta.email,
+        `La sesión de ${cuenta.email || cuenta.nombre} expiró. Ingresa tu contraseña para volver a entrar.`
+      );
       return;
     }
-    try {
-      setCargandoAuth(true);
-      setMensajeAuth(null);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: emailInput.trim(),
-        password: passwordInput,
-      });
-      if (error) throw error;
 
-      setUsuario(data.user);
-      setMostrandoFormAuth(false);
+    vibrarBoton();
+    setCambiandoId(cuenta.id);
+    setAviso(null);
+
+    try {
+      const activa = await cambiarCuenta(cuenta.id);
+      setEstado(await obtenerEstadoCuentas());
+      setAviso({
+        tipo: 'exito',
+        texto:
+          activa.tipo === 'local'
+            ? 'Ahora estás en el perfil local.'
+            : `Ahora estás usando ${activa.email || activa.nombre}.`,
+      });
+      setVista('menu');
+      onSessionChange?.();
+    } catch (err) {
+      if (err instanceof SesionExpiradaError) {
+        abrirAuth('login', err.email, err.message);
+      } else {
+        setAviso({
+          tipo: 'error',
+          texto: err instanceof Error ? err.message : 'No se pudo cambiar de cuenta.',
+        });
+      }
+      cargarCuentas();
+    } finally {
+      setCambiandoId(null);
+    }
+  };
+
+  // ── Autenticación ─────────────────────────────────────────────────────────
+  const ejecutarLogin = async () => {
+    if (!emailValido(emailInput)) {
+      setAvisoAuth({ tipo: 'error', texto: 'Ingresa un correo electrónico válido.' });
+      return;
+    }
+    if (!passwordInput) {
+      setAvisoAuth({ tipo: 'error', texto: 'Ingresa tu contraseña.' });
+      return;
+    }
+
+    setCargandoAuth(true);
+    setAvisoAuth(null);
+    try {
+      await iniciarSesion(emailInput, passwordInput);
+      setAviso({ tipo: 'exito', texto: '¡Sesión iniciada! Tus datos ya están disponibles.' });
       setEmailInput('');
       setPasswordInput('');
-      setMensajeAuth({ tipo: 'exito', texto: '¡Sesión iniciada con éxito!' });
-      emitirCambioDatos();
-      if (onSessionChange) onSessionChange();
-    } catch (err: any) {
-      setMensajeAuth({
+      setVista('menu');
+      setEstado(await obtenerEstadoCuentas());
+      onSessionChange?.();
+    } catch (err) {
+      setAvisoAuth({
         tipo: 'error',
-        texto: err?.message || 'Error al iniciar sesión. Revisa tus credenciales.',
+        texto: err instanceof Error ? err.message : 'No se pudo iniciar sesión.',
       });
     } finally {
       setCargandoAuth(false);
@@ -134,110 +509,975 @@ export default function MenuOpcionesModal({ visible, onClose, onSessionChange }:
   };
 
   const ejecutarRegistro = async () => {
-    if (!emailInput.trim() || !passwordInput.trim()) {
-      setMensajeAuth({ tipo: 'error', texto: 'Completa todos los campos requeridos.' });
+    if (!emailValido(emailInput)) {
+      setAvisoAuth({ tipo: 'error', texto: 'Ingresa un correo electrónico válido.' });
       return;
     }
     if (passwordInput.length < 6) {
-      setMensajeAuth({ tipo: 'error', texto: 'La contraseña debe tener al menos 6 caracteres.' });
+      setAvisoAuth({
+        tipo: 'error',
+        texto: 'La contraseña debe tener al menos 6 caracteres.',
+      });
       return;
     }
+    if (passwordInput !== confirmarPassword) {
+      setAvisoAuth({ tipo: 'error', texto: 'Las contraseñas no coinciden.' });
+      return;
+    }
+
+    setCargandoAuth(true);
+    setAvisoAuth(null);
     try {
-      setCargandoAuth(true);
-      setMensajeAuth(null);
-      const { data, error } = await supabase.auth.signUp({
-        email: emailInput.trim(),
+      const resultado = await crearCuenta({
+        nombre: nombreInput,
+        email: emailInput,
         password: passwordInput,
-        options: {
-          data: {
-            nombre: nombreInput.trim() || 'Atleta',
-          },
-        },
       });
-      if (error) throw error;
 
-      if (data.user) {
-        setUsuario(data.user);
-        setMensajeAuth({
-          tipo: 'exito',
-          texto: data.session
-            ? '¡Cuenta creada y sesión iniciada!'
-            : '¡Cuenta creada! Revisa tu email para confirmarla si es requerido.',
-        });
-        if (data.session) {
-          setMostrandoFormAuth(false);
-          setEmailInput('');
-          setPasswordInput('');
-          setNombreInput('');
-          emitirCambioDatos();
-          if (onSessionChange) onSessionChange();
-        }
+      setEstado(await obtenerEstadoCuentas());
+
+      if (resultado.requiereConfirmacion) {
+        setModoAuth('login');
+        setPasswordInput('');
+        setConfirmarPassword('');
+        setAvisoAuth({ tipo: 'exito', texto: resultado.mensaje });
+      } else {
+        setAviso({ tipo: 'exito', texto: resultado.mensaje });
+        setNombreInput('');
+        setEmailInput('');
+        setPasswordInput('');
+        setConfirmarPassword('');
+        setVista('menu');
+        onSessionChange?.();
       }
-    } catch (err: any) {
-      setMensajeAuth({
+    } catch (err) {
+      setAvisoAuth({
         tipo: 'error',
-        texto: err?.message || 'Error al crear la cuenta. Intenta nuevamente.',
+        texto: err instanceof Error ? err.message : 'No se pudo crear la cuenta.',
       });
     } finally {
       setCargandoAuth(false);
     }
   };
 
-  const ejecutarCerrarSesion = async () => {
+  const cerrarSesion = () => {
+    if (!cuentaActiva || cuentaActiva.tipo !== 'nube') return;
     vibrarBoton(20);
+    confirmarAccion(
+      'Cerrar sesión',
+      `Se cerrará la sesión de ${cuentaActiva.email || cuentaActiva.nombre} en este dispositivo. La cuenta seguirá en la lista para que puedas volver a entrar.`,
+      async () => {
+        await cerrarSesionActual({ olvidarSesion: true });
+        setEstado(await obtenerEstadoCuentas());
+        setVista('menu');
+        setAviso({ tipo: 'info', texto: 'Sesión cerrada. Estás en el perfil local.' });
+        onSessionChange?.();
+      },
+      'Cerrar sesión'
+    );
+  };
+
+  const quitarCuenta = (cuenta: CuentaRutinia) => {
+    vibrarBoton(20);
+    const eraActiva = estado?.activaId === cuenta.id;
+    confirmarAccion(
+      'Quitar de este dispositivo',
+      `Se borrará la sesión guardada y la caché local de ${cuenta.email || cuenta.nombre} en este dispositivo. Sus datos en la nube no se eliminan y podrás volver a iniciar sesión cuando quieras.`,
+      async () => {
+        await quitarCuentaDelDispositivo(cuenta.id);
+        setEstado(await obtenerEstadoCuentas());
+        setAviso({ tipo: 'info', texto: 'Cuenta quitada de este dispositivo.' });
+        if (eraActiva) setVista('menu');
+        onSessionChange?.();
+      },
+      'Quitar'
+    );
+  };
+
+  // ── Perfil ────────────────────────────────────────────────────────────────
+  const guardarPerfil = async () => {
+    if (!nombrePerfil.trim()) {
+      setAvisoPerfil({ tipo: 'error', texto: 'El nombre no puede estar vacío.' });
+      return;
+    }
+
+    setGuardandoPerfil(true);
+    setAvisoPerfil(null);
     try {
-      setCargandoAuth(true);
-      await supabase.auth.signOut();
-      setUsuario(null);
-      setMostrandoFormAuth(false);
-      setMensajeAuth(null);
-      emitirCambioDatos();
-      if (onSessionChange) onSessionChange();
-    } catch (err: any) {
-      console.warn('Error cerrando sesión:', err);
+      await actualizarPerfilActual({ nombre: nombrePerfil, color: colorPerfil });
+      setEstado(await obtenerEstadoCuentas());
+      setAvisoPerfil({ tipo: 'exito', texto: 'Perfil actualizado.' });
+      onSessionChange?.();
+    } catch (err) {
+      setAvisoPerfil({
+        tipo: 'error',
+        texto: err instanceof Error ? err.message : 'No se pudo actualizar el perfil.',
+      });
     } finally {
-      setCargandoAuth(false);
+      setGuardandoPerfil(false);
     }
   };
 
-  // Sincronización manual
-  const sincronizarDatos = async () => {
-    vibrarBoton(15);
-    setSincronizando(true);
-    setMensajeSincro('Sincronizando...');
+  const guardarEmail = async () => {
+    if (!emailValido(emailPerfil)) {
+      setAvisoPerfil({ tipo: 'error', texto: 'Ingresa un correo electrónico válido.' });
+      return;
+    }
+
+    setGuardandoEmail(true);
+    setAvisoPerfil(null);
     try {
-      emitirCambioDatos();
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      setMensajeSincro('✓ Datos sincronizados con la nube');
-      setTimeout(() => setMensajeSincro(null), 3500);
-    } catch {
-      setMensajeSincro('Error de sincronización');
+      const resultado = await actualizarEmailActual(emailPerfil);
+      setEstado(await obtenerEstadoCuentas());
+      setAvisoPerfil({
+        tipo: resultado.requiereConfirmacion ? 'info' : 'exito',
+        texto: resultado.mensaje,
+      });
+    } catch (err) {
+      setAvisoPerfil({
+        tipo: 'error',
+        texto: err instanceof Error ? err.message : 'No se pudo actualizar el correo.',
+      });
     } finally {
-      setSincronizando(false);
+      setGuardandoEmail(false);
     }
   };
 
-  const limpiarCacheLocal = async () => {
+  const guardarPassword = async () => {
+    if (passwordNueva.length < 6) {
+      setAvisoPerfil({
+        tipo: 'error',
+        texto: 'La nueva contraseña debe tener al menos 6 caracteres.',
+      });
+      return;
+    }
+    if (passwordNueva !== passwordNueva2) {
+      setAvisoPerfil({ tipo: 'error', texto: 'Las contraseñas no coinciden.' });
+      return;
+    }
+
+    setGuardandoPassword(true);
+    setAvisoPerfil(null);
+    try {
+      await actualizarPasswordActual(passwordNueva);
+      setPasswordNueva('');
+      setPasswordNueva2('');
+      setAvisoPerfil({ tipo: 'exito', texto: 'Contraseña actualizada.' });
+    } catch (err) {
+      setAvisoPerfil({
+        tipo: 'error',
+        texto: err instanceof Error ? err.message : 'No se pudo cambiar la contraseña.',
+      });
+    } finally {
+      setGuardandoPassword(false);
+    }
+  };
+
+  const eliminarCuenta = () => {
+    if (!cuentaActiva || cuentaActiva.tipo !== 'nube') return;
     vibrarBoton(25);
+    confirmarAccion(
+      'Eliminar cuenta',
+      `Esta acción borra definitivamente la cuenta ${cuentaActiva.email || cuentaActiva.nombre} y todos sus datos en la nube (rutinas, planes, registros, notas y favoritos). No se puede deshacer.`,
+      async () => {
+        try {
+          await eliminarCuentaActual();
+          setEstado(await obtenerEstadoCuentas());
+          setVista('menu');
+          setAviso({
+            tipo: 'exito',
+            texto: 'Cuenta eliminada. Ahora estás en el perfil local.',
+          });
+          onSessionChange?.();
+        } catch (err) {
+          if (err instanceof EliminacionNoConfiguradaError) {
+            mostrarMensaje('Falta configurar Supabase', err.message);
+            return;
+          }
+          mostrarMensaje(
+            'No se pudo eliminar la cuenta',
+            err instanceof Error ? err.message : 'Intenta nuevamente.'
+          );
+        }
+      },
+      'Eliminar cuenta'
+    );
+  };
+
+  // ── Datos ─────────────────────────────────────────────────────────────────
+  const recargarDatos = async () => {
+    vibrarBoton(15);
+    setRecargando(true);
+    setMensajeSincro(null);
     try {
-      const keys = await AsyncStorage.getAllKeys();
-      const keysCache = keys.filter((k) => k.startsWith('rutinia_') && !k.startsWith('rutinia_pref_'));
-      if (keysCache.length > 0) {
-        await AsyncStorage.multiRemove(keysCache);
-      }
       emitirCambioDatos();
-      setMensajeSincro('✓ Caché local limpiada');
-      setTimeout(() => setMensajeSincro(null), 3000);
-    } catch {
-      setMensajeSincro('Error al limpiar caché');
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      setMensajeSincro('✓ Datos recargados desde tu cuenta');
+    } finally {
+      setRecargando(false);
+      setTimeout(() => setMensajeSincro(null), 3200);
     }
   };
 
-  const inicialAvatar = usuario?.user_metadata?.nombre
-    ? usuario.user_metadata.nombre.charAt(0).toUpperCase()
-    : usuario?.email
-    ? usuario.email.charAt(0).toUpperCase()
-    : 'A';
+  const limpiarCache = () => {
+    vibrarBoton(20);
+    confirmarAccion(
+      'Limpiar caché local',
+      'Se borrarán las copias locales de rutinas, planes, registros y notas de esta cuenta. La información de la nube no se modifica. La sesión en curso y tus preferencias se conservan.',
+      async () => {
+        const eliminadas = await limpiarCacheDatosLocales();
+        emitirCambioDatos();
+        setMensajeSincro(
+          eliminadas > 0
+            ? `✓ ${eliminadas} elemento(s) de caché eliminados`
+            : '✓ No había caché que limpiar'
+        );
+        setTimeout(() => setMensajeSincro(null), 3200);
+      },
+      'Limpiar'
+    );
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  const anchoHoja = Math.min(contentMaxWidth, isCompact ? 420 : 468);
+  const titulo = TITULOS[vista];
+  const cuentaNube = cuentaActiva?.tipo === 'nube';
+  const hayCuentasNube = estado?.cuentas.some((cuenta) => cuenta.tipo === 'nube') ?? false;
+
+  const renderMenu = () => (
+    <>
+      {aviso ? <Alerta aviso={aviso} /> : null}
+
+      {/* Cuenta activa */}
+      <View style={styles.card}>
+        <View style={styles.cardEyebrowRow}>
+          <Text style={styles.cardTitulo}>CUENTA ACTIVA</Text>
+          <View style={styles.devicePill}>
+            <Ionicons name="phone-portrait-outline" size={11} color={noir.muted2} />
+            <Text style={styles.devicePillTexto}>Este dispositivo</Text>
+          </View>
+        </View>
+
+        {cuentaActiva ? (
+          <>
+            <View style={styles.cuentaHero}>
+              <AvatarCuenta cuenta={cuentaActiva} size={52} />
+              <View style={styles.cuentaHeroInfo}>
+                <Text style={styles.cuentaNombre} numberOfLines={1}>
+                  {cuentaActiva.nombre}
+                </Text>
+                <Text style={styles.cuentaEmail} numberOfLines={1}>
+                  {cuentaActiva.email || 'Sin cuenta en la nube'}
+                </Text>
+                <View
+                  style={[
+                    styles.badge,
+                    {
+                      borderColor: cuentaNube ? `${SUCCESS}55` : `${WARNING}55`,
+                      backgroundColor: cuentaNube ? `${SUCCESS}14` : `${WARNING}14`,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={cuentaNube ? 'cloud-done-outline' : 'phone-portrait-outline'}
+                    size={11}
+                    color={cuentaNube ? SUCCESS : WARNING}
+                  />
+                  <Text
+                    style={[
+                      styles.badgeTexto,
+                      { color: cuentaNube ? SUCCESS : WARNING },
+                    ]}
+                  >
+                    {cuentaNube ? 'Sincronizado con Supabase' : 'Perfil local'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.accionesCuenta}>
+              {cuentaNube ? (
+                <>
+                  <BotonSecundario
+                    texto="Gestionar"
+                    icono="settings-outline"
+                    onPress={abrirPerfil}
+                  />
+                  <BotonPrimario
+                    texto="Cambiar de cuenta"
+                    icono="swap-horizontal-outline"
+                    onPress={() => {
+                      vibrarBoton();
+                      setVista('cuentas');
+                    }}
+                  />
+                </>
+              ) : hayCuentasNube ? (
+                <>
+                  <BotonSecundario
+                    texto="Iniciar sesión"
+                    icono="log-in-outline"
+                    onPress={() => abrirAuth('login')}
+                  />
+                  <BotonPrimario
+                    texto="Cambiar de cuenta"
+                    icono="swap-horizontal-outline"
+                    onPress={() => {
+                      vibrarBoton();
+                      setVista('cuentas');
+                    }}
+                  />
+                </>
+              ) : (
+                <>
+                  <BotonSecundario
+                    texto="Crear cuenta"
+                    icono="person-add-outline"
+                    onPress={() => abrirAuth('registro')}
+                  />
+                  <BotonPrimario
+                    texto="Iniciar sesión"
+                    icono="log-in-outline"
+                    onPress={() => abrirAuth('login')}
+                  />
+                </>
+              )}
+            </View>
+
+            <Text style={styles.ayudaCuenta}>
+              {cuentaNube
+                ? 'Tus rutinas y registros se guardan en tu cuenta. Puedes añadir otra cuenta y alternar entre ellas sin cerrar la sesión.'
+                : 'Estás entrenando sin una cuenta en la nube. Crea una o inicia sesión para sincronizar tus datos entre dispositivos.'}
+            </Text>
+          </>
+        ) : (
+          <View style={styles.cargandoCuenta}>
+            <ActivityIndicator size="small" color={colores.primarioHover} />
+            <Text style={styles.cargandoTexto}>Cargando tu sesión…</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Preferencias */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitulo}>PREFERENCIAS DE ENTRENAMIENTO</Text>
+
+        <View style={styles.optionRow}>
+          <View style={styles.optionInfo}>
+            <View style={styles.optionIcono}>
+              <Ionicons name="barbell-outline" size={18} color={noir.platinum} />
+            </View>
+            <View style={styles.optionTexts}>
+              <Text style={styles.optionLabel}>Unidad de peso</Text>
+              <Text style={styles.optionSub}>Kilogramos o libras</Text>
+            </View>
+          </View>
+          <View style={styles.segmento}>
+            {(['kg', 'lbs'] as const).map((unidad) => (
+              <Pressable
+                key={unidad}
+                onPress={() => cambiarUnidadPeso(unidad)}
+                style={[
+                  styles.segmentoBoton,
+                  unidadPeso === unidad && styles.segmentoBotonActivo,
+                ]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: unidadPeso === unidad }}
+              >
+                <Text
+                  style={[
+                    styles.segmentoTexto,
+                    unidadPeso === unidad && styles.segmentoTextoActivo,
+                  ]}
+                >
+                  {unidad}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.divisor} />
+
+        <View style={styles.optionRow}>
+          <View style={styles.optionInfo}>
+            <View style={styles.optionIcono}>
+              <Ionicons name="hardware-chip-outline" size={18} color={noir.platinum} />
+            </View>
+            <View style={styles.optionTexts}>
+              <Text style={styles.optionLabel}>Vibración háptica</Text>
+              <Text style={styles.optionSub}>Respuesta táctil al pulsar botones</Text>
+            </View>
+          </View>
+          <Switch
+            value={hapticosActivos}
+            onValueChange={toggleHapticos}
+            thumbColor="#FFFFFF"
+            trackColor={{ false: '#262933', true: colores.primario }}
+            ios_backgroundColor="#262933"
+          />
+        </View>
+
+        <View style={styles.divisor} />
+
+        <View style={styles.optionRow}>
+          <View style={styles.optionInfo}>
+            <View style={styles.optionIcono}>
+              <Ionicons name="timer-outline" size={18} color={noir.platinum} />
+            </View>
+            <View style={styles.optionTexts}>
+              <Text style={styles.optionLabel}>Temporizador de descanso</Text>
+              <Text style={styles.optionSub}>Sugerir descanso al completar serie</Text>
+            </View>
+          </View>
+          <Switch
+            value={timerAutoActivo}
+            onValueChange={toggleTimerAuto}
+            thumbColor="#FFFFFF"
+            trackColor={{ false: '#262933', true: colores.primario }}
+            ios_backgroundColor="#262933"
+          />
+        </View>
+      </View>
+
+      {/* Datos */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitulo}>DATOS Y SINCRONIZACIÓN</Text>
+
+        {mensajeSincro ? (
+          <View style={styles.feedbackRow}>
+            <Text style={styles.feedbackTexto}>{mensajeSincro}</Text>
+          </View>
+        ) : null}
+
+        {cuentaNube ? (
+          <>
+            <Pressable
+              onPress={recargarDatos}
+              disabled={recargando}
+              style={({ pressed }) => [
+                styles.dataRow,
+                pressed && { opacity: 0.72 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Recargar datos desde la nube"
+            >
+              <View style={styles.optionInfo}>
+                <View style={styles.optionIcono}>
+                  <Ionicons name="cloud-download-outline" size={18} color={noir.info} />
+                </View>
+                <View style={styles.optionTexts}>
+                  <Text style={styles.optionLabel}>Recargar desde la nube</Text>
+                  <Text style={styles.optionSub}>Vuelve a leer tus datos de Supabase</Text>
+                </View>
+              </View>
+              {recargando ? (
+                <ActivityIndicator size="small" color={noir.info} />
+              ) : (
+                <Ionicons name="chevron-forward" size={17} color={noir.muted2} />
+              )}
+            </Pressable>
+            <View style={styles.divisor} />
+          </>
+        ) : (
+          <>
+            <View style={styles.localInfo}>
+              <Ionicons name="information-circle-outline" size={16} color={WARNING} />
+              <Text style={styles.localInfoTexto}>
+                Estás en el perfil local. Inicia sesión para sincronizar entre dispositivos.
+              </Text>
+            </View>
+            <View style={styles.divisor} />
+          </>
+        )}
+
+        <Pressable
+          onPress={limpiarCache}
+          style={({ pressed }) => [styles.dataRow, pressed && { opacity: 0.72 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Limpiar caché local"
+        >
+          <View style={styles.optionInfo}>
+            <View style={styles.optionIcono}>
+              <Ionicons name="trash-bin-outline" size={18} color={noir.muted} />
+            </View>
+            <View style={styles.optionTexts}>
+              <Text style={styles.optionLabel}>Limpiar caché local</Text>
+              <Text style={styles.optionSub}>Fuerza una recarga limpia de esta cuenta</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={17} color={noir.muted2} />
+        </Pressable>
+      </View>
+
+      <View style={styles.acerca}>
+        <RutiniaLogo size={18} />
+        <Text style={styles.acercaTexto}>Rutinia · Versión 1.0.0</Text>
+        <Text style={styles.acercaSub}>Sistema de Entrenamiento de Alto Rendimiento</Text>
+      </View>
+    </>
+  );
+
+  const renderCuentas = () => (
+    <>
+      {aviso ? <Alerta aviso={aviso} /> : null}
+
+      <View style={styles.card}>
+        <View style={styles.cardEyebrowRow}>
+          <Text style={styles.cardTitulo}>CUENTAS EN ESTE DISPOSITIVO</Text>
+          <Text style={styles.contadorCuentas}>{estado?.cuentas.length ?? 0}</Text>
+        </View>
+
+        <Text style={styles.descripcionSeccion}>
+          Toca una cuenta para usarla. Las cuentas con candado necesitan que vuelvas a
+          escribir tu contraseña porque su sesión guardada expiró.
+        </Text>
+
+        <View style={styles.listaCuentas}>
+          {estado?.cuentas.map((cuenta) => {
+            const activa = cuenta.id === estado.activaId;
+            const bloqueada =
+              cuenta.tipo === 'nube' && !cuenta.sesionGuardada && !activa;
+            const cambiando = cambiandoId === cuenta.id;
+
+            return (
+              <View
+                key={cuenta.id}
+                style={[styles.filaCuenta, activa && styles.filaCuentaActiva]}
+              >
+                <Pressable
+                  onPress={() => seleccionarCuenta(cuenta)}
+                  disabled={activa || Boolean(cambiandoId)}
+                  style={({ pressed }) => [
+                    styles.filaCuentaToque,
+                    pressed && !activa && { opacity: 0.74 },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    selected: activa,
+                    disabled: activa || Boolean(cambiandoId),
+                  }}
+                  accessibilityLabel={`Usar la cuenta ${cuenta.nombre}`}
+                >
+                  <AvatarCuenta cuenta={cuenta} />
+                  <View style={styles.filaCuentaInfo}>
+                    <Text style={styles.filaCuentaNombre} numberOfLines={1}>
+                      {cuenta.nombre}
+                    </Text>
+                    <Text style={styles.filaCuentaEmail} numberOfLines={1}>
+                      {cuenta.email ||
+                        (cuenta.tipo === 'local'
+                          ? 'Datos sin cuenta en la nube'
+                          : 'Cuenta de Supabase')}
+                    </Text>
+                  </View>
+
+                  {cambiando ? (
+                    <ActivityIndicator size="small" color={colores.primarioHover} />
+                  ) : activa ? (
+                    <View style={styles.checkActiva}>
+                      <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                    </View>
+                  ) : bloqueada ? (
+                    <View style={styles.estadoCuenta}>
+                      <Ionicons name="lock-closed" size={13} color={WARNING} />
+                      <Text style={[styles.estadoCuentaTexto, { color: WARNING }]}>
+                        Entrar
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={styles.estadoCuenta}>
+                      <Text style={styles.estadoCuentaTexto}>Cambiar</Text>
+                      <Ionicons name="chevron-forward" size={14} color={noir.muted2} />
+                    </View>
+                  )}
+                </Pressable>
+
+                {!activa ? (
+                  <Pressable
+                    onPress={() => {
+                      vibrarBoton(20);
+                      quitarCuenta(cuenta);
+                    }}
+                    disabled={Boolean(cambiandoId)}
+                    hitSlop={8}
+                    style={({ pressed }) => [
+                      styles.quitarCuentaBoton,
+                      Boolean(cambiandoId) && { opacity: 0.35 },
+                      pressed && { opacity: 0.6 },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Quitar ${cuenta.nombre} de este dispositivo`}
+                  >
+                    <Ionicons name="close" size={15} color={noir.muted2} />
+                  </Pressable>
+                ) : null}
+              </View>
+            );
+          })}
+        </View>
+
+        <Pressable
+          onPress={() => abrirAuth('login')}
+          style={({ pressed }) => [
+            styles.anadirCuenta,
+            pressed && { opacity: 0.72 },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Añadir otra cuenta"
+        >
+          <View style={styles.anadirIcono}>
+            <Ionicons name="add" size={18} color={noir.platinum} />
+          </View>
+          <View style={styles.filaCuentaInfo}>
+            <Text style={styles.optionLabel}>Añadir otra cuenta</Text>
+            <Text style={styles.optionSub}>Inicia sesión o crea una cuenta nueva</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={17} color={noir.muted2} />
+        </Pressable>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitulo}>CÓMO FUNCIONA</Text>
+        <View style={styles.infoLinea}>
+          <Ionicons name="key-outline" size={16} color={noir.info} />
+          <Text style={styles.infoLineaTexto}>
+            Guardamos una sesión renovable por cuenta en este dispositivo para que puedas
+            alternar sin escribir la contraseña cada vez.
+          </Text>
+        </View>
+        <View style={styles.infoLinea}>
+          <Ionicons name="shield-checkmark-outline" size={16} color={SUCCESS} />
+          <Text style={styles.infoLineaTexto}>
+            Cerrar sesión borra el token guardado en este dispositivo. Quitar la cuenta
+            borra también su caché local, pero no sus datos en la nube.
+          </Text>
+        </View>
+        <View style={styles.infoLinea}>
+          <Ionicons name="cloud-offline-outline" size={16} color={WARNING} />
+          <Text style={styles.infoLineaTexto}>
+            El perfil local no se sincroniza entre dispositivos. Cada cuenta de Supabase
+            mantiene sus propios datos separados.
+          </Text>
+        </View>
+      </View>
+
+      {otrasCuentas.length > 0 ? (
+        <Text style={styles.pieSeccion}>
+          Usa la «×» de una fila para quitarla del dispositivo o entra en ella y pulsa
+          «Gestionar».
+        </Text>
+      ) : null}
+    </>
+  );
+
+  const renderAuth = () => (
+    <>
+      {avisoAuth ? <Alerta aviso={avisoAuth} /> : null}
+
+      <View style={styles.card}>
+        <View style={styles.tabsAuth}>
+          {(['login', 'registro'] as const).map((modo) => (
+            <Pressable
+              key={modo}
+              onPress={() => {
+                vibrarBoton();
+                setModoAuth(modo);
+                setAvisoAuth(null);
+              }}
+              style={[styles.tabAuth, modoAuth === modo && styles.tabAuthActivo]}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: modoAuth === modo }}
+            >
+              <Text
+                style={[
+                  styles.tabAuthTexto,
+                  modoAuth === modo && styles.tabAuthTextoActivo,
+                ]}
+              >
+                {modo === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.authTitulo}>
+          {modoAuth === 'login' ? 'Bienvenido de vuelta' : 'Tu nueva cuenta'}
+        </Text>
+        <Text style={styles.authSub}>
+          {modoAuth === 'login'
+            ? 'Entra para recuperar tus rutinas, planes y registros.'
+            : 'Crea una cuenta para sincronizar tu entrenamiento en la nube.'}
+        </Text>
+
+        <View style={styles.authCampos}>
+          {modoAuth === 'registro' ? (
+            <Campo
+              icono="person-outline"
+              placeholder="Nombre o apodo"
+              value={nombreInput}
+              onChangeText={setNombreInput}
+              autoCapitalize="words"
+              autoComplete="name"
+              textContentType="name"
+              returnKeyType="next"
+            />
+          ) : null}
+
+          <Campo
+            icono="mail-outline"
+            placeholder="correo@ejemplo.com"
+            value={emailInput}
+            onChangeText={setEmailInput}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            textContentType="emailAddress"
+            returnKeyType="next"
+          />
+
+          <Campo
+            icono="lock-closed-outline"
+            placeholder="Contraseña (mínimo 6 caracteres)"
+            value={passwordInput}
+            onChangeText={setPasswordInput}
+            secureTextEntry={!verPassword}
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete={modoAuth === 'login' ? 'current-password' : 'new-password'}
+            textContentType={modoAuth === 'login' ? 'password' : 'newPassword'}
+            returnKeyType={modoAuth === 'login' ? 'go' : 'next'}
+            onSubmitEditing={modoAuth === 'login' ? ejecutarLogin : undefined}
+            mostrarOcultar
+            oculto={!verPassword}
+            onMostrarOcultar={() => setVerPassword((valor) => !valor)}
+          />
+
+          {modoAuth === 'registro' ? (
+            <Campo
+              icono="shield-checkmark-outline"
+              placeholder="Repite la contraseña"
+              value={confirmarPassword}
+              onChangeText={setConfirmarPassword}
+              secureTextEntry={!verPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="new-password"
+              textContentType="newPassword"
+              returnKeyType="go"
+              onSubmitEditing={ejecutarRegistro}
+            />
+          ) : null}
+        </View>
+
+        <BotonPrimario
+          texto={modoAuth === 'login' ? 'Entrar' : 'Crear mi cuenta'}
+          icono={modoAuth === 'login' ? 'log-in-outline' : 'person-add-outline'}
+          onPress={modoAuth === 'login' ? ejecutarLogin : ejecutarRegistro}
+          cargando={cargandoAuth}
+        />
+
+        <Text style={styles.authLegal}>
+          {modoAuth === 'registro'
+            ? 'Al crear una cuenta aceptas que tus datos de entrenamiento se guarden en Supabase.'
+            : 'Si olvidaste tu contraseña, puedes restablecerla desde el panel de Supabase.'}
+        </Text>
+      </View>
+    </>
+  );
+
+  const renderPerfil = () => (
+    <>
+      {avisoPerfil ? <Alerta aviso={avisoPerfil} /> : null}
+
+      {cuentaActiva ? (
+        <>
+          <View style={styles.card}>
+            <View style={styles.perfilHero}>
+              <AvatarCuenta cuenta={{ ...cuentaActiva, color: colorPerfil }} size={62} />
+              <View style={styles.perfilHeroInfo}>
+                <Text style={styles.perfilNombre} numberOfLines={1}>
+                  {nombrePerfil || cuentaActiva.nombre}
+                </Text>
+                <Text style={styles.perfilEmail} numberOfLines={1}>
+                  {cuentaActiva.email || 'Cuenta de Supabase'}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.campoLabel}>Nombre visible</Text>
+            <Campo
+              icono="person-outline"
+              placeholder="Tu nombre o apodo"
+              value={nombrePerfil}
+              onChangeText={setNombrePerfil}
+              autoCapitalize="words"
+              autoComplete="name"
+              textContentType="name"
+            />
+
+            <Text style={styles.campoLabel}>Color de tu avatar</Text>
+            <View style={styles.paleta}>
+              {COLORES_PLANES.map((color) => {
+                const activo = colorPerfil === color;
+                return (
+                  <Pressable
+                    key={color}
+                    onPress={() => {
+                      vibrarBoton();
+                      setColorPerfil(color);
+                    }}
+                    style={[
+                      styles.colorSwatch,
+                      { backgroundColor: color },
+                      activo && styles.colorSwatchActivo,
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: activo }}
+                    accessibilityLabel={`Color de avatar ${color}`}
+                  >
+                    {activo ? <Ionicons name="checkmark" size={15} color="#FFFFFF" /> : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <BotonPrimario
+              texto="Guardar perfil"
+              icono="save-outline"
+              onPress={guardarPerfil}
+              cargando={guardandoPerfil}
+            />
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitulo}>CORREO ELECTRÓNICO</Text>
+            <Text style={styles.descripcionSeccion}>
+              Supabase enviará un enlace de confirmación al nuevo correo antes de aplicarlo.
+            </Text>
+            <Campo
+              icono="mail-outline"
+              placeholder="correo@ejemplo.com"
+              value={emailPerfil}
+              onChangeText={setEmailPerfil}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              textContentType="emailAddress"
+            />
+            <BotonSecundario
+              texto={guardandoEmail ? 'Actualizando…' : 'Actualizar correo'}
+              icono="mail-outline"
+              onPress={guardarEmail}
+              cargando={guardandoEmail}
+            />
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitulo}>CONTRASEÑA</Text>
+            <Text style={styles.descripcionSeccion}>
+              Usa al menos 6 caracteres. Se aplicará la próxima vez que inicies sesión.
+            </Text>
+            <Campo
+              icono="lock-closed-outline"
+              placeholder="Nueva contraseña"
+              value={passwordNueva}
+              onChangeText={setPasswordNueva}
+              secureTextEntry={!verPasswordNueva}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="new-password"
+              textContentType="newPassword"
+              mostrarOcultar
+              oculto={!verPasswordNueva}
+              onMostrarOcultar={() => setVerPasswordNueva((valor) => !valor)}
+            />
+            <Campo
+              icono="shield-checkmark-outline"
+              placeholder="Repite la nueva contraseña"
+              value={passwordNueva2}
+              onChangeText={setPasswordNueva2}
+              secureTextEntry={!verPasswordNueva}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="new-password"
+              textContentType="newPassword"
+            />
+            <BotonSecundario
+              texto={guardandoPassword ? 'Actualizando…' : 'Cambiar contraseña'}
+              icono="key-outline"
+              onPress={guardarPassword}
+              cargando={guardandoPassword}
+            />
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitulo}>SESIÓN Y DISPOSITIVO</Text>
+
+            <Pressable
+              onPress={cerrarSesion}
+              style={({ pressed }) => [styles.dataRow, pressed && { opacity: 0.72 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar sesión"
+            >
+              <View style={styles.optionInfo}>
+                <View style={styles.optionIcono}>
+                  <Ionicons name="log-out-outline" size={18} color={WARNING} />
+                </View>
+                <View style={styles.optionTexts}>
+                  <Text style={styles.optionLabel}>Cerrar sesión</Text>
+                  <Text style={styles.optionSub}>Borra el token guardado y vuelve al perfil local</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={17} color={noir.muted2} />
+            </Pressable>
+
+            <View style={styles.divisor} />
+
+            <Pressable
+              onPress={() => quitarCuenta(cuentaActiva)}
+              style={({ pressed }) => [styles.dataRow, pressed && { opacity: 0.72 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Quitar cuenta de este dispositivo"
+            >
+              <View style={styles.optionInfo}>
+                <View style={styles.optionIcono}>
+                  <Ionicons name="phone-portrait-outline" size={18} color={noir.muted} />
+                </View>
+                <View style={styles.optionTexts}>
+                  <Text style={styles.optionLabel}>Quitar de este dispositivo</Text>
+                  <Text style={styles.optionSub}>Borra la sesión guardada, no tus datos</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={17} color={noir.muted2} />
+            </Pressable>
+          </View>
+
+          <View style={[styles.card, styles.cardPeligro]}>
+            <Text style={[styles.cardTitulo, { color: DANGER }]}>ZONA DE PELIGRO</Text>
+            <Text style={styles.descripcionSeccion}>
+              Eliminar la cuenta borra de forma permanente tu identidad y todos tus datos en
+              la nube. Esta acción no se puede deshacer.
+            </Text>
+            <Pressable
+              onPress={eliminarCuenta}
+              style={({ pressed }) => [
+                styles.botonPeligro,
+                pressed && { opacity: 0.75 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Eliminar mi cuenta"
+            >
+              <Ionicons name="trash-outline" size={17} color={DANGER} />
+              <Text style={styles.botonPeligroTexto}>Eliminar mi cuenta</Text>
+            </Pressable>
+          </View>
+        </>
+      ) : null}
+    </>
+  );
 
   return (
     <Modal
@@ -245,34 +1485,62 @@ export default function MenuOpcionesModal({ visible, onClose, onSessionChange }:
       transparent
       animationType="fade"
       statusBarTranslucent
+      onShow={manejarApertura}
       onRequestClose={manejarCierre}
     >
       <View style={styles.backdrop}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={manejarCierre} />
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={manejarCierre}
+          accessibilityLabel="Cerrar menú"
+        />
 
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
           style={styles.containerKeyboard}
         >
-          <View style={styles.sheet}>
-            {/* Cabecera del Menú */}
+          <View style={[styles.sheet, { width: anchoHoja }]}>
             <View style={styles.sheetHeader}>
               <View style={styles.sheetHeaderLeft}>
-                <RutiniaLogo size={24} />
-                <Text style={styles.sheetTitle}>Menú & Ajustes</Text>
+                {vista !== 'menu' ? (
+                  <Pressable
+                    onPress={() => {
+                      vibrarBoton();
+                      volverAlMenu();
+                    }}
+                    style={({ pressed }) => [
+                      styles.headerIconButton,
+                      pressed && { opacity: 0.65 },
+                    ]}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Volver"
+                  >
+                    <Ionicons name="chevron-back" size={18} color={noir.platinum} />
+                  </Pressable>
+                ) : (
+                  <RutiniaLogo size={24} />
+                )}
+                <View>
+                  <Text style={styles.sheetKicker}>RUTINIA</Text>
+                  <Text style={styles.sheetTitle}>{titulo}</Text>
+                </View>
               </View>
+
               <Pressable
                 onPress={() => {
                   vibrarBoton();
                   manejarCierre();
                 }}
                 style={({ pressed }) => [
-                  styles.closeButton,
-                  pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
+                  styles.headerIconButton,
+                  pressed && { opacity: 0.65 },
                 ]}
                 hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar"
               >
-                <Ionicons name="close" size={20} color={noir.platinum} />
+                <Ionicons name="close" size={18} color={noir.platinum} />
               </Pressable>
             </View>
 
@@ -281,419 +1549,15 @@ export default function MenuOpcionesModal({ visible, onClose, onSessionChange }:
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
             >
-              {/* SECCIÓN 1: CUENTA Y PERFIL */}
-              <View style={styles.card}>
-                <View style={styles.accountRow}>
-                  <View style={styles.avatarLarge}>
-                    <LinearGradient
-                      colors={usuario ? ['#9E1C30', '#450D15'] : ['#232631', '#13151B']}
-                      style={styles.avatarGradient}
-                    >
-                      <Text style={styles.avatarTextLarge}>{inicialAvatar}</Text>
-                    </LinearGradient>
-                    <View
-                      style={[
-                        styles.statusDot,
-                        { backgroundColor: usuario ? '#10B981' : '#F59E0B' },
-                      ]}
-                    />
-                  </View>
-
-                  <View style={styles.accountInfo}>
-                    <Text style={styles.accountName} numberOfLines={1}>
-                      {usuario?.user_metadata?.nombre || (usuario ? 'Atleta Rutinia' : 'Modo Invitado / Local')}
-                    </Text>
-                    <Text style={styles.accountEmail} numberOfLines={1}>
-                      {usuario?.email || 'Sin cuenta en la nube'}
-                    </Text>
-                    <View style={styles.badgeRow}>
-                      <View
-                        style={[
-                          styles.statusBadge,
-                          {
-                            backgroundColor: usuario
-                              ? 'rgba(16, 185, 129, 0.14)'
-                              : 'rgba(245, 158, 11, 0.14)',
-                            borderColor: usuario
-                              ? 'rgba(16, 185, 129, 0.3)'
-                              : 'rgba(245, 158, 11, 0.3)',
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.statusBadgeText,
-                            { color: usuario ? '#34D399' : '#FBBF24' },
-                          ]}
-                        >
-                          {usuario ? 'Conectado a Supabase' : 'Almacenamiento Local'}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Acciones de Cuenta */}
-                {usuario ? (
-                  <View style={styles.accountActionsContainer}>
-                    <Pressable
-                      onPress={ejecutarCerrarSesion}
-                      disabled={cargandoAuth}
-                      style={({ pressed }) => [
-                        styles.logoutButton,
-                        pressed && { opacity: 0.75 },
-                      ]}
-                    >
-                      {cargandoAuth ? (
-                        <ActivityIndicator size="small" color="#F87171" />
-                      ) : (
-                        <>
-                          <Ionicons name="log-out-outline" size={17} color="#F87171" />
-                          <Text style={styles.logoutButtonText}>Cerrar sesión</Text>
-                        </>
-                      )}
-                    </Pressable>
-                  </View>
-                ) : (
-                  <View style={styles.accountActionsContainer}>
-                    {!mostrandoFormAuth ? (
-                      <Pressable
-                        onPress={() => {
-                          vibrarBoton();
-                          setMostrandoFormAuth(true);
-                          setMensajeAuth(null);
-                        }}
-                        style={({ pressed }) => [
-                          styles.primaryAuthButton,
-                          pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-                        ]}
-                      >
-                        <LinearGradient
-                          colors={['#C2243D', '#801524']}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                          style={styles.primaryAuthButtonGradient}
-                        >
-                          <Ionicons name="person-add-outline" size={17} color="#FFFFFF" />
-                          <Text style={styles.primaryAuthButtonText}>
-                            Iniciar Sesión / Registrarse
-                          </Text>
-                        </LinearGradient>
-                      </Pressable>
-                    ) : (
-                      /* FORMULARIO DE ACCESO / REGISTRO */
-                      <View style={styles.authBox}>
-                        <View style={styles.authTabs}>
-                          <Pressable
-                            onPress={() => {
-                              vibrarBoton();
-                              setTipoFormAuth('login');
-                              setMensajeAuth(null);
-                            }}
-                            style={[
-                              styles.authTab,
-                              tipoFormAuth === 'login' && styles.authTabActive,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.authTabText,
-                                tipoFormAuth === 'login' && styles.authTabTextActive,
-                              ]}
-                            >
-                              Iniciar Sesión
-                            </Text>
-                          </Pressable>
-                          <Pressable
-                            onPress={() => {
-                              vibrarBoton();
-                              setTipoFormAuth('registro');
-                              setMensajeAuth(null);
-                            }}
-                            style={[
-                              styles.authTab,
-                              tipoFormAuth === 'registro' && styles.authTabActive,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.authTabText,
-                                tipoFormAuth === 'registro' && styles.authTabTextActive,
-                              ]}
-                            >
-                              Crear Cuenta
-                            </Text>
-                          </Pressable>
-                        </View>
-
-                        {mensajeAuth && (
-                          <View
-                            style={[
-                              styles.authAlert,
-                              mensajeAuth.tipo === 'error'
-                                ? styles.authAlertError
-                                : styles.authAlertSuccess,
-                            ]}
-                          >
-                            <Ionicons
-                              name={
-                                mensajeAuth.tipo === 'error'
-                                  ? 'alert-circle'
-                                  : 'checkmark-circle'
-                              }
-                              size={16}
-                              color={mensajeAuth.tipo === 'error' ? '#F87171' : '#34D399'}
-                            />
-                            <Text
-                              style={[
-                                styles.authAlertText,
-                                {
-                                  color:
-                                    mensajeAuth.tipo === 'error' ? '#FCA5A5' : '#6EE7B7',
-                                },
-                              ]}
-                            >
-                              {mensajeAuth.texto}
-                            </Text>
-                          </View>
-                        )}
-
-                        {tipoFormAuth === 'registro' && (
-                          <View style={styles.inputWrap}>
-                            <Ionicons
-                              name="person-outline"
-                              size={16}
-                              color={noir.muted}
-                              style={styles.inputIcon}
-                            />
-                            <TextInput
-                              placeholder="Nombre o apodo"
-                              placeholderTextColor={noir.muted2}
-                              value={nombreInput}
-                              onChangeText={setNombreInput}
-                              style={styles.textInput}
-                              autoCapitalize="words"
-                            />
-                          </View>
-                        )}
-
-                        <View style={styles.inputWrap}>
-                          <Ionicons
-                            name="mail-outline"
-                            size={16}
-                            color={noir.muted}
-                            style={styles.inputIcon}
-                          />
-                          <TextInput
-                            placeholder="correo@ejemplo.com"
-                            placeholderTextColor={noir.muted2}
-                            value={emailInput}
-                            onChangeText={setEmailInput}
-                            style={styles.textInput}
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                          />
-                        </View>
-
-                        <View style={styles.inputWrap}>
-                          <Ionicons
-                            name="lock-closed-outline"
-                            size={16}
-                            color={noir.muted}
-                            style={styles.inputIcon}
-                          />
-                          <TextInput
-                            placeholder="Contraseña (mínimo 6 caracteres)"
-                            placeholderTextColor={noir.muted2}
-                            value={passwordInput}
-                            onChangeText={setPasswordInput}
-                            style={styles.textInput}
-                            secureTextEntry
-                          />
-                        </View>
-
-                        <View style={styles.authButtonsRow}>
-                          <Pressable
-                            onPress={() => setMostrandoFormAuth(false)}
-                            style={styles.cancelAuthButton}
-                          >
-                            <Text style={styles.cancelAuthButtonText}>Cancelar</Text>
-                          </Pressable>
-
-                          <Pressable
-                            onPress={
-                              tipoFormAuth === 'login' ? ejecutarLogin : ejecutarRegistro
-                            }
-                            disabled={cargandoAuth}
-                            style={styles.submitAuthButton}
-                          >
-                            <LinearGradient
-                              colors={['#C2243D', '#801524']}
-                              style={styles.submitAuthButtonGradient}
-                            >
-                              {cargandoAuth ? (
-                                <ActivityIndicator size="small" color="#FFFFFF" />
-                              ) : (
-                                <Text style={styles.submitAuthButtonText}>
-                                  {tipoFormAuth === 'login' ? 'Entrar' : 'Registrar'}
-                                </Text>
-                              )}
-                            </LinearGradient>
-                          </Pressable>
-                        </View>
-                      </View>
-                    )}
-                  </View>
-                )}
-              </View>
-
-              {/* SECCIÓN 2: PREFERENCIAS DE ENTRENAMIENTO */}
-              <View style={styles.card}>
-                <Text style={styles.cardSectionTitle}>PREFERENCIAS DE ENTRENAMIENTO</Text>
-
-                {/* Unidad de peso */}
-                <View style={styles.optionRow}>
-                  <View style={styles.optionInfo}>
-                    <Ionicons name="barbell-outline" size={19} color={noir.platinum} />
-                    <View style={styles.optionTexts}>
-                      <Text style={styles.optionLabel}>Unidad de Peso</Text>
-                      <Text style={styles.optionSub}>Kilogramos o Libras</Text>
-                    </View>
-                  </View>
-                  <View style={styles.segmentContainer}>
-                    <Pressable
-                      onPress={() => cambiarUnidadPeso('kg')}
-                      style={[
-                        styles.segmentButton,
-                        unidadPeso === 'kg' && styles.segmentButtonActive,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.segmentButtonText,
-                          unidadPeso === 'kg' && styles.segmentButtonTextActive,
-                        ]}
-                      >
-                        kg
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => cambiarUnidadPeso('lbs')}
-                      style={[
-                        styles.segmentButton,
-                        unidadPeso === 'lbs' && styles.segmentButtonActive,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.segmentButtonText,
-                          unidadPeso === 'lbs' && styles.segmentButtonTextActive,
-                        ]}
-                      >
-                        lbs
-                      </Text>
-                    </Pressable>
-                  </View>
-                </View>
-
-                <View style={styles.divider} />
-
-                {/* Respuesta Háptica */}
-                <View style={styles.optionRow}>
-                  <View style={styles.optionInfo}>
-                    <Ionicons name="hardware-chip-outline" size={19} color={noir.platinum} />
-                    <View style={styles.optionTexts}>
-                      <Text style={styles.optionLabel}>Vibración Háptica</Text>
-                      <Text style={styles.optionSub}>Respuesta táctil al pulsar botones</Text>
-                    </View>
-                  </View>
-                  <Switch
-                    value={hapticosActivos}
-                    onValueChange={toggleHapticos}
-                    thumbColor={hapticosActivos ? '#FFFFFF' : '#888888'}
-                    trackColor={{ false: '#262933', true: '#9E1C30' }}
-                  />
-                </View>
-
-                <View style={styles.divider} />
-
-                {/* Temporizador Automático */}
-                <View style={styles.optionRow}>
-                  <View style={styles.optionInfo}>
-                    <Ionicons name="timer-outline" size={19} color={noir.platinum} />
-                    <View style={styles.optionTexts}>
-                      <Text style={styles.optionLabel}>Temporizador de Descanso</Text>
-                      <Text style={styles.optionSub}>Sugerir descanso al completar serie</Text>
-                    </View>
-                  </View>
-                  <Switch
-                    value={timerAutoActivo}
-                    onValueChange={toggleTimerAuto}
-                    thumbColor={timerAutoActivo ? '#FFFFFF' : '#888888'}
-                    trackColor={{ false: '#262933', true: '#9E1C30' }}
-                  />
-                </View>
-              </View>
-
-              {/* SECCIÓN 3: GESTIÓN DE DATOS Y NUBE */}
-              <View style={styles.card}>
-                <Text style={styles.cardSectionTitle}>DATOS Y SINCRONIZACIÓN</Text>
-
-                {mensajeSincro && (
-                  <View style={styles.syncFeedbackRow}>
-                    <Text style={styles.syncFeedbackText}>{mensajeSincro}</Text>
-                  </View>
-                )}
-
-                <Pressable
-                  onPress={sincronizarDatos}
-                  disabled={sincronizando}
-                  style={({ pressed }) => [
-                    styles.syncRowButton,
-                    pressed && { opacity: 0.75 },
-                  ]}
-                >
-                  <View style={styles.optionInfo}>
-                    <Ionicons name="cloud-done-outline" size={19} color="#38BDF8" />
-                    <View style={styles.optionTexts}>
-                      <Text style={styles.optionLabel}>Sincronizar con Supabase</Text>
-                      <Text style={styles.optionSub}>Actualizar cambios con la base de datos</Text>
-                    </View>
-                  </View>
-                  {sincronizando ? (
-                    <ActivityIndicator size="small" color="#38BDF8" />
-                  ) : (
-                    <Ionicons name="chevron-forward" size={18} color={noir.muted} />
-                  )}
-                </Pressable>
-
-                <View style={styles.divider} />
-
-                <Pressable
-                  onPress={limpiarCacheLocal}
-                  style={({ pressed }) => [
-                    styles.syncRowButton,
-                    pressed && { opacity: 0.75 },
-                  ]}
-                >
-                  <View style={styles.optionInfo}>
-                    <Ionicons name="trash-bin-outline" size={19} color={noir.muted} />
-                    <View style={styles.optionTexts}>
-                      <Text style={styles.optionLabel}>Limpiar Caché Local</Text>
-                      <Text style={styles.optionSub}>Fuerza la recarga limpia de rutinas</Text>
-                    </View>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={noir.muted} />
-                </Pressable>
-              </View>
-
-              {/* SECCIÓN 4: ACERCA DE LA APP */}
-              <View style={styles.aboutContainer}>
-                <Text style={styles.aboutText}>Rutinia · Versión 1.0.0</Text>
-                <Text style={styles.aboutSubText}>Sistema de Entrenamiento de Alto Rendimiento</Text>
-              </View>
+              {vista === 'menu'
+                ? renderMenu()
+                : vista === 'cuentas'
+                  ? renderCuentas()
+                  : vista === 'auth'
+                    ? renderAuth()
+                    : renderPerfil()}
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
@@ -705,56 +1569,68 @@ export default function MenuOpcionesModal({ visible, onClose, onSessionChange }:
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: 'rgba(0, 0, 0, 0.78)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
   },
   containerKeyboard: {
     width: '100%',
-    maxWidth: 480,
-    maxHeight: '88%',
+    maxHeight: '92%',
+    alignItems: 'center',
   },
   sheet: {
-    backgroundColor: '#0C0E14',
-    borderRadius: 22,
+    maxHeight: '100%',
+    backgroundColor: '#090B10',
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.11)',
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.62,
+    shadowRadius: 32,
+    elevation: 24,
     display: 'flex',
     flexDirection: 'column',
-    maxHeight: '100%',
   },
   sheetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
-    backgroundColor: '#10131B',
+    borderBottomColor: 'rgba(255, 255, 255, 0.07)',
+    backgroundColor: 'rgba(255, 255, 255, 0.018)',
   },
   sheetHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
+    minWidth: 0,
+  },
+  sheetKicker: {
+    color: noir.muted2,
+    fontFamily: fuentes.bold,
+    fontSize: 8.5,
+    letterSpacing: 1.7,
+    marginBottom: 1,
   },
   sheetTitle: {
-    color: '#FFFFFF',
+    color: noir.text,
     fontFamily: fuentes.bold,
-    fontSize: 17,
+    fontSize: 16.5,
+    letterSpacing: -0.2,
   },
-  closeButton: {
+  headerIconButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -762,313 +1638,590 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   scrollContent: {
-    padding: 16,
-    gap: 14,
+    padding: 14,
+    paddingBottom: 18,
+    gap: 12,
   },
   card: {
-    backgroundColor: '#12151E',
+    backgroundColor: 'rgba(255, 255, 255, 0.026)',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(255, 255, 255, 0.075)',
     padding: 14,
   },
-  cardSectionTitle: {
-    color: noir.muted,
-    fontFamily: fuentes.bold,
-    fontSize: 11,
-    letterSpacing: 0.8,
-    marginBottom: 12,
+  cardPeligro: {
+    borderColor: 'rgba(240, 138, 155, 0.26)',
+    backgroundColor: 'rgba(240, 138, 155, 0.045)',
   },
-  accountRow: {
+  cardEyebrowRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 11,
   },
-  avatarLarge: {
+  cardTitulo: {
+    color: noir.muted2,
+    fontFamily: fuentes.bold,
+    fontSize: 9.5,
+    letterSpacing: 1.25,
+  },
+  devicePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    backgroundColor: 'rgba(255, 255, 255, 0.025)',
+  },
+  devicePillTexto: {
+    color: noir.muted2,
+    fontFamily: fuentes.medium,
+    fontSize: 9,
+  },
+  cuentaHero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+  },
+  avatar: {
     position: 'relative',
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    overflow: 'visible',
   },
   avatarGradient: {
     flex: 1,
-    justifyContent: 'center',
+    borderRadius: 999,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
   },
-  avatarTextLarge: {
+  avatarText: {
     color: '#FFFFFF',
     fontFamily: fuentes.extraBold,
-    fontSize: 18,
   },
-  statusDot: {
+  avatarDot: {
     position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 1.5,
-    borderColor: '#0C0E14',
+    right: -1,
+    bottom: -1,
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#090B10',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  accountInfo: {
+  cuentaHeroInfo: {
     flex: 1,
+    minWidth: 0,
   },
-  accountName: {
-    color: '#FFFFFF',
+  cuentaNombre: {
+    color: noir.text,
     fontFamily: fuentes.semiBold,
-    fontSize: 15,
+    fontSize: 16,
+    letterSpacing: -0.2,
   },
-  accountEmail: {
+  cuentaEmail: {
     color: noir.muted,
     fontFamily: fuentes.regular,
     fontSize: 12,
     marginTop: 1,
   },
-  badgeRow: {
+  badge: {
+    alignSelf: 'flex-start',
     flexDirection: 'row',
-    marginTop: 4,
-  },
-  statusBadge: {
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
     paddingHorizontal: 7,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 6,
     borderWidth: 1,
   },
-  statusBadgeText: {
-    fontSize: 10,
+  badgeTexto: {
     fontFamily: fuentes.semiBold,
+    fontSize: 9.5,
   },
-  accountActionsContainer: {
-    marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
-    paddingTop: 12,
-  },
-  logoutButton: {
+  accionesCuenta: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     gap: 8,
-    paddingVertical: 9,
-    backgroundColor: 'rgba(220, 38, 38, 0.08)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(220, 38, 38, 0.22)',
+    marginTop: 14,
   },
-  logoutButtonText: {
-    color: '#F87171',
-    fontFamily: fuentes.semiBold,
-    fontSize: 13,
-  },
-  primaryAuthButton: {
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  primaryAuthButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-  },
-  primaryAuthButtonText: {
-    color: '#FFFFFF',
-    fontFamily: fuentes.bold,
-    fontSize: 13,
-  },
-  authBox: {
-    marginTop: 4,
-    gap: 10,
-  },
-  authTabs: {
-    flexDirection: 'row',
-    backgroundColor: '#090B0F',
-    borderRadius: 8,
-    padding: 3,
-  },
-  authTab: {
-    flex: 1,
-    paddingVertical: 7,
-    alignItems: 'center',
-    borderRadius: 6,
-  },
-  authTabActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  authTabText: {
-    color: noir.muted,
-    fontFamily: fuentes.medium,
-    fontSize: 12,
-  },
-  authTabTextActive: {
-    color: '#FFFFFF',
-    fontFamily: fuentes.bold,
-  },
-  authAlert: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  authAlertError: {
-    backgroundColor: 'rgba(220, 38, 38, 0.12)',
-    borderColor: 'rgba(220, 38, 38, 0.3)',
-  },
-  authAlertSuccess: {
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    borderColor: 'rgba(16, 185, 129, 0.3)',
-  },
-  authAlertText: {
-    fontFamily: fuentes.medium,
-    fontSize: 12,
-    flex: 1,
-  },
-  inputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#090B0F',
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    paddingHorizontal: 10,
-    height: 40,
-  },
-  inputIcon: {
-    marginRight: 8,
-  },
-  textInput: {
-    flex: 1,
-    color: '#FFFFFF',
+  ayudaCuenta: {
+    color: noir.muted2,
     fontFamily: fuentes.regular,
-    fontSize: 13,
+    fontSize: 10.5,
+    lineHeight: 15,
+    marginTop: 10,
   },
-  authButtonsRow: {
+  cargandoCuenta: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 4,
-  },
-  cancelAuthButton: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 9,
-    borderRadius: 9,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    gap: 8,
+    paddingVertical: 12,
   },
-  cancelAuthButtonText: {
-    color: noir.platinum,
-    fontFamily: fuentes.medium,
-    fontSize: 13,
+  cargandoTexto: {
+    color: noir.muted,
+    fontFamily: fuentes.regular,
+    fontSize: 12,
   },
-  submitAuthButton: {
-    flex: 2,
-    borderRadius: 9,
+  botonPrimario: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 11,
     overflow: 'hidden',
   },
-  submitAuthButtonGradient: {
-    paddingVertical: 9,
-    justifyContent: 'center',
+  botonPrimarioGradient: {
+    flex: 1,
+    minHeight: 40,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
   },
-  submitAuthButtonText: {
+  botonPrimarioTexto: {
     color: '#FFFFFF',
     fontFamily: fuentes.bold,
-    fontSize: 13,
+    fontSize: 12.5,
+    letterSpacing: 0.1,
+  },
+  botonSecundario: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.11)',
+    backgroundColor: 'rgba(255, 255, 255, 0.045)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  botonSecundarioTexto: {
+    color: noir.platinum,
+    fontFamily: fuentes.semiBold,
+    fontSize: 12.5,
   },
   optionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    gap: 10,
+    paddingVertical: 7,
   },
   optionInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     flex: 1,
+    minWidth: 0,
+  },
+  optionIcono: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.045)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   optionTexts: {
     flex: 1,
+    minWidth: 0,
   },
   optionLabel: {
-    color: '#FFFFFF',
+    color: noir.text,
     fontFamily: fuentes.medium,
-    fontSize: 14,
+    fontSize: 13.5,
   },
   optionSub: {
-    color: noir.muted,
+    color: noir.muted2,
     fontFamily: fuentes.regular,
-    fontSize: 11,
+    fontSize: 10.5,
     marginTop: 1,
+    lineHeight: 14,
   },
-  segmentContainer: {
+  segmento: {
     flexDirection: 'row',
-    backgroundColor: '#090B0F',
-    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
+    borderRadius: 9,
     padding: 3,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  segmentButton: {
-    paddingHorizontal: 12,
+  segmentoBoton: {
+    minWidth: 38,
+    paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 6,
+    borderRadius: 7,
+    alignItems: 'center',
   },
-  segmentButtonActive: {
-    backgroundColor: '#9E1C30',
+  segmentoBotonActivo: {
+    backgroundColor: colores.primario,
   },
-  segmentButtonText: {
+  segmentoTexto: {
     color: noir.muted,
     fontFamily: fuentes.medium,
-    fontSize: 12,
+    fontSize: 11.5,
   },
-  segmentButtonTextActive: {
+  segmentoTextoActivo: {
     color: '#FFFFFF',
     fontFamily: fuentes.bold,
   },
-  divider: {
+  divisor: {
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    marginVertical: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.055)',
+    marginVertical: 5,
   },
-  syncFeedbackRow: {
+  feedbackRow: {
     padding: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
-    marginBottom: 8,
+    borderRadius: 9,
+    backgroundColor: 'rgba(92, 200, 255, 0.09)',
+    borderWidth: 1,
+    borderColor: 'rgba(92, 200, 255, 0.2)',
+    marginBottom: 7,
   },
-  syncFeedbackText: {
-    color: '#38BDF8',
+  feedbackTexto: {
+    color: noir.info,
     fontFamily: fuentes.medium,
-    fontSize: 11,
+    fontSize: 10.5,
     textAlign: 'center',
   },
-  syncRowButton: {
+  dataRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 10,
     paddingVertical: 6,
   },
-  aboutContainer: {
+  localInfo: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: 9,
+    borderRadius: 9,
+    backgroundColor: 'rgba(255, 209, 102, 0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 209, 102, 0.18)',
+  },
+  localInfoTexto: {
+    flex: 1,
+    color: WARNING,
+    fontFamily: fuentes.regular,
+    fontSize: 10.5,
+    lineHeight: 14,
+  },
+  acerca: {
     alignItems: 'center',
-    marginTop: 6,
+    gap: 3,
+    marginTop: 2,
     marginBottom: 4,
   },
-  aboutText: {
+  acercaTexto: {
     color: noir.muted,
     fontFamily: fuentes.semiBold,
-    fontSize: 12,
+    fontSize: 10.5,
+    marginTop: 3,
   },
-  aboutSubText: {
+  acercaSub: {
     color: noir.muted2,
     fontFamily: fuentes.regular,
+    fontSize: 9.5,
+  },
+  alerta: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  alertaTexto: {
+    flex: 1,
+    fontFamily: fuentes.medium,
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  contadorCuentas: {
+    color: noir.muted2,
+    fontFamily: fuentes.bold,
     fontSize: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  descripcionSeccion: {
+    color: noir.muted2,
+    fontFamily: fuentes.regular,
+    fontSize: 10.5,
+    lineHeight: 15,
+    marginBottom: 10,
+  },
+  listaCuentas: {
+    gap: 7,
+  },
+  filaCuenta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.065)',
+    backgroundColor: 'rgba(0, 0, 0, 0.16)',
+  },
+  filaCuentaToque: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+  },
+  filaCuentaActiva: {
+    borderColor: 'rgba(194, 36, 61, 0.52)',
+    backgroundColor: 'rgba(194, 36, 61, 0.09)',
+  },
+  filaCuentaInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  filaCuentaNombre: {
+    color: noir.text,
+    fontFamily: fuentes.semiBold,
+    fontSize: 13,
+  },
+  filaCuentaEmail: {
+    color: noir.muted2,
+    fontFamily: fuentes.regular,
+    fontSize: 10.5,
+    marginTop: 1,
+  },
+  checkActiva: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colores.primario,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  estadoCuenta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  estadoCuentaTexto: {
+    color: noir.muted2,
+    fontFamily: fuentes.medium,
+    fontSize: 10,
+  },
+  quitarCuentaBoton: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.045)',
+  },
+  anadirCuenta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: 'rgba(255, 255, 255, 0.018)',
+  },
+  anadirIcono: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.035)',
+  },
+  infoLinea: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingVertical: 5,
+  },
+  infoLineaTexto: {
+    flex: 1,
+    color: noir.muted,
+    fontFamily: fuentes.regular,
+    fontSize: 10.5,
+    lineHeight: 15,
+  },
+  pieSeccion: {
+    color: noir.muted2,
+    fontFamily: fuentes.regular,
+    fontSize: 9.5,
+    lineHeight: 14,
+    textAlign: 'center',
+    paddingHorizontal: 12,
+  },
+  tabsAuth: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
+    borderRadius: 10,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    marginBottom: 14,
+  },
+  tabAuth: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 7,
+  },
+  tabAuthActivo: {
+    backgroundColor: 'rgba(255, 255, 255, 0.09)',
+  },
+  tabAuthTexto: {
+    color: noir.muted,
+    fontFamily: fuentes.medium,
+    fontSize: 11.5,
+  },
+  tabAuthTextoActivo: {
+    color: noir.text,
+    fontFamily: fuentes.bold,
+  },
+  authTitulo: {
+    color: noir.text,
+    fontFamily: fuentes.bold,
+    fontSize: 18,
+    letterSpacing: -0.35,
+  },
+  authSub: {
+    color: noir.muted2,
+    fontFamily: fuentes.regular,
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 3,
+    marginBottom: 13,
+  },
+  authCampos: {
+    gap: 8,
+    marginBottom: 12,
+  },
+  campoWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 43,
+    backgroundColor: 'rgba(0, 0, 0, 0.26)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.085)',
+    paddingHorizontal: 11,
+    marginBottom: 8,
+  },
+  campoWrapFocus: {
+    borderColor: 'rgba(194, 36, 61, 0.65)',
+    backgroundColor: 'rgba(194, 36, 61, 0.045)',
+  },
+  campoIcono: {
+    marginRight: 1,
+  },
+  campoInput: {
+    flex: 1,
+    color: noir.text,
+    fontFamily: fuentes.regular,
+    fontSize: 12.5,
+    paddingVertical: 9,
+  },
+  campoLabel: {
+    color: noir.muted,
+    fontFamily: fuentes.semiBold,
+    fontSize: 10,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+    marginTop: 4,
+  },
+  authLegal: {
+    color: noir.muted2,
+    fontFamily: fuentes.regular,
+    fontSize: 9.5,
+    lineHeight: 14,
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  perfilHero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    marginBottom: 14,
+  },
+  perfilHeroInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  perfilNombre: {
+    color: noir.text,
+    fontFamily: fuentes.bold,
+    fontSize: 18,
+    letterSpacing: -0.3,
+  },
+  perfilEmail: {
+    color: noir.muted,
+    fontFamily: fuentes.regular,
+    fontSize: 11.5,
     marginTop: 2,
+  },
+  paleta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 9,
+    marginBottom: 14,
+  },
+  colorSwatch: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  colorSwatchActivo: {
+    borderColor: '#FFFFFF',
+    transform: [{ scale: 1.06 }],
+  },
+  botonPeligro: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    minHeight: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(240, 138, 155, 0.36)',
+    backgroundColor: 'rgba(240, 138, 155, 0.09)',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  botonPeligroTexto: {
+    color: DANGER,
+    fontFamily: fuentes.bold,
+    fontSize: 12.5,
   },
 });

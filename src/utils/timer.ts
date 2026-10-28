@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { eliminarLocal, escribirLocal, leerLocal } from './offline';
 
 export type EstadoTimer = {
   registroId: string;
@@ -8,10 +8,10 @@ export type EstadoTimer = {
   ultimaPausaTimestamp: number | null;
 };
 
-const TIMER_KEY_PREFIX = 'rutinia_timer_sesion_';
+const TIMER_KEY_PREFIX = 'timer_sesion_';
 
 /**
- * Obtiene la clave de almacenamiento para el timer de un registro.
+ * Obtiene la clave (con espacio de nombres de la cuenta) para el timer.
  */
 function getKey(registroId: string): string {
   return `${TIMER_KEY_PREFIX}${registroId}`;
@@ -23,7 +23,7 @@ function getKey(registroId: string): string {
  */
 export async function obtenerOIniciarTimer(registroId: string): Promise<EstadoTimer> {
   try {
-    const raw = await AsyncStorage.getItem(getKey(registroId));
+    const raw = await leerLocal(getKey(registroId));
     if (raw) {
       const estado = JSON.parse(raw) as EstadoTimer;
       return estado;
@@ -50,7 +50,7 @@ export async function obtenerOIniciarTimer(registroId: string): Promise<EstadoTi
  */
 export async function guardarEstadoTimer(estado: EstadoTimer): Promise<void> {
   try {
-    await AsyncStorage.setItem(getKey(estado.registroId), JSON.stringify(estado));
+    await escribirLocal(getKey(estado.registroId), JSON.stringify(estado));
   } catch (err) {
     console.warn('Error guardando timer de sesión:', err);
   }
@@ -110,7 +110,7 @@ export function calcularSegundosTranscurridos(estado: EstadoTimer): number {
  */
 export async function limpiarTimerSesion(registroId: string): Promise<void> {
   try {
-    await AsyncStorage.removeItem(getKey(registroId));
+    await eliminarLocal(getKey(registroId));
   } catch (err) {
     console.warn('Error limpiando timer de sesión:', err);
   }

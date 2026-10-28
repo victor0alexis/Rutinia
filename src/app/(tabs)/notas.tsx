@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -37,6 +37,7 @@ import {
 import { agregarActividad } from '../../services/registros';
 import { aISO, diasDeSemana } from '../../utils/fechas';
 import { seguro, confirmarAccion, mostrarMensaje } from '../../utils/errores';
+import { subscribirCambioDatos } from '../../utils/sincronizacion';
 import { useLayout } from '../../hooks/useLayout';
 
 function capitalizar(texto: string) {
@@ -98,6 +99,8 @@ export default function Notas() {
       cargarNotas();
     }, [cargarNotas])
   );
+
+  useEffect(() => subscribirCambioDatos(cargarNotas), [cargarNotas]);
 
   const conteos = useMemo(() => {
     const mapa: Record<string, number> = { Todas: notas.length };

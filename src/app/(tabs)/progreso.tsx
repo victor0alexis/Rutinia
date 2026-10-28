@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Platform,
   Pressable,
@@ -51,6 +51,7 @@ import { listarPlanes } from '../../services/planes';
 import { PlanEntrenamiento } from '../../types';
 import { aISO } from '../../utils/fechas';
 import { seguro } from '../../utils/errores';
+import { subscribirCambioDatos } from '../../utils/sincronizacion';
 import { useLayout } from '../../hooks/useLayout';
 
 type PeriodoFiltro = 'mes' | '30dias' | 'anio';
@@ -179,6 +180,8 @@ export default function ProgresoScreen() {
       recargar();
     }, [recargar])
   );
+
+  useEffect(() => subscribirCambioDatos(recargar), [recargar]);
 
   const entrenamientos = useMemo(
     () =>

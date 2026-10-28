@@ -10,7 +10,11 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { fuentes, noir } from '../constants/colores';
 import { useLayout } from '../hooks/useLayout';
-import { supabase } from '../lib/supabase';
+import {
+  CuentaRutinia,
+  obtenerCuentaActiva,
+  subscribirCambioCuenta,
+} from '../services/cuentas';
 import { vibrarBoton } from '../utils/haptics';
 import GradientText from './GradientText';
 import { RutiniaLogo } from './RutiniaLogo';
@@ -36,34 +40,27 @@ type Props = {
  */
 export default function EditorialHeader({ title = 'Semana', style }: Props) {
   const { isCompact } = useLayout();
-  const [avatarInicial, setAvatarInicial] = useState('A');
+  const [cuenta, setCuenta] = useState<CuentaRutinia | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
 
   const cargarInfoUsuario = () => {
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        const user = data.session?.user;
-        const nombre =
-          user?.user_metadata?.full_name ||
-          user?.user_metadata?.nombre ||
-          user?.email ||
-          '';
-        if (typeof nombre === 'string' && nombre.trim().length > 0) {
-          setAvatarInicial(nombre.trim().charAt(0).toUpperCase());
-        } else {
-          setAvatarInicial('A');
-        }
-        setEmailCuenta(user?.email ?? '');
-      })
+    obtenerCuentaActiva()
+      .then(setCuenta)
       .catch(() => {
-        // Fallback
+        // El avatar de respaldo mantiene la cabecera estable.
       });
   };
 
   useEffect(() => {
     cargarInfoUsuario();
+    return subscribirCambioCuenta(cargarInfoUsuario);
   }, []);
+
+  const avatarInicial = cuenta?.nombre?.trim().charAt(0).toUpperCase() || 'A';
+  const esNube = cuenta?.tipo === 'nube';
+  const coloresAvatar: [string, string] = esNube
+    ? [cuenta?.color || '#9E1C30', '#13151B']
+    : ['#232631', '#13151B'];
 
   return (
     <>
@@ -105,7 +102,7 @@ export default function EditorialHeader({ title = 'Semana', style }: Props) {
             accessibilityLabel="Abrir menú de cuenta y ajustes"
           >
             <LinearGradient
-              colors={['#232631', '#13151B']}
+              colors={coloresAvatar}
               start={{ x: 0.3, y: 0.1 }}
               end={{ x: 0.7, y: 0.95 }}
               style={styles.avatarGradient}
@@ -113,7 +110,16 @@ export default function EditorialHeader({ title = 'Semana', style }: Props) {
               <Text style={styles.avatarText}>{avatarInicial}</Text>
             </LinearGradient>
           </Pressable>
-          <View pointerEvents="none" style={styles.avatarStatus} />
+          <View
+            pointerEvents="none"
+            style={[
+              styles.avatarStatus,
+              {
+                backgroundColor: esNube ? noir.mint : noir.champagne,
+                shadowColor: esNube ? noir.mint : noir.champagne,
+              },
+            ]}
+          />
         </View>
       </View>
 

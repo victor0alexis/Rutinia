@@ -6,10 +6,14 @@
 -- 2. Ve a tu proyecto en Supabase (https://supabase.com/dashboard)
 -- 3. Abre el SQL Editor en la barra lateral izquierda.
 -- 4. Pega este código en una nueva consulta y haz clic en "Run".
--- 5. ⚠️  IMPORTANTE: Actualiza tu .env con la SERVICE ROLE KEY (NO la anon key):
---       Settings → API → "service_role" → copia el valor (empieza con eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...)
---       EXPO_PUBLIC_SUPABASE_ANON_KEY=<pega aquí la service_role key>
---    La service_role key bypasea RLS completamente y permite DELETE/UPDATE sin restricciones.
+-- 5. ⚠️  IMPORTANTE: usa la ANON PUBLIC KEY en tu .env (NUNCA la service_role):
+--       Settings → API → "anon public" → copia el valor
+--       EXPO_PUBLIC_SUPABASE_ANON_KEY=<pega aquí la anon public key>
+--    La service_role key ignora RLS y permite leer los datos de TODAS las cuentas.
+--    Si alguna vez la pegaste en la app, rótala en Settings → API.
+-- 6. Después de este script ejecuta `supabase_multicuenta.sql`: añade las
+--    políticas RLS por cuenta, los índices de propietario y el RPC para
+--    eliminar la cuenta y todos sus datos.
 
 -- ----------------------------------------------------------------------------
 -- 1. ELIMINACIÓN EN CASCADA DE TABLAS EXISTENTES
@@ -94,21 +98,25 @@ CREATE INDEX idx_registros_entrenamiento_rutina_id ON public.registros_entrenami
 CREATE INDEX idx_ejercicios_registro_registro_id ON public.ejercicios_registro(registro_id);
 
 -- ----------------------------------------------------------------------------
--- 5. DESHABILITAR RLS COMPLETAMENTE (APP DE USUARIO ÚNICO + SERVICE ROLE KEY)
+-- 5. RLS ACTIVADO (LAS POLÍTICAS SE CREAN EN supabase_multicuenta.sql)
 -- ----------------------------------------------------------------------------
-ALTER TABLE public.notas DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.rutinas DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.ejercicios_rutina DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.registros_entrenamiento DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.ejercicios_registro DISABLE ROW LEVEL SECURITY;
+-- Se activa RLS de inmediato para que, si algo falla, las tablas queden
+-- cerradas en lugar de expuestas. Ejecuta supabase_multicuenta.sql justo
+-- después para crear las políticas por cuenta y el modo invitado.
+ALTER TABLE public.notas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.rutinas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ejercicios_rutina ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.registros_entrenamiento ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ejercicios_registro ENABLE ROW LEVEL SECURITY;
 
 -- ----------------------------------------------------------------------------
--- 6. GRANTS TOTALES A TODOS LOS ROLES (doble seguro)
+-- 6. PERMISOS BASE (RLS limita las filas; los grants solo abren la tabla)
 -- ----------------------------------------------------------------------------
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 
-GRANT ALL PRIVILEGES ON public.notas TO anon, authenticated, service_role;
-GRANT ALL PRIVILEGES ON public.rutinas TO anon, authenticated, service_role;
-GRANT ALL PRIVILEGES ON public.ejercicios_rutina TO anon, authenticated, service_role;
-GRANT ALL PRIVILEGES ON public.registros_entrenamiento TO anon, authenticated, service_role;
-GRANT ALL PRIVILEGES ON public.ejercicios_registro TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.notas TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.rutinas TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.ejercicios_rutina TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.registros_entrenamiento TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.ejercicios_registro TO anon, authenticated;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO service_role;
