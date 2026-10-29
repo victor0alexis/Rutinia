@@ -1,10 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session, User } from '@supabase/supabase-js';
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
+import { Platform } from 'react-native';
 import { COLORES_PLANES } from '../constantes/colores';
 import { supabase } from '../biblioteca/supabase';
 import { establecerNamespaceDatos, limpiarCacheDeCuenta } from '../utilidades/almacenamientoLocal';
 import { emitirCambioSesionActiva } from '../utilidades/sesionActiva';
 import { emitirCambioDatos } from '../utilidades/sincronizacion';
+
+WebBrowser.maybeCompleteAuthSession();
 
 /**
  * Gestor de cuentas y sesiones de Rutinia.
@@ -364,6 +369,37 @@ function traducirErrorAuth(error: { message?: string; code?: string } | null): E
     return new Error('El correo electrónico no es válido.');
   }
   if (
+    minusculas.includes('provider is not enabled') ||
+    minusculas.includes('unsupported provider')
+  ) {
+    return new Error(
+      'El inicio de sesión con Google no está habilitado en Supabase. Actívalo en Authentication → Providers → Google.'
+    );
+  }
+  if (
+    minusculas.includes('redirect') &&
+    (minusculas.includes('not allowed') || minusculas.includes('mismatch'))
+  ) {
+    return new Error(
+      'La URL de retorno de Google no está autorizada en Supabase. Añádela en Authentication → URL Configuration → Redirect URLs.'
+    );
+  }
+  if (
+    minusculas.includes('access_denied') ||
+    minusculas.includes('user canceled') ||
+    minusculas.includes('user cancelled') ||
+    minusculas.includes('cancel')
+  ) {
+    return new Error('Inicio de sesión cancelado.');
+  }
+  if (
+    minusculas.includes('email_not_confirmed') ||
+    minusculas.includes('unverified email') ||
+    minusculas.includes('email not verified')
+  ) {
+    return new Error('El correo de tu cuenta de Google no está verificado.');
+  }
+  if (
     error?.code === 'over_email_send_rate_limit' ||
     minusculas.includes('email rate limit exceeded') ||
     minusculas.includes('rate limit') ||
@@ -431,6 +467,12 @@ function suscribirEventosAuth(): void {
 }
 
 async function ejecutarInicializacion(): Promise<void> {
+  try {
+    await completarInicioConGoogleSiCorresponde();
+  } catch (err) {
+    console.warn('Error completando inicio de sesión con Google al arrancar:', err);
+  }
+
   const registro = await leerRegistro();
   const {
     data: { session },
@@ -503,6 +545,173 @@ export async function iniciarSesion(email: string, password: string): Promise<Cu
   }
 
   return activarSesion(data.session);
+}
+
+function parametrosDeRedireccion(url: string): URLSearchParams {
+  const [sinHash, hash = ''] = url.split('#');
+  const [, query = ''] = sinHash.split('?');
+  return new URLSearchParams([query, hash].filter(Boolean).join('&'));
+}
+
+/**
+ * Solo web: si venimos de redirigir a Google y la URL contiene el código de
+ * autorización OAuth (o un error), intercambia el código por la sesión con PKCE,
+ * limpia la URL con history.replaceState (sin recargar) y activa la sesión.
+ * Devuelve `true` si se completó un inicio con Google, `false` si no correspondía.
+ */
+export async function completarInicioConGoogleSiCorresponde(): Promise<boolean> {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') {
+    return false;
+  }
+
+  let hayMarca = false;
+  try {
+    hayMarca = window.localStorage.getItem('rutinia_oauth_google_pendiente') === '1';
+  } catch {
+    hayMarca = false;
+  }
+
+  const parametros = new URLSearchParams(window.location.search);
+  const code = parametros.get('code');
+  const errorParam = parametros.get('error');
+  const errorDescription = parametros.get('error_description');
+
+  if (!hayMarca && !code && !errorParam && !errorDescription) {
+    return false;
+  }
+
+  // Limpiar la marca de localStorage
+  try {
+    window.localStorage.removeItem('rutinia_oauth_google_pendiente');
+  } catch {
+    // ignorar
+  }
+
+  // Si no hay código ni error pero quedó la marca huérfana, salir
+  if (!code && !errorParam && !errorDescription) {
+    return false;
+  }
+
+  // Limpiar los parámetros de la URL sin recargar
+  try {
+    parametros.delete('code');
+    parametros.delete('error');
+    parametros.delete('error_description');
+    parametros.delete('error_code');
+    const resto = parametros.toString();
+    const nuevaUrl =
+      window.location.pathname + (resto ? `?${resto}` : '') + window.location.hash;
+    window.history.replaceState(null, '', nuevaUrl);
+  } catch {
+    // ignorar
+  }
+
+  if (errorParam || errorDescription) {
+    throw traducirErrorAuth({
+      message: errorDescription || errorParam || 'Error al autenticarse con Google',
+    });
+  }
+
+  if (!code) {
+    return false;
+  }
+
+  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) throw traducirErrorAuth(error);
+
+  if (!data.session?.user) {
+    throw new Error('Google no devolvió una sesión válida. Intenta nuevamente.');
+  }
+
+  await activarSesion(data.session);
+  return true;
+}
+
+/**
+ * Inicia el flujo de autenticación con Google mediante OAuth y PKCE.
+ * En web redirige la página completa (no popup) para compatibilidad con PWA en iOS;
+ * en nativo abre un navegador del sistema con WebBrowser.
+ */
+export async function iniciarSesionConGoogle(): Promise<CuentaRutinia | null> {
+  if (Platform.OS === 'web') {
+    if (typeof window === 'undefined') {
+      throw new Error('No se pudo abrir la autenticación de Google en este entorno.');
+    }
+
+    try {
+      window.localStorage.setItem('rutinia_oauth_google_pendiente', '1');
+    } catch (err) {
+      console.warn('No se pudo guardar la marca de OAuth en localStorage:', err);
+    }
+
+    const redirectTo =
+      `${window.location.origin}${window.location.pathname}`.replace(/\/+$/, '') ||
+      window.location.origin;
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo,
+        queryParams: { prompt: 'select_account' },
+      },
+    });
+
+    if (error) throw traducirErrorAuth(error);
+    if (data?.url) {
+      window.location.assign(data.url);
+    }
+    return null;
+  }
+
+  const redirectTo = Linking.createURL('auth/callback');
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo,
+      skipBrowserRedirect: true,
+      queryParams: { prompt: 'select_account' },
+    },
+  });
+
+  if (error) throw traducirErrorAuth(error);
+  if (!data?.url) throw new Error('No se pudo abrir la autenticación de Google.');
+
+  const resultado = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+  if (resultado.type !== 'success') return null;
+
+  const parametros = parametrosDeRedireccion(resultado.url);
+  const errorGoogle = parametros.get('error_description') || parametros.get('error');
+  if (errorGoogle) {
+    throw traducirErrorAuth({ message: errorGoogle });
+  }
+
+  const code = parametros.get('code');
+  if (code) {
+    const { data: exchangeData, error: exchangeError } =
+      await supabase.auth.exchangeCodeForSession(code);
+    if (exchangeError) throw traducirErrorAuth(exchangeError);
+    if (!exchangeData.session?.user) {
+      throw new Error('Google no devolvió una sesión válida. Intenta nuevamente.');
+    }
+    return activarSesion(exchangeData.session);
+  }
+
+  const accessToken = parametros.get('access_token');
+  const refreshToken = parametros.get('refresh_token');
+  if (accessToken && refreshToken) {
+    const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    if (sessionError) throw traducirErrorAuth(sessionError);
+    if (!sessionData.session?.user) {
+      throw new Error('Google no devolvió una sesión válida. Intenta nuevamente.');
+    }
+    return activarSesion(sessionData.session);
+  }
+
+  throw new Error('Google no devolvió un código de autorización válido.');
 }
 
 export async function crearCuenta(datos: {
