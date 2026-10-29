@@ -33,7 +33,7 @@ type Props = {
  * vengan después) herede exactamente la misma profundidad, borde y filo de
  * luz. En web usa box-shadow; en nativo dibuja el glow con Skia.
  */
-export default function PanelBrillo({
+function PanelBrillo({
   children,
   style,
   radius = 20,
@@ -128,3 +128,5 @@ const styles = StyleSheet.create({
     zIndex: 3,
   },
 });
+
+export default PanelBrillo;

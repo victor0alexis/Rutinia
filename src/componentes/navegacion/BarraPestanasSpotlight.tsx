@@ -59,7 +59,7 @@ const TAB_CONFIG: Record<string, TabRouteMeta> = {
   },
 };
 
-export default function BarraPestanasSpotlight({
+function BarraPestanasSpotlight({
   state,
   descriptors,
   navigation,
@@ -357,3 +357,5 @@ const styles = StyleSheet.create({
   },
 });
 
+
+export default BarraPestanasSpotlight;

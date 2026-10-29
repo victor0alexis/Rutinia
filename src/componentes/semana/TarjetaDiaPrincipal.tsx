@@ -67,7 +67,7 @@ export interface MainDayCardProps {
   onDiaSiguiente?: () => void;
 }
 
-export default function TarjetaDiaPrincipal({
+function TarjetaDiaPrincipal({
   registrosConRutina,
   notasDelDia,
   ejerciciosExtras,
@@ -403,3 +403,5 @@ const styles = StyleSheet.create({
     fontFamily: fuentes.regular,
   },
 });
+
+export default TarjetaDiaPrincipal;

@@ -23,7 +23,7 @@ type Props = {
   fullWidth?: boolean;
 };
 
-export default function BotonBrillo({
+function BotonBrillo({
   title,
   onPress,
   disabled = false,
@@ -46,3 +46,5 @@ export default function BotonBrillo({
     />
   );
 }
+
+export default BotonBrillo;

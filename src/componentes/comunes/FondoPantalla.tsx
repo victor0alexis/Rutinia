@@ -15,9 +15,11 @@ type Props = {
  * Ahora renderiza de forma unificada FondoNegroGradiente (negro puro y gradiente inteligente)
  * en todas las pantallas y modales de la aplicación.
  */
-export default function FondoPantalla({
+function FondoPantalla({
   children,
   style,
 }: Props) {
   return <FondoNegroGradiente style={style}>{children}</FondoNegroGradiente>;
 }
+
+export default FondoPantalla;

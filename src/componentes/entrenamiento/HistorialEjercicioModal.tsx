@@ -1,3 +1,4 @@
+import { styles } from './HistorialEjercicioModal.estilos';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -20,7 +21,7 @@ import Svg, {
 } from 'react-native-svg';
 import { differenceInCalendarDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { fuentes, noir } from '../../constantes/colores';
+import { noir } from '../../constantes/colores';
 import { useLayout } from '../../hooks/useLayout';
 import { vibrarBoton } from '../../utilidades/hapticos';
 import {
@@ -28,9 +29,7 @@ import {
   SerieHistorialEjercicio,
   obtenerHistorialEjercicio,
 } from '../../servicios/registros';
-
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
-
 type Props = {
   visible: boolean;
   nombreEjercicio: string;
@@ -38,14 +37,12 @@ type Props = {
   onClose: () => void;
   onUsarSesion?: (sesion: SesionHistorialEjercicio) => void;
 };
-
 type MetricaGrafica =
   | 'e1rm'
   | 'peso'
   | 'volumen'
   | 'reps'
   | 'totalReps';
-
 const METRICAS: {
   id: MetricaGrafica;
   etiqueta: string;
@@ -89,15 +86,12 @@ const METRICAS: {
     unidad: 'reps',
   },
 ];
-
 function fechaComoDate(fecha: string): Date {
   return new Date(`${fecha}T12:00:00`);
 }
-
 function capitalizar(texto: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
-
 function formatearFecha(fecha: string): string {
   try {
     return capitalizar(
@@ -107,7 +101,6 @@ function formatearFecha(fecha: string): string {
     return fecha;
   }
 }
-
 function formatearFechaCorta(fecha: string): string {
   try {
     return format(fechaComoDate(fecha), 'd MMM', { locale: es });
@@ -115,7 +108,6 @@ function formatearFechaCorta(fecha: string): string {
     return fecha;
   }
 }
-
 function formatearMes(fecha: string): string {
   try {
     return capitalizar(
@@ -125,7 +117,6 @@ function formatearMes(fecha: string): string {
     return fecha;
   }
 }
-
 function fechaRelativa(fecha: string): string {
   try {
     const dias = differenceInCalendarDays(new Date(), fechaComoDate(fecha));
@@ -146,7 +137,6 @@ function fechaRelativa(fecha: string): string {
     return '';
   }
 }
-
 function formatearNumero(valor: number, decimales = 1): string {
   if (!Number.isFinite(valor)) return '—';
   const redondeado = Math.round(valor * 10 ** decimales) / 10 ** decimales;
@@ -154,24 +144,20 @@ function formatearNumero(valor: number, decimales = 1): string {
     ? String(redondeado)
     : redondeado.toFixed(decimales).replace('.', ',');
 }
-
 function formatearKg(valor: number, decimales = 1): string {
   return valor > 0 ? formatearNumero(valor, decimales) : '—';
 }
-
 function formatearCompacto(valor: number): string {
   if (valor <= 0) return '—';
   if (valor >= 1000) return `${formatearNumero(valor / 1000, 1)}k`;
   return formatearNumero(valor, 0);
 }
-
 function formatearSerie(kg: number, reps: number): string {
   if (kg > 0 && reps > 0) return `${formatearKg(kg)} kg × ${reps}`;
   if (reps > 0) return `${reps} reps`;
   if (kg > 0) return `${formatearKg(kg)} kg`;
   return '—';
 }
-
 function valorMetrica(
   sesion: SesionHistorialEjercicio,
   metrica: MetricaGrafica
@@ -182,7 +168,6 @@ function valorMetrica(
   if (metrica === 'totalReps') return sesion.totalReps;
   return sesion.mejorE1RM;
 }
-
 function contextoDeSesion(sesion: SesionHistorialEjercicio): string {
   const rutina = sesion.rutinaNombre?.trim();
   const plan =
@@ -191,7 +176,6 @@ function contextoDeSesion(sesion: SesionHistorialEjercicio): string {
       : null;
   return [rutina, plan].filter(Boolean).join(' · ');
 }
-
 function mejorMarcaTexto(sesion: SesionHistorialEjercicio): string {
   if (sesion.mejorPeso > 0 && sesion.repsMejorPeso > 0) {
     return `${formatearKg(sesion.mejorPeso)} kg × ${sesion.repsMejorPeso}`;
@@ -205,7 +189,6 @@ function mejorMarcaTexto(sesion: SesionHistorialEjercicio): string {
   );
   return maxReps > 0 ? `${maxReps} reps` : '—';
 }
-
 function IconoMetrica({
   icono,
   color,
@@ -224,7 +207,6 @@ function IconoMetrica({
     </View>
   );
 }
-
 function StatCard({
   icono,
   label,
@@ -255,7 +237,6 @@ function StatCard({
     </View>
   );
 }
-
 function GraficoEvolucion({
   sesiones,
   metrica,
@@ -267,7 +248,6 @@ function GraficoEvolucion({
 }) {
   const [ancho, setAncho] = useState(0);
   const alto = 132;
-
   const puntos = useMemo(
     () =>
       sesiones
@@ -278,7 +258,6 @@ function GraficoEvolucion({
         .filter((punto) => punto.valor > 0),
     [sesiones, metrica]
   );
-
   if (puntos.length === 0) {
     return (
       <View style={styles.chartEmpty}>
@@ -295,19 +274,16 @@ function GraficoEvolucion({
       </View>
     );
   }
-
   const valores = puntos.map((punto) => punto.valor);
   const maximo = Math.max(...valores);
   const minimo = Math.min(...valores);
   const rango = maximo - minimo;
   const paddingX = 8;
   const paddingY = 12;
-
   const x = (indice: number) => {
     if (puntos.length === 1) return ancho / 2;
     return paddingX + (indice / (puntos.length - 1)) * (ancho - paddingX * 2);
   };
-
   const y = (valor: number) => {
     if (rango <= 0) return alto / 2;
     return (
@@ -315,21 +291,18 @@ function GraficoEvolucion({
       (1 - (valor - minimo) / rango) * (alto - paddingY * 2)
     );
   };
-
   const linePath = puntos
     .map(
       (punto, indice) =>
         `${indice === 0 ? 'M' : 'L'} ${x(indice)} ${y(punto.valor)}`
     )
     .join(' ');
-
   const areaPath =
     puntos.length > 1
       ? `${linePath} L ${x(puntos.length - 1)} ${alto - 4} L ${x(
           0
         )} ${alto - 4} Z`
       : '';
-
   return (
     <View>
       <View style={styles.chartScaleRow}>
@@ -340,7 +313,6 @@ function GraficoEvolucion({
           MÍN {formatearCompacto(minimo)} {unidad}
         </Text>
       </View>
-
       <View
         style={{ height: alto }}
         onLayout={(event) => setAncho(event.nativeEvent.layout.width)}
@@ -359,7 +331,6 @@ function GraficoEvolucion({
                 <Stop offset="1" stopColor={noir.info} stopOpacity={0} />
               </SvgLinearGradient>
             </Defs>
-
             {[0, 0.5, 1].map((posicion) => (
               <Line
                 key={`grid-${posicion}`}
@@ -371,11 +342,9 @@ function GraficoEvolucion({
                 strokeWidth={1}
               />
             ))}
-
             {areaPath ? (
               <Path d={areaPath} fill="url(#historialArea)" />
             ) : null}
-
             {puntos.length > 1 && (
               <Path
                 d={linePath}
@@ -386,7 +355,6 @@ function GraficoEvolucion({
                 strokeLinejoin="round"
               />
             )}
-
             {puntos.map((punto, indice) => {
               const esUltimo = indice === puntos.length - 1;
               return (
@@ -404,7 +372,6 @@ function GraficoEvolucion({
           </Svg>
         )}
       </View>
-
       <View style={styles.chartDateRow}>
         <Text style={styles.chartDateText}>
           {formatearFechaCorta(puntos[0].fecha)}
@@ -418,7 +385,6 @@ function GraficoEvolucion({
     </View>
   );
 }
-
 function EtiquetaSerie({
   texto,
   color = noir.muted,
@@ -441,7 +407,6 @@ function EtiquetaSerie({
     </View>
   );
 }
-
 function FilaSerie({
   serie,
   esUnilateral,
@@ -466,7 +431,6 @@ function FilaSerie({
           S{serie.setNum}
         </Text>
       </View>
-
       <View style={styles.serieBody}>
         <View style={styles.serieValues}>
           {esUnilateral ? (
@@ -484,7 +448,6 @@ function FilaSerie({
               {formatearSerie(serie.pesoD, serie.repsD)}
             </Text>
           )}
-
           {serie.rir !== null && (
             <EtiquetaSerie texto={`RIR ${serie.rir}`} />
           )}
@@ -505,7 +468,6 @@ function FilaSerie({
             />
           )}
         </View>
-
         {serie.drops.length > 0 && (
           <Text style={styles.serieDrops}>
             Drops:{' '}
@@ -519,12 +481,10 @@ function FilaSerie({
               .join('  →  ')}
           </Text>
         )}
-
         {Boolean(serie.nota) && (
           <Text style={styles.serieNote}>“{serie.nota}”</Text>
         )}
       </View>
-
       <Ionicons
         name={serie.completado ? 'checkmark-circle' : 'ellipse-outline'}
         size={13}
@@ -533,7 +493,6 @@ function FilaSerie({
     </View>
   );
 }
-
 function TarjetaSesion({
   sesion,
   esUltima,
@@ -577,7 +536,6 @@ function TarjetaSesion({
           )} ${
             unidadProgreso === 'kg' ? 'kg de 1RM' : 'reps'
           } frente a la sesión anterior`;
-
   return (
     <View style={styles.sessionCard}>
       <View style={styles.sessionHeader}>
@@ -590,7 +548,6 @@ function TarjetaSesion({
             {contexto ? ` · ${contexto}` : ''}
           </Text>
         </View>
-
         <View style={styles.sessionBadges}>
           {esUltima && (
             <View style={[styles.badge, styles.badgeLatest]}>
@@ -609,7 +566,6 @@ function TarjetaSesion({
           )}
         </View>
       </View>
-
       <View style={styles.sessionStats}>
         <View style={styles.sessionStat}>
           <Text style={styles.sessionStatLabel}>MEJOR SERIE</Text>
@@ -644,7 +600,6 @@ function TarjetaSesion({
           </Text>
         </View>
       </View>
-
       {deltaProgreso !== null && (
         <View style={styles.deltaRow}>
           <Ionicons name={deltaIcon} size={12} color={deltaColor} />
@@ -653,7 +608,6 @@ function TarjetaSesion({
           </Text>
         </View>
       )}
-
       <View style={styles.seriesBox}>
         <View style={styles.seriesBoxHeader}>
           <Text style={styles.seriesBoxTitle}>SERIES REGISTRADAS</Text>
@@ -669,7 +623,6 @@ function TarjetaSesion({
           />
         ))}
       </View>
-
       {Boolean(sesion.notaSesion) && (
         <View
           style={[
@@ -695,7 +648,6 @@ function TarjetaSesion({
           </View>
         </View>
       )}
-
       {Boolean(sesion.notaEjercicio) && (
         <View style={styles.exerciseNote}>
           <Ionicons
@@ -709,7 +661,6 @@ function TarjetaSesion({
           </View>
         </View>
       )}
-
       {onUsar && (
         <Pressable
           onPress={() => onUsar(sesion)}
@@ -737,7 +688,6 @@ function TarjetaSesion({
     </View>
   );
 }
-
 export default function HistorialEjercicioModal({
   visible,
   nombreEjercicio,
@@ -751,12 +701,9 @@ export default function HistorialEjercicioModal({
   const [error, setError] = useState<string | null>(null);
   const [recarga, setRecarga] = useState(0);
   const [metrica, setMetrica] = useState<MetricaGrafica>('e1rm');
-
   useEffect(() => {
     if (!visible || !nombreEjercicio.trim()) return;
-
     let cancelado = false;
-
     const cargar = async () => {
       try {
         const historial = await obtenerHistorialEjercicio(
@@ -776,14 +723,11 @@ export default function HistorialEjercicioModal({
         if (!cancelado) setCargando(false);
       }
     };
-
     void cargar();
-
     return () => {
       cancelado = true;
     };
   }, [visible, nombreEjercicio, registroActualId, recarga]);
-
   const sesionesDesc = useMemo(
     () =>
       [...sesiones].sort((a, b) => {
@@ -792,9 +736,7 @@ export default function HistorialEjercicioModal({
       }),
     [sesiones]
   );
-
   const sesionesAsc = useMemo(() => [...sesionesDesc].reverse(), [sesionesDesc]);
-
   const resumen = useMemo(() => {
     const mejorPeso = sesionesDesc.reduce(
       (maximo, sesion) => Math.max(maximo, sesion.mejorPeso),
@@ -824,14 +766,11 @@ export default function HistorialEjercicioModal({
     );
     const totalRepsMedio =
       sesionesDesc.length > 0 ? totalRepsTotal / sesionesDesc.length : 0;
-
     const usaCarga = mejorPeso > 0;
     const valorProgreso = (sesion: SesionHistorialEjercicio) =>
       usaCarga ? sesion.mejorE1RM : sesion.mejorReps;
-
     const primera = sesionesAsc[0] || null;
     const ultima = sesionesAsc[sesionesAsc.length - 1] || null;
-
     // Para calcular la evolución usamos la primera y la última sesión que
     // tengan una marca válida. Así una sesión antigua a peso corporal no
     // rompe la tendencia cuando después se incorporó carga externa.
@@ -850,7 +789,6 @@ export default function HistorialEjercicioModal({
       valorProgreso(primeraMarca) > 0
         ? (deltaProgreso / valorProgreso(primeraMarca)) * 100
         : null;
-
     let frecuenciaDias: number | null = null;
     if (sesionesAsc.length > 1) {
       const intervalos: number[] = [];
@@ -868,11 +806,9 @@ export default function HistorialEjercicioModal({
         frecuenciaDias = Math.round(promedio);
       }
     }
-
     const sesionMejorPeso = sesionesDesc.find(
       (sesion) => sesion.mejorPeso === mejorPeso
     );
-
     return {
       mejorPeso,
       repsMejorPeso: sesionMejorPeso?.repsMejorPeso || 0,
@@ -891,7 +827,6 @@ export default function HistorialEjercicioModal({
       frecuenciaDias,
     };
   }, [sesionesAsc, sesionesDesc]);
-
   const metricasDisponibles = resumen.usaCarga
     ? METRICAS.filter(
         (item) =>
@@ -904,7 +839,6 @@ export default function HistorialEjercicioModal({
     metricasDisponibles.find((item) => item.id === metrica) ||
     metricasDisponibles[0] ||
     METRICAS[0];
-
   const deltaPct = resumen.deltaPct;
   const progresoColor =
     deltaPct === null || Math.abs(deltaPct) < 0.05
@@ -918,7 +852,6 @@ export default function HistorialEjercicioModal({
       : deltaPct > 0
         ? 'trending-up'
         : 'trending-down';
-
   const insightTitulo =
     deltaPct === null
       ? 'Primera referencia registrada'
@@ -930,7 +863,6 @@ export default function HistorialEjercicioModal({
             deltaPct,
             1
           )}% en ${resumen.usaCarga ? '1RM estimado' : 'reps máximas'}`;
-
   const deltaValor = resumen.deltaProgreso ?? 0;
   const signoDelta =
     deltaValor > 0 ? '+' : deltaValor < 0 ? '-' : '';
@@ -947,18 +879,15 @@ export default function HistorialEjercicioModal({
             ? ` Frecuencia media: cada ~${resumen.frecuenciaDias} días.`
             : ''
         }`;
-
   const cerrar = () => {
     vibrarBoton(8);
     onClose();
   };
-
   const usarSesion = (sesion: SesionHistorialEjercicio) => {
     vibrarBoton(14);
     onUsarSesion?.(sesion);
     onClose();
   };
-
   return (
     <Modal
       visible={visible}
@@ -973,7 +902,6 @@ export default function HistorialEjercicioModal({
           end={{ x: 0.7, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-
         <View
           style={[
             styles.header,
@@ -1010,7 +938,6 @@ export default function HistorialEjercicioModal({
                     : 'Historial de sesiones finalizadas'}
               </Text>
             </View>
-
             <Pressable
               onPress={cerrar}
               style={({ pressed }) => [
@@ -1025,7 +952,6 @@ export default function HistorialEjercicioModal({
             </Pressable>
           </View>
         </View>
-
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={[
@@ -1134,7 +1060,6 @@ export default function HistorialEjercicioModal({
                       />
                     </View>
                   </View>
-
                   <View style={styles.statsGrid}>
                     <StatCard
                       icono="layers-outline"
@@ -1203,7 +1128,6 @@ export default function HistorialEjercicioModal({
                       color={progresoColor}
                     />
                   </View>
-
                   <View style={styles.insightRow}>
                     <View
                       style={[
@@ -1226,7 +1150,6 @@ export default function HistorialEjercicioModal({
                     </View>
                   </View>
                 </View>
-
                 <View style={styles.chartCard}>
                   <View style={styles.chartHeader}>
                     <View style={{ flex: 1 }}>
@@ -1263,17 +1186,14 @@ export default function HistorialEjercicioModal({
                       })}
                     </View>
                   </View>
-
                   <Text style={styles.chartDescription}>
                     {metricaActiva.descripcion}
                   </Text>
-
                   <GraficoEvolucion
                     sesiones={sesionesAsc}
                     metrica={metricaActiva.id}
                     unidad={metricaActiva.unidad}
                   />
-
                   <View style={styles.chartFooter}>
                     <Text style={styles.chartFooterText}>
                       {sesionesAsc.length}{' '}
@@ -1293,7 +1213,6 @@ export default function HistorialEjercicioModal({
                     )}
                   </View>
                 </View>
-
                 <View style={styles.listHeader}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.listKicker}>REGISTROS</Text>
@@ -1305,7 +1224,6 @@ export default function HistorialEjercicioModal({
                     </Text>
                   </View>
                 </View>
-
                 {sesionesDesc.map((sesion, indice) => {
                   const anterior = sesionesDesc[indice + 1] || null;
                   const valorSesion = resumen.usaCarga
@@ -1323,7 +1241,6 @@ export default function HistorialEjercicioModal({
                   const valorRecord = resumen.usaCarga
                     ? resumen.mejorE1RM
                     : resumen.mejorReps;
-
                   return (
                     <TarjetaSesion
                       key={sesion.id}
@@ -1339,7 +1256,6 @@ export default function HistorialEjercicioModal({
                     />
                   );
                 })}
-
                 <View style={styles.footerNote}>
                   <Ionicons
                     name="shield-checkmark-outline"
@@ -1359,715 +1275,3 @@ export default function HistorialEjercicioModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: noir.bg,
-  },
-  header: {
-    paddingBottom: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.075)',
-  },
-  headerInner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    alignSelf: 'center',
-    gap: 12,
-  },
-  headerCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  headerKicker: {
-    color: noir.info,
-    fontFamily: fuentes.bold,
-    fontSize: 8.5,
-    letterSpacing: 1.25,
-    textTransform: 'uppercase',
-  },
-  headerTitle: {
-    color: noir.text,
-    fontFamily: fuentes.black,
-    fontSize: 24,
-    lineHeight: 27,
-    letterSpacing: -0.7,
-    marginTop: 4,
-  },
-  headerSubtitle: {
-    color: noir.muted,
-    fontFamily: fuentes.medium,
-    fontSize: 10.5,
-    lineHeight: 14,
-    marginTop: 4,
-  },
-  closeButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.055)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingTop: 14,
-    alignItems: 'center',
-  },
-  content: {
-    gap: 14,
-  },
-  summaryCard: {
-    backgroundColor: 'rgba(16, 19, 27, 0.92)',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.085)',
-    padding: 14,
-    gap: 12,
-    overflow: 'hidden',
-  },
-  summaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  summaryKicker: {
-    color: noir.muted2,
-    fontFamily: fuentes.bold,
-    fontSize: 7.5,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  summaryTitle: {
-    color: noir.text,
-    fontFamily: fuentes.bold,
-    fontSize: 15,
-    letterSpacing: -0.2,
-    marginTop: 2,
-  },
-  summaryIcon: {
-    width: 33,
-    height: 33,
-    borderRadius: 11,
-    backgroundColor: 'rgba(63, 242, 176, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(63, 242, 176, 0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  statCard: {
-    flexGrow: 1,
-    flexBasis: '47%',
-    minWidth: 132,
-    backgroundColor: 'rgba(255, 255, 255, 0.028)',
-    borderRadius: 13,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-    gap: 2,
-  },
-  statTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  statIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 8,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statLabel: {
-    color: noir.muted2,
-    fontFamily: fuentes.bold,
-    fontSize: 7,
-    letterSpacing: 0.65,
-    textTransform: 'uppercase',
-    flexShrink: 1,
-  },
-  statValue: {
-    color: noir.text,
-    fontFamily: fuentes.black,
-    fontSize: 20,
-    letterSpacing: -0.5,
-    marginTop: 3,
-  },
-  statDetail: {
-    color: noir.muted,
-    fontFamily: fuentes.regular,
-    fontSize: 8.5,
-    lineHeight: 11,
-  },
-  insightRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    backgroundColor: 'rgba(255, 255, 255, 0.022)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.055)',
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-  },
-  insightIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 9,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  insightTitle: {
-    color: noir.text,
-    fontFamily: fuentes.bold,
-    fontSize: 11.5,
-    letterSpacing: -0.1,
-  },
-  insightText: {
-    color: noir.muted,
-    fontFamily: fuentes.regular,
-    fontSize: 9,
-    lineHeight: 12.5,
-    marginTop: 2,
-  },
-  chartCard: {
-    backgroundColor: 'rgba(16, 19, 27, 0.92)',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.085)',
-    padding: 14,
-    gap: 10,
-  },
-  chartHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  chartKicker: {
-    color: noir.info,
-    fontFamily: fuentes.bold,
-    fontSize: 7.5,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  chartTitle: {
-    color: noir.text,
-    fontFamily: fuentes.bold,
-    fontSize: 15,
-    letterSpacing: -0.2,
-    marginTop: 2,
-  },
-  chartDescription: {
-    color: noir.muted,
-    fontFamily: fuentes.regular,
-    fontSize: 9,
-    lineHeight: 12,
-    marginTop: -3,
-  },
-  metricTabs: {
-    flexDirection: 'row',
-    gap: 3,
-    padding: 3,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.035)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  metricTab: {
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 7,
-  },
-  metricTabActive: {
-    backgroundColor: 'rgba(92, 200, 255, 0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(92, 200, 255, 0.2)',
-  },
-  metricTabText: {
-    color: noir.muted,
-    fontFamily: fuentes.bold,
-    fontSize: 8,
-    letterSpacing: 0.2,
-  },
-  metricTabTextActive: {
-    color: '#C9EEFF',
-  },
-  chartScaleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 2,
-  },
-  chartScaleText: {
-    color: noir.muted2,
-    fontFamily: fuentes.medium,
-    fontSize: 7.5,
-    letterSpacing: 0.25,
-  },
-  chartDateRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 3,
-  },
-  chartDateText: {
-    color: noir.muted2,
-    fontFamily: fuentes.medium,
-    fontSize: 8,
-  },
-  chartEmpty: {
-    minHeight: 116,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: 'rgba(255, 255, 255, 0.09)',
-    backgroundColor: 'rgba(255, 255, 255, 0.017)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    gap: 7,
-  },
-  chartEmptyText: {
-    color: noir.muted,
-    fontFamily: fuentes.regular,
-    fontSize: 9.5,
-    lineHeight: 13,
-    textAlign: 'center',
-  },
-  chartFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
-    paddingTop: 9,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.055)',
-  },
-  chartFooterText: {
-    color: noir.muted2,
-    fontFamily: fuentes.medium,
-    fontSize: 8,
-  },
-  listHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  listKicker: {
-    color: noir.muted2,
-    fontFamily: fuentes.bold,
-    fontSize: 7.5,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  listTitle: {
-    color: noir.text,
-    fontFamily: fuentes.bold,
-    fontSize: 16,
-    letterSpacing: -0.25,
-    marginTop: 2,
-  },
-  listCount: {
-    minWidth: 27,
-    height: 27,
-    borderRadius: 9,
-    backgroundColor: 'rgba(92, 200, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(92, 200, 255, 0.17)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 7,
-  },
-  listCountText: {
-    color: noir.info,
-    fontFamily: fuentes.bold,
-    fontSize: 10,
-  },
-  sessionCard: {
-    backgroundColor: 'rgba(16, 19, 27, 0.92)',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.075)',
-    borderLeftWidth: 2,
-    borderLeftColor: 'rgba(92, 200, 255, 0.28)',
-    padding: 12,
-    gap: 10,
-  },
-  sessionHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  sessionDateBlock: {
-    flex: 1,
-    minWidth: 0,
-  },
-  sessionDate: {
-    color: noir.text,
-    fontFamily: fuentes.bold,
-    fontSize: 12.5,
-    letterSpacing: -0.1,
-  },
-  sessionContext: {
-    color: noir.muted,
-    fontFamily: fuentes.regular,
-    fontSize: 9,
-    lineHeight: 12,
-    marginTop: 2,
-  },
-  sessionBadges: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    flexShrink: 0,
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 5,
-    borderWidth: 1,
-  },
-  badgeLatest: {
-    backgroundColor: 'rgba(92, 200, 255, 0.065)',
-    borderColor: 'rgba(92, 200, 255, 0.17)',
-  },
-  badgeRecord: {
-    backgroundColor: 'rgba(255, 209, 102, 0.06)',
-    borderColor: 'rgba(255, 209, 102, 0.17)',
-  },
-  badgeText: {
-    fontFamily: fuentes.bold,
-    fontSize: 7,
-    letterSpacing: 0.55,
-  },
-  sessionStats: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    backgroundColor: 'rgba(255, 255, 255, 0.025)',
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.055)',
-    paddingVertical: 8,
-  },
-  sessionStat: {
-    flex: 1,
-    paddingHorizontal: 8,
-    gap: 2,
-  },
-  sessionStatDivider: {
-    width: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
-    marginVertical: 2,
-  },
-  sessionStatLabel: {
-    color: noir.muted2,
-    fontFamily: fuentes.bold,
-    fontSize: 6.5,
-    letterSpacing: 0.55,
-  },
-  sessionStatValue: {
-    color: noir.text,
-    fontFamily: fuentes.bold,
-    fontSize: 10.5,
-    letterSpacing: -0.1,
-  },
-  deltaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  deltaText: {
-    fontFamily: fuentes.medium,
-    fontSize: 8.5,
-    lineHeight: 11,
-    flex: 1,
-  },
-  seriesBox: {
-    backgroundColor: 'rgba(255, 255, 255, 0.018)',
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    paddingHorizontal: 9,
-    paddingVertical: 8,
-    gap: 7,
-  },
-  seriesBoxHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingBottom: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.055)',
-  },
-  seriesBoxTitle: {
-    color: noir.muted2,
-    fontFamily: fuentes.bold,
-    fontSize: 7,
-    letterSpacing: 0.7,
-  },
-  seriesBoxCount: {
-    color: noir.muted,
-    fontFamily: fuentes.medium,
-    fontSize: 7.5,
-  },
-  serieRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 7,
-  },
-  serieNumber: {
-    width: 25,
-    height: 21,
-    borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.045)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 1,
-  },
-  serieNumberDone: {
-    backgroundColor: 'rgba(63, 242, 176, 0.07)',
-    borderColor: 'rgba(63, 242, 176, 0.18)',
-  },
-  serieNumberText: {
-    color: noir.muted,
-    fontFamily: fuentes.bold,
-    fontSize: 7,
-  },
-  serieNumberTextDone: {
-    color: noir.mint,
-  },
-  serieBody: {
-    flex: 1,
-    minWidth: 0,
-    gap: 3,
-  },
-  serieValues: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 4,
-  },
-  serieValue: {
-    color: noir.platinum,
-    fontFamily: fuentes.medium,
-    fontSize: 10,
-    letterSpacing: -0.1,
-  },
-  serieSeparator: {
-    color: noir.muted2,
-    fontFamily: fuentes.regular,
-    fontSize: 10,
-  },
-  serieTag: {
-    paddingHorizontal: 4,
-    paddingVertical: 1.5,
-    borderRadius: 4,
-    borderWidth: 1,
-  },
-  serieTagText: {
-    fontFamily: fuentes.bold,
-    fontSize: 6.5,
-    letterSpacing: 0.25,
-  },
-  serieDrops: {
-    color: noir.info,
-    fontFamily: fuentes.regular,
-    fontSize: 8,
-    lineHeight: 11,
-  },
-  serieNote: {
-    color: noir.champagne,
-    fontFamily: fuentes.regular,
-    fontSize: 8,
-    lineHeight: 11,
-    fontStyle: 'italic',
-  },
-  exerciseNote: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 7,
-    backgroundColor: 'rgba(255, 209, 102, 0.035)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 209, 102, 0.12)',
-    paddingHorizontal: 9,
-    paddingVertical: 7,
-  },
-  exerciseNoteLabel: {
-    color: noir.champagne,
-    fontFamily: fuentes.bold,
-    fontSize: 6.5,
-    letterSpacing: 0.55,
-    marginBottom: 2,
-  },
-  exerciseNoteText: {
-    color: noir.platinum,
-    fontFamily: fuentes.regular,
-    fontSize: 9,
-    lineHeight: 12,
-  },
-  useButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(63, 242, 176, 0.18)',
-    backgroundColor: 'rgba(63, 242, 176, 0.045)',
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-  },
-  useButtonText: {
-    color: noir.mint,
-    fontFamily: fuentes.bold,
-    fontSize: 10,
-    letterSpacing: 0.1,
-  },
-  footerNote: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-    paddingHorizontal: 4,
-    paddingTop: 2,
-  },
-  footerNoteText: {
-    color: noir.muted2,
-    fontFamily: fuentes.regular,
-    fontSize: 8,
-    lineHeight: 11.5,
-    flex: 1,
-  },
-  loadingCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: 'rgba(16, 19, 27, 0.92)',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.075)',
-    padding: 18,
-    minHeight: 110,
-  },
-  loadingOrb: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: 'rgba(92, 200, 255, 0.065)',
-    borderWidth: 1,
-    borderColor: 'rgba(92, 200, 255, 0.16)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingTitle: {
-    color: noir.text,
-    fontFamily: fuentes.bold,
-    fontSize: 13,
-  },
-  loadingText: {
-    color: noir.muted,
-    fontFamily: fuentes.regular,
-    fontSize: 9.5,
-    lineHeight: 13,
-    marginTop: 3,
-  },
-  emptyCard: {
-    backgroundColor: 'rgba(16, 19, 27, 0.92)',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.075)',
-    paddingHorizontal: 22,
-    paddingVertical: 28,
-    alignItems: 'center',
-    gap: 9,
-  },
-  emptyIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: 'rgba(92, 200, 255, 0.065)',
-    borderWidth: 1,
-    borderColor: 'rgba(92, 200, 255, 0.16)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 2,
-  },
-  errorIcon: {
-    backgroundColor: 'rgba(255, 122, 144, 0.065)',
-    borderColor: 'rgba(255, 122, 144, 0.16)',
-  },
-  emptyTitle: {
-    color: noir.text,
-    fontFamily: fuentes.bold,
-    fontSize: 16,
-    letterSpacing: -0.25,
-    textAlign: 'center',
-  },
-  emptyText: {
-    color: noir.muted,
-    fontFamily: fuentes.regular,
-    fontSize: 10,
-    lineHeight: 14.5,
-    textAlign: 'center',
-    maxWidth: 360,
-  },
-  emptyStrong: {
-    color: noir.platinum,
-    fontFamily: fuentes.bold,
-  },
-  emptyHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 3,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-  },
-  emptyHintText: {
-    color: noir.muted,
-    fontFamily: fuentes.regular,
-    fontSize: 8,
-  },
-  errorDetail: {
-    color: noir.muted2,
-    fontFamily: fuentes.regular,
-    fontSize: 8,
-    lineHeight: 11,
-    textAlign: 'center',
-    maxWidth: 320,
-  },
-  retryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: 'rgba(92, 200, 255, 0.22)',
-    backgroundColor: 'rgba(92, 200, 255, 0.07)',
-  },
-  retryButtonText: {
-    color: noir.info,
-    fontFamily: fuentes.bold,
-    fontSize: 9.5,
-  },
-});

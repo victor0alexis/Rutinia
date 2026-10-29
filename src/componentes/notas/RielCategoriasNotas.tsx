@@ -34,7 +34,7 @@ type Props = {
  * micro-acentos Noir Pearl para identificar cada categoría sin romper la
  * jerarquía monocroma.
  */
-export default function RielCategoriasNotas({
+function RielCategoriasNotas({
   value,
   onChange,
   counts,
@@ -229,3 +229,5 @@ const styles = StyleSheet.create({
     lineHeight: 12,
   },
 });
+
+export default RielCategoriasNotas;

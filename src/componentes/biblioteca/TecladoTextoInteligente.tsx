@@ -52,7 +52,7 @@ const FILAS_NUMEROS = [
 
 const FILA_ACENTOS = ['á', 'é', 'í', 'ó', 'ú', 'ñ', 'ü'];
 
-export default function TecladoTextoInteligente({ visible = true, ...props }: Props) {
+function TecladoTextoInteligente({ visible = true, ...props }: Props) {
   if (!visible) return null;
   return <SmartTextKeyboardPanel {...props} />;
 }
@@ -698,3 +698,5 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
 });
+
+export default TecladoTextoInteligente;

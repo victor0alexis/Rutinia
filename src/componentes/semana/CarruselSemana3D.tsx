@@ -44,7 +44,7 @@ const SNAP_SPRING = {
   mass: 0.7,
 } as const;
 
-export default function CarruselSemana3D({
+function CarruselSemana3D({
   fechaReferencia,
   diaActivo,
   registros,
@@ -530,3 +530,5 @@ const styles = StyleSheet.create({
     borderRadius: 2.25,
   },
 });
+
+export default CarruselSemana3D;

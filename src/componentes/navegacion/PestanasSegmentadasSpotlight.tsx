@@ -34,7 +34,7 @@ export interface SpotlightSegmentedTabsProps<T extends string = string> {
   style?: StyleProp<ViewStyle>;
 }
 
-export default function PestanasSegmentadasSpotlight<T extends string = string>({
+function PestanasSegmentadasSpotlight<T extends string = string>({
   tabs,
   activeTab,
   onChangeTab,
@@ -244,3 +244,5 @@ const styles = StyleSheet.create({
     letterSpacing: 0.45,
   },
 });
+
+export default PestanasSegmentadasSpotlight;

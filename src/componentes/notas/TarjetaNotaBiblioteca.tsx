@@ -33,7 +33,7 @@ function fechaCorta(fechaISO: string): string {
  * badge y la acción de asignación. Así el blanco sigue mandando y el color
  * solo orienta.
  */
-export default function TarjetaNotaBiblioteca({
+function TarjetaNotaBiblioteca({
   nota,
   index = 0,
   onEditar,
@@ -261,3 +261,5 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.92 }],
   },
 });
+
+export default TarjetaNotaBiblioteca;

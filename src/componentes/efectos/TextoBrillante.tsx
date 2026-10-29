@@ -44,7 +44,7 @@ export interface ShinyTextProps {
   style?: StyleProp<ViewStyle | TextStyle>;
 }
 
-export default function TextoBrillante({
+function TextoBrillante({
   text,
   children,
   color = '#b5b5b5',
@@ -159,3 +159,5 @@ const styles = StyleSheet.create({
     textShadowRadius: 10,
   },
 });
+
+export default TextoBrillante;

@@ -1,15 +1,6 @@
+import { styles } from './EjecutarEntrenamientoModal.estilos';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import {
-  Modal,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-} from 'react-native';
+import { Modal, Pressable, ScrollView, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { colores, fuentes, noir } from '../../constantes/colores';
@@ -58,14 +49,12 @@ import {
   limpiarSesionActiva,
   emitirCambioSesionActiva,
 } from '../../utilidades/sesionActiva';
-
 export type FocusTeclado = {
   ejIdx: number;
   sIdx: number;
   campo: CampoEntrenamiento;
   dropIdx?: number;
 } | null;
-
 type Props = {
   visible: boolean;
   registro: Registro | null;
@@ -77,14 +66,12 @@ type Props = {
   /** Si true, entra directamente en modo visualización de resumen (solo lectura) sin iniciar cronómetro ni alterar la sesión */
   modoResumen?: boolean;
 };
-
 export type DropItemEjecucion = {
   orden: number;
   kg: string;
   reps: string;
   rir?: string;
 };
-
 export type SerieEjecucion = {
   id: string;
   peso: string;
@@ -100,7 +87,6 @@ export type SerieEjecucion = {
   drops: DropItemEjecucion[];
   tipo?: 'normal' | 'calentamiento' | 'fallo';
 };
-
 export type EjercicioState = {
   id: string;
   nombre: string;
@@ -111,7 +97,6 @@ export type EjercicioState = {
   sustitucion_alcance?: 'solo_hoy' | 'rutina' | null;
   notaEjercicio?: string;
 };
-
 export type SerieHistorica = {
   peso: string;
   reps: string;
@@ -121,43 +106,34 @@ export type SerieHistorica = {
   esDropset?: boolean;
   drops?: DropItemEjecucion[];
 };
-
 type HistoricoEjercicio = {
   fechaFormateada: string;
   series: SerieHistorica[];
 };
-
 type HistoricoMap = Record<string, HistoricoEjercicio>;
-
 function limitarIndiceEjercicio(index: number, total: number): number {
   if (total <= 0) return 0;
   return Math.min(Math.max(0, Math.floor(index)), total - 1);
 }
-
 /**
  * Si un borrador antiguo no guardó el ejercicio activo, inferimos el más
  * probable: el que tiene progreso parcial, luego el primero incompleto.
  */
 function inferirEjercicioActivo(ejercicios: EjercicioState[]): number {
   if (ejercicios.length === 0) return 0;
-
   const enProgreso = ejercicios.findIndex(
     (ej) => ej.series.some((s) => s.completado) && ej.series.some((s) => !s.completado)
   );
   if (enProgreso >= 0) return enProgreso;
-
   const primeroIncompleto = ejercicios.findIndex((ej) =>
     ej.series.some((s) => !s.completado)
   );
   if (primeroIncompleto >= 0) return primeroIncompleto;
-
   return ejercicios.length - 1;
 }
-
 function generarIdTemporal(): string {
   return `${Date.now()}.${Math.random().toString(36).slice(2, 9)}`;
 }
-
 function crearSerieVacia(): SerieEjecucion {
   return {
     id: generarIdTemporal(),
@@ -174,7 +150,6 @@ function crearSerieVacia(): SerieEjecucion {
     drops: [],
   };
 }
-
 /** Copia profunda de series para que el nuevo ejercicio no comparta referencias. */
 function heredarSeries(series: SerieEjecucion[]): SerieEjecucion[] {
   return series.map((serie) => ({
@@ -183,18 +158,15 @@ function heredarSeries(series: SerieEjecucion[]): SerieEjecucion[] {
     drops: (serie.drops || []).map((drop) => ({ ...drop })),
   }));
 }
-
 function esIdTemporal(id: string): boolean {
   return id.includes('.') || id.startsWith('draft_') || id.startsWith('temp_');
 }
-
 /** Convierte un valor numérico de texto a número, o null si no es válido. */
 function numeroONull(valor?: string): number | null {
   if (!valor) return null;
   const numero = Number(valor);
   return Number.isFinite(numero) ? numero : null;
 }
-
 const SUGERENCIAS_NOTA_EJERCICIO = [
   'Asiento 4',
   'Altura 5',
@@ -205,7 +177,6 @@ const SUGERENCIAS_NOTA_EJERCICIO = [
   'Control excéntrico',
   'Sin molestias',
 ];
-
 export default function EjecutarEntrenamientoModal({
   visible,
   registro,
@@ -216,7 +187,6 @@ export default function EjecutarEntrenamientoModal({
   modoResumen = false,
 }: Props) {
   const esModoResumen = Boolean(modoResumen || (registro?.completado && !modoReanudar));
-
   // ── Responsive layout centralizado con useLayout ───────────────────────────
   const {
     width,
@@ -228,11 +198,9 @@ export default function EjecutarEntrenamientoModal({
     barBottomPadding,
     isKeyboardVisible,
   } = useLayout();
-
   const dockHeight = isLandscape ? 76 : 98;
   const [focusTeclado, setFocusTeclado] = useState<FocusTeclado>(null);
   const scrollBottomPad = (focusTeclado ? 320 : isKeyboardVisible ? 16 : dockHeight) + barBottomPadding + 20;
-
   const [ejerciciosState, setEjerciciosState] = useState<EjercicioState[]>([]);
   const [ejercicioActivoIndex, setEjercicioActivoIndex] = useState(0);
   // Espejo síncrono del índice activo: evita que un guardado en vuelo escriba
@@ -241,18 +209,14 @@ export default function EjecutarEntrenamientoModal({
   const [notasSesion, setNotasSesion] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [historialMap, setHistorialMap] = useState<HistoricoMap>({});
-
   // ESTADO DE LOBBY / PRE-PARTIDA
   const [enLobby, setEnLobby] = useState(true);
-
   // TIMER PERSISTENTE (Único cronómetro de la sesión)
   const [estadoTimer, setEstadoTimer] = useState<EstadoTimer | null>(null);
   const [segundosTranscurridos, setSegundosTranscurridos] = useState(0);
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
   // MODAL RESUMEN Y CONFIRMACIÓN
   const [resumenVisible, setResumenVisible] = useState(false);
-
   // ESTADOS PARA MENÚS DE SERIE, EJERCICIO E INTERCAMBIO
   const [serieMenu, setSerieMenu] = useState<{ ejIdx: number; sIdx: number } | null>(null);
   const [ejercicioMenu, setEjercicioMenu] = useState<number | null>(null);
@@ -269,11 +233,9 @@ export default function EjecutarEntrenamientoModal({
     ejercicioAnterior: EjercicioState;
     ejercicioNuevo: EjercicioState;
   } | null>(null);
-
   // SNACKBAR CON DESHACER (6 SEGUNDOS)
   const [snackbar, setSnackbar] = useState<{ mensaje: string; onDeshacer?: () => void } | null>(null);
   const snackbarTimerRef = useRef<any>(null);
-
   const mostrarSnackbar = (mensaje: string, onDeshacer?: () => void) => {
     if (snackbarTimerRef.current) clearTimeout(snackbarTimerRef.current);
     setSnackbar({ mensaje, onDeshacer });
@@ -281,17 +243,14 @@ export default function EjecutarEntrenamientoModal({
       setSnackbar(null);
     }, 6000);
   };
-
   // Cargar o restaurar sesión
   useEffect(() => {
     if (!visible || !registro) return;
     let cancelado = false;
-
     const timer = setTimeout(async () => {
       const borradorPrevio = await obtenerBorradorSesion(registro.id);
       let parsedEjercicios: EjercicioState[] = [];
       let notasTexto = '';
-
       if (!esModoResumen && borradorPrevio && borradorPrevio.ejerciciosState && borradorPrevio.ejerciciosState.length > 0) {
         parsedEjercicios = borradorPrevio.ejerciciosState.map((ej) => ({
           ...ej,
@@ -307,7 +266,6 @@ export default function EjecutarEntrenamientoModal({
         notasTexto = borradorPrevio.notasSesion || '';
       } else {
         const notaSesionGuardada = parsearNotasSesion(registro.notas);
-
         // Las notas por ejercicio se guardan como filas 📌 para que conserven
         // el nombre del ejercicio al que pertenecen.
         const notasEjercicio = new Map<string, string>();
@@ -317,7 +275,6 @@ export default function EjecutarEntrenamientoModal({
             notasEjercicio.set(parsed.nombreEjercicio.trim().toLowerCase(), parsed.nota);
           }
         });
-
         const obsExistente = (registro.ejercicios_registro || []).find((e) =>
           e.nombre.includes('📌 [OBSERVACIONES]')
         );
@@ -326,15 +283,12 @@ export default function EjecutarEntrenamientoModal({
           (obsExistente
             ? obsExistente.nombre.replace('📌 [OBSERVACIONES] ', '').trim()
             : '');
-
         const ejsPure = (registro.ejercicios_registro || []).filter(
           (e) => !e.nombre.startsWith('📌')
         );
-
         parsedEjercicios = ejsPure.map((e) => {
           const parsed = parsearEjercicioInfo(e);
           const numSeries = e.series || parsed.detallesSets.length || 1;
-
           const seriesArray: SerieEjecucion[] = Array.from({ length: numSeries }, (_, i) => {
             const sDetail = parsed.detallesSets[i];
             let pesoStr = sDetail?.pesoD || (e.peso ? e.peso.toString() : '');
@@ -343,14 +297,12 @@ export default function EjecutarEntrenamientoModal({
             let repsIStr = sDetail?.repsI || '';
             let rirStr = sDetail?.rir || '';
             let notaStr = sDetail?.nota || '';
-
             if (!sDetail?.pesoD && sDetail?.resumen) {
               const matchK = sDetail.resumen.match(/(\d+(\.\d+)?)k/);
               if (matchK) pesoStr = matchK[1];
               const matchR = sDetail.resumen.match(/(\d+)r/);
               if (matchR) repsStr = matchR[1];
             }
-
             const rParciales = sDetail?.repsParciales || 0;
             const tieneP = Boolean(sDetail?.tieneParciales || rParciales > 0);
             const esDrop = Boolean(sDetail?.esDropset || (sDetail?.drops && sDetail.drops.length > 0));
@@ -360,7 +312,6 @@ export default function EjecutarEntrenamientoModal({
               reps: d.reps,
               rir: d.rir,
             }));
-
             return {
               id: i.toString() + Math.random().toString(),
               peso: pesoStr,
@@ -376,7 +327,6 @@ export default function EjecutarEntrenamientoModal({
               drops: dropsArray,
             };
           });
-
           return {
             id: e.id,
             nombre: parsed.nombreLimpio,
@@ -389,17 +339,14 @@ export default function EjecutarEntrenamientoModal({
           };
         });
       }
-
       const indiceRestaurado = limitarIndiceEjercicio(
         borradorPrevio?.ejercicioActivoIndex ?? inferirEjercicioActivo(parsedEjercicios),
         parsedEjercicios.length
       );
-
       setNotasSesion(notasTexto);
       setEjerciciosState(parsedEjercicios);
       ejercicioActivoIndexRef.current = indiceRestaurado;
       setEjercicioActivoIndex(indiceRestaurado);
-
       // Guardar borrador inicial solo si la sesión está en curso o nueva (no en modo resumen)
       if (!esModoResumen) {
         const nombreRutina = registro.rutinas?.nombre || 'Entrenamiento';
@@ -411,7 +358,6 @@ export default function EjecutarEntrenamientoModal({
           ejercicioActivoIndex: indiceRestaurado,
         });
       }
-
       // Cargar historial previo
       if (registro.rutina_id) {
         const sesionPrevia = await obtenerHistorialPrevioRutina(registro.rutina_id, registro.fecha);
@@ -419,7 +365,6 @@ export default function EjecutarEntrenamientoModal({
           const map: HistoricoMap = {};
           const dObj = new Date(sesionPrevia.fecha + 'T12:00:00');
           const fechaPrevStr = `${nombreDia(dObj)} ${dObj.getDate()}`;
-
           for (const ePrev of sesionPrevia.ejercicios_registro || []) {
             if (ePrev.nombre.startsWith('📌')) continue;
             const parsedPrev = parsearEjercicioInfo(ePrev);
@@ -433,7 +378,6 @@ export default function EjecutarEntrenamientoModal({
               esDropset: ds.esDropset || false,
               drops: ds.drops ? ds.drops.map((d) => ({ ...d })) : [],
             }));
-
             map[nLimpio] = {
               fechaFormateada: fechaPrevStr,
               series: sPrevArray.length > 0 ? sPrevArray : [
@@ -449,11 +393,9 @@ export default function EjecutarEntrenamientoModal({
           setHistorialMap(map);
         }
       }
-
       // Si estamos en modo resumen (sesión completada), no iniciar timer ni lobby
       if (esModoResumen) {
         let duracionSegs = parsearNotasSesion(registro.notas).duracionSegundos;
-
         if (duracionSegs <= 0) {
           try {
             const val = await AsyncStorage.getItem(`rutinia_duracion_${registro.id}`);
@@ -463,7 +405,6 @@ export default function EjecutarEntrenamientoModal({
             }
           } catch {}
         }
-
         if (!cancelado) {
           setEstadoTimer(null);
           setSegundosTranscurridos(duracionSegs);
@@ -477,7 +418,6 @@ export default function EjecutarEntrenamientoModal({
           setEstadoTimer(timerState);
           const segs = calcularSegundosTranscurridos(timerState);
           setSegundosTranscurridos(segs);
-
           // Si ya han pasado más de 5 segundos, había progreso guardado, o se viene de reanudar → salta lobby
           const algunaCompletada = parsedEjercicios.some((ej) => ej.series.some((s) => s.completado));
           const tieneBorrador = Boolean(borradorPrevio && borradorPrevio.ejerciciosState && borradorPrevio.ejerciciosState.length > 0);
@@ -489,30 +429,25 @@ export default function EjecutarEntrenamientoModal({
         }
       }
     }, 0);
-
     return () => {
       cancelado = true;
       clearTimeout(timer);
     };
   }, [visible, registro, modoReanudar, esModoResumen]);
-
   // Manejador del Interval del Timer (se actualiza cada 1 seg de manera eficiente)
   useEffect(() => {
     if (!visible || !estadoTimer) {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       return;
     }
-
     timerIntervalRef.current = setInterval(() => {
       const segs = calcularSegundosTranscurridos(estadoTimer);
       setSegundosTranscurridos(segs);
     }, 1000);
-
     return () => {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
   }, [visible, estadoTimer]);
-
   // Estado y datos para el Modo Focus de Entrenamiento en Vivo.
   // Estos hooks deben ejecutarse antes del early return para no romper el
   // orden de hooks cuando `fecha` o `registro` cambian.
@@ -525,13 +460,11 @@ export default function EjecutarEntrenamientoModal({
       seriesCompletadas: ej.series.filter((s) => s.completado).length,
     }));
   }, [ejerciciosState]);
-
   const indexValido = Math.min(
     Math.max(0, ejercicioActivoIndex),
     Math.max(0, ejerciciosState.length - 1)
   );
   const ejActivo = ejerciciosState[indexValido] || ejerciciosState[0];
-
   const seriesFocus = useMemo(() => {
     if (!ejActivo) return [];
     const hist = historialMap[ejActivo.nombre];
@@ -560,7 +493,6 @@ export default function EjecutarEntrenamientoModal({
       };
     });
   }, [ejActivo, historialMap]);
-
   const seriesCompletadasActivo = ejActivo
     ? ejActivo.series.filter((s) => s.completado).length
     : 0;
@@ -572,15 +504,12 @@ export default function EjecutarEntrenamientoModal({
     indexValido + 1 < ejerciciosState.length ? indexValido + 1 : null;
   const todasCompletadasActivo =
     totalSeriesActivo > 0 && seriesCompletadasActivo >= totalSeriesActivo;
-
   if (!fecha || !registro) return null;
-
   const totalSeriesEnSesion = ejerciciosState.reduce((acc, ej) => acc + ej.series.length, 0);
   const totalSeriesCompletadas = ejerciciosState.reduce(
     (acc, ej) => acc + ej.series.filter((s) => s.completado).length,
     0
   );
-
   // Iniciar la sesión de entrenamiento desde el lobby
   const iniciarEntrenamiento = async () => {
     setEnLobby(false);
@@ -589,7 +518,6 @@ export default function EjecutarEntrenamientoModal({
       setEstadoTimer(st);
     }
   };
-
   // Pausar o reanudar el timer
   const togglePausaTimer = async () => {
     if (!estadoTimer) return;
@@ -598,7 +526,6 @@ export default function EjecutarEntrenamientoModal({
     setSegundosTranscurridos(calcularSegundosTranscurridos(nuevoSt));
     await emitirCambioSesionActiva();
   };
-
   const guardarDraftAuto = (
     nextState: EjercicioState[],
     nTexto: string = notasSesion,
@@ -614,25 +541,21 @@ export default function EjecutarEntrenamientoModal({
       ejercicioActivoIndex: limitarIndiceEjercicio(indiceActivo, nextState.length),
     });
   };
-
   const fijarIndiceActivo = (index: number, total: number = ejerciciosState.length) => {
     const siguiente = limitarIndiceEjercicio(index, total);
     ejercicioActivoIndexRef.current = siguiente;
     setEjercicioActivoIndex(siguiente);
     return siguiente;
   };
-
   const seleccionarEjercicioActivo = (index: number) => {
     const siguiente = fijarIndiceActivo(index);
     setFocusTeclado(null);
     guardarDraftAuto(ejerciciosState, notasSesion, siguiente);
   };
-
   const cambiarNotasSesion = (texto: string) => {
     setNotasSesion(texto);
     guardarDraftAuto(ejerciciosState, texto);
   };
-
   const agregarSugerenciaNota = (sugerencia: string) => {
     setModalNotaEjercicio((prev) => {
       if (!prev) return prev;
@@ -642,7 +565,6 @@ export default function EjecutarEntrenamientoModal({
       return { ...prev, nota };
     });
   };
-
   const toggleUnilateralEjercicio = (ejIdx: number) => {
     setEjerciciosState((prev) => {
       const next = prev.map((ej, i) => (i === ejIdx ? { ...ej, esUnilateral: !ej.esUnilateral } : ej));
@@ -650,7 +572,6 @@ export default function EjecutarEntrenamientoModal({
       return next;
     });
   };
-
   // Cambiar un campo de una serie
   const cambiarCampoSerie = (
     ejIndex: number,
@@ -670,7 +591,6 @@ export default function EjecutarEntrenamientoModal({
       return next;
     });
   };
-
   const agregarSerieAEjercicio = (ejIndex: number) => {
     setEjerciciosState((prev) => {
       const next = prev.map((ej, i) => {
@@ -701,7 +621,6 @@ export default function EjecutarEntrenamientoModal({
       return next;
     });
   };
-
   const duplicarSerie = (ejIndex: number, sIndex: number) => {
     setEjerciciosState((prev) => {
       const next = prev.map((ej, i) => {
@@ -724,7 +643,6 @@ export default function EjecutarEntrenamientoModal({
       return next;
     });
   };
-
   const toggleRepsParciales = (ejIndex: number, sIndex: number, valorDirecto?: number) => {
     setEjerciciosState((prev) => {
       const next = prev.map((ej, i) => {
@@ -754,7 +672,6 @@ export default function EjecutarEntrenamientoModal({
       return next;
     });
   };
-
   const toggleDropset = (ejIndex: number, sIndex: number) => {
     setEjerciciosState((prev) => {
       const next = prev.map((ej, i) => {
@@ -781,7 +698,6 @@ export default function EjecutarEntrenamientoModal({
       return next;
     });
   };
-
   const cambiarCampoDrop = (
     ejIndex: number,
     sIndex: number,
@@ -807,11 +723,9 @@ export default function EjecutarEntrenamientoModal({
       return next;
     });
   };
-
   const toggleCompletarSerie = (ejIndex: number, sIndex: number) => {
     const s = ejerciciosState[ejIndex]?.series[sIndex];
     if (!s) return;
-
     if (!s.completado) {
       if (s.esDropset && s.drops.length > 0) {
         const dropIncompleto = s.drops.find((d) => !d.reps || d.reps.trim() === '' || Number(d.reps) <= 0);
@@ -824,10 +738,8 @@ export default function EjecutarEntrenamientoModal({
         }
       }
     }
-
     cambiarCampoSerie(ejIndex, sIndex, 'completado', !s.completado);
   };
-
   /* FUNCIONES DE CONTROL PARA SMART WORKOUT KEYBOARD */
   const pasarASiguienteSerie = (ejIdx: number, sIdx: number) => {
     const ej = ejerciciosState[ejIdx];
@@ -844,13 +756,11 @@ export default function EjecutarEntrenamientoModal({
       setFocusTeclado(null);
     }
   };
-
   const avanzarCampoTeclado = () => {
     if (!focusTeclado) return;
     const { ejIdx, sIdx, campo, dropIdx } = focusTeclado;
     const ej = ejerciciosState[ejIdx];
     if (!ej) return;
-
     if (dropIdx !== undefined) {
       if (campo === 'peso') {
         setFocusTeclado({ ejIdx, sIdx, campo: 'reps', dropIdx });
@@ -866,7 +776,6 @@ export default function EjecutarEntrenamientoModal({
       }
       return;
     }
-
     if (ej.esUnilateral) {
       if (campo === 'peso') {
         setFocusTeclado({ ejIdx, sIdx, campo: 'reps' });
@@ -888,7 +797,6 @@ export default function EjecutarEntrenamientoModal({
       }
       return;
     }
-
     if (campo === 'peso') {
       setFocusTeclado({ ejIdx, sIdx, campo: 'reps' });
     } else if (campo === 'reps') {
@@ -909,24 +817,20 @@ export default function EjecutarEntrenamientoModal({
       }
     }
   };
-
   const completarSerieDesdeTeclado = () => {
     if (!focusTeclado) return;
     const { ejIdx, sIdx } = focusTeclado;
     toggleCompletarSerie(ejIdx, sIdx);
     pasarASiguienteSerie(ejIdx, sIdx);
   };
-
   const obtenerValorActualTeclado = (): string => {
     if (!focusTeclado) return '';
     const { ejIdx, sIdx, campo, dropIdx } = focusTeclado;
     const serie = ejerciciosState[ejIdx]?.series[sIdx];
     if (!serie) return '';
-
     if (campo === 'parciales') {
       return serie.repsParciales ? String(serie.repsParciales) : '';
     }
-
     if (dropIdx !== undefined) {
       const drop = serie.drops[dropIdx];
       if (!drop) return '';
@@ -935,40 +839,33 @@ export default function EjecutarEntrenamientoModal({
       if (campo === 'rir') return drop.rir || '';
       return '';
     }
-
     if (campo === 'pesoI') return serie.pesoI !== undefined ? serie.pesoI : serie.peso;
     if (campo === 'repsI') return serie.repsI !== undefined ? serie.repsI : serie.reps;
     return (serie as any)[campo] || '';
   };
-
   const obtenerValorPrevioSugerido = (): string | undefined => {
     if (!focusTeclado) return undefined;
     const { ejIdx, sIdx, campo } = focusTeclado;
     const ej = ejerciciosState[ejIdx];
     if (!ej) return undefined;
     const hist = historialMap[ej.nombre];
-
     if (campo === 'peso' || campo === 'pesoI') {
       if (sIdx > 0 && ej.series[sIdx - 1]?.peso) {
         return ej.series[sIdx - 1].peso;
       }
       return hist?.series[sIdx]?.peso;
     }
-
     if (campo === 'reps' || campo === 'repsI') {
       if (sIdx > 0 && ej.series[sIdx - 1]?.reps) {
         return ej.series[sIdx - 1].reps;
       }
       return hist?.series[sIdx]?.reps;
     }
-
     return undefined;
   };
-
   const actualizarValorDesdeTeclado = (nuevoValor: string) => {
     if (!focusTeclado) return;
     const { ejIdx, sIdx, campo, dropIdx } = focusTeclado;
-
     if (campo === 'parciales') {
       const numVal = parseInt(nuevoValor, 10);
       const finalReps = isNaN(numVal) || numVal < 0 ? 0 : numVal;
@@ -992,16 +889,13 @@ export default function EjecutarEntrenamientoModal({
       });
       return;
     }
-
     if (dropIdx !== undefined) {
       const campoDrop = campo === 'peso' ? 'kg' : campo;
       cambiarCampoDrop(ejIdx, sIdx, dropIdx, campoDrop as any, nuevoValor);
       return;
     }
-
     cambiarCampoSerie(ejIdx, sIdx, campo, nuevoValor);
   };
-
   const eliminarSerieConDeshacer = (ejIndex: number, sIndex: number) => {
     const s = ejerciciosState[ejIndex]?.series[sIndex];
     if (!s) return;
@@ -1009,9 +903,7 @@ export default function EjecutarEntrenamientoModal({
       mostrarMensaje('No permitido', 'Un ejercicio debe tener al menos una serie.');
       return;
     }
-
     quitarSerieDeEjercicio(ejIndex, sIndex);
-
     mostrarSnackbar(`Serie #${sIndex + 1} eliminada`, () => {
       setEjerciciosState((prev) => {
         const next = prev.map((ej, i) => {
@@ -1025,7 +917,6 @@ export default function EjecutarEntrenamientoModal({
       });
     });
   };
-
   const quitarSerieDeEjercicio = (ejIndex: number, sIndex: number) => {
     setEjerciciosState((prev) => {
       const next = prev.map((ej, i) => {
@@ -1040,13 +931,11 @@ export default function EjecutarEntrenamientoModal({
       return next;
     });
   };
-
   const aplicarSeriesHistorial = (
     ejIndex: number,
     sesion: SesionHistorialEjercicio
   ) => {
     if (!sesion.series.length) return;
-
     setEjerciciosState((prev) => {
       const next = prev.map((ej, i) => {
         if (i !== ejIndex) return ej;
@@ -1057,7 +946,6 @@ export default function EjecutarEntrenamientoModal({
               sesion.series[serieIdx] ||
               sesion.series[sesion.series.length - 1];
             if (!historica) return serie;
-
             return {
               ...serie,
               peso: historica.pesoD > 0 ? String(historica.pesoD) : '',
@@ -1084,7 +972,6 @@ export default function EjecutarEntrenamientoModal({
       guardarDraftAuto(next);
       return next;
     });
-
     mostrarSnackbar(
       `Series copiadas desde tu sesión del ${sesion.fecha
         .split('-')
@@ -1092,17 +979,14 @@ export default function EjecutarEntrenamientoModal({
         .join('/')}.`
     );
   };
-
   const abrirPrevia = (ejIdx: number) => {
     const ej = ejerciciosState[ejIdx];
     if (!ej) return;
     setPreviaEjercicio({ ejIdx, nombre: ej.nombre });
   };
-
   const abrirReemplazo = (ejIdx: number) => {
     setReemplazoMenu({ ejIdx });
   };
-
   const elegirModoReemplazo = (modo: 'solo_hoy' | 'rutina') => {
     const ejIdx = reemplazoMenu?.ejIdx;
     setReemplazoMenu(null);
@@ -1111,7 +995,6 @@ export default function EjecutarEntrenamientoModal({
       setSelectorIntercambio({ ejIdx, modo });
     }, 160);
   };
-
   // Intercambiar Ejercicio
   const aplicarIntercambioEjercicio = async (
     ejIdx: number,
@@ -1120,7 +1003,6 @@ export default function EjecutarEntrenamientoModal({
   ) => {
     const ejActual = ejerciciosState[ejIdx];
     if (!ejActual) return;
-
     const nombreOriginal = ejActual.nombre;
     const nombreNuevoLimpio = nuevoNombre.trim();
     if (
@@ -1129,7 +1011,6 @@ export default function EjecutarEntrenamientoModal({
     ) {
       return;
     }
-
     const yaExiste = ejerciciosState.some(
       (e, i) =>
         i !== ejIdx &&
@@ -1142,7 +1023,6 @@ export default function EjecutarEntrenamientoModal({
       );
       return;
     }
-
     // Cargar historial del nuevo ejercicio
     const histNuevo = await obtenerHistorialPrevioEjercicio(
       nombreNuevoLimpio,
@@ -1154,17 +1034,14 @@ export default function EjecutarEntrenamientoModal({
         [nombreNuevoLimpio]: histNuevo,
       }));
     }
-
     const esUnilateralNuevo = parsearEjercicioInfo({
       nombre: nombreNuevoLimpio,
     }).esUnilateral;
-
     // Reutilizamos el id real del registro para que el guardado actualice la
     // misma fila y el ejercicio anterior desaparezca también de la base de datos.
     const idEjercicio = esIdTemporal(ejActual.id)
       ? generarIdTemporal()
       : ejActual.id;
-
     const ejercicioNuevo: EjercicioState = {
       ...ejActual,
       id: idEjercicio,
@@ -1179,16 +1056,13 @@ export default function EjecutarEntrenamientoModal({
       sustitucion_alcance: modo,
       notaEjercicio: '',
     };
-
     setSelectorIntercambio(null);
-
     if (modo === 'solo_hoy') {
       const nuevoEjerciciosState = ejerciciosState.map((ejercicio, index) =>
         index === ejIdx ? ejercicioNuevo : ejercicio
       );
       setEjerciciosState(nuevoEjerciciosState);
       guardarDraftAuto(nuevoEjerciciosState, notasSesion, ejIdx);
-
       mostrarSnackbar(
         `"${nombreNuevoLimpio}" sustituye a "${nombreOriginal}" solo por hoy`,
         () => {
@@ -1203,7 +1077,6 @@ export default function EjecutarEntrenamientoModal({
       );
       return;
     }
-
     setConfirmacionPermanente({
       ejIdx,
       nombreOriginal,
@@ -1216,7 +1089,6 @@ export default function EjecutarEntrenamientoModal({
       ejercicioNuevo,
     });
   };
-
   const consolidarCambioPermanente = (conf: {
     ejIdx: number;
     nombreOriginal: string;
@@ -1227,13 +1099,11 @@ export default function EjecutarEntrenamientoModal({
   }) => {
     const { ejIdx, nombreOriginal, nuevoNombre, ejercicioAnterior, ejercicioNuevo } =
       conf;
-
     const nuevoEjerciciosState = ejerciciosState.map((ejercicio, index) =>
       index === ejIdx ? ejercicioNuevo : ejercicio
     );
     setEjerciciosState(nuevoEjerciciosState);
     guardarDraftAuto(nuevoEjerciciosState, notasSesion, ejIdx);
-
     const serieReferencia =
       ejercicioNuevo.series.find((serie) => serie.reps || serie.peso) ||
       ejercicioNuevo.series[0];
@@ -1242,7 +1112,6 @@ export default function EjecutarEntrenamientoModal({
       repeticiones: numeroONull(serieReferencia?.reps),
       peso: numeroONull(serieReferencia?.peso),
     };
-
     let consolidado = false;
     const timerConsolidar = setTimeout(async () => {
       consolidado = true;
@@ -1264,7 +1133,6 @@ export default function EjecutarEntrenamientoModal({
         );
       }
     }, 6000);
-
     mostrarSnackbar(
       `Cambio aplicado en la rutina: "${nuevoNombre}" heredó ${ejercicioNuevo.series.length} ${
         ejercicioNuevo.series.length === 1 ? 'serie' : 'series'
@@ -1282,7 +1150,6 @@ export default function EjecutarEntrenamientoModal({
       }
     );
   };
-
   const resumenHerenciaPermanente = (ejercicio: EjercicioState): string => {
     const total = ejercicio.series.length;
     const referencia =
@@ -1292,7 +1159,6 @@ export default function EjecutarEntrenamientoModal({
     if (referencia?.peso) partes.push(`${referencia.peso} kg`);
     return partes.join(', ');
   };
-
   const eliminarEjercicioDeSesion = (ejIdx: number) => {
     if (ejerciciosState.length === 1) {
       mostrarMensaje('No permitido', 'El entrenamiento debe tener al menos un ejercicio.');
@@ -1308,7 +1174,6 @@ export default function EjecutarEntrenamientoModal({
     setEjerciciosState(nextState);
     fijarIndiceActivo(siguienteIndice, nextState.length);
     guardarDraftAuto(nextState, notasSesion, siguienteIndice);
-
     mostrarSnackbar(`"${ejEliminado.nombre}" eliminado`, () => {
       const restaurado = [...nextState];
       restaurado.splice(ejIdx, 0, ejEliminado);
@@ -1318,16 +1183,13 @@ export default function EjecutarEntrenamientoModal({
       guardarDraftAuto(restaurado, notasSesion, indiceRestaurado);
     });
   };
-
   // Cálculo de Métricas Inteligentes para el Modal de Resumen
   const calcularMetricasResumen = () => {
     let volumenTotalKg = 0;
-
     const ejerciciosResumen: EjercicioResumen[] = ejerciciosState.map((ej) => {
       let maxPeso = 0;
       let maxReps = 0;
       let seriesCompletadas = 0;
-
       ej.series.forEach((s) => {
         if (s.completado) {
           seriesCompletadas++;
@@ -1335,9 +1197,7 @@ export default function EjecutarEntrenamientoModal({
           const rD = Number(s.reps) || 0;
           const pI = ej.esUnilateral ? Number(s.pesoI !== undefined && s.pesoI !== '' ? s.pesoI : s.peso) || 0 : pD;
           const rI = ej.esUnilateral ? Number(s.repsI !== undefined && s.repsI !== '' ? s.repsI : s.reps) || 0 : rD;
-
           volumenTotalKg += pD * rD + pI * rI;
-
           if (s.esDropset && s.drops && s.drops.length > 0) {
             s.drops.forEach((d) => {
               const dKg = Number(d.kg) || 0;
@@ -1345,21 +1205,17 @@ export default function EjecutarEntrenamientoModal({
               volumenTotalKg += dKg * dReps;
             });
           }
-
           if (pD > maxPeso) {
             maxPeso = pD;
             maxReps = rD;
           }
         }
       });
-
       const histEj = historialMap[ej.nombre];
       const maxPesoHist = histEj
         ? Math.max(...histEj.series.map((sh) => Number(sh.peso) || 0))
         : 0;
-
       const tieneSobrecarga = maxPeso > 0 && maxPeso > maxPesoHist;
-
       return {
         id: ej.id,
         nombre: ej.nombre,
@@ -1380,10 +1236,8 @@ export default function EjecutarEntrenamientoModal({
         })),
       };
     });
-
     return { volumenTotalKg, ejerciciosResumen };
   };
-
   // Abrir Modal de Confirmación y Resumen
   // Pausa el timer automáticamente al ver el resumen para que no siga contando
   const abrirResumenConfirmacion = async () => {
@@ -1395,7 +1249,6 @@ export default function EjecutarEntrenamientoModal({
     }
     setResumenVisible(true);
   };
-
   // Volver a editar desde el resumen: reanuda el timer si estaba corriendo o cierra si es solo lectura
   const volverAEditarDesdeResumen = async () => {
     if (esModoResumen) {
@@ -1411,14 +1264,12 @@ export default function EjecutarEntrenamientoModal({
       await emitirCambioSesionActiva();
     }
   };
-
   const construirPayloadEjercicio = (ej: EjercicioState) => {
     const primeraSerie = ej.series[0];
     const numSeriesTotal = ej.series.length;
     const repsPrimera = primeraSerie?.reps ? Number(primeraSerie.reps) : null;
     const pesoPrimero = primeraSerie?.peso ? Number(primeraSerie.peso) : null;
     const todasCompletadas = ej.series.every((s) => s.completado);
-
     const tieneDatos = ej.series.some(
       (s) => Boolean(s.peso || s.reps || s.pesoI || s.repsI || s.rir || s.nota || s.completado || s.tieneParciales || s.esDropset)
     );
@@ -1429,22 +1280,18 @@ export default function EjecutarEntrenamientoModal({
             if (s.esDropset && s.drops && s.drops.length > 0) {
               dropsStr = s.drops.map((d) => ` → ${d.kg}k ${d.reps}r${d.rir ? ` RIR ${d.rir}` : ''}`).join('') + ' ↓';
             }
-
             if (ej.esUnilateral) {
               const pD = s.peso ? `${s.peso}k` : '';
               const rD = s.reps ? (s.repsParciales && s.repsParciales > 0 ? `${s.reps}+${s.repsParciales}p` : `${s.reps}r`) : '';
               const strD = [pD, rD].filter(Boolean).join(' ');
-
               const pesoIVal = s.pesoI !== undefined && s.pesoI !== '' ? s.pesoI : s.peso;
               const repsIVal = s.repsI !== undefined && s.repsI !== '' ? s.repsI : s.reps;
               const pI = pesoIVal ? `${pesoIVal}k` : '';
               const rI = repsIVal ? (s.repsParciales && s.repsParciales > 0 ? `${repsIVal}+${s.repsParciales}p` : `${repsIVal}r`) : '';
               const strI = [pI, rI].filter(Boolean).join(' ');
-
               const rir = s.rir ? `RIR ${s.rir}` : '';
               const n = s.nota ? `[${s.nota}]` : '';
               const c = s.completado ? '✓' : '';
-
               const resumenBrazo = `D ${strD} | I ${strI}`.trim();
               return `${idx + 1}ª: ${[resumenBrazo, rir, dropsStr, n, c].filter(Boolean).join(' ')}`;
             } else {
@@ -1458,15 +1305,12 @@ export default function EjecutarEntrenamientoModal({
           })
           .join(' • ')
       : '';
-
     const tagU = ej.esUnilateral ? '[U] ' : '';
     const nombreLimpio = ej.nombre.trim().replace(/^\[U(NILATERAL)?\]\s*/i, '');
     const nombreBase = tagU + nombreLimpio;
     const nombreConDetalle = resumenSeries ? `${nombreBase} (${resumenSeries})` : nombreBase;
-
     const totalParciales = ej.series.reduce((acc, s) => acc + (s.repsParciales || 0), 0);
     const allDrops = ej.series.flatMap((s) => (s.esDropset ? s.drops : []));
-
     return {
       nombreConDetalle,
       numSeriesTotal,
@@ -1477,7 +1321,6 @@ export default function EjecutarEntrenamientoModal({
       allDrops,
     };
   };
-
   // Confirmar y Guardar Sesión en Supabase
   const guardarSesionFinal = () =>
     seguro(async () => {
@@ -1488,7 +1331,6 @@ export default function EjecutarEntrenamientoModal({
         const segundosTimer = estadoTimer ? calcularSegundosTranscurridos(estadoTimer) : 0;
         const segundosFinales = Math.max(segundosTranscurridos, segundosTimer);
         setSegundosTranscurridos(segundosFinales);
-
         // Guardamos primero una copia local; la BD se actualiza al completar
         // el registro, pero así el tiempo no se pierde si falla la red.
         if (segundosFinales > 0) {
@@ -1498,13 +1340,11 @@ export default function EjecutarEntrenamientoModal({
             console.warn('Error guardando duración final:', e);
           }
         }
-
         const idsConservados: string[] = [];
         // Si una inserción no devuelve su id (por ejemplo, por permisos de
         // lectura), no podemos distinguirla de una fila obsoleta: mejor no
         // borrar nada que arriesgar datos válidos.
         let limpiezaSegura = true;
-
         for (const ej of ejerciciosState) {
           const payload = construirPayloadEjercicio(ej);
           const datos = {
@@ -1520,7 +1360,6 @@ export default function EjecutarEntrenamientoModal({
             reps_parciales: payload.totalParciales,
             drops: payload.allDrops,
           };
-
           // Si el id es temporal generado por sustitución, insertamos nueva fila
           if (esIdTemporal(ej.id)) {
             const { data: filaInsertada, error: errorInsert } = await supabase
@@ -1531,7 +1370,6 @@ export default function EjecutarEntrenamientoModal({
               })
               .select('id')
               .single();
-
             if (errorInsert) throw errorInsert;
             if (filaInsertada?.id) idsConservados.push(filaInsertada.id);
             else limpiezaSegura = false;
@@ -1540,36 +1378,29 @@ export default function EjecutarEntrenamientoModal({
             idsConservados.push(ej.id);
           }
         }
-
         // Quita de la base cualquier ejercicio que haya quedado obsoleto por
         // una sustitución o eliminación durante la sesión.
         if (limpiezaSegura) {
           await eliminarEjerciciosObsoletos(registro.id, idsConservados);
         }
-
         const planNombreFinal = registro.plan_nombre || registro.planes_entrenamiento?.nombre || null;
         const rutinaNombreFinal = registro.rutina_nombre || registro.rutinas?.nombre || null;
         const planIdFinal = registro.plan_id || registro.planes_entrenamiento?.id || null;
-
         await actualizarEstadoRegistro(registro.id, {
           completado: true,
           plan_id: planIdFinal,
           plan_nombre: planNombreFinal,
           rutina_nombre: rutinaNombreFinal,
         });
-
         // Nota general + duración real persistidas en el registro.
         await guardarNotaSesion(registro.id, notasSesion, segundosFinales);
-
         // Notas por ejercicio, siempre vinculadas al nombre del ejercicio.
         await sincronizarNotasEjercicios(
           registro.id,
           ejerciciosState.map((ej) => ({ nombre: ej.nombre, nota: ej.notaEjercicio }))
         );
-
         // Limpiar el borrador y timer en AsyncStorage
         await limpiarSesionActiva(registro.id);
-
         setResumenVisible(false);
         onGuardado();
         onClose();
@@ -1578,18 +1409,15 @@ export default function EjecutarEntrenamientoModal({
         setGuardando(false);
       }
     });
-
   /**
    * Edición de un resumen ya guardado: modifica únicamente series, notas y
    * observaciones. No toca el estado de la sesión, la fecha ni la duración.
    */
   const guardarEdicionesResumen = async (edicion: EdicionResumen) => {
     const cambiosPorId = new Map(edicion.ejercicios.map((item) => [item.id, item]));
-
     const ejerciciosActualizados = ejerciciosState.map((ej) => {
       const cambios = cambiosPorId.get(ej.id);
       if (!cambios) return ej;
-
       return {
         ...ej,
         notaEjercicio: cambios.notaEjercicio,
@@ -1608,10 +1436,8 @@ export default function EjecutarEntrenamientoModal({
         }),
       };
     });
-
     for (const ej of ejerciciosActualizados) {
       if (!cambiosPorId.has(ej.id) || ej.id.includes('.')) continue;
-
       const payload = construirPayloadEjercicio(ej);
       await actualizarEjecucionEjercicio(ej.id, {
         nombre: payload.nombreConDetalle,
@@ -1623,19 +1449,15 @@ export default function EjecutarEntrenamientoModal({
         drops: payload.allDrops,
       });
     }
-
     await sincronizarNotasEjercicios(
       registro.id,
       ejerciciosActualizados.map((ej) => ({ nombre: ej.nombre, nota: ej.notaEjercicio }))
     );
-
     // Se conserva la duración ya registrada; solo cambia la nota visible.
     await guardarNotaSesion(registro.id, edicion.notasSesion, segundosTranscurridos);
-
     setEjerciciosState(ejerciciosActualizados);
     setNotasSesion(edicion.notasSesion);
   };
-
   // Descartar Sesión
   const descartarSesion = () =>
     seguro(async () => {
@@ -1646,9 +1468,7 @@ export default function EjecutarEntrenamientoModal({
       onClose();
       mostrarMensaje('Entrenamiento Descartado', 'Se canceló el registro de esta sesión.');
     });
-
   const { volumenTotalKg, ejerciciosResumen } = calcularMetricasResumen();
-
   return (
     <Modal visible={visible} animationType="slide" transparent={Platform.OS === 'web' ? true : false} onRequestClose={onClose}>
       <KeyboardAvoidingView
@@ -1668,7 +1488,6 @@ export default function EjecutarEntrenamientoModal({
                     <Ionicons name="close" size={22} color={noir.platinum} />
                   </Pressable>
                 </View>
-
                 {/* Routine Card Banner */}
                 <View style={styles.lobbyHeroCard}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -1684,9 +1503,7 @@ export default function EjecutarEntrenamientoModal({
                       </Text>
                     </View>
                   </View>
-
                   <View style={styles.lobbyDivider} />
-
                   {/* Highlights Grid */}
                   <View style={styles.lobbyGrid}>
                     <View style={styles.lobbyGridItem}>
@@ -1703,7 +1520,6 @@ export default function EjecutarEntrenamientoModal({
                     </View>
                   </View>
                 </View>
-
                 {/* Lista rápida de Ejercicios del Día */}
                 <View style={{ flex: 1, marginTop: 10 }}>
                   <Text style={styles.inputLabelText}>Ejercicios de la Rutina ({ejerciciosState.length}):</Text>
@@ -1726,7 +1542,6 @@ export default function EjecutarEntrenamientoModal({
                     ))}
                   </ScrollView>
                 </View>
-
                 {/* Botón de Inicio de Impacto */}
                 <View style={{ paddingBottom: Math.max(barBottomPadding, 16), paddingTop: 10 }}>
                   <BotonMetalLiquido
@@ -1751,7 +1566,6 @@ export default function EjecutarEntrenamientoModal({
                   >
                     <Ionicons name="chevron-down" size={19} color={noir.platinum} />
                   </Pressable>
-
                   <Pressable onPress={togglePausaTimer} style={styles.focusTimerBox} hitSlop={6}>
                     <Text style={styles.focusTimerText}>
                       {formatearTiempo(segundosTranscurridos)}
@@ -1765,7 +1579,6 @@ export default function EjecutarEntrenamientoModal({
                       </Text>
                     </View>
                   </Pressable>
-
                   <View style={styles.focusHeaderActions}>
                     <Pressable
                       onPress={togglePausaTimer}
@@ -1779,7 +1592,6 @@ export default function EjecutarEntrenamientoModal({
                         color={estadoTimer?.pausado ? noir.champagne : noir.platinum}
                       />
                     </Pressable>
-
                     <Pressable
                       onPress={abrirResumenConfirmacion}
                       style={styles.focusTerminarBtn}
@@ -1791,7 +1603,6 @@ export default function EjecutarEntrenamientoModal({
                     </Pressable>
                   </View>
                 </View>
-
                 {/* Carrusel Superior de Ejercicios con GIFs en modo oscuro */}
                 <CarruselEjerciciosEncabezado
                   ejercicios={itemsCarrusel}
@@ -1799,7 +1610,6 @@ export default function EjecutarEntrenamientoModal({
                   onSelectEjercicio={seleccionarEjercicioActivo}
                   style={{ marginHorizontal: gutter, marginBottom: 10 }}
                 />
-
                 {/* Contenido Scrollable del Ejercicio Activo */}
                 <ScrollView
                   contentContainerStyle={{
@@ -1836,7 +1646,6 @@ export default function EjecutarEntrenamientoModal({
                           setEjercicioMenu(indexValido);
                         }}
                       />
-
                       {/* Tabla de Series de Alto Rendimiento */}
                       <TablaSeriesFocus
                         ejIdx={indexValido}
@@ -1927,7 +1736,6 @@ export default function EjecutarEntrenamientoModal({
                           }
                         }}
                       />
-
                       {/* Tarjeta de Notas Generales de la Sesión */}
                       <View style={styles.focusNotesCard}>
                         <View style={styles.focusNotesHeader}>
@@ -1957,7 +1765,6 @@ export default function EjecutarEntrenamientoModal({
                           textAlignVertical="top"
                           style={styles.focusNotesInput}
                         />
-
                         <View style={styles.focusExerciseNotesList}>
                           <View style={styles.focusExerciseNotesHeader}>
                             <View style={styles.focusExerciseNotesHeading}>
@@ -1974,7 +1781,6 @@ export default function EjecutarEntrenamientoModal({
                           <Text style={styles.focusExerciseNotesHint}>
                             Toca un ejercicio para ajustar máquina, técnica o sensaciones.
                           </Text>
-
                           <View style={styles.focusExerciseNotesGrid}>
                             {ejerciciosState.map((ej, idx) => {
                               const tieneNota = Boolean(ej.notaEjercicio?.trim());
@@ -2033,7 +1839,6 @@ export default function EjecutarEntrenamientoModal({
                     </>
                   )}
                 </ScrollView>
-
                 {/* DOCK FIJO: única acción LiquidMetal de la pantalla */}
                 {!focusTeclado && !isKeyboardVisible && (
                   <View
@@ -2102,7 +1907,6 @@ export default function EjecutarEntrenamientoModal({
                     />
                   </View>
                 )}
-
                 {/* TECLADO INTELIGENTE DE ENTRENAMIENTO */}
                 {focusTeclado && (
                   <TecladoEntrenamientoInteligente
@@ -2135,7 +1939,6 @@ export default function EjecutarEntrenamientoModal({
           </View>
         </FondoPantalla>
       </KeyboardAvoidingView>
-
       {/* MODAL DE RESUMEN Y CONFIRMACIÓN */}
       {resumenVisible && (
         <ResumenEntrenamientoModal
@@ -2157,7 +1960,6 @@ export default function EjecutarEntrenamientoModal({
           onGuardarEdiciones={guardarEdicionesResumen}
         />
       )}
-
       {/* MODAL / SHEET: BIBLIOTECA COMPLETA PARA REEMPLAZAR EJERCICIO */}
       {selectorIntercambio && (
         <SelectorBibliotecaModal
@@ -2180,7 +1982,6 @@ export default function EjecutarEntrenamientoModal({
           }}
         />
       )}
-
       {/* MODAL / SHEET: OPCIONES DE LA SERIE */}
       <Modal
         visible={serieMenu !== null}
@@ -2203,7 +2004,6 @@ export default function EjecutarEntrenamientoModal({
                       {ejerciciosState[serieMenu.ejIdx].nombre}
                     </Text>
                   </View>
-
                   {/* Configuración de Reps Parciales */}
                   <View style={styles.sheetConfigBox}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -2242,7 +2042,6 @@ export default function EjecutarEntrenamientoModal({
                         </Text>
                       </Pressable>
                     </View>
-
                     {Boolean(currentSerie.tieneParciales) && (
                       <View style={styles.sheetConfigRow}>
                         <View style={styles.sheetStepperContainer}>
@@ -2268,7 +2067,6 @@ export default function EjecutarEntrenamientoModal({
                             <Ionicons name="add" size={16} color="#FFFFFF" />
                           </Pressable>
                         </View>
-
                         <View style={styles.quickChipsRow}>
                           {[1, 2, 3, 4, 5].map((num) => (
                             <Pressable
@@ -2295,7 +2093,6 @@ export default function EjecutarEntrenamientoModal({
                       </View>
                     )}
                   </View>
-
                   {/* Toggle Dropset */}
                   <Pressable
                     onPress={() => {
@@ -2321,7 +2118,6 @@ export default function EjecutarEntrenamientoModal({
                       color={currentSerie.esDropset ? "#38BDF8" : colores.suave}
                     />
                   </Pressable>
-
                   {/* Duplicar Serie */}
                   <Pressable
                     onPress={() => {
@@ -2338,7 +2134,6 @@ export default function EjecutarEntrenamientoModal({
                       <Text style={styles.sheetOptionSubtext}>Crear una serie idéntica debajo</Text>
                     </View>
                   </Pressable>
-
                   {/* Eliminar Serie */}
                   <Pressable
                     onPress={() => {
@@ -2362,7 +2157,6 @@ export default function EjecutarEntrenamientoModal({
           </Pressable>
         </Pressable>
       </Modal>
-
       {/* MODAL / SHEET: OPCIONES DEL EJERCICIO */}
       <Modal
         visible={ejercicioMenu !== null}
@@ -2386,7 +2180,6 @@ export default function EjecutarEntrenamientoModal({
                       {ej.series.length === 1 ? 'serie registrada' : 'series registradas'}
                     </Text>
                   </View>
-
                   {/* Tutorial */}
                   <Pressable
                     onPress={() => {
@@ -2406,7 +2199,6 @@ export default function EjecutarEntrenamientoModal({
                     </View>
                     <Ionicons name="chevron-forward" size={15} color={noir.muted} />
                   </Pressable>
-
                   {/* Previa / Historial */}
                   <Pressable
                     onPress={() => {
@@ -2427,7 +2219,6 @@ export default function EjecutarEntrenamientoModal({
                     </View>
                     <Ionicons name="chevron-forward" size={15} color={noir.muted} />
                   </Pressable>
-
                   {/* Reemplazar */}
                   <Pressable
                     onPress={() => {
@@ -2446,7 +2237,6 @@ export default function EjecutarEntrenamientoModal({
                     </View>
                     <Ionicons name="chevron-forward" size={15} color={noir.muted} />
                   </Pressable>
-
                   {/* Eliminar Ejercicio */}
                   <Pressable
                     onPress={() => {
@@ -2470,7 +2260,6 @@ export default function EjecutarEntrenamientoModal({
           </Pressable>
         </Pressable>
       </Modal>
-
       {/* MODAL / SHEET: ALCANCE DEL REEMPLAZO */}
       <Modal
         visible={reemplazoMenu !== null}
@@ -2505,7 +2294,6 @@ export default function EjecutarEntrenamientoModal({
                         {ej.nombre} · elige cómo aplicar el cambio
                       </Text>
                     </View>
-
                     <Pressable
                       onPress={() => elegirModoReemplazo('solo_hoy')}
                       style={styles.sheetOption}
@@ -2537,7 +2325,6 @@ export default function EjecutarEntrenamientoModal({
                         color={noir.muted}
                       />
                     </Pressable>
-
                     <Pressable
                       onPress={() => elegirModoReemplazo('rutina')}
                       style={styles.sheetOption}
@@ -2568,7 +2355,6 @@ export default function EjecutarEntrenamientoModal({
                         color={noir.muted}
                       />
                     </Pressable>
-
                     <Pressable
                       onPress={() => setReemplazoMenu(null)}
                       style={{ alignSelf: 'center', padding: 10 }}
@@ -2589,7 +2375,6 @@ export default function EjecutarEntrenamientoModal({
           </Pressable>
         </Pressable>
       </Modal>
-
       {/* MODAL: HISTORIAL COMPLETO / EVOLUCIÓN DEL EJERCICIO */}
       {previaEjercicio && (
         <HistorialEjercicioModal
@@ -2602,7 +2387,6 @@ export default function EjecutarEntrenamientoModal({
           }}
         />
       )}
-
       {/* MODAL CONFIRMACIÓN: CAMBIO PERMANENTE EN RUTINA */}
       <Modal
         visible={confirmacionPermanente !== null}
@@ -2674,7 +2458,6 @@ export default function EjecutarEntrenamientoModal({
           </Pressable>
         </Pressable>
       </Modal>
-
       {/* MODAL NOTA DEL EJERCICIO */}
       <Modal
         visible={modalNotaEjercicio !== null}
@@ -2717,12 +2500,10 @@ export default function EjecutarEntrenamientoModal({
                   <Ionicons name="close" size={18} color={noir.text} />
                 </Pressable>
               </View>
-
               <Text style={styles.noteSheetHint}>
                 Ajustes de máquina, técnica o sensaciones. Se guardará junto a
                 este ejercicio y aparecerá en el resumen de la sesión.
               </Text>
-
               <TextInput
                 placeholder="Ej. Asiento posición 4, polea a la altura del hombro..."
                 placeholderTextColor="rgba(255, 255, 255, 0.26)"
@@ -2741,14 +2522,12 @@ export default function EjecutarEntrenamientoModal({
                 textAlignVertical="top"
                 style={styles.noteSheetInput}
               />
-
               <View style={styles.noteSuggestionHeader}>
                 <Ionicons name="sparkles" size={10} color={noir.champagne} />
                 <Text style={styles.noteSuggestionLabel}>
                   SUGERENCIAS RÁPIDAS
                 </Text>
               </View>
-
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -2770,7 +2549,6 @@ export default function EjecutarEntrenamientoModal({
                   </Pressable>
                 ))}
               </ScrollView>
-
               <View style={styles.noteSheetActions}>
                 <Pressable
                   onPress={() => setModalNotaEjercicio(null)}
@@ -2808,7 +2586,6 @@ export default function EjecutarEntrenamientoModal({
           </Pressable>
         </KeyboardAvoidingView>
       </Modal>
-
       {/* SNACKBAR DESHACER (6 SEGUNDOS) */}
       {snackbar && (
         <View
@@ -2845,1369 +2622,3 @@ export default function EjecutarEntrenamientoModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  lobbyContainer: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  lobbyHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  lobbyHeroCard: {
-    backgroundColor: noir.surface,
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.075)',
-    gap: 12,
-    marginTop: 6,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.32,
-    shadowRadius: 24,
-    elevation: 12,
-  },
-  lobbyIconBox: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    backgroundColor: 'rgba(179, 148, 255, 0.09)',
-    borderWidth: 1,
-    borderColor: 'rgba(179, 148, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  lobbyTitleText: {
-    color: noir.text,
-    fontSize: 22,
-    fontFamily: fuentes.black,
-    letterSpacing: -0.4,
-  },
-  lobbySubtext: {
-    color: noir.muted,
-    fontSize: 12,
-    fontFamily: fuentes.medium,
-  },
-  lobbyDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  lobbyGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  lobbyGridItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  lobbyGridItemText: {
-    color: noir.platinum,
-    fontSize: 11,
-    fontFamily: fuentes.medium,
-  },
-  lobbyExerciseItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.022)',
-    borderRadius: 11,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.055)',
-  },
-  liveHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 4,
-    paddingBottom: 8,
-  },
-  liveDotPulse: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: colores.exito,
-  },
-  timerWidget: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(217, 119, 6, 0.12)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(217, 119, 6, 0.35)',
-    marginRight: 6,
-  },
-  timerWidgetPausado: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderColor: 'rgba(239, 68, 68, 0.4)',
-  },
-  timerWidgetText: {
-    color: colores.texto,
-    fontSize: 12,
-    fontFamily: fuentes.bold,
-  },
-  modalBadgeText: {
-    color: noir.info,
-    fontSize: 9,
-    fontFamily: fuentes.bold,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  closeIconButton: {
-    backgroundColor: noir.surface,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.09)',
-  },
-  liveTitleText: {
-    color: colores.texto,
-    fontSize: 19,
-    fontFamily: fuentes.black,
-  },
-  progressLandscapeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: 'rgba(10, 12, 18, 0.60)',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: colores.borde,
-    marginBottom: 4,
-  },
-  progressLandscapeText: {
-    color: colores.texto,
-    fontFamily: fuentes.bold,
-    fontSize: 11,
-    flexShrink: 0,
-  },
-  progressBarTrackLandscape: {
-    flex: 1,
-    height: 6,
-    backgroundColor: 'rgba(10, 12, 18, 0.80)',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressCardBox: {
-    backgroundColor: colores.tarjeta,
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: colores.borde,
-    gap: 6,
-  },
-  progressBarTrack: {
-    height: 7,
-    backgroundColor: 'rgba(10, 12, 18, 0.80)',
-    borderRadius: 3.5,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 3.5,
-  },
-  exerciseCard: {
-    backgroundColor: colores.tarjeta,
-    borderRadius: 16,
-    padding: 12,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: colores.borde,
-  },
-  seriesCountBadge: {
-    backgroundColor: colores.primarioSuave,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colores.primarioGlow,
-  },
-  serieRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderRadius: 8,
-    paddingVertical: 2,
-    overflow: 'hidden',
-  },
-  // ── Columnas de la tabla de series BILATERAL ───────────────────────────────
-  colST: {
-    width: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  colKG: {
-    flex: 1.2,
-    minWidth: 0,
-  },
-  colREPS: {
-    flex: 1.2,
-    minWidth: 0,
-  },
-  colRIR: {
-    flex: 1.0,
-    minWidth: 0,
-  },
-  colNOTA: {
-    flex: 1.5,
-    minWidth: 0,
-  },
-  colNotaBtn: {
-    width: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  colOK: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  colDel: {
-    width: 28,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  // ── Columnas UNILATERAL ────────────────────────────────────────────────────
-  colUniST: {
-    width: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  colUniBox: {
-    flex: 2,
-    flexDirection: 'row',
-    gap: 2,
-    minWidth: 0,
-  },
-  colUniRIR: {
-    flex: 0.9,
-    minWidth: 0,
-  },
-  colUniOK: {
-    width: 40,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  // ── Sub-fila de nota colapsable en vertical portrait ───────────────────────
-  subNotaContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(10, 12, 18, 0.70)',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginTop: 2,
-    marginBottom: 4,
-  },
-  subNotaInput: {
-    flex: 1,
-    color: colores.texto,
-    fontSize: Platform.OS === 'web' ? 16 : 12,
-    fontFamily: fuentes.regular,
-    paddingVertical: 4,
-    minHeight: 36,
-  },
-  notaToggleBtn: {
-    width: 30,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 6,
-  },
-  notaToggleBtnActiva: {
-    backgroundColor: 'rgba(217, 119, 6, 0.15)',
-  },
-  serieHeaderText: {
-    color: colores.suave,
-    fontSize: 9,
-    fontFamily: fuentes.bold,
-    textTransform: 'uppercase',
-  },
-  // inputCell: celda de input uniforme, minHeight 44, fontSize >= 16 en web
-  inputCell: {
-    backgroundColor: 'rgba(10, 12, 18, 0.60)',
-    borderColor: colores.borde,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 2,
-    paddingVertical: Platform.OS === 'web' ? 8 : 6,
-    color: colores.texto,
-    fontSize: Platform.OS === 'web' ? 16 : 13,
-    fontFamily: fuentes.bold,
-    textAlign: 'center',
-    minWidth: 0,
-    minHeight: 44,
-    width: '100%',
-  },
-  /* CELDAS INTERACTIVAS SMART KEYBOARD */
-  celdaInteractiva: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(10, 12, 18, 0.60)',
-    borderColor: colores.borde,
-  },
-  celdaActiva: {
-    borderColor: colores.primarioHover,
-    backgroundColor: 'rgba(194, 36, 61, 0.20)',
-    borderWidth: 1.5,
-    shadowColor: colores.primarioHover,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  textoCelda: {
-    color: colores.texto,
-    fontSize: Platform.OS === 'web' ? 14 : 12,
-    fontFamily: fuentes.bold,
-    textAlign: 'center',
-  },
-  textoCeldaPlaceholder: {
-    color: colores.suave,
-    fontFamily: fuentes.regular,
-  },
-  textoCeldaActivo: {
-    color: '#FFFFFF',
-    fontFamily: fuentes.black,
-  },
-  cursorParpadeante: {
-    position: 'absolute',
-    bottom: 2,
-    width: 14,
-    height: 2,
-    backgroundColor: colores.primarioHover,
-    borderRadius: 1,
-  },
-  inputBase: {
-    backgroundColor: 'rgba(10, 12, 18, 0.60)',
-    borderColor: colores.borde,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: Platform.OS === 'web' ? 8 : 6,
-    color: colores.texto,
-    fontSize: Platform.OS === 'web' ? 16 : 13,
-    fontFamily: fuentes.regular,
-    minWidth: 0,
-    minHeight: 44,
-  },
-  addSerieBtn: {
-    backgroundColor: 'rgba(10, 12, 18, 0.60)',
-    borderWidth: 1,
-    borderColor: colores.borde,
-    borderRadius: 8,
-    paddingVertical: 8,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 5,
-    marginTop: 2,
-    minHeight: 44,
-  },
-  inputLabelText: {
-    color: noir.muted2,
-    fontFamily: fuentes.bold,
-    fontSize: 9,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-  },
-  historyBoxContainer: {
-    backgroundColor: 'rgba(217, 119, 6, 0.08)',
-    borderRadius: 10,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(217, 119, 6, 0.25)',
-    gap: 4,
-  },
-  noHistoryBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(10, 12, 18, 0.40)',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: colores.borde,
-  },
-  copyMarksBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: colores.primarioSuave,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: colores.primarioGlow,
-  },
-  historyChip: {
-    backgroundColor: 'rgba(10, 12, 18, 0.75)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  overloadBadge: {
-    color: '#F59E0B',
-    fontSize: 8,
-    fontFamily: fuentes.bold,
-    textAlign: 'center',
-    marginTop: 1,
-  },
-
-  /* STICKY BOTTOM BAR */
-  stickyBottomBar: {
-    position: 'absolute',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: 'rgba(15, 23, 42, 0.95)',
-    paddingHorizontal: 12,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(244, 63, 94, 0.40)',
-    shadowColor: '#F43F5E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-
-  /* BADGES & HEADER ACTIONS */
-  sustituyeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(96, 165, 250, 0.15)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(96, 165, 250, 0.35)',
-  },
-  sustituyeBadgeText: {
-    color: '#60A5FA',
-    fontSize: 10,
-    fontFamily: fuentes.bold,
-  },
-  livePlanSubtitleText: {
-    color: colores.primarioHover,
-    fontSize: 11,
-    fontFamily: fuentes.bold,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  cardHeaderMoreBtn: {
-    width: 34,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderWidth: 1,
-    borderColor: colores.borde,
-  },
-  serieMoreBtn: {
-    width: 32,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 6,
-  },
-
-  /* MINI CHIPS EN SERIE ROW */
-  chipMiniParcial: {
-    backgroundColor: 'rgba(245, 158, 11, 0.20)',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.45)',
-    marginTop: 2,
-  },
-  chipMiniParcialText: {
-    color: '#F59E0B',
-    fontSize: 9,
-    fontFamily: fuentes.black,
-  },
-  chipMiniDrop: {
-    backgroundColor: 'rgba(56, 189, 248, 0.20)',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.45)',
-    marginTop: 2,
-  },
-  chipMiniDropText: {
-    color: '#38BDF8',
-    fontSize: 9,
-    fontFamily: fuentes.black,
-  },
-
-  /* STEPPER DE PARCIALES */
-  parcialesRowContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.25)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginTop: 4,
-  },
-  parcialesLabelBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  parcialesLabelText: {
-    color: '#F59E0B',
-    fontSize: 11,
-    fontFamily: fuentes.bold,
-  },
-  stepperContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(10, 12, 18, 0.65)',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colores.borde,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-  },
-  stepperBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepperInput: {
-    color: colores.texto,
-    fontSize: 13,
-    fontFamily: fuentes.black,
-    textAlign: 'center',
-    minWidth: 26,
-    paddingVertical: 0,
-  },
-
-  /* DROPSET CONTAINER & ROWS */
-  dropsetContainer: {
-    marginTop: 4,
-    paddingLeft: 8,
-    borderLeftWidth: 2,
-    borderLeftColor: 'rgba(56, 189, 248, 0.40)',
-    gap: 4,
-  },
-  dropSubRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(56, 189, 248, 0.06)',
-    borderRadius: 6,
-    paddingVertical: 3,
-    paddingHorizontal: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.15)',
-  },
-  colSTDrop: {
-    width: 32,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    justifyContent: 'center',
-  },
-  dropNumText: {
-    color: '#38BDF8',
-    fontSize: 10,
-    fontFamily: fuentes.black,
-  },
-  inputCellDrop: {
-    backgroundColor: 'rgba(10, 12, 18, 0.50)',
-    borderColor: 'rgba(56, 189, 248, 0.30)',
-  },
-  inputCellWarning: {
-    borderColor: 'rgba(239, 68, 68, 0.60)',
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-  },
-  addDropRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    marginTop: 2,
-  },
-  addDropBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.35)',
-  },
-  addDropBtnText: {
-    color: '#38BDF8',
-    fontSize: 10,
-    fontFamily: fuentes.bold,
-  },
-
-  /* BOTTOM SHEETS & DIALOGS */
-  sheetBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.70)',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
-  sheetContent: {
-    width: '100%',
-    maxWidth: 600,
-    backgroundColor: colores.tarjeta,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderWidth: 1,
-    borderColor: colores.borde,
-    padding: 16,
-    paddingBottom: 28,
-  },
-  sheetHandle: {
-    width: 38,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colores.suave,
-    opacity: 0.4,
-    alignSelf: 'center',
-    marginBottom: 12,
-  },
-  sheetTitle: {
-    color: colores.texto,
-    fontSize: 16,
-    fontFamily: fuentes.black,
-  },
-  sheetSubtitle: {
-    color: colores.suave,
-    fontSize: 12,
-    fontFamily: fuentes.medium,
-    marginTop: 2,
-  },
-  sheetIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sheetOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  sheetOptionDanger: {
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-    borderColor: 'rgba(239, 68, 68, 0.25)',
-  },
-  sheetOptionText: {
-    color: colores.texto,
-    fontSize: 13,
-    fontFamily: fuentes.bold,
-  },
-  sheetOptionSubtext: {
-    color: colores.suave,
-    fontSize: 11,
-    fontFamily: fuentes.medium,
-    marginTop: 1,
-  },
-  sheetConfigBox: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-    padding: 12,
-    gap: 10,
-  },
-  switchBadgeMini: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  switchBadgeMiniActivo: {
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
-    borderColor: '#F59E0B',
-  },
-  switchBadgeMiniInactivo: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-  },
-  switchBadgeMiniText: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontFamily: fuentes.bold,
-    fontSize: 10,
-  },
-  sheetConfigRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  sheetStepperContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    gap: 6,
-  },
-  stepperValText: {
-    color: '#F59E0B',
-    fontFamily: fuentes.black,
-    fontSize: 13,
-    minWidth: 32,
-    textAlign: 'center',
-  },
-  quickChipsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  quickChip: {
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  quickChipActivo: {
-    backgroundColor: 'rgba(245, 158, 11, 0.25)',
-    borderColor: '#F59E0B',
-  },
-  quickChipText: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontFamily: fuentes.bold,
-    fontSize: 11,
-  },
-  quickChipTextActivo: {
-    color: '#F59E0B',
-  },
-
-  /* DIALOG CARD */
-  dialogCard: {
-    width: '90%',
-    maxWidth: 480,
-    backgroundColor: colores.tarjeta,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colores.borde,
-    padding: 18,
-    alignSelf: 'center',
-    marginVertical: 'auto',
-  },
-  dialogHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 12,
-  },
-  dialogTitle: {
-    color: colores.texto,
-    fontSize: 17,
-    fontFamily: fuentes.black,
-  },
-  dialogText: {
-    color: colores.texto,
-    fontSize: 13,
-    fontFamily: fuentes.regular,
-    lineHeight: 18,
-  },
-  dialogSubtext: {
-    color: colores.suave,
-    fontSize: 11,
-    fontFamily: fuentes.medium,
-    marginTop: 6,
-    lineHeight: 15,
-  },
-  dialogInheritanceBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    backgroundColor: 'rgba(179, 148, 255, 0.07)',
-    borderWidth: 1,
-    borderColor: 'rgba(179, 148, 255, 0.18)',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginTop: 10,
-  },
-  dialogInheritanceText: {
-    flex: 1,
-    color: noir.muted,
-    fontFamily: fuentes.regular,
-    fontSize: 11,
-    lineHeight: 15,
-  },
-  dialogInheritanceStrong: {
-    color: noir.text,
-    fontFamily: fuentes.bold,
-  },
-  dialogActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 10,
-    marginTop: 16,
-  },
-  dialogBtnSecondary: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colores.borde,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-  },
-  dialogBtnSecondaryText: {
-    color: colores.texto,
-    fontSize: 12,
-    fontFamily: fuentes.bold,
-  },
-  dialogBtnPrimary: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: colores.primario,
-  },
-  dialogBtnPrimaryText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontFamily: fuentes.bold,
-  },
-
-  /* SNACKBAR */
-  snackbarContainer: {
-    position: 'absolute',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(244, 63, 94, 0.50)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 10,
-    zIndex: 9999,
-  },
-  snackbarText: {
-    color: '#F8FAFC',
-    fontSize: 12,
-    fontFamily: fuentes.medium,
-  },
-  snackbarBtn: {
-    backgroundColor: colores.primarioSuave,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colores.primarioGlow,
-  },
-  snackbarBtnText: {
-    color: colores.primarioHover,
-    fontSize: 11,
-    fontFamily: fuentes.black,
-  },
-  /* FOCUS MODE STYLES */
-  focusTopBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 8,
-    paddingBottom: 8,
-    width: '100%',
-    zIndex: 10,
-  },
-  focusChevronBtn: {
-    width: 33,
-    height: 33,
-    borderRadius: 17,
-    backgroundColor: 'rgba(255, 255, 255, 0.055)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.11)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  focusTimerBox: {
-    alignItems: 'center',
-    flex: 1,
-    paddingHorizontal: 8,
-  },
-  focusTimerText: {
-    color: noir.text,
-    fontFamily: fuentes.black,
-    fontSize: 21,
-    letterSpacing: -0.55,
-    fontVariant: ['tabular-nums'],
-  },
-  focusSubtitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    marginTop: 1,
-    maxWidth: '100%',
-  },
-  focusLiveDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: noir.mint,
-    shadowColor: noir.mint,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 5,
-  },
-  focusSubtitleText: {
-    color: noir.muted,
-    fontFamily: fuentes.medium,
-    fontSize: 8.5,
-    letterSpacing: 0.2,
-    textTransform: 'uppercase',
-    flexShrink: 1,
-  },
-  focusHeaderActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  focusTimerIconBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(255, 255, 255, 0.045)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.09)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  focusTerminarBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: 'rgba(240, 138, 155, 0.09)',
-    borderWidth: 1,
-    borderColor: 'rgba(240, 138, 155, 0.26)',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-  },
-  focusTerminarBtnText: {
-    color: '#F7B6C1',
-    fontFamily: fuentes.bold,
-    fontSize: 8.5,
-    letterSpacing: 0.2,
-    textTransform: 'uppercase',
-  },
-  focusDockWrap: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 30,
-    backgroundColor: 'rgba(4, 5, 7, 0.92)',
-    paddingTop: 7,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.055)',
-  },
-  focusDockNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    marginBottom: 5,
-  },
-  focusDockDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: noir.info,
-    shadowColor: noir.info,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 4,
-  },
-  focusDockNoteText: {
-    color: noir.muted,
-    fontFamily: fuentes.medium,
-    fontSize: 8,
-    letterSpacing: 0.15,
-  },
-  focusNotesCard: {
-    backgroundColor: 'rgba(10, 12, 17, 0.78)',
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
-    borderLeftWidth: 2,
-    borderLeftColor: 'rgba(92, 200, 255, 0.4)',
-    marginTop: 2,
-  },
-  focusNotesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 7,
-  },
-  focusNotesIcon: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    backgroundColor: 'rgba(92, 200, 255, 0.075)',
-    borderWidth: 1,
-    borderColor: 'rgba(92, 200, 255, 0.17)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  focusNotesKicker: {
-    color: noir.info,
-    fontFamily: fuentes.bold,
-    fontSize: 7,
-    letterSpacing: 0.75,
-    textTransform: 'uppercase',
-  },
-  focusNotesTitle: {
-    color: noir.text,
-    fontFamily: fuentes.bold,
-    fontSize: 12,
-    marginTop: 1,
-  },
-  focusNotesSmart: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 5,
-    backgroundColor: 'rgba(255, 209, 102, 0.07)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 209, 102, 0.18)',
-  },
-  focusNotesSmartText: {
-    color: noir.champagne,
-    fontFamily: fuentes.bold,
-    fontSize: 7,
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-  },
-  focusNotesInput: {
-    color: noir.text,
-    fontFamily: fuentes.regular,
-    fontSize: 12,
-    lineHeight: 17,
-    minHeight: 44,
-    textAlignVertical: 'top',
-    padding: 0,
-  },
-  focusExerciseNotesList: {
-    gap: 6,
-    marginTop: 10,
-    paddingTop: 9,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  focusExerciseNotesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  focusExerciseNotesHeading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  focusExerciseNotesLabel: {
-    color: noir.muted2,
-    fontFamily: fuentes.bold,
-    fontSize: 7,
-    letterSpacing: 0.7,
-    textTransform: 'uppercase',
-  },
-  focusExerciseNotesCount: {
-    minWidth: 24,
-    height: 17,
-    paddingHorizontal: 6,
-    borderRadius: 5,
-    backgroundColor: 'rgba(255, 255, 255, 0.035)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  focusExerciseNotesCountText: {
-    color: noir.muted,
-    fontFamily: fuentes.bold,
-    fontSize: 7,
-  },
-  focusExerciseNotesHint: {
-    color: noir.muted,
-    fontFamily: fuentes.regular,
-    fontSize: 8.5,
-    lineHeight: 11.5,
-    marginTop: -1,
-  },
-  focusExerciseNotesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 4,
-  },
-  focusExerciseNoteChip: {
-    flexGrow: 1,
-    flexBasis: '47%',
-    minWidth: 140,
-    minHeight: 48,
-    backgroundColor: 'rgba(255, 255, 255, 0.022)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.055)',
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 7,
-    gap: 4,
-  },
-  focusExerciseNoteChipConNota: {
-    backgroundColor: 'rgba(179, 148, 255, 0.045)',
-    borderColor: 'rgba(179, 148, 255, 0.16)',
-  },
-  focusExerciseNoteChipActivo: {
-    borderColor: 'rgba(92, 200, 255, 0.28)',
-    backgroundColor: 'rgba(92, 200, 255, 0.035)',
-  },
-  focusExerciseNoteChipHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  focusExerciseNoteDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-  },
-  focusExerciseNoteDotOn: {
-    backgroundColor: noir.lavender,
-    shadowColor: noir.lavender,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 3,
-  },
-  focusExerciseNoteChipName: {
-    flex: 1,
-    color: noir.platinum,
-    fontFamily: fuentes.bold,
-    fontSize: 9,
-  },
-  focusExerciseNoteChipText: {
-    color: noir.platinum,
-    fontFamily: fuentes.regular,
-    fontSize: 8.5,
-    lineHeight: 11.5,
-  },
-  focusExerciseNoteChipPlaceholder: {
-    color: noir.muted2,
-    fontStyle: 'italic',
-  },
-  noteOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.78)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 24,
-  },
-  noteSheet: {
-    width: '100%',
-    maxWidth: 520,
-    backgroundColor: noir.surface,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    padding: 16,
-    gap: 12,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.4,
-    shadowRadius: 28,
-    elevation: 22,
-  },
-  noteSheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  noteSheetIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: 'rgba(179, 148, 255, 0.09)',
-    borderWidth: 1,
-    borderColor: 'rgba(179, 148, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  noteSheetKicker: {
-    color: noir.lavender,
-    fontFamily: fuentes.bold,
-    fontSize: 7.5,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  noteSheetTitle: {
-    color: noir.text,
-    fontFamily: fuentes.black,
-    fontSize: 16,
-    letterSpacing: -0.2,
-    marginTop: 2,
-  },
-  noteSheetClose: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.09)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  noteSheetHint: {
-    color: noir.muted,
-    fontFamily: fuentes.regular,
-    fontSize: 9.5,
-    lineHeight: 13,
-    marginTop: -2,
-  },
-  noteSheetInput: {
-    minHeight: 88,
-    maxHeight: 140,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.09)',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    color: noir.text,
-    fontFamily: fuentes.regular,
-    fontSize: 12,
-    lineHeight: 17,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-    textAlignVertical: 'top',
-  },
-  noteSuggestionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: -2,
-  },
-  noteSuggestionLabel: {
-    color: noir.champagne,
-    fontFamily: fuentes.bold,
-    fontSize: 7,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-  },
-  noteSuggestionRow: {
-    gap: 6,
-    paddingRight: 12,
-  },
-  noteSuggestionChip: {
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 209, 102, 0.14)',
-    backgroundColor: 'rgba(255, 209, 102, 0.04)',
-  },
-  noteSuggestionChipText: {
-    color: noir.champagne,
-    fontFamily: fuentes.medium,
-    fontSize: 9,
-  },
-  noteSheetActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-    marginTop: 2,
-  },
-  noteSheetSecondary: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.09)',
-    backgroundColor: 'rgba(255, 255, 255, 0.035)',
-  },
-  noteSheetSecondaryText: {
-    color: noir.platinum,
-    fontFamily: fuentes.bold,
-    fontSize: 11,
-  },
-  noteSheetPrimary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: noir.mint,
-  },
-  noteSheetPrimaryText: {
-    color: '#07110D',
-    fontFamily: fuentes.bold,
-    fontSize: 11,
-  },
-});
