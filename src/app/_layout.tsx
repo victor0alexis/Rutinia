@@ -16,9 +16,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { colores } from '../constantes/colores';
 import { inicializarCuentas } from '../servicios/cuentas';
 
-import ConfirmModalGlobal from '../components/ConfirmModalGlobal';
-import { RutiniaLogo } from '../components/RutiniaLogo';
-import DebugViewportOverlay from '../components/depuracion/DebugViewportOverlay';
+import ConfirmModalGlobal from '../componentes/modales/ConfirmModalGlobal';
+import { RutiniaLogo } from '../componentes/comunes/RutiniaLogo';
+import DebugViewportOverlay from '../componentes/depuracion/DebugViewportOverlay';
 
 import { StatusBar } from 'expo-status-bar';
 

@@ -19,14 +19,14 @@ import { format, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { fuentes, noir } from '../../constantes/colores';
 import { CATEGORIAS, obtenerConfigCategoria } from '../../constantes/notas';
-import EditorialHeader from '../../components/EditorialHeader';
-import GlowPanel from '../../components/GlowPanel';
-import ScreenBackground from '../../components/ScreenBackground';
-import NotesCategoryRail from '../../components/NotesCategoryRail';
-import NotaBibliotecaCard from '../../components/NotaBibliotecaCard';
-import { LiquidMetalButton } from '../../components/LiquidMetalButton';
-import YoungNewtButton from '../../components/YoungNewtButton';
-import ShinyText from '../../components/ShinyText';
+import EncabezadoEditorial from '../../componentes/comunes/EncabezadoEditorial';
+import PanelBrillo from '../../componentes/comunes/PanelBrillo';
+import FondoPantalla from '../../componentes/comunes/FondoPantalla';
+import RielCategoriasNotas from '../../componentes/notas/RielCategoriasNotas';
+import TarjetaNotaBiblioteca from '../../componentes/notas/TarjetaNotaBiblioteca';
+import { BotonMetalLiquido } from '../../componentes/efectos/BotonMetalLiquido';
+import BotonYoungNewt from '../../componentes/comunes/BotonYoungNewt';
+import TextoBrillante from '../../componentes/efectos/TextoBrillante';
 import {
   CategoriaNota,
   eliminarNotaEstandar,
@@ -257,7 +257,7 @@ export default function Notas() {
         }`;
 
   return (
-    <ScreenBackground>
+    <FondoPantalla>
       <Head>
         <title>Notas · Rutinia</title>
       </Head>
@@ -273,7 +273,7 @@ export default function Notas() {
             paddingBottom: tabBottomPadding,
           }}
         >
-          <EditorialHeader
+          <EncabezadoEditorial
             title="Notas"
             style={{
               paddingTop: isLandscape ? 2 : 4,
@@ -299,7 +299,7 @@ export default function Notas() {
                 { height: tituloTamano * 1.4 },
               ]}
             >
-              <ShinyText
+              <TextoBrillante
                 text="Biblioteca de Notas"
                 color={noir.platinum}
                 shineColor="#FFFFFF"
@@ -329,7 +329,7 @@ export default function Notas() {
             </Text>
           </View>
 
-          <NotesCategoryRail
+          <RielCategoriasNotas
             value={categoriaFiltro}
             onChange={setCategoriaFiltro}
             counts={conteos}
@@ -337,7 +337,7 @@ export default function Notas() {
           />
 
           {/* PANEL PRINCIPAL CON EL GLOW PERLA DEL HOME */}
-          <GlowPanel style={styles.libraryPanel} radius={20}>
+          <PanelBrillo style={styles.libraryPanel} radius={20}>
             <View style={styles.panelHeader}>
               <View style={styles.panelHeaderLeft}>
                 <View
@@ -406,7 +406,7 @@ export default function Notas() {
                     </Text>
 
                     <View style={styles.emptyActions}>
-                      <YoungNewtButton
+                      <BotonYoungNewt
                         title={
                           categoriaFiltro === 'Todas'
                             ? 'Crear primera nota'
@@ -434,7 +434,7 @@ export default function Notas() {
                   </View>
                 ) : (
                   notasFiltradas.map((nota, index) => (
-                    <NotaBibliotecaCard
+                    <TarjetaNotaBiblioteca
                       key={nota.id}
                       nota={nota}
                       index={index}
@@ -446,11 +446,11 @@ export default function Notas() {
                 )}
               </ScrollView>
             )}
-          </GlowPanel>
+          </PanelBrillo>
 
           {/* ACCIÓN PRINCIPAL: METAL LÍQUIDO COMO EN EL HOME */}
           <View style={styles.ctaWrap}>
-            <LiquidMetalButton
+            <BotonMetalLiquido
               titulo="+ Nueva Nota"
               onPress={abrirCrear}
               activo={
@@ -492,7 +492,7 @@ export default function Notas() {
                 },
               ]}
             >
-              <GlowPanel style={styles.sheet} radius={26}>
+              <PanelBrillo style={styles.sheet} radius={26}>
                 <View style={styles.grabberWrap}>
                   <View style={styles.grabber} />
                 </View>
@@ -557,7 +557,7 @@ export default function Notas() {
 
                   <View style={styles.field}>
                     <Text style={styles.fieldLabel}>Categoría</Text>
-                    <NotesCategoryRail
+                    <RielCategoriasNotas
                       value={catInput}
                       onChange={(valor) => setCatInput(valor as CategoriaNota)}
                       showAll={false}
@@ -596,7 +596,7 @@ export default function Notas() {
                   </View>
 
                   <View style={styles.saveWrap}>
-                    <YoungNewtButton
+                    <BotonYoungNewt
                       title="Guardar Nota"
                       loadingTitle="Guardando..."
                       loading={guardando}
@@ -606,7 +606,7 @@ export default function Notas() {
                     />
                   </View>
                 </ScrollView>
-              </GlowPanel>
+              </PanelBrillo>
             </View>
           </KeyboardAvoidingView>
         </Modal>
@@ -636,7 +636,7 @@ export default function Notas() {
                 },
               ]}
             >
-              <GlowPanel style={styles.sheet} radius={26}>
+              <PanelBrillo style={styles.sheet} radius={26}>
                 <View style={styles.grabberWrap}>
                   <View style={styles.grabber} />
                 </View>
@@ -785,12 +785,12 @@ export default function Notas() {
                 >
                   <Text style={styles.cancelLinkText}>Cancelar</Text>
                 </Pressable>
-              </GlowPanel>
+              </PanelBrillo>
             </View>
           </View>
         </Modal>
       </SafeAreaView>
-    </ScreenBackground>
+    </FondoPantalla>
   );
 }
 

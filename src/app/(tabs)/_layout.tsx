@@ -1,10 +1,10 @@
 import { Tabs } from 'expo-router';
-import SpotlightTabBar from '../../components/SpotlightTabBar';
+import BarraPestanasSpotlight from '../../componentes/navegacion/BarraPestanasSpotlight';
 
 export default function TabsLayout() {
   return (
     <Tabs
-      tabBar={(props) => <SpotlightTabBar {...props} />}
+      tabBar={(props) => <BarraPestanasSpotlight {...props} />}
       screenOptions={{
         headerShown: false,
         tabBarStyle: {

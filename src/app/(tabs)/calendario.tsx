@@ -7,11 +7,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { colores, fuentes } from '../../constantes/colores';
-import EncabezadoSeccion from '../../components/EncabezadoSeccion';
-import ScreenBackground from '../../components/ScreenBackground';
-import GlowButton from '../../components/GlowButton';
-import DiaDetalleModal, { parsearNotaInteligente } from '../../components/DiaDetalleModal';
-import EjecutarEntrenamientoModal from '../../components/EjecutarEntrenamientoModal';
+import EncabezadoSeccion from '../../componentes/comunes/EncabezadoSeccion';
+import FondoPantalla from '../../componentes/comunes/FondoPantalla';
+import BotonBrillo from '../../componentes/comunes/BotonBrillo';
+import DiaDetalleModal, { parsearNotaInteligente } from '../../componentes/semana/DiaDetalleModal';
+import EjecutarEntrenamientoModal from '../../componentes/entrenamiento/EjecutarEntrenamientoModal';
 import { registrosDeRango } from '../../servicios/registros';
 import { listarPlanes } from '../../servicios/planes';
 import { aISO, nombreDia } from '../../utilidades/fechas';
@@ -168,7 +168,7 @@ export default function CalendarioScreen() {
   const fechaSeleccionadaObj = parseISO(fechaSeleccionadaISO);
 
   return (
-    <ScreenBackground>
+    <FondoPantalla>
       <Head>
         <title>Calendario · Rutinia</title>
       </Head>
@@ -343,7 +343,7 @@ export default function CalendarioScreen() {
                 </Text>
               </View>
 
-              <GlowButton
+              <BotonBrillo
                 title="+ Gestionar"
                 onPress={() => setModalDetalleVisible(true)}
                 variant="outline"
@@ -503,7 +503,7 @@ export default function CalendarioScreen() {
           }}
         />
       </SafeAreaView>
-    </ScreenBackground>
+    </FondoPantalla>
   );
 }
 

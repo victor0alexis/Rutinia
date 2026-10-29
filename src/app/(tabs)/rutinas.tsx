@@ -24,16 +24,16 @@ import {
   fuentes,
   noir,
 } from '../../constantes/colores';
-import ScreenBackground from '../../components/ScreenBackground';
-import DockPrincipal from '../../components/DockPrincipal';
-import ShinyText from '../../components/ShinyText';
-import YoungNewtButton from '../../components/YoungNewtButton';
-import { LiquidMetalButton } from '../../components/LiquidMetalButton';
-import GestionarPlanModal from '../../components/GestionarPlanModal';
-import EliminarPlanModal from '../../components/EliminarPlanModal';
-import AplicarPlanSemanaModal from '../../components/AplicarPlanSemanaModal';
-import GestionarRutinaModal from '../../components/GestionarRutinaModal';
-import EditorialHeader from '../../components/EditorialHeader';
+import FondoPantalla from '../../componentes/comunes/FondoPantalla';
+import DockPrincipal from '../../componentes/navegacion/DockPrincipal';
+import TextoBrillante from '../../componentes/efectos/TextoBrillante';
+import BotonYoungNewt from '../../componentes/comunes/BotonYoungNewt';
+import { BotonMetalLiquido } from '../../componentes/efectos/BotonMetalLiquido';
+import GestionarPlanModal from '../../componentes/rutinas/GestionarPlanModal';
+import EliminarPlanModal from '../../componentes/rutinas/EliminarPlanModal';
+import AplicarPlanSemanaModal from '../../componentes/semana/AplicarPlanSemanaModal';
+import GestionarRutinaModal from '../../componentes/rutinas/GestionarRutinaModal';
+import EncabezadoEditorial from '../../componentes/comunes/EncabezadoEditorial';
 import { subscribirCambioDatos } from '../../utilidades/sincronizacion';
 import { diasDeSemana } from '../../utilidades/fechas';
 import { vibrarBoton } from '../../utilidades/hapticos';
@@ -311,7 +311,7 @@ function PlanShinyTitle({ text, compact }: { text: string; compact: boolean }) {
 
   return (
     <View style={[styles.planShinyTitleWrap, { height: fontSize * 1.4 }]}>
-      <ShinyText
+      <TextoBrillante
         text={display}
         fontSize={fontSize}
         fontFamily={fuentes.bold}
@@ -1063,7 +1063,7 @@ export default function RutinasScreen() {
   /* eslint-enable react-hooks/refs */
 
   return (
-    <ScreenBackground>
+    <FondoPantalla>
       <Head>
         <title>
           {planSeleccionado ? `${planSeleccionado.nombre} · Rutinia` : 'Planes & Rutinas · Rutinia'}
@@ -1081,7 +1081,7 @@ export default function RutinasScreen() {
             },
           ]}
         >
-          <EditorialHeader title="Rutinas" />
+          <EncabezadoEditorial title="Rutinas" />
         </View>
 
         <ScrollView
@@ -1508,7 +1508,7 @@ export default function RutinasScreen() {
 
                   <View style={styles.planHeroActionsRow}>
                     <View style={styles.youngNewtWrap}>
-                      <YoungNewtButton
+                      <BotonYoungNewt
                         title="Aplicar a mi semana"
                         fullWidth
                         onPress={() => setModalAplicarVisible(true)}
@@ -1852,7 +1852,7 @@ export default function RutinasScreen() {
         </ScrollView>
 
         <DockPrincipal>
-          <LiquidMetalButton
+          <BotonMetalLiquido
             titulo={
               planSeleccionado
                 ? '+ Nueva rutina en este plan'
@@ -2040,7 +2040,7 @@ export default function RutinasScreen() {
           </View>
         ) : null}
       </SafeAreaView>
-    </ScreenBackground>
+    </FondoPantalla>
   );
 }
 

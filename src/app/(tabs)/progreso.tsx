@@ -24,12 +24,12 @@ import {
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { fuentes, noir } from '../../constantes/colores';
-import EditorialHeader from '../../components/EditorialHeader';
-import ScreenBackground from '../../components/ScreenBackground';
-import ShinyText from '../../components/ShinyText';
-import SpotlightSegmentedTabs from '../../components/SpotlightSegmentedTabs';
-import YoungNewtButton from '../../components/YoungNewtButton';
-import { LiquidMetalButton } from '../../components/LiquidMetalButton';
+import EncabezadoEditorial from '../../componentes/comunes/EncabezadoEditorial';
+import FondoPantalla from '../../componentes/comunes/FondoPantalla';
+import TextoBrillante from '../../componentes/efectos/TextoBrillante';
+import PestanasSegmentadasSpotlight from '../../componentes/navegacion/PestanasSegmentadasSpotlight';
+import BotonYoungNewt from '../../componentes/comunes/BotonYoungNewt';
+import { BotonMetalLiquido } from '../../componentes/efectos/BotonMetalLiquido';
 import {
   AdherenceRing,
   ProgressBar,
@@ -39,7 +39,7 @@ import {
   ProgressStatus,
   PulseDot,
   tint,
-} from '../../components/progreso/ProgressPrimitives';
+} from '../../componentes/progreso/PrimitivasProgreso';
 import {
   EstadisticaRutina,
   HabitoTrackerStat,
@@ -284,7 +284,7 @@ export default function ProgresoScreen() {
 
   const emptyRoutineAction =
     planSeleccionado === 'TODOS' ? (
-      <YoungNewtButton
+      <BotonYoungNewt
         title="Crear una rutina"
         onPress={() => router.push('/rutinas')}
       />
@@ -303,7 +303,7 @@ export default function ProgresoScreen() {
     );
 
   return (
-    <ScreenBackground>
+    <FondoPantalla>
       <Head>
         <title>Progreso · Rutinia</title>
       </Head>
@@ -319,7 +319,7 @@ export default function ProgresoScreen() {
             paddingBottom: tabBottomPadding,
           }}
         >
-          <EditorialHeader
+          <EncabezadoEditorial
             title="Progreso"
             style={{
               paddingTop: isLandscape ? 2 : 4,
@@ -345,7 +345,7 @@ export default function ProgresoScreen() {
                   { height: tituloTamano * 1.4 },
                 ]}
               >
-                <ShinyText
+                <TextoBrillante
                   text="Tu evolución"
                   color={noir.platinum}
                   shineColor="#FFFFFF"
@@ -382,7 +382,7 @@ export default function ProgresoScreen() {
               </Text>
             </View>
 
-            <SpotlightSegmentedTabs
+            <PestanasSegmentadasSpotlight
               tabs={PERIODOS}
               activeTab={periodo}
               onChangeTab={(id) => setPeriodo(id)}
@@ -798,7 +798,7 @@ export default function ProgresoScreen() {
 
           {/* ACCIÓN PRINCIPAL: METAL LÍQUIDO */}
           <View style={styles.ctaWrap}>
-            <LiquidMetalButton
+            <BotonMetalLiquido
               titulo={cargando ? 'Actualizando…' : 'Actualizar métricas'}
               onPress={recargar}
               disabled={cargando}
@@ -818,7 +818,7 @@ export default function ProgresoScreen() {
           </View>
         </View>
       </SafeAreaView>
-    </ScreenBackground>
+    </FondoPantalla>
   );
 }
 

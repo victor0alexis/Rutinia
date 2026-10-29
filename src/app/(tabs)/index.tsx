@@ -6,13 +6,13 @@ import Head from 'expo-router/head';
 import { addDays, format, isSameDay, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { fuentes, noir } from '../../constantes/colores';
-import DiaDetalleModal from '../../components/DiaDetalleModal';
-import EjecutarEntrenamientoModal from '../../components/EjecutarEntrenamientoModal';
-import ScreenBackground from '../../components/ScreenBackground';
-import MainDayCard from '../../components/MainDayCard';
-import EditorialHeader from '../../components/EditorialHeader';
-import Semana3DCarousel from '../../components/Semana3DCarousel';
-import { LiquidMetalButton } from '../../components/LiquidMetalButton';
+import DiaDetalleModal from '../../componentes/semana/DiaDetalleModal';
+import EjecutarEntrenamientoModal from '../../componentes/entrenamiento/EjecutarEntrenamientoModal';
+import FondoPantalla from '../../componentes/comunes/FondoPantalla';
+import TarjetaDiaPrincipal from '../../componentes/semana/TarjetaDiaPrincipal';
+import EncabezadoEditorial from '../../componentes/comunes/EncabezadoEditorial';
+import CarruselSemana3D from '../../componentes/semana/CarruselSemana3D';
+import { BotonMetalLiquido } from '../../componentes/efectos/BotonMetalLiquido';
 import { registrosDeRango } from '../../servicios/registros';
 import { aISO, diasDeSemana } from '../../utilidades/fechas';
 import { seguro } from '../../utilidades/errores';
@@ -232,7 +232,7 @@ export default function Semana() {
   }
 
   return (
-    <ScreenBackground acento={acento}>
+    <FondoPantalla acento={acento}>
       <Head>
         <title>Semana · Rutinia</title>
       </Head>
@@ -249,7 +249,7 @@ export default function Semana() {
           }}
         >
           {/* CABECERA EDITORIAL COMPARTIDA: MARCA + AVATAR */}
-          <EditorialHeader
+          <EncabezadoEditorial
             title="Semana"
             style={{
               paddingTop: isLandscape ? 2 : 4,
@@ -309,7 +309,7 @@ export default function Semana() {
 
           {/* CARRUSEL 3D CILÍNDRICO UNIFICADO (ReactICX 3D Carousel + Flechas en extremos) */}
           <View style={styles.carouselWrap}>
-            <Semana3DCarousel
+            <CarruselSemana3D
               fechaReferencia={ref}
               diaActivo={diaActivo}
               registros={registros}
@@ -319,7 +319,7 @@ export default function Semana() {
           </View>
 
           {/* TARJETA PRINCIPAL DEL DÍA SELECCIONADO (Estilo Uiverse one-div glow) */}
-          <MainDayCard
+          <TarjetaDiaPrincipal
             diaActivo={diaActivo}
             onDiaAnterior={irDiaAnterior}
             onDiaSiguiente={irDiaSiguiente}
@@ -344,7 +344,7 @@ export default function Semana() {
 
           {/* BOTÓN PRINCIPAL LIQUID METAL ENTRE MAINDAYCARD Y BOTTOMTABBAR */}
           <View style={styles.myDiaWrap}>
-            <LiquidMetalButton
+            <BotonMetalLiquido
               titulo="+ Administrar / Gestionar Día"
               onPress={() => setModalVisible(true)}
               activo={
@@ -411,7 +411,7 @@ export default function Semana() {
           }}
         />
       </SafeAreaView>
-    </ScreenBackground>
+    </FondoPantalla>
   );
 }
 
