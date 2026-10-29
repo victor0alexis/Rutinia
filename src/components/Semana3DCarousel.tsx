@@ -22,8 +22,8 @@ import Animated, {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { addWeeks, isSameDay } from 'date-fns';
-import { fuentes, noir } from '../constants/colores';
-import { Registro } from '../types';
+import { fuentes, noir } from '../constantes/colores';
+import { Registro } from '../tipos';
 import { aISO, diasDeSemana, nombreDia } from '../utils/fechas';
 import { vibrarBoton } from '../utils/haptics';
 import { useLayout } from '../hooks/useLayout';

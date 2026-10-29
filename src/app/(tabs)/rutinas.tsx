@@ -23,7 +23,7 @@ import {
   DIAS_SEMANA_NOMBRES,
   fuentes,
   noir,
-} from '../../constants/colores';
+} from '../../constantes/colores';
 import ScreenBackground from '../../components/ScreenBackground';
 import DockPrincipal from '../../components/DockPrincipal';
 import ShinyText from '../../components/ShinyText';
@@ -52,7 +52,7 @@ import {
   reordenarPlanes,
 } from '../../services/planes';
 import { eliminarRutina } from '../../services/rutinas';
-import { PlanEntrenamiento, Rutina } from '../../types';
+import { PlanEntrenamiento, Rutina } from '../../tipos';
 import { useLayout } from '../../hooks/useLayout';
 import { mostrarMensaje, seguro } from '../../utils/errores';
 

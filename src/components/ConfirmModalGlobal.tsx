@@ -16,7 +16,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { fuentes, noir } from '../constants/colores';
+import { fuentes, noir } from '../constantes/colores';
 import { ModalConfig, suscribirModalConfirmacion } from '../utils/errores';
 import GlowPanel from './GlowPanel';
 import { LiquidMetalButton } from './LiquidMetalButton';

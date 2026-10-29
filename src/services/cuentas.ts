@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session, User } from '@supabase/supabase-js';
-import { COLORES_PLANES } from '../constants/colores';
-import { supabase } from '../lib/supabase';
+import { COLORES_PLANES } from '../constantes/colores';
+import { supabase } from '../biblioteca/supabase';
 import { establecerNamespaceDatos, limpiarCacheDeCuenta } from '../utils/offline';
 import { emitirCambioSesionActiva } from '../utils/sesionActiva';
 import { emitirCambioDatos } from '../utils/sincronizacion';

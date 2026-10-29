@@ -8,7 +8,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { fuentes, noir } from '../constants/colores';
+import { fuentes, noir } from '../constantes/colores';
 import { useLayout } from '../hooks/useLayout';
 import {
   CuentaRutinia,

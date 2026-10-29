@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Animated, Easing, Pressable, Text, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colores, fuentes } from '../constants/colores';
+import { colores, fuentes } from '../constantes/colores';
 import { useLayout } from '../hooks/useLayout';
 import GlowButton from './GlowButton';
 import { RutiniaLogo } from './RutiniaLogo';

@@ -16,7 +16,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-import { colores, fuentes } from '../constants/colores';
+import { colores, fuentes } from '../constantes/colores';
 import { vibrarBoton } from '../utils/haptics';
 
 export interface SpotlightTabItem<T extends string = string> {

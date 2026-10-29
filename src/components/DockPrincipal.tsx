@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { tema } from '../constants/tema';
+import { tema } from '../constantes/tema';
 import { useLayout } from '../hooks/useLayout';
 
 type Props = {

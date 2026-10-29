@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { colores, fuentes, noir } from '../constants/colores';
+import { colores, fuentes, noir } from '../constantes/colores';
 import { useLayout } from '../hooks/useLayout';
 import ScreenBackground from './ScreenBackground';
 import { LiquidMetalButton } from './LiquidMetalButton';
@@ -42,9 +42,9 @@ import {
   parsearNotasSesion,
 } from '../utils/notasSesion';
 import { nombreDia } from '../utils/fechas';
-import { Registro } from '../types';
-import { calcularKgSugeridoDrop } from '../constants/entrenamiento';
-import { supabase } from '../lib/supabase';
+import { Registro } from '../tipos';
+import { calcularKgSugeridoDrop } from '../constantes/entrenamiento';
+import { supabase } from '../biblioteca/supabase';
 import {
   EstadoTimer,
   obtenerOIniciarTimer,

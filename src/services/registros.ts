@@ -1,5 +1,5 @@
-import { supabase } from '../lib/supabase';
-import { Registro, Rutina } from '../types';
+import { supabase } from '../biblioteca/supabase';
+import { Registro, Rutina } from '../tipos';
 import {
   guardarCacheLocal,
   leerLocal,

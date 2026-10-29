@@ -15,7 +15,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-import { fuentes, noir } from '../constants/colores';
+import { fuentes, noir } from '../constantes/colores';
 import { vibrarBoton } from '../utils/haptics';
 import { useLayout } from '../hooks/useLayout';
 

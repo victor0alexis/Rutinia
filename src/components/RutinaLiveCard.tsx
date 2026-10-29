@@ -27,8 +27,8 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { colores, fuentes, noir } from '../constants/colores';
-import { Registro } from '../types';
+import { colores, fuentes, noir } from '../constantes/colores';
+import { Registro } from '../tipos';
 import {
   SesionActivaInfo,
   obtenerBorradorSesion,

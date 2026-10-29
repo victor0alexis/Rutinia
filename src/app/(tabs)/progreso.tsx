@@ -23,7 +23,7 @@ import {
   subDays,
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { fuentes, noir } from '../../constants/colores';
+import { fuentes, noir } from '../../constantes/colores';
 import EditorialHeader from '../../components/EditorialHeader';
 import ScreenBackground from '../../components/ScreenBackground';
 import ShinyText from '../../components/ShinyText';
@@ -48,7 +48,7 @@ import {
   obtenerMetricasProgreso,
 } from '../../services/progreso';
 import { listarPlanes } from '../../services/planes';
-import { PlanEntrenamiento } from '../../types';
+import { PlanEntrenamiento } from '../../tipos';
 import { aISO } from '../../utils/fechas';
 import { seguro } from '../../utils/errores';
 import { subscribirCambioDatos } from '../../utils/sincronizacion';

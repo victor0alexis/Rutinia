@@ -15,7 +15,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colores, COLORES_PLANES, fuentes, noir } from '../constants/colores';
+import { colores, COLORES_PLANES, fuentes, noir } from '../constantes/colores';
 import { useLayout } from '../hooks/useLayout';
 import {
   actualizarEmailActual,

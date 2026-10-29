@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../biblioteca/supabase';
 import {
   escribirLocal,
   leerLocal,

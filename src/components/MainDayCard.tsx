@@ -1,8 +1,8 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { fuentes } from '../constants/colores';
-import { EjercicioRegistro, Registro } from '../types';
+import { fuentes } from '../constantes/colores';
+import { EjercicioRegistro, Registro } from '../tipos';
 import { SesionActivaInfo } from '../utils/sesionActiva';
 import { parsearEjercicioInfo } from '../utils/ejercicios';
 import { parsearNotaInteligente } from './DiaDetalleModal';

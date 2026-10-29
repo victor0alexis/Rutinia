@@ -16,11 +16,11 @@ import {
   fuentes,
   ICONOS_PLANES,
   noir,
-} from '../constants/colores';
+} from '../constantes/colores';
 import GlowPanel from './GlowPanel';
 import { LiquidMetalButton } from './LiquidMetalButton';
 import ShinyText from './ShinyText';
-import { PlanEntrenamiento } from '../types';
+import { PlanEntrenamiento } from '../tipos';
 import { useLayout } from '../hooks/useLayout';
 import { vibrarBoton } from '../utils/haptics';
 

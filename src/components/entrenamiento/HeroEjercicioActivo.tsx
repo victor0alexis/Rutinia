@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { fuentes, noir } from '../../constants/colores';
+import { fuentes, noir } from '../../constantes/colores';
 import { vibrarBoton } from '../../utils/haptics';
 import { EjercicioGifInfo, obtenerGifEjercicio } from '../../services/ejerciciosGifs';
 import { parsearEjercicioInfo } from '../../utils/ejercicios';

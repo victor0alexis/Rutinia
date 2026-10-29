@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colores, fuentes, noir } from '../constants/colores';
+import { colores, fuentes, noir } from '../constantes/colores';
 import { useLayout } from '../hooks/useLayout';
 import { vibrarBoton } from '../utils/haptics';
 import { confirmarAccion } from '../utils/errores';

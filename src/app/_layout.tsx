@@ -13,7 +13,7 @@ import { DMSans_400Regular } from '@expo-google-fonts/dm-sans';
 import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, View, Platform, StatusBar as RNStatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { colores } from '../constants/colores';
+import { colores } from '../constantes/colores';
 import { inicializarCuentas } from '../services/cuentas';
 
 import ConfirmModalGlobal from '../components/ConfirmModalGlobal';

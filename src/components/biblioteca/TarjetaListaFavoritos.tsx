@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { fuentes, noir } from '../../constants/colores';
+import { fuentes, noir } from '../../constantes/colores';
 import EjercicioGif from '../entrenamiento/EjercicioGif';
 import {
   EjercicioBiblioteca,

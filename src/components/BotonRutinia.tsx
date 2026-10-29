@@ -26,7 +26,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { tema } from '../constants/tema';
+import { tema } from '../constantes/tema';
 
 const PAD = 16;
 

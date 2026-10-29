@@ -16,7 +16,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import LiquidMetalShader from './liquid-metal/LiquidMetalShader';
 import type { LiquidMetalShaderConfig } from './liquid-metal/types';
-import { fuentes } from '../constants/colores';
+import { fuentes } from '../constantes/colores';
 import { vibrarBoton } from '../utils/haptics';
 
 export interface LiquidMetalButtonProps {

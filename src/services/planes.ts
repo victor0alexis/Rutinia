@@ -1,5 +1,5 @@
-import { supabase } from '../lib/supabase';
-import { PlanEntrenamiento, Rutina } from '../types';
+import { supabase } from '../biblioteca/supabase';
+import { PlanEntrenamiento, Rutina } from '../tipos';
 import {
   guardarCacheLocal,
   leerLocal,

@@ -20,7 +20,7 @@ import {
   rect,
   rrect,
 } from '@shopify/react-native-skia';
-import { colores, fuentes } from '../constants/colores';
+import { colores, fuentes } from '../constantes/colores';
 import ScreenBackground from './ScreenBackground';
 import SpotlightSegmentedTabs from './SpotlightSegmentedTabs';
 import RutinaLiveCard from './RutinaLiveCard';
@@ -36,7 +36,7 @@ import {
 } from '../services/registros';
 import { listarRutinas } from '../services/rutinas';
 import { listarPlanes, listarRutinasDePlan } from '../services/planes';
-import { EjercicioRegistro, PlanEntrenamiento, Registro, Rutina } from '../types';
+import { EjercicioRegistro, PlanEntrenamiento, Registro, Rutina } from '../tipos';
 import { SesionActivaInfo } from '../utils/sesionActiva';
 import { seguro, confirmarAccion } from '../utils/errores';
 import { aISO, nombreDia } from '../utils/fechas';

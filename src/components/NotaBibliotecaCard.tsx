@@ -9,8 +9,8 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { format, isValid, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { fuentes, noir } from '../constants/colores';
-import { obtenerConfigCategoria } from '../constants/notas';
+import { fuentes, noir } from '../constantes/colores';
+import { obtenerConfigCategoria } from '../constantes/notas';
 import type { NotaEstandar } from '../services/notas';
 
 type Props = {

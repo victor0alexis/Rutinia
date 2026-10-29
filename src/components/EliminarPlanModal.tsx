@@ -8,9 +8,9 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colores, fuentes } from '../constants/colores';
+import { colores, fuentes } from '../constantes/colores';
 import BotonRutinia from './BotonRutinia';
-import { PlanEntrenamiento } from '../types';
+import { PlanEntrenamiento } from '../tipos';
 import { useLayout } from '../hooks/useLayout';
 
 type Props = {

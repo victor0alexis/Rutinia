@@ -1,5 +1,5 @@
-import { supabase } from '../lib/supabase';
-import { EjercicioCatalogo } from '../types';
+import { supabase } from '../biblioteca/supabase';
+import { EjercicioCatalogo } from '../tipos';
 import { guardarCacheLocal, obtenerCacheLocal } from '../utils/offline';
 import { obtenerUsuarioIdActual } from '../utils/usuario';
 

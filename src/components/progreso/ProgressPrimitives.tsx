@@ -24,7 +24,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { fuentes, noir } from '../../constants/colores';
+import { fuentes, noir } from '../../constantes/colores';
 import GlowPanel from '../GlowPanel';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);

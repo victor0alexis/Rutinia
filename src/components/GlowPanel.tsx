@@ -15,7 +15,7 @@ import {
   rect,
   rrect,
 } from '@shopify/react-native-skia';
-import { noir } from '../constants/colores';
+import { noir } from '../constantes/colores';
 
 type Props = {
   children: React.ReactNode;

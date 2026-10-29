@@ -17,7 +17,7 @@ import {
   DIAS_SEMANA_NOMBRES,
   fuentes,
   noir,
-} from '../constants/colores';
+} from '../constantes/colores';
 import GlowPanel from './GlowPanel';
 import { LiquidMetalButton } from './LiquidMetalButton';
 import ShinyText from './ShinyText';
@@ -29,7 +29,7 @@ import { crearRutina, eliminarRutina, actualizarRutina } from '../services/rutin
 import { seguro, confirmarAccion, mostrarMensaje } from '../utils/errores';
 import { parsearEjercicioInfo } from '../utils/ejercicios';
 import { listarPlanes } from '../services/planes';
-import { PlanEntrenamiento, Rutina } from '../types';
+import { PlanEntrenamiento, Rutina } from '../tipos';
 import { useLayout } from '../hooks/useLayout';
 import { vibrarBoton } from '../utils/haptics';
 

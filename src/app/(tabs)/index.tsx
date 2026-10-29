@@ -5,7 +5,7 @@ import { useFocusEffect, useIsFocused } from 'expo-router';
 import Head from 'expo-router/head';
 import { addDays, format, isSameDay, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { fuentes, noir } from '../../constants/colores';
+import { fuentes, noir } from '../../constantes/colores';
 import DiaDetalleModal from '../../components/DiaDetalleModal';
 import EjecutarEntrenamientoModal from '../../components/EjecutarEntrenamientoModal';
 import ScreenBackground from '../../components/ScreenBackground';
@@ -16,7 +16,7 @@ import { LiquidMetalButton } from '../../components/LiquidMetalButton';
 import { registrosDeRango } from '../../services/registros';
 import { aISO, diasDeSemana } from '../../utils/fechas';
 import { seguro } from '../../utils/errores';
-import { EjercicioRegistro, Registro } from '../../types';
+import { EjercicioRegistro, Registro } from '../../tipos';
 import {
   SesionActivaInfo,
   obtenerSesionActivaInfo,

@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase } from '../biblioteca/supabase';
 import { guardarCacheLocal, obtenerCacheLocal } from '../utils/offline';
 import { filtrarPorPropietario, obtenerUsuarioIdActual } from '../utils/usuario';
 

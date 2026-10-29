@@ -10,8 +10,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { fuentes, noir } from '../constants/colores';
-import { CATEGORIAS, obtenerConfigCategoria } from '../constants/notas';
+import { fuentes, noir } from '../constantes/colores';
+import { CATEGORIAS, obtenerConfigCategoria } from '../constantes/notas';
 import { vibrarBoton } from '../utils/haptics';
 
 type Props = {

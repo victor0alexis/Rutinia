@@ -6,7 +6,7 @@ import Head from 'expo-router/head';
 import { Ionicons } from '@expo/vector-icons';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
-import { colores, fuentes } from '../../constants/colores';
+import { colores, fuentes } from '../../constantes/colores';
 import EncabezadoSeccion from '../../components/EncabezadoSeccion';
 import ScreenBackground from '../../components/ScreenBackground';
 import GlowButton from '../../components/GlowButton';
@@ -17,7 +17,7 @@ import { listarPlanes } from '../../services/planes';
 import { aISO, nombreDia } from '../../utils/fechas';
 import { seguro } from '../../utils/errores';
 import { parsearEjercicioInfo } from '../../utils/ejercicios';
-import { EjercicioRegistro, PlanEntrenamiento, Registro } from '../../types';
+import { EjercicioRegistro, PlanEntrenamiento, Registro } from '../../tipos';
 import { useLayout } from '../../hooks/useLayout';
 import {
   SesionActivaInfo,

@@ -13,7 +13,7 @@ import Svg, {
   Stop,
   Text as SvgText,
 } from 'react-native-svg';
-import { fuentes } from '../constants/colores';
+import { fuentes } from '../constantes/colores';
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(SvgLinearGradient);
 

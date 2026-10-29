@@ -8,9 +8,9 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colores, DIAS_SEMANA_ABREV, DIAS_SEMANA_NOMBRES, fuentes } from '../constants/colores';
+import { colores, DIAS_SEMANA_ABREV, DIAS_SEMANA_NOMBRES, fuentes } from '../constantes/colores';
 import BotonRutinia from './BotonRutinia';
-import { PlanEntrenamiento, Registro, Rutina } from '../types';
+import { PlanEntrenamiento, Registro, Rutina } from '../tipos';
 import { aISO, diasDeSemana, rangoSemana } from '../utils/fechas';
 import { registrosDeRango } from '../services/registros';
 import { aplicarPlanASemana, listarRutinasDePlan } from '../services/planes';

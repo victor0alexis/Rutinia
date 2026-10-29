@@ -8,9 +8,9 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { fuentes, noir } from '../../constants/colores';
+import { fuentes, noir } from '../../constantes/colores';
 import { vibrarBoton } from '../../utils/haptics';
-import { DROPSET_MAX_DROPS, calcularKgSugeridoDrop } from '../../constants/entrenamiento';
+import { DROPSET_MAX_DROPS, calcularKgSugeridoDrop } from '../../constantes/entrenamiento';
 
 export interface SerieItem {
   id?: string;
