@@ -6,12 +6,17 @@ import { Platform } from 'react-native';
 // Las credenciales se leen SIEMPRE de variables de entorno (.env).
 // Nunca usar la service_role key en el cliente: va en el .env que no se sube a git,
 // pero el cliente debería usar la anon key (Settings → API → "anon public").
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl =
+  process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseAnonKey =
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Configuración de Supabase incompleta. Define en tu archivo .env:\n' +
+if (
+  (!process.env.EXPO_PUBLIC_SUPABASE_URL || !process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY) &&
+  typeof window !== 'undefined'
+) {
+  console.error(
+    'Configuración de Supabase incompleta. Define en tu archivo .env o en Vercel:\n' +
       '  EXPO_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co\n' +
       '  EXPO_PUBLIC_SUPABASE_ANON_KEY=<anon key, NO la service_role>'
   );

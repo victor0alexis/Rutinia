@@ -2,16 +2,42 @@ const fs = require("fs");
 const path = require("path");
 
 const root = path.join(__dirname, "..");
-const packageJson = require.resolve("canvaskit-wasm/package.json");
+const dest = path.join(root, "public", "canvaskit.wasm");
+
+let packageJsonPath = null;
+try {
+  packageJsonPath = require.resolve("canvaskit-wasm/package.json");
+} catch {
+  try {
+    packageJsonPath = require.resolve(
+      "@shopify/react-native-skia/node_modules/canvaskit-wasm/package.json"
+    );
+  } catch {
+    packageJsonPath = null;
+  }
+}
+
+if (!packageJsonPath) {
+  if (fs.existsSync(dest)) {
+    console.log("ℹ️  canvaskit-wasm no está instalado, pero public/canvaskit.wasm ya existe.");
+    process.exit(0);
+  }
+  console.warn("⚠️  No se encontró canvaskit-wasm en node_modules.");
+  process.exit(0);
+}
+
 const source = path.join(
-  path.dirname(packageJson),
+  path.dirname(packageJsonPath),
   "bin",
   "full",
   "canvaskit.wasm",
 );
-const dest = path.join(root, "public", "canvaskit.wasm");
 
 if (!fs.existsSync(source)) {
+  if (fs.existsSync(dest)) {
+    console.log("ℹ️  No se encontró source en canvaskit-wasm, pero public/canvaskit.wasm ya existe.");
+    process.exit(0);
+  }
   console.warn("⚠️  No se encontró canvaskit.wasm en canvaskit-wasm.");
   process.exit(0);
 }
