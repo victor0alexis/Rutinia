@@ -93,3 +93,10 @@ Todas las variantes tienen consumidor real y se conservaron:
 - `TextoBrillante.tsx`/`.web.tsx` y `TextoGradiente.tsx`/`.web.tsx`, junto con sus CSS.
 
 Solo se retiraron re-exports y defaults sin consumidores; no se eliminó ninguna implementación por plataforma.
+ 
++---
++
++## 6. Autenticación con Google y Migración de Datos de Invitado
++
++- **Migración de datos de perfil local (invitado) a cuenta de Google / Supabase:**  
++  Actualmente, los entrenamientos, planes y notas creados en el perfil local (modo invitado) permanecen en el namespace del dispositivo (`AsyncStorage` sin prefijo de cuenta). La migración de estos datos hacia una cuenta en la nube recién autenticada con Google o correo se realiza manualmente mediante el bloque SQL previsto en `supabase/02_multicuenta.sql`. En el futuro, se puede implementar un flujo interactivo en la UI para ofrecer la fusión o subida automática de los datos locales a la nube tras iniciar sesión por primera vez.

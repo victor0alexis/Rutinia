@@ -52,6 +52,36 @@ El servidor SMTP por defecto de Supabase está limitado a miembros del proyecto.
 1. Configura tu proveedor SMTP en **Authentication → Emails → SMTP Settings** (Resend, Brevo, AWS SES, etc.).
 2. En **Authentication → URL Configuration**, configura `Site URL` y `Redirect URLs` con tu dominio web o scheme móvil (`rutinia://`).
 
+### Inicio de sesión con Google (OAuth PKCE)
+Rutinia soporta autenticación mediante Google en Web (PWA), iOS y Android sin exponer secretos en el cliente:
+
+1. **Google Cloud Console:**
+   - Configura la **Pantalla de consentimiento de OAuth** (marca en estado de producción o añade usuarios de prueba).
+   - Crea un **ID de cliente de OAuth 2.0** de tipo *Aplicación web*.
+   - Añade a **URIs de redireccionamiento autorizados**:
+     ```
+     https://<TU-REF-SUPABASE>.supabase.co/auth/v1/callback
+     ```
+2. **Supabase Dashboard:**
+   - Activa el proveedor en **Authentication → Providers → Google**.
+   - Ingresa el *Client ID* y *Client Secret* generados por Google Cloud.
+   - *Nota de seguridad:* El `Client Secret` vive únicamente en Supabase y **jamás** debe incluirse en la app, variables `EXPO_PUBLIC_` ni en el repositorio.
+3. **Configuración de URLs en Supabase (Authentication → URL Configuration):**
+   - **Site URL:**
+     ```
+     https://rutinia-victoralexis.vercel.app
+     ```
+   - **Redirect URLs:**
+     ```
+     https://rutinia-victoralexis.vercel.app/**
+     http://localhost:8081/**
+     exp://**
+     rutinia://**
+     ```
+4. **Flujo de Navegación:**
+   - En **Web / PWA (iOS y escritorio)**: Se utiliza redirección de página completa con intercambio de código PKCE y sincronización instantánea al volver a la app, evitando popups bloqueados por el navegador.
+   - En **Móvil (Expo Go / Dev Client)**: Se abre mediante `WebBrowser.openAuthSessionAsync` usando deep linking seguro (`rutinia://auth/callback` o `exp://`).
+
 ---
 
 ## 📁 Estructura del Proyecto
