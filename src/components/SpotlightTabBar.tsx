@@ -16,7 +16,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { fuentes, noir } from '../constantes/colores';
-import { vibrarBoton } from '../utils/haptics';
+import { vibrarBoton } from '../utilidades/hapticos';
 import { useLayout } from '../hooks/useLayout';
 
 type TabRouteMeta = {

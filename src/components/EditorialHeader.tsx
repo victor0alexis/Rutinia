@@ -15,7 +15,7 @@ import {
   obtenerCuentaActiva,
   subscribirCambioCuenta,
 } from '../services/cuentas';
-import { vibrarBoton } from '../utils/haptics';
+import { vibrarBoton } from '../utilidades/hapticos';
 import GradientText from './GradientText';
 import { RutiniaLogo } from './RutiniaLogo';
 import MenuOpcionesModal from './MenuOpcionesModal';

@@ -17,7 +17,7 @@ import Animated, {
 import LiquidMetalShader from './liquid-metal/LiquidMetalShader';
 import type { LiquidMetalShaderConfig } from './liquid-metal/types';
 import { fuentes } from '../constantes/colores';
-import { vibrarBoton } from '../utils/haptics';
+import { vibrarBoton } from '../utilidades/hapticos';
 
 export interface LiquidMetalButtonProps {
   /** Texto del botón */

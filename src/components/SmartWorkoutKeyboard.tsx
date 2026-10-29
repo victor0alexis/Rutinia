@@ -9,8 +9,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fuentes, noir } from '../constantes/colores';
-import { vibrarBoton } from '../utils/haptics';
-import { calcular1RMEstimado, calcularDiscosPorLado } from '../utils/calculadoraFuerza';
+import { vibrarBoton } from '../utilidades/hapticos';
+import { calcular1RMEstimado, calcularDiscosPorLado } from '../utilidades/calculadoraFuerza';
 import { useLayout } from '../hooks/useLayout';
 
 export type CampoEntrenamiento = 'peso' | 'reps' | 'rir' | 'pesoI' | 'repsI' | 'parciales';

@@ -1,4 +1,4 @@
-import { eliminarLocal, escribirLocal, leerLocal } from './offline';
+import { eliminarLocal, escribirLocal, leerLocal } from './almacenamientoLocal';
 
 export type EstadoTimer = {
   registroId: string;

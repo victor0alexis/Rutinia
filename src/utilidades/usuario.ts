@@ -1,4 +1,4 @@
-import { obtenerNamespaceDatos } from './offline';
+import { obtenerNamespaceDatos } from './almacenamientoLocal';
 
 /**
  * Devuelve el id del usuario propietario del espacio de datos activo.

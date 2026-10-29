@@ -1,7 +1,7 @@
 import { registrosDeRango } from './registros';
 import { listarRutinas } from './rutinas';
-import { parsearEjercicioInfo } from '../utils/ejercicios';
-import { esNotaDeEjercicio, parsearNotasSesion } from '../utils/notasSesion';
+import { parsearEjercicioInfo } from '../utilidades/ejercicios';
+import { esNotaDeEjercicio, parsearNotasSesion } from '../utilidades/notasSesion';
 
 export type RecordPersonal = {
   nombreEjercicio: string;

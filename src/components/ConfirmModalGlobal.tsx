@@ -17,7 +17,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { fuentes, noir } from '../constantes/colores';
-import { ModalConfig, suscribirModalConfirmacion } from '../utils/errores';
+import { ModalConfig, suscribirModalConfirmacion } from '../utilidades/errores';
 import GlowPanel from './GlowPanel';
 import { LiquidMetalButton } from './LiquidMetalButton';
 import ShinyText from './ShinyText';

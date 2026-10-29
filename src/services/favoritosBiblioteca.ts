@@ -4,8 +4,8 @@ import {
   escribirLocal,
   leerLocal,
   obtenerNamespaceDatos,
-} from '../utils/offline';
-import { filtrarPorPropietario, obtenerUsuarioIdActual } from '../utils/usuario';
+} from '../utilidades/almacenamientoLocal';
+import { filtrarPorPropietario, obtenerUsuarioIdActual } from '../utilidades/usuario';
 
 const STORAGE_SUFIJO = 'biblioteca_favoritos_v2';
 const STORAGE_LEGACY_BASE = '@rutinia_biblioteca_favoritos_v2';

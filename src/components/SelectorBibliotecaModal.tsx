@@ -14,8 +14,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colores, fuentes, noir } from '../constantes/colores';
 import { useLayout } from '../hooks/useLayout';
-import { vibrarBoton } from '../utils/haptics';
-import { confirmarAccion } from '../utils/errores';
+import { vibrarBoton } from '../utilidades/hapticos';
+import { confirmarAccion } from '../utilidades/errores';
 import EjercicioGif from './entrenamiento/EjercicioGif';
 import SpotlightSegmentedTabs, {
   SpotlightTabItem,

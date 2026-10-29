@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { fuentes, noir } from '../../constantes/colores';
-import { vibrarBoton } from '../../utils/haptics';
+import { vibrarBoton } from '../../utilidades/hapticos';
 import EjercicioGif from '../entrenamiento/EjercicioGif';
 import {
   EjercicioBiblioteca,

@@ -35,10 +35,10 @@ import {
   SesionExpiradaError,
   subscribirCambioCuenta,
 } from '../services/cuentas';
-import { limpiarCacheDatosLocales } from '../utils/offline';
-import { confirmarAccion, mostrarMensaje } from '../utils/errores';
-import { vibrarBoton } from '../utils/haptics';
-import { emitirCambioDatos } from '../utils/sincronizacion';
+import { limpiarCacheDatosLocales } from '../utilidades/almacenamientoLocal';
+import { confirmarAccion, mostrarMensaje } from '../utilidades/errores';
+import { vibrarBoton } from '../utilidades/hapticos';
+import { emitirCambioDatos } from '../utilidades/sincronizacion';
 import { RutiniaLogo } from './RutiniaLogo';
 
 export const KEY_PREF_UNIDAD = 'rutinia_pref_unidad_peso';

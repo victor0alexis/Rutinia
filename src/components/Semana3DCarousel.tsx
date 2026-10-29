@@ -24,8 +24,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { addWeeks, isSameDay } from 'date-fns';
 import { fuentes, noir } from '../constantes/colores';
 import { Registro } from '../tipos';
-import { aISO, diasDeSemana, nombreDia } from '../utils/fechas';
-import { vibrarBoton } from '../utils/haptics';
+import { aISO, diasDeSemana, nombreDia } from '../utilidades/fechas';
+import { vibrarBoton } from '../utilidades/hapticos';
 import { useLayout } from '../hooks/useLayout';
 
 export interface Semana3DCarouselProps {

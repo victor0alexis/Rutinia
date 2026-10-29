@@ -14,16 +14,16 @@ import EditorialHeader from '../../components/EditorialHeader';
 import Semana3DCarousel from '../../components/Semana3DCarousel';
 import { LiquidMetalButton } from '../../components/LiquidMetalButton';
 import { registrosDeRango } from '../../services/registros';
-import { aISO, diasDeSemana } from '../../utils/fechas';
-import { seguro } from '../../utils/errores';
+import { aISO, diasDeSemana } from '../../utilidades/fechas';
+import { seguro } from '../../utilidades/errores';
 import { EjercicioRegistro, Registro } from '../../tipos';
 import {
   SesionActivaInfo,
   obtenerSesionActivaInfo,
   obtenerBorradorSesion,
   subscribirSesionActiva,
-} from '../../utils/sesionActiva';
-import { subscribirCambioDatos } from '../../utils/sincronizacion';
+} from '../../utilidades/sesionActiva';
+import { subscribirCambioDatos } from '../../utilidades/sincronizacion';
 import { useLayout } from '../../hooks/useLayout';
 
 export default function Semana() {

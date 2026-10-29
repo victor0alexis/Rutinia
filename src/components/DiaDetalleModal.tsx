@@ -26,7 +26,7 @@ import SpotlightSegmentedTabs from './SpotlightSegmentedTabs';
 import RutinaLiveCard from './RutinaLiveCard';
 import RadiantButton from './base/radiant-button';
 import YoungNewtButton from './YoungNewtButton';
-import { vibrarBoton } from '../utils/haptics';
+import { vibrarBoton } from '../utilidades/hapticos';
 import { NotaEstandar, obtenerNotasEstandar } from '../services/notas';
 import {
   agregarRutinaAFechas,
@@ -37,9 +37,9 @@ import {
 import { listarRutinas } from '../services/rutinas';
 import { listarPlanes, listarRutinasDePlan } from '../services/planes';
 import { EjercicioRegistro, PlanEntrenamiento, Registro, Rutina } from '../tipos';
-import { SesionActivaInfo } from '../utils/sesionActiva';
-import { seguro, confirmarAccion } from '../utils/errores';
-import { aISO, nombreDia } from '../utils/fechas';
+import { SesionActivaInfo } from '../utilidades/sesionActiva';
+import { seguro, confirmarAccion } from '../utilidades/errores';
+import { aISO, nombreDia } from '../utilidades/fechas';
 import { useLayout } from '../hooks/useLayout';
 
 type Props = {

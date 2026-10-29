@@ -5,9 +5,9 @@ import {
   leerLocal,
   listarSufijosLocales,
   obtenerCacheLocal,
-} from '../utils/offline';
-import { filtrarPorPropietario, obtenerUsuarioIdActual } from '../utils/usuario';
-import { parsearEjercicioInfo } from '../utils/ejercicios';
+} from '../utilidades/almacenamientoLocal';
+import { filtrarPorPropietario, obtenerUsuarioIdActual } from '../utilidades/usuario';
+import { parsearEjercicioInfo } from '../utilidades/ejercicios';
 import {
   PREFIJO_NOTA_EJERCICIO,
   PREFIJO_OBSERVACIONES,
@@ -15,7 +15,7 @@ import {
   parsearNotaEjercicio,
   parsearNotasSesion,
   serializarNotasSesion,
-} from '../utils/notasSesion';
+} from '../utilidades/notasSesion';
 
 /** Obtiene el usuario_id del usuario autenticado, o null si no hay sesión. */
 const getUsuarioId = obtenerUsuarioIdActual;

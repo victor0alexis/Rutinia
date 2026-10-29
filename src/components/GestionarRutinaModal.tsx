@@ -26,12 +26,12 @@ import SelectorBibliotecaModal, { EjercicioSeleccionadoBiblioteca } from './Sele
 import { obtenerGifEjercicio } from '../services/ejerciciosGifs';
 import EjercicioGif from './entrenamiento/EjercicioGif';
 import { crearRutina, eliminarRutina, actualizarRutina } from '../services/rutinas';
-import { seguro, confirmarAccion, mostrarMensaje } from '../utils/errores';
-import { parsearEjercicioInfo } from '../utils/ejercicios';
+import { seguro, confirmarAccion, mostrarMensaje } from '../utilidades/errores';
+import { parsearEjercicioInfo } from '../utilidades/ejercicios';
 import { listarPlanes } from '../services/planes';
 import { PlanEntrenamiento, Rutina } from '../tipos';
 import { useLayout } from '../hooks/useLayout';
-import { vibrarBoton } from '../utils/haptics';
+import { vibrarBoton } from '../utilidades/hapticos';
 
 const DANGER = '#F08A9B';
 

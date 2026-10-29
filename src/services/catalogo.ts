@@ -1,7 +1,7 @@
 import { supabase } from '../biblioteca/supabase';
 import { EjercicioCatalogo } from '../tipos';
-import { guardarCacheLocal, obtenerCacheLocal } from '../utils/offline';
-import { obtenerUsuarioIdActual } from '../utils/usuario';
+import { guardarCacheLocal, obtenerCacheLocal } from '../utilidades/almacenamientoLocal';
+import { obtenerUsuarioIdActual } from '../utilidades/usuario';
 
 const getUsuarioId = obtenerUsuarioIdActual;
 

@@ -35,13 +35,13 @@ import {
 } from '../services/registros';
 import type { SesionHistorialEjercicio } from '../services/registros';
 import { reemplazarEjercicioEnRutina } from '../services/rutinas';
-import { seguro, mostrarMensaje } from '../utils/errores';
-import { parsearEjercicioInfo } from '../utils/ejercicios';
+import { seguro, mostrarMensaje } from '../utilidades/errores';
+import { parsearEjercicioInfo } from '../utilidades/ejercicios';
 import {
   parsearNotaEjercicio,
   parsearNotasSesion,
-} from '../utils/notasSesion';
-import { nombreDia } from '../utils/fechas';
+} from '../utilidades/notasSesion';
+import { nombreDia } from '../utilidades/fechas';
 import { Registro } from '../tipos';
 import { calcularKgSugeridoDrop } from '../constantes/entrenamiento';
 import { supabase } from '../biblioteca/supabase';
@@ -51,13 +51,13 @@ import {
   alternarPausaTimer,
   calcularSegundosTranscurridos,
   formatearTiempo,
-} from '../utils/timer';
+} from '../utilidades/temporizador';
 import {
   guardarBorradorSesion,
   obtenerBorradorSesion,
   limpiarSesionActiva,
   emitirCambioSesionActiva,
-} from '../utils/sesionActiva';
+} from '../utilidades/sesionActiva';
 
 export type FocusTeclado = {
   ejIdx: number;

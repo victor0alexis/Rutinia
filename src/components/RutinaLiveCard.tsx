@@ -34,12 +34,12 @@ import {
   obtenerBorradorSesion,
   limpiarSesionActiva,
   BorradorSesion,
-} from '../utils/sesionActiva';
-import { formatearTiempo, formatearTiempoTexto } from '../utils/timer';
-import { vibrarBoton } from '../utils/haptics';
-import { confirmarAccion } from '../utils/errores';
-import { parsearEjercicioInfo } from '../utils/ejercicios';
-import { parsearNotasSesion } from '../utils/notasSesion';
+} from '../utilidades/sesionActiva';
+import { formatearTiempo, formatearTiempoTexto } from '../utilidades/temporizador';
+import { vibrarBoton } from '../utilidades/hapticos';
+import { confirmarAccion } from '../utilidades/errores';
+import { parsearEjercicioInfo } from '../utilidades/ejercicios';
+import { parsearNotasSesion } from '../utilidades/notasSesion';
 
 export interface RutinaLiveCardProps {
   registro: Registro;

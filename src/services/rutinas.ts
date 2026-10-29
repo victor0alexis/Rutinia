@@ -6,16 +6,16 @@ import {
   leerLocal,
   listarSufijosLocales,
   obtenerCacheLocal,
-} from '../utils/offline';
-import { filtrarPorPropietario, obtenerUsuarioIdActual } from '../utils/usuario';
-import { parsearEjercicioInfo } from '../utils/ejercicios';
+} from '../utilidades/almacenamientoLocal';
+import { filtrarPorPropietario, obtenerUsuarioIdActual } from '../utilidades/usuario';
+import { parsearEjercicioInfo } from '../utilidades/ejercicios';
 import {
   BorradorSesion,
   EjercicioStateDraft,
   SerieEjecucionDraft,
   emitirCambioSesionActiva,
-} from '../utils/sesionActiva';
-import { emitirCambioDatos } from '../utils/sincronizacion';
+} from '../utilidades/sesionActiva';
+import { emitirCambioDatos } from '../utilidades/sincronizacion';
 
 export type EjercicioNuevo = {
   nombre: string;

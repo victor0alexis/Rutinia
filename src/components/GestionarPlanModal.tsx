@@ -22,7 +22,7 @@ import { LiquidMetalButton } from './LiquidMetalButton';
 import ShinyText from './ShinyText';
 import { PlanEntrenamiento } from '../tipos';
 import { useLayout } from '../hooks/useLayout';
-import { vibrarBoton } from '../utils/haptics';
+import { vibrarBoton } from '../utilidades/hapticos';
 
 const DANGER = '#F08A9B';
 

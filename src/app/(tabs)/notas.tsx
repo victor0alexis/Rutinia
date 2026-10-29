@@ -35,9 +35,9 @@ import {
   obtenerNotasEstandar,
 } from '../../services/notas';
 import { agregarActividad } from '../../services/registros';
-import { aISO, diasDeSemana } from '../../utils/fechas';
-import { seguro, confirmarAccion, mostrarMensaje } from '../../utils/errores';
-import { subscribirCambioDatos } from '../../utils/sincronizacion';
+import { aISO, diasDeSemana } from '../../utilidades/fechas';
+import { seguro, confirmarAccion, mostrarMensaje } from '../../utilidades/errores';
+import { subscribirCambioDatos } from '../../utilidades/sincronizacion';
 import { useLayout } from '../../hooks/useLayout';
 
 function capitalizar(texto: string) {

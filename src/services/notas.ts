@@ -1,6 +1,6 @@
 import { supabase } from '../biblioteca/supabase';
-import { guardarCacheLocal, obtenerCacheLocal } from '../utils/offline';
-import { filtrarPorPropietario, obtenerUsuarioIdActual } from '../utils/usuario';
+import { guardarCacheLocal, obtenerCacheLocal } from '../utilidades/almacenamientoLocal';
+import { filtrarPorPropietario, obtenerUsuarioIdActual } from '../utilidades/usuario';
 
 export type CategoriaNota = 'Nutrición' | 'Entrenamiento' | 'Suplementos' | 'Recuperación' | 'General';
 

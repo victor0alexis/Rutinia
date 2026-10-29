@@ -34,9 +34,9 @@ import EliminarPlanModal from '../../components/EliminarPlanModal';
 import AplicarPlanSemanaModal from '../../components/AplicarPlanSemanaModal';
 import GestionarRutinaModal from '../../components/GestionarRutinaModal';
 import EditorialHeader from '../../components/EditorialHeader';
-import { subscribirCambioDatos } from '../../utils/sincronizacion';
-import { diasDeSemana } from '../../utils/fechas';
-import { vibrarBoton } from '../../utils/haptics';
+import { subscribirCambioDatos } from '../../utilidades/sincronizacion';
+import { diasDeSemana } from '../../utilidades/fechas';
+import { vibrarBoton } from '../../utilidades/hapticos';
 import {
   archivarPlan,
   crearPlan,
@@ -54,7 +54,7 @@ import {
 import { eliminarRutina } from '../../services/rutinas';
 import { PlanEntrenamiento, Rutina } from '../../tipos';
 import { useLayout } from '../../hooks/useLayout';
-import { mostrarMensaje, seguro } from '../../utils/errores';
+import { mostrarMensaje, seguro } from '../../utilidades/errores';
 
 const DANGER = '#F08A9B';
 

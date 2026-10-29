@@ -14,17 +14,17 @@ import DiaDetalleModal, { parsearNotaInteligente } from '../../components/DiaDet
 import EjecutarEntrenamientoModal from '../../components/EjecutarEntrenamientoModal';
 import { registrosDeRango } from '../../services/registros';
 import { listarPlanes } from '../../services/planes';
-import { aISO, nombreDia } from '../../utils/fechas';
-import { seguro } from '../../utils/errores';
-import { parsearEjercicioInfo } from '../../utils/ejercicios';
+import { aISO, nombreDia } from '../../utilidades/fechas';
+import { seguro } from '../../utilidades/errores';
+import { parsearEjercicioInfo } from '../../utilidades/ejercicios';
 import { EjercicioRegistro, PlanEntrenamiento, Registro } from '../../tipos';
 import { useLayout } from '../../hooks/useLayout';
 import {
   SesionActivaInfo,
   obtenerSesionActivaInfo,
   subscribirSesionActiva,
-} from '../../utils/sesionActiva';
-import { subscribirCambioDatos } from '../../utils/sincronizacion';
+} from '../../utilidades/sesionActiva';
+import { subscribirCambioDatos } from '../../utilidades/sincronizacion';
 
 // Configuración de idioma Español para el Calendario
 LocaleConfig.locales['es'] = {

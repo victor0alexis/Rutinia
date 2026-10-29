@@ -22,7 +22,7 @@ import { differenceInCalendarDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { fuentes, noir } from '../../constantes/colores';
 import { useLayout } from '../../hooks/useLayout';
-import { vibrarBoton } from '../../utils/haptics';
+import { vibrarBoton } from '../../utilidades/hapticos';
 import {
   SesionHistorialEjercicio,
   SerieHistorialEjercicio,

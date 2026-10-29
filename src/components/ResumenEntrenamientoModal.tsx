@@ -16,7 +16,7 @@ import { fuentes, noir } from '../constantes/colores';
 import ScreenBackground from './ScreenBackground';
 import ShinyText from './ShinyText';
 import { LiquidMetalButton } from './LiquidMetalButton';
-import { formatearTiempoTexto } from '../utils/timer';
+import { formatearTiempoTexto } from '../utilidades/temporizador';
 import { useLayout } from '../hooks/useLayout';
 
 export type SerieResumen = {

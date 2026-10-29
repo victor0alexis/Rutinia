@@ -49,9 +49,9 @@ import {
 } from '../../services/progreso';
 import { listarPlanes } from '../../services/planes';
 import { PlanEntrenamiento } from '../../tipos';
-import { aISO } from '../../utils/fechas';
-import { seguro } from '../../utils/errores';
-import { subscribirCambioDatos } from '../../utils/sincronizacion';
+import { aISO } from '../../utilidades/fechas';
+import { seguro } from '../../utilidades/errores';
+import { subscribirCambioDatos } from '../../utilidades/sincronizacion';
 import { useLayout } from '../../hooks/useLayout';
 
 type PeriodoFiltro = 'mes' | '30dias' | 'anio';

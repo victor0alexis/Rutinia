@@ -17,7 +17,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { colores, fuentes } from '../constantes/colores';
-import { vibrarBoton } from '../utils/haptics';
+import { vibrarBoton } from '../utilidades/hapticos';
 
 export interface SpotlightTabItem<T extends string = string> {
   id: T;

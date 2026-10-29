@@ -5,10 +5,10 @@ import {
   leerLocal,
   obtenerCacheLocal,
   escribirLocal,
-} from '../utils/offline';
-import { filtrarPorPropietario, obtenerUsuarioIdActual } from '../utils/usuario';
+} from '../utilidades/almacenamientoLocal';
+import { filtrarPorPropietario, obtenerUsuarioIdActual } from '../utilidades/usuario';
 import { EjercicioNuevo } from './rutinas';
-import { aISO, diasDeSemana } from '../utils/fechas';
+import { aISO, diasDeSemana } from '../utilidades/fechas';
 
 const KEY_ULTIMO_PLAN = 'ultimo_plan_usado';
 

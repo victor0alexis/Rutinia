@@ -1,5 +1,5 @@
-import { calcularSegundosTranscurridos, limpiarTimerSesion, obtenerOIniciarTimer } from './timer';
-import { eliminarLocal, escribirLocal, leerLocal } from './offline';
+import { calcularSegundosTranscurridos, limpiarTimerSesion, obtenerOIniciarTimer } from './temporizador';
+import { eliminarLocal, escribirLocal, leerLocal } from './almacenamientoLocal';
 
 export type DropDraftItem = {
   orden: number;
