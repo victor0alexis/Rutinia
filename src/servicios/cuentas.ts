@@ -29,6 +29,7 @@ WebBrowser.maybeCompleteAuthSession();
  */
 
 type TipoCuenta = 'local' | 'nube';
+export type ProveedorCuenta = 'correo' | 'google';
 
 export type CuentaRutinia = {
   id: string;
@@ -40,7 +41,12 @@ export type CuentaRutinia = {
   ultimaVez: number;
   /** Indica si en este dispositivo existe una sesión reutilizable. */
   sesionGuardada: boolean;
+  proveedor?: ProveedorCuenta;
 };
+
+export function esCuentaGoogle(cuenta: CuentaRutinia | null | undefined): boolean {
+  return cuenta?.proveedor === 'google';
+}
 
 export type EstadoCuentas = {
   activaId: string;
@@ -92,6 +98,19 @@ export class SesionExpiradaError extends Error {
   }
 }
 
+export class SesionGoogleExpiradaError extends Error {
+  readonly email: string | null;
+
+  constructor(email: string | null, detalle?: string) {
+    super(
+      detalle ||
+        'La sesión de Google expiró. Vuelve a iniciar sesión con Google para continuar.'
+    );
+    this.name = 'SesionGoogleExpiradaError';
+    this.email = email;
+  }
+}
+
 export class EliminacionNoConfiguradaError extends Error {
   constructor() {
     super(
@@ -111,6 +130,7 @@ function cuentaLocal(): CuentaRutinia {
     creadaEn: Date.now(),
     ultimaVez: Date.now(),
     sesionGuardada: false,
+    proveedor: 'correo',
   };
 }
 
@@ -153,6 +173,9 @@ function normalizarRegistro(valor: unknown): RegistroCuentas {
     const cuenta = item as Partial<CuentaRutinia>;
     if (!cuenta.id || (cuenta.tipo !== 'local' && cuenta.tipo !== 'nube')) continue;
 
+    const proveedor: ProveedorCuenta =
+      cuenta.proveedor === 'google' ? 'google' : 'correo';
+
     cuentas.push({
       id: String(cuenta.id),
       tipo: cuenta.tipo,
@@ -167,6 +190,7 @@ function normalizarRegistro(valor: unknown): RegistroCuentas {
       creadaEn: typeof cuenta.creadaEn === 'number' ? cuenta.creadaEn : Date.now(),
       ultimaVez: typeof cuenta.ultimaVez === 'number' ? cuenta.ultimaVez : Date.now(),
       sesionGuardada: Boolean(cuenta.sesionGuardada),
+      proveedor,
     });
   }
 
@@ -187,6 +211,14 @@ function ordenarCuentas(cuentas: CuentaRutinia[]): CuentaRutinia[] {
     if (a.tipo !== b.tipo) return a.tipo === 'local' ? -1 : 1;
     return b.ultimaVez - a.ultimaVez;
   });
+}
+
+function deducirProveedorDeUsuario(user: User): ProveedorCuenta {
+  if (user.app_metadata?.provider === 'google') return 'google';
+  const providers = user.app_metadata?.providers as string[] | undefined;
+  if (Array.isArray(providers) && providers.includes('google')) return 'google';
+  if (user.identities?.some((identidad) => identidad.provider === 'google')) return 'google';
+  return 'correo';
 }
 
 async function leerRegistro(): Promise<RegistroCuentas> {
@@ -224,6 +256,8 @@ function upsertCuentaEnRegistro(
   const existente = registro.cuentas.find((cuenta) => cuenta.id === user.id);
   const meta = (user.user_metadata || {}) as Record<string, unknown>;
   const ahora = Date.now();
+  const proveedor: ProveedorCuenta =
+    deducirProveedorDeUsuario(user) || existente?.proveedor || 'correo';
 
   const actualizada: CuentaRutinia = {
     id: user.id,
@@ -234,6 +268,7 @@ function upsertCuentaEnRegistro(
     creadaEn: existente?.creadaEn ?? (user.created_at ? Date.parse(user.created_at) : ahora),
     ultimaVez: ahora,
     sesionGuardada: conSesion || Boolean(existente?.sesionGuardada),
+    proveedor,
   };
 
   registro.cuentas = [
@@ -786,9 +821,16 @@ export async function reenviarConfirmacion(email: string): Promise<void> {
   if (error) throw traducirErrorAuth(error);
 }
 
+function errorDeSesionExpirada(cuenta: CuentaRutinia): Error {
+  return esCuentaGoogle(cuenta)
+    ? new SesionGoogleExpiradaError(cuenta.email)
+    : new SesionExpiradaError(cuenta.email);
+}
+
 /**
  * Cambia la cuenta activa reutilizando la sesión guardada. Si el refresh token
- * ya no es válido, lanza `SesionExpiradaError` para que la UI pida contraseña.
+ * ya no es válido, lanza `SesionExpiradaError` (o `SesionGoogleExpiradaError`
+ * si la cuenta usa Google) para que la UI pida la reautenticación adecuada.
  */
 export async function cambiarCuenta(cuentaId: string): Promise<CuentaRutinia> {
   const registro = await leerRegistro();
@@ -809,7 +851,7 @@ export async function cambiarCuenta(cuentaId: string): Promise<CuentaRutinia> {
   if (!sesionGuardada) {
     destino.sesionGuardada = false;
     await guardarRegistro(registro);
-    throw new SesionExpiradaError(destino.email);
+    throw errorDeSesionExpirada(destino);
   }
 
   const anterior = await supabase.auth.getSession();
@@ -863,7 +905,7 @@ export async function cambiarCuenta(cuentaId: string): Promise<CuentaRutinia> {
     // No mostramos el mensaje crudo de Supabase («Invalid JWT structure»,
     // «Refresh Token Not Found», etc.): el usuario solo necesita saber que
     // debe volver a entrar.
-    throw new SesionExpiradaError(destino.email);
+    throw errorDeSesionExpirada(destino);
   }
 
   return activarSesion(data.session);
@@ -983,6 +1025,13 @@ export async function actualizarEmailActual(email: string): Promise<{
   requiereConfirmacion: boolean;
   mensaje: string;
 }> {
+  const cuenta = await obtenerCuentaActiva();
+  if (esCuentaGoogle(cuenta)) {
+    throw new Error(
+      'Esta cuenta usa Google. El correo se administra desde tu cuenta de Google y no se puede cambiar aquí.'
+    );
+  }
+
   const nuevoEmail = email.trim();
   const { data, error } = await supabase.auth.updateUser({ email: nuevoEmail });
   if (error) throw traducirErrorAuth(error);
@@ -1005,6 +1054,13 @@ export async function actualizarEmailActual(email: string): Promise<{
 }
 
 export async function actualizarPasswordActual(password: string): Promise<void> {
+  const cuenta = await obtenerCuentaActiva();
+  if (esCuentaGoogle(cuenta)) {
+    throw new Error(
+      'Esta cuenta usa Google y no tiene una contraseña en Rutinia. Vuelve a entrar con Google.'
+    );
+  }
+
   if (password.length < 6) {
     throw new Error('La contraseña debe tener al menos 6 caracteres.');
   }
