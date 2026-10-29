@@ -18,7 +18,7 @@ import { inicializarCuentas } from '../services/cuentas';
 
 import ConfirmModalGlobal from '../components/ConfirmModalGlobal';
 import { RutiniaLogo } from '../components/RutiniaLogo';
-import DebugViewportOverlay from '../components/DebugViewportOverlay';
+import DebugViewportOverlay from '../components/depuracion/DebugViewportOverlay';
 
 import { StatusBar } from 'expo-status-bar';
 

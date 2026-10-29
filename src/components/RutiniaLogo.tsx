@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
-import { Metal } from '../shared/components/organisms/metal';
+import { Metal } from './liquid-metal/metal';
 
 export interface RutiniaLogoProps {
   /** Diameter of the metal mark (default: 32) */
