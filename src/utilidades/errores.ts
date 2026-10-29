@@ -19,12 +19,8 @@ export function suscribirModalConfirmacion(listener: Listener) {
   };
 }
 
-export function abrirModalGlobal(config: Omit<ModalConfig, 'visible'>) {
+function abrirModalGlobal(config: Omit<ModalConfig, 'visible'>) {
   listeners.forEach((l) => l({ ...config, visible: true }));
-}
-
-export function cerrarModalGlobal() {
-  listeners.forEach((l) => l({ visible: false, tipo: 'alert', titulo: '', mensaje: '' }));
 }
 
 export async function seguro(fn: () => Promise<void>) {

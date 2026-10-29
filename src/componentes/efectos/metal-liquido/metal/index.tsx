@@ -26,7 +26,3 @@ export const Metal: React.FC<IMetal> = (props) => {
 };
 
 Metal.displayName = "Metal";
-
-export { METAL_COLORS } from "./metal-skia";
-export type { IMetal, MetalStop } from "./types";
-export default Metal;

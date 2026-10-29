@@ -240,11 +240,6 @@ export const Metal: React.FC<IMetal> = (props) => {
 
 Metal.displayName = "Metal";
 
-export { METAL_COLORS };
-export type { IMetal, MetalStop };
-
-export default Metal;
-
 const styles = StyleSheet.create({
   rim: {
     position: "absolute",

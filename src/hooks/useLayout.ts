@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Keyboard, Platform, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export type FontScale = {
+type FontScale = {
   xs: number;
   sm: number;
   md: number;
@@ -11,7 +11,7 @@ export type FontScale = {
   xxl: number;
 };
 
-export type SpaceScale = {
+type SpaceScale = {
   xs: number;
   sm: number;
   md: number;

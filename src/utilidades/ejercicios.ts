@@ -4,14 +4,14 @@
  * así como Reps Parciales (+3p), Dropsets (→ kg r ↓) y Sustituciones (↔ Sustituye a...).
  */
 
-export interface DropDetalleParsed {
+interface DropDetalleParsed {
   orden: number;
   kg: string;
   reps: string;
   rir?: string;
 }
 
-export interface SetDetalleParsed {
+interface SetDetalleParsed {
   setNum: number;
   resumen: string;
   completado: boolean;

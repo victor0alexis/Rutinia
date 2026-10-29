@@ -23,7 +23,7 @@ import { emitirCambioDatos } from '../utilidades/sincronizacion';
  * expo-secure-store, sobre todo en iOS/Android.
  */
 
-export type TipoCuenta = 'local' | 'nube';
+type TipoCuenta = 'local' | 'nube';
 
 export type CuentaRutinia = {
   id: string;

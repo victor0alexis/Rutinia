@@ -14,46 +14,14 @@ export type PlanEntrenamiento = {
   diasPorSemana?: number;
 };
 
-export type DropItem = {
+type DropItem = {
   orden: number;
   kg: number | string;
   reps: number | string;
   rir?: number | string | null;
 };
 
-export type EjercicioCatalogo = {
-  id: string;
-  usuario_id?: string | null;
-  nombre: string;
-  grupo_muscular?: string | null;
-  equipo?: string | null;
-  creado_en?: string;
-};
-
-export type SerieRutina = {
-  id: string;
-  numeroSerie: number;
-  peso: number | null;
-  repeticiones: number | null;
-  rir?: number | null; // Repeticiones en reserva (RIR)
-  nota?: string;
-  reps_parciales?: number | null;
-  es_dropset?: boolean;
-  drops?: DropItem[];
-};
-
-export type EjercicioRutinaDetallado = {
-  id: string;
-  nombre: string;
-  seriesDetalladas?: SerieRutina[];
-  series?: number | null;
-  repeticiones?: number | null;
-  peso?: number | null;
-  notas?: string;
-  orden?: number;
-};
-
-export type EjercicioRutina = {
+type EjercicioRutina = {
   id: string;
   rutina_id: string;
   nombre: string;

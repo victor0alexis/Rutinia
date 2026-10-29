@@ -3,8 +3,8 @@
  * Configuraciones de DropSets, Reps Parciales y Ejercicios.
  */
 
-export const DROPSET_PORCENTAJE_REDUCCION = 0.20; // 20% de reducción entre drops
-export const DROPSET_REDONDEO_KG = 2.5; // Redondeo al múltiplo de 2.5 kg más cercano
+const DROPSET_PORCENTAJE_REDUCCION = 0.20; // 20% de reducción entre drops
+const DROPSET_REDONDEO_KG = 2.5; // Redondeo al múltiplo de 2.5 kg más cercano
 export const DROPSET_MAX_DROPS = 4; // Máximo 4 drops por serie
 
 /**

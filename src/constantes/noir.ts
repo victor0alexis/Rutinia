@@ -38,5 +38,3 @@ export const noir = {
   champagne: '#FFD166',
   lavender: '#B394FF',
 } as const;
-
-export type NoirColor = keyof typeof noir;

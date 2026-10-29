@@ -72,4 +72,4 @@ const resolveRadius = (
   );
 };
 
-export { degreesToRadians, hexToRgb, resolvePalette, resolveRadius };
+export { degreesToRadians, resolvePalette, resolveRadius };

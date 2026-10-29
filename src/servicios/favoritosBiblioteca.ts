@@ -38,7 +38,7 @@ export interface EstadoBibliotecaFavoritos {
   recientes: string[];
 }
 
-export const ESTADO_FAVORITOS_INICIAL: EstadoBibliotecaFavoritos = {
+const ESTADO_FAVORITOS_INICIAL: EstadoBibliotecaFavoritos = {
   favoritos: [],
   listas: [],
   recientes: [],

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   LayoutChangeEvent,
   Pressable,
@@ -18,7 +18,7 @@ import { parsearEjercicioInfo } from '../../utilidades/ejercicios';
 import { useLayout } from '../../hooks/useLayout';
 import EjercicioGif from './EjercicioGif';
 
-export interface EjercicioCarruselItem {
+interface EjercicioCarruselItem {
   id: string;
   nombre: string;
   completado: boolean;

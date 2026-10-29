@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   LayoutChangeEvent,
   Platform,
@@ -27,7 +27,7 @@ export interface SpotlightTabItem<T extends string = string> {
   iconOutline?: keyof typeof Ionicons.glyphMap;
 }
 
-export interface SpotlightSegmentedTabsProps<T extends string = string> {
+interface SpotlightSegmentedTabsProps<T extends string = string> {
   tabs: SpotlightTabItem<T>[];
   activeTab: T;
   onChangeTab: (tabId: T) => void;

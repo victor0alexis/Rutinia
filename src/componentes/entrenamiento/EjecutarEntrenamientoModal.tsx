@@ -1,5 +1,5 @@
 import { styles } from './EjecutarEntrenamientoModal.estilos';
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -97,7 +97,7 @@ export type EjercicioState = {
   sustitucion_alcance?: 'solo_hoy' | 'rutina' | null;
   notaEjercicio?: string;
 };
-export type SerieHistorica = {
+type SerieHistorica = {
   peso: string;
   reps: string;
   rir: string;
@@ -1650,7 +1650,6 @@ export default function EjecutarEntrenamientoModal({
                       <TablaSeriesFocus
                         ejIdx={indexValido}
                         series={seriesFocus}
-                        activo={visible}
                         esUnilateral={ejActivo.esUnilateral}
                         nombreEjercicio={ejActivo.nombre}
                         onToggleUnilateral={() => toggleUnilateralEjercicio(indexValido)}

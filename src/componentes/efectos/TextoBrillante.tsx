@@ -17,7 +17,7 @@ import { fuentes } from '../../constantes/colores';
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(SvgLinearGradient);
 
-export interface ShinyTextProps {
+interface ShinyTextProps {
   text?: string;
   children?: React.ReactNode;
   color?: string;

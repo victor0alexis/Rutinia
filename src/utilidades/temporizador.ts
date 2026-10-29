@@ -48,7 +48,7 @@ export async function obtenerOIniciarTimer(registroId: string): Promise<EstadoTi
 /**
  * Guarda el estado actual del timer en AsyncStorage.
  */
-export async function guardarEstadoTimer(estado: EstadoTimer): Promise<void> {
+async function guardarEstadoTimer(estado: EstadoTimer): Promise<void> {
   try {
     await escribirLocal(getKey(estado.registroId), JSON.stringify(estado));
   } catch (err) {

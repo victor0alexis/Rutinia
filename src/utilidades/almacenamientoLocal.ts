@@ -28,7 +28,7 @@ export function obtenerNamespaceDatos(): string {
   return namespaceActual;
 }
 
-export function obtenerPrefijoNamespace(): string {
+function obtenerPrefijoNamespace(): string {
   return `${PREFIJO}${namespaceActual}${SEPARADOR}`;
 }
 

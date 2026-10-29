@@ -9,7 +9,7 @@ import './TextoBrillante.css';
 type Easing = 'smooth' | 'linear' | 'snappy';
 type Trigger = 'loop' | 'hover' | 'view';
 
-export interface ShinyTextProps {
+interface ShinyTextProps {
   text?: string;
   children?: ReactNode;
   color?: string;

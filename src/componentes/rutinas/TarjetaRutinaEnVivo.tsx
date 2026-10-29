@@ -1,5 +1,5 @@
 import { styles } from './TarjetaRutinaEnVivo.estilos';
-import React, { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   LayoutChangeEvent,
   Platform,

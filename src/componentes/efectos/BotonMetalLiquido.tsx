@@ -176,8 +176,6 @@ export const BotonMetalLiquido = memo(function LiquidMetalButton({
 
 BotonMetalLiquido.displayName = 'BotonMetalLiquido';
 
-export default BotonMetalLiquido;
-
 const styles = StyleSheet.create({
   contenedorBase: {
     alignSelf: 'stretch',

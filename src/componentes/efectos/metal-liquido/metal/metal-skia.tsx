@@ -286,7 +286,3 @@ const styles = StyleSheet.create({
     position: "absolute",
   },
 });
-
-export { METAL_COLORS } from "./const";
-
-export default memo<React.FC<IMetal> & React.FunctionComponent<IMetal>>(Metal);

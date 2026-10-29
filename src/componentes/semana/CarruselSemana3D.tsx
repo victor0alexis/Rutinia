@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/immutability */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   LayoutChangeEvent,
   Pressable,
@@ -28,7 +28,7 @@ import { aISO, diasDeSemana, nombreDia } from '../../utilidades/fechas';
 import { vibrarBoton } from '../../utilidades/hapticos';
 import { useLayout } from '../../hooks/useLayout';
 
-export interface Semana3DCarouselProps {
+interface Semana3DCarouselProps {
   fechaReferencia: Date;
   diaActivo: Date;
   registros: Registro[];

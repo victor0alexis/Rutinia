@@ -191,11 +191,6 @@ export async function guardarNotaDelDia(fecha: string, textoNota: string) {
   await agregarActividad(fecha, `📌 ${textoNota}`, null, null, null);
 }
 
-export async function alternarEjercicio(id: string, completado: boolean) {
-  const { error } = await supabase.from('ejercicios_registro').update({ completado }).eq('id', id);
-  if (error) throw error;
-}
-
 export async function actualizarEjecucionEjercicio(
   id: string,
   datos: {
@@ -556,7 +551,7 @@ export async function obtenerHistorialPrevioEjercicio(
 // Historial completo por ejercicio (Previa / evolución)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type DropHistorialEjercicio = {
+type DropHistorialEjercicio = {
   orden: number;
   kg: number;
   reps: number;

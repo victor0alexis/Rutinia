@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -12,7 +12,7 @@ import { fuentes, noir } from '../../constantes/colores';
 import { vibrarBoton } from '../../utilidades/hapticos';
 import { DROPSET_MAX_DROPS, calcularKgSugeridoDrop } from '../../constantes/entrenamiento';
 
-export interface SerieItem {
+interface SerieItem {
   id?: string;
   setNum: number;
   peso: string;
@@ -36,7 +36,6 @@ export interface SerieItem {
 interface Props {
   ejIdx: number;
   series: SerieItem[];
-  activo?: boolean;
   esUnilateral?: boolean;
   nombreEjercicio?: string;
   focusCampoActivo?: {
@@ -55,7 +54,6 @@ interface Props {
 
 export default function TablaSeriesFocus({
   series,
-  activo = true,
   esUnilateral = false,
   nombreEjercicio,
   focusCampoActivo,

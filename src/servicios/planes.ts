@@ -2,7 +2,6 @@ import { supabase } from '../biblioteca/supabase';
 import { PlanEntrenamiento, Rutina } from '../tipos';
 import {
   guardarCacheLocal,
-  leerLocal,
   obtenerCacheLocal,
   escribirLocal,
 } from '../utilidades/almacenamientoLocal';
@@ -14,11 +13,6 @@ const KEY_ULTIMO_PLAN = 'ultimo_plan_usado';
 
 /** Obtiene el usuario_id del usuario autenticado, o null si no hay sesión. */
 const getUsuarioId = obtenerUsuarioIdActual;
-
-/** Obtiene el ID del último plan usado persistido localmente */
-export async function obtenerUltimoPlanUsadoId(): Promise<string | null> {
-  return leerLocal(KEY_ULTIMO_PLAN);
-}
 
 /** Guarda el ID del último plan usado */
 export async function guardarUltimoPlanUsadoId(planId: string): Promise<void> {
@@ -90,7 +84,7 @@ export async function listarPlanes(opciones: { incluirArchivados?: boolean } = {
 /**
  * Obtiene un plan específico por ID.
  */
-export async function obtenerPlanPorId(planId: string): Promise<PlanEntrenamiento | null> {
+async function obtenerPlanPorId(planId: string): Promise<PlanEntrenamiento | null> {
   const planes = await listarPlanes({ incluirArchivados: true });
   return planes.find((p) => p.id === planId) || null;
 }
@@ -253,24 +247,6 @@ export async function archivarPlan(planId: string): Promise<void> {
 }
 
 /**
- * Restaura un plan archivado.
- */
-export async function restaurarPlan(planId: string): Promise<void> {
-  const { error } = await supabase
-    .from('planes_entrenamiento')
-    .update({ archivado: false })
-    .eq('id', planId);
-
-  if (error) throw new Error(`Error al restaurar el plan: ${error.message}`);
-
-  const cache = (await obtenerCacheLocal<PlanEntrenamiento[]>('planes_entrenamiento')) || [];
-  const actualizados = cache.map((p) =>
-    p.id === planId ? { ...p, archivado: false } : p
-  );
-  await guardarCacheLocal('planes_entrenamiento', actualizados);
-}
-
-/**
  * Reordena una lista de planes según el orden proporcionado.
  */
 export async function reordenarPlanes(planesOrdenadosIds: string[]): Promise<void> {
@@ -369,7 +345,7 @@ export async function listarRutinasDePlan(planId: string | null): Promise<Rutina
 /**
  * Crea una rutina directamente asociada a un plan con día sugerido opcional.
  */
-export async function crearRutinaEnPlan(
+async function crearRutinaEnPlan(
   planId: string | null,
   nombre: string,
   ejercicios: EjercicioNuevo[],

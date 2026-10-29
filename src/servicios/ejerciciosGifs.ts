@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { normalizarTexto } from '../utilidades/texto';
 
 export interface EjercicioGifInfo {
   id: string;
@@ -162,19 +163,10 @@ const DICCIONARIO_POPULARES: Record<string, Partial<EjercicioGifInfo>> = {
 let catalogoCompleto: EjercicioGifInfo[] | null = null;
 let peticionEnCurso: Promise<EjercicioGifInfo[]> | null = null;
 
-function normalizar(texto: string): string {
-  return (texto || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]/g, ' ')
-    .trim();
-}
-
 /**
  * Carga el catálogo completo de 1,323 ejercicios en segundo plano
  */
-export async function cargarCatalogoCompleto(): Promise<EjercicioGifInfo[]> {
+async function cargarCatalogoCompleto(): Promise<EjercicioGifInfo[]> {
   if (catalogoCompleto) return catalogoCompleto;
   if (peticionEnCurso) return peticionEnCurso;
 
@@ -236,11 +228,11 @@ cargarCatalogoCompleto().catch(() => {});
  * Respuesta instantánea sincrónica respaldada por el diccionario curado + búsqueda difusa.
  */
 export function obtenerGifEjercicio(nombreEjercicio: string): EjercicioGifInfo {
-  const norm = normalizar(nombreEjercicio);
+  const norm = normalizarTexto(nombreEjercicio);
 
   // 1. Verificación directa en el diccionario curado
   for (const [clave, datos] of Object.entries(DICCIONARIO_POPULARES)) {
-    if (norm.includes(normalizar(clave)) || normalizar(clave).includes(norm)) {
+    if (norm.includes(normalizarTexto(clave)) || normalizarTexto(clave).includes(norm)) {
       const id = datos.id || 'delts/dumbbell-lateral-raise';
       return {
         id,
@@ -268,7 +260,7 @@ export function obtenerGifEjercicio(nombreEjercicio: string): EjercicioGifInfo {
     let mejorPuntuacion = 0;
 
     for (const ex of catalogoCompleto) {
-      const nEx = normalizar(ex.name);
+      const nEx = normalizarTexto(ex.name);
       let puntuacion = 0;
 
       if (nEx === norm) {

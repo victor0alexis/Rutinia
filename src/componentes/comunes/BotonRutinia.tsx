@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LayoutChangeEvent, Platform, Pressable, StyleProp, Text, ViewStyle } from 'react-native';
 import {
   BlurMask,

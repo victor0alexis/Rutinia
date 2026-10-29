@@ -33,4 +33,4 @@ interface IRadiantButton {
   readonly glowBandWidth?: number;
 }
 
-export type { IRadiantButton, IAnimatedRadianButtonTheme };
+export type { IRadiantButton };

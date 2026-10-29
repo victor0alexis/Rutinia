@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { normalizarTexto } from '../utilidades/texto';
 
 export interface EjercicioBiblioteca {
   id: string;
@@ -75,7 +76,7 @@ export const MAPA_GRUPOS: Record<string, string> = {
   'levator-scapulae': 'Cuello / Escápula',
 };
 
-export const MAPA_EQUIPOS: Record<string, string> = {
+const MAPA_EQUIPOS: Record<string, string> = {
   dumbbell: 'Mancuerna',
   barbell: 'Barra',
   cable: 'Polea',
@@ -104,7 +105,7 @@ export const LISTA_EQUIPAMIENTOS: EquipamientoItem[] = [
 ];
 
 /** Acentos visuales por grupo muscular. Se usan en chips, listas y tarjetas. */
-export const COLORES_GRUPO: Record<string, string> = {
+const COLORES_GRUPO: Record<string, string> = {
   todos: '#5CC8FF',
   pectorals: '#FF6B8A',
   delts: '#FFC15C',
@@ -367,17 +368,6 @@ const EJERCICIOS_OFFLINE_BASE: EjercicioBiblioteca[] = [
 let memoriaCatalogo: EjercicioBiblioteca[] = [...EJERCICIOS_OFFLINE_BASE];
 let inicializado = false;
 let promesaCarga: Promise<EjercicioBiblioteca[]> | null = null;
-
-export function normalizarTextoBiblioteca(texto: string): string {
-  return (texto || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]/g, ' ')
-    .trim();
-}
-
-const normalizarTexto = normalizarTextoBiblioteca;
 
 /**
  * Carga el catálogo completo de 1.323 ejercicios desde jsDelivr
@@ -750,35 +740,4 @@ export function filtrarEjerciciosBiblioteca(params: FiltroBibliotecaParams): Eje
       : resultados.length;
 
   return resultados.slice(0, fin).map((resultado) => resultado.item);
-}
-
-/**
- * Busca el ejercicio más representativo para un nombre dado (ej: para vincular con GIF)
- */
-export function buscarEjercicioPorNombre(nombre: string): EjercicioBiblioteca | null {
-  if (!nombre) return null;
-  const norm = normalizarTexto(nombre);
-
-  // Coincidencia exacta
-  const exacto = memoriaCatalogo.find((e) => normalizarTexto(e.name) === norm);
-  if (exacto) return exacto;
-
-  // Coincidencia difusa
-  const palabras = norm.split(' ').filter((p) => p.length > 2);
-  let mejor: EjercicioBiblioteca | null = null;
-  let maxCoincidencias = 0;
-
-  for (const ex of memoriaCatalogo) {
-    const exNorm = normalizarTexto(ex.name);
-    let pts = 0;
-    for (const p of palabras) {
-      if (exNorm.includes(p)) pts += 1;
-    }
-    if (pts > maxCoincidencias) {
-      maxCoincidencias = pts;
-      mejor = ex;
-    }
-  }
-
-  return maxCoincidencias >= 1 ? mejor : null;
 }

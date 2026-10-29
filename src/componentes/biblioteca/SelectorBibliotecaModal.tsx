@@ -1,5 +1,5 @@
 import { styles } from './SelectorBibliotecaModal.estilos';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -29,8 +29,8 @@ import {
   cargarBibliotecaEjercicios,
   colorDeGrupo,
   filtrarEjerciciosBiblioteca,
-  normalizarTextoBiblioteca,
 } from '../../servicios/bibliotecaEjercicios';
+import { normalizarTexto } from '../../utilidades/texto';
 import {
   ListaFavoritosBiblioteca,
   agregarListaFavoritos,
@@ -287,7 +287,7 @@ function SelectorBibliotecaContenido({
   }, [baseEjercicios]);
 
   const listasFiltradas = useMemo(() => {
-    const q = normalizarTextoBiblioteca(busqueda);
+    const q = normalizarTexto(busqueda);
     if (!q) return listas;
 
     return listas.filter((lista) => {
@@ -296,7 +296,7 @@ function SelectorBibliotecaContenido({
         .map((id) => mapaCatalogo.get(id)?.name || '')
         .join(' ');
 
-      return normalizarTextoBiblioteca(
+      return normalizarTexto(
         `${lista.nombre} ${grupo.nombre} ${nombresEjercicios}`
       ).includes(q);
     });

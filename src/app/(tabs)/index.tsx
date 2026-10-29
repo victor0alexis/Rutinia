@@ -3,7 +3,7 @@ import { Text, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useIsFocused } from 'expo-router';
 import Head from 'expo-router/head';
-import { addDays, format, isSameDay, parseISO } from 'date-fns';
+import { format, isSameDay, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { fuentes, noir } from '../../constantes/colores';
 import DiaDetalleModal from '../../componentes/semana/DiaDetalleModal';
@@ -200,13 +200,6 @@ export default function Semana() {
     return resto > 0 ? `${horas} h ${resto} min` : `${horas} h`;
   })();
 
-  const irDiaAnterior = () => {
-    setDiaActivo(addDays(diaActivo, -1));
-  };
-  const irDiaSiguiente = () => {
-    setDiaActivo(addDays(diaActivo, 1));
-  };
-
   const abrirEjecutarRutina = (r: Registro) => {
     setRegistroEjecutar(r);
     setModoReanudar(false);
@@ -320,9 +313,6 @@ export default function Semana() {
 
           {/* TARJETA PRINCIPAL DEL DÍA SELECCIONADO (Estilo Uiverse one-div glow) */}
           <TarjetaDiaPrincipal
-            diaActivo={diaActivo}
-            onDiaAnterior={irDiaAnterior}
-            onDiaSiguiente={irDiaSiguiente}
             registrosConRutina={registrosConRutina}
             notasDelDia={notasDelDia}
             ejerciciosExtras={ejerciciosExtras}

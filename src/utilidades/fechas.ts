@@ -2,7 +2,7 @@ import { addDays, endOfWeek, format, startOfWeek } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 export const aISO = (d: Date) => format(d, 'yyyy-MM-dd');
-export const inicioSemana = (d: Date) => startOfWeek(d, { weekStartsOn: 1 });
+const inicioSemana = (d: Date) => startOfWeek(d, { weekStartsOn: 1 });
 
 export const diasDeSemana = (d: Date) => {
   const ini = inicioSemana(d);

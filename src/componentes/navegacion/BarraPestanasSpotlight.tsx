@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   LayoutChangeEvent,
   Platform,
@@ -61,7 +61,6 @@ const TAB_CONFIG: Record<string, TabRouteMeta> = {
 
 function BarraPestanasSpotlight({
   state,
-  descriptors,
   navigation,
   insets,
 }: BottomTabBarProps) {

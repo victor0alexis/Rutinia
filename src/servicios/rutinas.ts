@@ -25,7 +25,7 @@ export type EjercicioNuevo = {
 };
 
 /** Configuración que hereda un ejercicio al reemplazar a otro en la rutina. */
-export type HerenciaEjercicioRutina = {
+type HerenciaEjercicioRutina = {
   series: number | null;
   repeticiones: number | null;
   peso: number | null;
@@ -242,20 +242,6 @@ export async function eliminarRutina(id: string): Promise<void> {
 }
 
 
-export async function duplicarRutina(rutina: Rutina, nuevoPlanId?: string | null): Promise<Rutina | null> {
-  const targetPlanId = nuevoPlanId !== undefined ? nuevoPlanId : rutina.plan_id;
-  const nuevosEjercicios: EjercicioNuevo[] = (rutina.ejercicios_rutina || []).map((e) => {
-    const nombreBase = e.nombre.replace(/\s*\(.*\)$/, '').trim();
-    return {
-      nombre: nombreBase || e.nombre,
-      series: e.series,
-      repeticiones: e.repeticiones,
-      peso: e.peso,
-    };
-  });
-  return crearRutina(`${rutina.nombre} (Copia)`, nuevosEjercicios, targetPlanId, rutina.dia_sugerido);
-}
-
 /**
  * Sincroniza de manera automática e instantánea cualquier cambio de ejercicios u orden
  * de una rutina con:
@@ -264,7 +250,7 @@ export async function duplicarRutina(rutina: Rutina, nuevoPlanId?: string | null
  * 3. Los cachés locales de registros de entrenamiento en AsyncStorage.
  * 4. Notifica a toda la aplicación para recarga inmediata en 0 ms.
  */
-export async function sincronizarRutinaConRegistrosYActiva(
+async function sincronizarRutinaConRegistrosYActiva(
   rutinaId: string,
   nuevoNombre: string,
   nuevosEjercicios: EjercicioNuevo[]

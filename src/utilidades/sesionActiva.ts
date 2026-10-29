@@ -1,7 +1,7 @@
 import { calcularSegundosTranscurridos, limpiarTimerSesion, obtenerOIniciarTimer } from './temporizador';
 import { eliminarLocal, escribirLocal, leerLocal } from './almacenamientoLocal';
 
-export type DropDraftItem = {
+type DropDraftItem = {
   orden: number;
   kg: string;
   reps: string;

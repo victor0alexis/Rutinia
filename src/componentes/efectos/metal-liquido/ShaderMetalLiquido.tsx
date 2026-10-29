@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import { PixelRatio, StyleSheet, View } from 'react-native';
 import {
   Canvas,
@@ -21,11 +21,6 @@ import {
   type LiquidMetalShaderProps,
 } from './types';
 import { LIQUID_METAL_SKSL, parseColorToRGBA } from './metalLiquidoSkSL';
-
-export type {
-  LiquidMetalShaderConfig,
-  LiquidMetalShaderProps,
-} from './types';
 
 /** Paleta de respaldo si el RuntimeEffect no puede compilarse. */
 const CHROMATIC_METAL_COLORS = [

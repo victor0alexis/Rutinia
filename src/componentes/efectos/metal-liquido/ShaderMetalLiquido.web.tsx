@@ -1,15 +1,10 @@
-import React, { memo } from 'react';
+import { memo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { LiquidMetal } from '@paper-design/shaders-react';
 import { useReducedMotion } from 'react-native-reanimated';
 import {
   LIQUID_METAL_DEFAULTS,
   type LiquidMetalShaderProps,
-} from './types';
-
-export type {
-  LiquidMetalShaderConfig,
-  LiquidMetalShaderProps,
 } from './types';
 
 const LiquidMetalShaderWeb = memo(function LiquidMetalShaderWeb({

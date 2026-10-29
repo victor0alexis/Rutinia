@@ -50,12 +50,12 @@ export const fuentes = {
 };
 
 export const COLORES_PLANES = [
-  '#E0334F', // Carmesí Rutinia
+  tema.fondo.auroraCarmesi, // Carmesí Rutinia
   '#F59E0B', // Ámbar / Dorado
   '#10B981', // Esmeralda
   '#06B6D4', // Cian Glaciar
   '#3B82F6', // Azul Cobalto
-  '#8B5CF6', // Violeta
+  tema.colores.violeta, // Violeta
   '#EC4899', // Rosa Intenso
   '#6366F1', // Índigo
 ] as const;

@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import { memo } from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { Metal } from '../efectos/metal-liquido/metal';
@@ -19,7 +19,7 @@ export interface RutiniaLogoProps {
 /**
  * The exact molten metal palette from reacticx.com/components/metal.
  */
-export const REACTICX_METAL_COLORS: readonly string[] = [
+const REACTICX_METAL_COLORS: readonly string[] = [
   '#120703',
   '#321006',
   '#67210C',

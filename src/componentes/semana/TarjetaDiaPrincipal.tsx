@@ -1,4 +1,3 @@
-import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { fuentes } from '../../constantes/colores';
@@ -51,7 +50,7 @@ function obtenerTemaNota(categoria: string) {
   };
 }
 
-export interface MainDayCardProps {
+interface MainDayCardProps {
   registrosConRutina: Registro[];
   notasDelDia: EjercicioRegistro[];
   ejerciciosExtras: EjercicioRegistro[];
@@ -60,11 +59,6 @@ export interface MainDayCardProps {
   onReanudarRutina: (r: Registro) => void;
   onVerResumenRutina: (r: Registro) => void;
   onDescartarRutina?: (r: Registro) => void;
-  // Props opcionales para retrocompatibilidad
-  diaActivo?: Date;
-  esDiaHoy?: boolean;
-  onDiaAnterior?: () => void;
-  onDiaSiguiente?: () => void;
 }
 
 function TarjetaDiaPrincipal({

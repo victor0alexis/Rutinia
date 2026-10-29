@@ -1,4 +1,4 @@
-import React, { useId } from 'react';
+import { useId } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 const SPARKLE_PATH =

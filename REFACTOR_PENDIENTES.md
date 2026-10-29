@@ -56,3 +56,40 @@ Se recomienda validar periódicamente la necesidad de los siguientes paquetes en
 - `expo-device`: Evaluar si las detecciones de plataforma y hardware pueden simplificarse con las APIs nativas de `Platform.OS` y `react-native`.
 - `react-native-worklets`: Gestionado como dependencia interna de `react-native-reanimated`.
 - `expo-glass-effect`: Validar adopción completa en los componentes de liquid metal y glassmorphism.
+
+---
+
+## 5. Fase 1: Limpieza de Código y Duplicados
+
+### Archivos y símbolos eliminados
+
+- `src/servicios/catalogo.ts`: no tenía importadores estáticos, dinámicos ni referencias por cadena. Sus tipos asociados (`EjercicioCatalogo`) también se eliminaron.
+- `duplicarRutina` (`src/servicios/rutinas.ts`): duplicaba la responsabilidad de `duplicarRutinaEnPlan` (`src/servicios/planes.ts`) y no se usaba.
+- `buscarEjercicioPorNombre` (`src/servicios/bibliotecaEjercicios.ts`), `restaurarPlan` y `obtenerUltimoPlanUsadoId` (`src/servicios/planes.ts`), `alternarEjercicio` (`src/servicios/registros.ts`) y `cerrarModalGlobal` (`src/utilidades/errores.ts`): sin referencias.
+- Se retiraron exports sin consumidores y se conservaron como locales los símbolos que seguían usándose internamente.
+
+### Duplicados consolidados
+
+- `normalizar` de `src/servicios/ejerciciosGifs.ts` y `normalizarTextoBiblioteca` de `src/servicios/bibliotecaEjercicios.ts` eran idénticos. Ahora ambos usan `normalizarTexto` en `src/utilidades/texto.ts`.
+- `src/constantes/notas.ts` usa los micro-acentos de `noir` (`platinum`, `mint`, `lavender`, `champagne`, `info`) en lugar de repetir sus hexadecimales.
+- `COLORES_PLANES` en `src/constantes/colores.ts` usa `tema.fondo.auroraCarmesi` y `tema.colores.violeta` para los dos colores que ya existían como tokens.
+
+### Duplicados pendientes (no consolidados)
+
+- `normalizarNombreEjercicio` existe en `src/servicios/rutinas.ts` y `src/servicios/registros.ts`, pero tienen semánticas distintas: rutinas usa `parsearEjercicioInfo`; registros elimina tildes y plurales simples. Unificarlos requiere pruebas de regresión de búsqueda y herencia.
+- `calcular1RMEstimado` (`src/utilidades/calculadoraFuerza.ts`) y `calcularE1RM` (`src/servicios/registros.ts`) aplican fórmulas y topes diferentes. Mantener separados hasta validar una única fórmula de producto.
+- `formatearTiempo` y `formatearTiempoTexto` (`src/utilidades/temporizador.ts`) tienen formatos distintos (`mm:ss` frente a texto humano). No son duplicados reales.
+- `formatearFecha` está definido localmente en `src/componentes/entrenamiento/HistorialEjercicioModal.tsx`; candidato a moverse a `src/utilidades/fechas.ts` si se reutiliza.
+- `obtenerTemaNota` en `src/componentes/semana/TarjetaDiaPrincipal.tsx` repite hexadecimales de `noir`; se puede migrar a tokens cuando se revise esa tarjeta.
+- `noir.text`/`noir.pearl` comparten el mismo hexadecimal, y `tema` repite `#2BD598` y `#22D3EE` en tokens distintos. No se tocaron para no introducir referencias circulares dentro de los objetos de tokens.
+
+### Auditoría de `src/componentes/efectos/`
+
+Todas las variantes tienen consumidor real y se conservaron:
+
+- `boton-radiante/index.tsx` (nativo), `index.web.tsx` (web), `boton-radiante-skia.tsx` (nativo y web) y `boton-radiante-fallback.web.tsx` (web y red de seguridad).
+- `metal-liquido/ShaderMetalLiquido.tsx` (nativo) y `.web.tsx` (web).
+- `metal-liquido/metal/index.tsx` (nativo), `index.web.tsx` (web) y `metal-skia.tsx` (implementación compartida).
+- `TextoBrillante.tsx`/`.web.tsx` y `TextoGradiente.tsx`/`.web.tsx`, junto con sus CSS.
+
+Solo se retiraron re-exports y defaults sin consumidores; no se eliminó ninguna implementación por plataforma.
