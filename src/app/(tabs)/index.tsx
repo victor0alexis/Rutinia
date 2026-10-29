@@ -178,28 +178,6 @@ export default function Semana() {
     return texto.charAt(0).toUpperCase() + texto.slice(1);
   }, [diaActivo]);
 
-  const minutosRutinas = registrosConRutina.reduce((total, r) => {
-    const series = (r.ejercicios_registro || [])
-      .filter((e) => !e.nombre.startsWith('📌'))
-      .reduce((acc, e) => acc + (e.series || 3), 0);
-    return total + Math.max(25, Math.round(series * 2.5));
-  }, 0);
-
-  const resumenDia = {
-    actividades: registrosConRutina.length + ejerciciosExtras.length,
-    notas: notasDelDia.length,
-    minutos: minutosRutinas + ejerciciosExtras.length * 10,
-  };
-
-  const minutosTexto = (() => {
-    const { minutos } = resumenDia;
-    if (minutos <= 0) return '0 min';
-    const horas = Math.floor(minutos / 60);
-    const resto = minutos % 60;
-    if (horas === 0) return `${resto} min`;
-    return resto > 0 ? `${horas} h ${resto} min` : `${horas} h`;
-  })();
-
   const abrirEjecutarRutina = (r: Registro) => {
     setRegistroEjecutar(r);
     setModoReanudar(false);
@@ -227,7 +205,7 @@ export default function Semana() {
   return (
     <FondoPantalla acento={acento}>
       <Head>
-        <title>Semana · Rutinia</title>
+        <title>RutinIA</title>
       </Head>
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         {/* CONTENIDO PRINCIPAL */}
@@ -243,14 +221,14 @@ export default function Semana() {
         >
           {/* CABECERA EDITORIAL COMPARTIDA: MARCA + AVATAR */}
           <EncabezadoEditorial
-            title="Semana"
+            title="RutinIA"
             style={{
               paddingTop: isLandscape ? 2 : 4,
               marginBottom: isLandscape ? 4 : 14,
             }}
           />
 
-          {/* SALUDO EDITORIAL: HOY + FECHA + RESUMEN REAL DEL DÍA */}
+          {/* SALUDO EDITORIAL: HOY + FECHA */}
           <View
             style={[
               styles.greeting,
@@ -274,29 +252,6 @@ export default function Semana() {
               ]}
             >
               {fechaTitulo}
-            </Text>
-            <Text style={styles.greetingStats} numberOfLines={1}>
-              {resumenDia.actividades > 0 ? (
-                <>
-                  <Text style={styles.greetingStatsStrong}>
-                    {resumenDia.actividades}{' '}
-                    {resumenDia.actividades === 1 ? 'actividad' : 'actividades'}
-                  </Text>
-                  <Text style={styles.greetingSep}> · </Text>
-                  {minutosTexto} planificadas
-                </>
-              ) : resumenDia.notas > 0 ? (
-                <>
-                  <Text style={styles.greetingStatsStrong}>
-                    {resumenDia.notas}{' '}
-                    {resumenDia.notas === 1 ? 'nota' : 'notas'}
-                  </Text>
-                  <Text style={styles.greetingSep}> · </Text>
-                  sin entrenamientos
-                </>
-              ) : (
-                'Sin actividades planificadas'
-              )}
             </Text>
           </View>
 
@@ -437,20 +392,6 @@ const styles = StyleSheet.create({
     fontFamily: fuentes.bold,
     letterSpacing: -0.84,
     marginTop: 7,
-  },
-  greetingStats: {
-    color: noir.muted,
-    fontFamily: fuentes.regular,
-    fontSize: 11.5,
-    lineHeight: 16,
-    marginTop: 6,
-  },
-  greetingStatsStrong: {
-    color: '#DCE3EC',
-    fontFamily: fuentes.semiBold,
-  },
-  greetingSep: {
-    color: 'rgba(255, 255, 255, 0.18)',
   },
   carouselWrap: {
     flexShrink: 0,

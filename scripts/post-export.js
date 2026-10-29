@@ -30,9 +30,10 @@ function setDefaultTitle(dir) {
       setDefaultTitle(fullPath);
     } else if (entry.name.endsWith('.html')) {
       const html = fs.readFileSync(fullPath, 'utf8');
+      const defaultTitle = entry.name === 'index.html' ? 'RutinIA' : 'Rutinia';
       const patched = html.replace(
         '<title data-rh="true"></title>',
-        '<title data-rh="true">Rutinia</title>'
+        `<title data-rh="true">${defaultTitle}</title>`
       );
       if (patched !== html) {
         fs.writeFileSync(fullPath, patched);

@@ -38,7 +38,7 @@ type Props = {
  * Reproduce el lockup de marca con el logotipo oficial de Rutinia y el título de la sección,
  * y conserva el menú de cuenta y ajustes detrás del avatar.
  */
-function EncabezadoEditorial({ title = 'Semana', style }: Props) {
+function EncabezadoEditorial({ title = 'RutinIA', style }: Props) {
   const { isCompact } = useLayout();
   const [cuenta, setCuenta] = useState<CuentaRutinia | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
