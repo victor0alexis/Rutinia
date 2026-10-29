@@ -1,77 +1,202 @@
 # RutinIA
 
-Aplicación móvil de rutinas, hábitos y progreso construida con Expo, React Native (Expo Router) y Supabase.
+Aplicación móvil y web de alto rendimiento para la gestión integral de entrenamientos, rutinas, notas de progresión y analítica deportiva. Construida con **Expo SDK 57**, **React Native**, **react-native-web**, **React Native Reanimated**, **Shopify React Native Skia** y **Supabase**.
 
-## Puesta en marcha
+---
 
+## 🚀 Puesta en marcha
+
+### 1. Instalación y dependencias
 ```bash
 npm install
-Copy-Item .env.example .env   # PowerShell
-npx expo start
 ```
 
-Rellena `.env` con los datos de tu proyecto de Supabase (Settings → API):
+### 2. Variables de entorno
+Copia la plantilla de entorno:
+```bash
+# En Windows (PowerShell)
+Copy-Item .env.example .env
 
+# En Linux/macOS
+cp .env.example .env
+```
+
+Configura tus credenciales de Supabase en `.env`:
 ```env
 EXPO_PUBLIC_SUPABASE_URL=https://TU-PROYECTO.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=TU_ANON_PUBLIC_KEY
 ```
 
-> **Importante:** usa siempre la clave **anon public**. La `service_role` ignora RLS y permite leer o borrar los datos de todas las cuentas; nunca debe incluirse en una app móvil. Si alguna vez se usó, rótala en Supabase y actualiza `.env`.
+> ⚠️ **Seguridad:** Usa **únicamente** la clave `anon public`. La clave `service_role` ignora las políticas RLS y jamás debe incluirse en clientes web ni aplicaciones móviles.
 
-## Base de datos
-
-Los scripts SQL se encuentran en la carpeta `supabase/` y se ejecutan en orden:
-
-- **`supabase/01_reset.sql`:** ejecuta una sola vez en el SQL Editor para un proyecto nuevo o de pruebas. Es destructivo: borra y recrea el esquema base.
-- **`supabase/02_multicuenta.sql`:** añade `usuario_id`, rellena las filas hijas, activa RLS con políticas por cuenta, ajusta el catálogo de ejercicios y crea el RPC `eliminar_mi_cuenta()`.
-  - **Datos antiguos de una sola cuenta:** al final de este script hay un bloque opcional para reivindicarlos. Sustituye `<UUID>` por el ID de `auth.users` y ejecútalo por separado.
-- **`supabase/03_listas_biblioteca.sql`:** crea las tablas para listas y favoritos de la biblioteca de ejercicios.
-- **`supabase/04_notas.sql`:** estructura y políticas para la tabla de notas.
-
-Sin ejecutar `supabase/02_multicuenta.sql`, el botón «Eliminar mi cuenta» no puede borrar la cuenta y el aislamiento real entre cuentas no está garantizado.
-
-### Correos de confirmación
-
-El servicio SMTP integrado de Supabase **solo entrega correos a miembros del equipo del proyecto** y está limitado a **2 correos por hora**. Por eso un registro con un correo normal puede completarse en la app pero nunca recibir el enlace.
-
-Para que lleguen a cualquier usuario:
-
-1. Configura un SMTP propio en **Authentication → Emails → SMTP Settings** (Resend, Brevo, Postmark, SES…).
-2. Revisa **Authentication → URL Configuration**: `Site URL` y `Redirect URLs` deben apuntar a una URL válida (por ejemplo, `rutinia://` en la app o el dominio web).
-3. Comprueba los logs en **Authentication → Logs** si el correo sigue sin llegar.
-4. Para pruebas locales puedes desactivar temporalmente **Confirm email** en **Authentication → Providers → Email**, pero vuelve a activarlo antes de publicar.
-
-La app incluye «Reenviar confirmación» en la pantalla de inicio de sesión.
-
-### Migrar el progreso anterior
-
-Las filas creadas antes del multicuenta tienen `usuario_id IS NULL` y siguen existiendo como datos del perfil invitado. **No se borran al crear una cuenta**, pero una cuenta nueva no las ve porque su espacio es independiente.
-
-Para pasarlas a una cuenta concreta, ejecuta el bloque opcional de `supabase/02_multicuenta.sql` con el UUID de esa cuenta. El bloque **mueve** las filas (no las copia): después dejarán de aparecer en el perfil invitado. Haz una copia de seguridad antes. Si quieres conservar ambas copias, pide una migración basada en duplicar filas.
-
-## Cuentas
-
-- El **perfil local/invitado** funciona sin iniciar sesión y está siempre disponible.
-- Se pueden añadir varias cuentas de Supabase y cambiar entre ellas desde **Menú & Ajustes → Cuentas**.
-- Al cambiar de cuenta se restaura la sesión guardada. Si el token caducó o fue revocado, la app pide la contraseña en lugar de mostrar un error técnico.
-- **Cerrar sesión** cierra solo esta instalación, olvida el token local y deja la cuenta en la lista para volver a entrar.
-- **Quitar del dispositivo** elimina la cuenta del selector y su caché local, pero no toca los datos en la nube.
-- **Eliminar mi cuenta** borra permanentemente la cuenta de Auth y todos sus datos mediante `eliminar_mi_cuenta()`.
-
-Los datos de cada cuenta se filtran por propietario y se guardan en cachés con espacio de nombres propio; RLS es la última barrera. Las filas del invitado se almacenan en la nube con `usuario_id IS NULL` y son accesibles con el rol `anon`: **no son privadas entre dispositivos**.
-
-## Seguridad
-
-- Los tokens de sesión por cuenta se guardan en AsyncStorage. Para producción, considera migrarlos a `expo-secure-store`.
-- RLS debe estar activo y la app debe usar la clave anon. Comprueba ambas cosas antes de publicar.
-- Si la `service_role` estuvo expuesta en un bundle o repositorio, considérala comprometida y rótala.
-
-## Comandos útiles
-
+### 3. Servidor de desarrollo
 ```bash
-npx tsc --noEmit     # typecheck
-npx expo lint        # lint
-npx expo start       # servidor de desarrollo
-npx expo-doctor      # diagnóstico de dependencias y configuración
+npx expo start
 ```
+- Presiona `w` para abrir en el navegador web (con aceleración CanvasKit Skia).
+- Presiona `a` para emulador Android o `i` para simulador iOS.
+
+---
+
+## 🗄️ Base de datos y Supabase
+
+Los scripts de base de datos se encuentran en `supabase/` y deben ejecutarse en orden secuencial en el SQL Editor de tu panel de Supabase:
+
+1. **`supabase/01_reset.sql`:** Inicialización y reseteo del esquema. Crea las tablas fundamentales (`planes_entrenamiento`, `rutinas`, `ejercicios_rutina`, `registros_entrenamiento`, `ejercicios_registro`, `ejercicios_catalogo`). *Destructivo en bases existentes.*
+2. **`supabase/02_multicuenta.sql`:** Habilita el aislamiento multicuenta con `usuario_id`, Row Level Security (RLS) en todas las entidades, catálogos predeterminados y el RPC `eliminar_mi_cuenta()`.
+3. **`supabase/03_listas_biblioteca.sql`:** Esquema y políticas para la gestión de ejercicios favoritos y colecciones personalizadas (`listas_biblioteca`, `favoritos_biblioteca`).
+4. **`supabase/04_notas.sql`:** Tabla de libreta de notas (`notas`), índices de búsqueda por etiquetas/categorías y políticas RLS asociadas.
+
+### Autenticación y Correos de Confirmación
+El servidor SMTP por defecto de Supabase está limitado a miembros del proyecto. Para producción con usuarios externos:
+1. Configura tu proveedor SMTP en **Authentication → Emails → SMTP Settings** (Resend, Brevo, AWS SES, etc.).
+2. En **Authentication → URL Configuration**, configura `Site URL` y `Redirect URLs` con tu dominio web o scheme móvil (`rutinia://`).
+
+---
+
+## 📁 Estructura del Proyecto
+
+El código fuente está rigurosamente organizado por función, con nombres en español y arquitectura desacoplada:
+
+```
+Rutinia/
+├── assets/                     # Assets nativos móviles (iconos, splash screens, imágenes estáticas)
+├── docs/                       # Documentación visual, especificaciones y mockups
+│   └── diseno/                 # Diseños de alta fidelidad, paletas y logo final
+├── public/                     # Archivos estáticos servidos en Web (manifest, favicons, PWA icons)
+├── scripts/                    # Scripts de build, optimización y testing
+│   ├── qa/                     # Scripts de pruebas automatizadas y capturas de regresión visual
+│   ├── setup-canvaskit.js      # Descarga y provisión del binario CanvasKit WASM para Web
+│   └── post-export.js          # Inyección de assets y optimizaciones tras la exportación web
+├── src/                        # Código fuente de la aplicación
+│   ├── app/                    # Rutas de navegación (Expo Router basado en el sistema de archivos)
+│   ├── biblioteca/             # Instancias base y configuración de clientes (Supabase)
+│   ├── componentes/            # Componentes de UI organizados por dominio funcional
+│   ├── constantes/             # Tokens de diseño, tipografías, temas y colores
+│   ├── hooks/                  # Hooks personalizados de React
+│   ├── servicios/              # Capa de datos, consultas a Supabase y lógica de negocio
+│   ├── tipos/                  # Definiciones de tipos e interfaces TypeScript
+│   └── utilidades/             # Funciones utilitarias puras (haptics, cronómetros, offline)
+├── supabase/                   # Scripts SQL versionados y ordenados
+├── vercel.json                 # Configuración de despliegue y cabeceras SPA para Vercel
+├── app.json                    # Manifiesto y configuración de Expo SDK 57
+└── package.json                # Dependencias y scripts de ejecución
+```
+
+---
+
+## 🗺️ Mapa de Rutas (`src/app/`)
+
+Rutinia utiliza **Expo Router** para la navegación. Los nombres dentro de `src/app/` definen las URLs del enrutador:
+
+| Archivo de Ruta | URL / Propósito | Descripción |
+| :--- | :--- | :--- |
+| `src/app/_layout.tsx` | Stack Raíz | Configuración global del Stack de navegación, temas y proveedores. |
+| `src/app/+html.tsx` | Plantilla Web | HTML head, inyección de fuentes Google Fonts, meta tags y CanvasKit Skia. |
+| `src/app/+not-found.tsx` | Fallback 404 | Pantalla mostrada ante rutas no existentes con redirección a inicio. |
+| `src/app/(tabs)/_layout.tsx` | Tab Navigator | Barra de navegación inferior flotante con efecto spotlight (`BarraPestanasSpotlight`). |
+| `src/app/(tabs)/index.tsx` | `/` (Hoy / Semana) | Pantalla principal. Carrusel 3D de la semana, rutina activa del día y accesos a sesiones. |
+| `src/app/(tabs)/rutinas.tsx` | `/rutinas` | Catálogo de rutinas, creador interactivo, gestor de planes y selector de ejercicios. |
+| `src/app/(tabs)/notas.tsx` | `/notas` | Libreta de notas de entrenamiento con filtrado de categorías y búsqueda. |
+| `src/app/(tabs)/calendario.tsx` | `/calendario` | Historial de entrenamientos completados, mapa de consistencia y calendario interactivo. |
+| `src/app/(tabs)/progreso.tsx` | `/progreso` | Analítica deportiva: heatmap muscular, cálculo de 1RM, evolución de volumen y récords personales (PRs). |
+
+---
+
+## 🧩 Desglose de `src/`
+
+### 1. Componentes (`src/componentes/`)
+Los componentes de interfaz están clasificados por contexto funcional en PascalCase:
+- **`comunes/`**: Componentes visuales genéricos (`FondoPantalla`, `EncabezadoEditorial`, `EncabezadoSeccion`, `BotonBrillo`, `PanelBrillo`).
+- **`navegacion/`**: Componentes de navegación y pestañas (`BarraPestanasSpotlight`, `DockPrincipal`, `PestanasSegmentadasSpotlight`).
+- **`semana/`**: Componentes del tablero semanal (`TarjetaDiaPrincipal`, `CarruselSemana3D`, `DiaDetalleModal`, `CarruselEjerciciosHeader`).
+- **`rutinas/`**: Componentes de gestión de rutinas (`TarjetaRutinaEnVivo`, `GestionarRutinaModal`, `GestionarPlanModal`).
+- **`entrenamiento/`**: Modales de ejecución de sesión en vivo, tracking de descansos y feedback (`EjecutarEntrenamientoModal`, `ResumenEntrenamientoModal`, `HistorialEjercicioModal`, `HeroEjercicioActivo`, `TablaSeriesFocus`).
+- **`biblioteca/`**: Selector y explorador de ejercicios (`SelectorBibliotecaModal`, `CrearListaSheet`, `TecladoTextoInteligente`).
+- **`progreso/`**: Bloques modulares y primitivas visuales de analítica (`PrimitivasProgreso`).
+- **`notas/`**: Elementos de notas (`RielCategoriasNotas`, `TarjetaNotaBiblioteca`).
+- **`cuenta/`**: Modal de gestión de perfiles e inicio de sesión (`MenuOpcionesModal`).
+- **`modales/`**: Diálogos globales (`ConfirmModalGlobal`).
+- **`efectos/`**: Shaders y efectos avanzados de Skia/Reanimated (`BotonMetalLiquido`, `BotonYoungNewt`, `TextoBrillante`, `TextoGradiente`, `RutiniaLogo`, shaders en `boton-radiante/` y `metal-liquido/`).
+- **`depuracion/`**: Utilidades de telemetría y viewport overlay (`DebugViewportOverlay`).
+
+### 2. Servicios de Datos (`src/servicios/`)
+Encapsulan las consultas a Supabase y la lógica transaccional:
+
+| Archivo de Servicio | Tablas de Supabase Afectadas | Responsabilidad Principal |
+| :--- | :--- | :--- |
+| `rutinas.ts` | `rutinas`, `ejercicios_rutina`, `registros_entrenamiento`, `ejercicios_registro` | Carga, creación, duplicación, ordenamiento y asignación de rutinas. |
+| `registros.ts` | `registros_entrenamiento`, `ejercicios_registro` | Guardado de sesiones en vivo, series, pesos, repeticiones y cálculo de PRs. |
+| `planes.ts` | `planes_entrenamiento`, `rutinas`, `ejercicios_rutina`, `registros_entrenamiento`, `ejercicios_registro` | Gestión de planes integrales de entrenamiento a medio/largo plazo. |
+| `notas.ts` | `notas` | CRUD de notas de texto enriquecido, categorías y fijación de elementos. |
+| `favoritosBiblioteca.ts` | `favoritos_biblioteca`, `listas_biblioteca` | Marcado de ejercicios favoritos y colecciones personalizadas. |
+| `catalogo.ts` | `ejercicios_catalogo` | Sincronización del catálogo base de ejercicios del sistema. |
+| `cuentas.ts` | RPC `eliminar_mi_cuenta` | Sincronización de perfiles locales/nube y baja de cuenta. |
+| `progreso.ts` | *(Cálculos en memoria)* | Algoritmos de estimación de 1RM (Epley/Brzycki), balance de volumen y fatiga muscular. |
+| `bibliotecaEjercicios.ts` | *(Catálogo estático/tipos)* | Filtros por equipamiento, nivel, grupo muscular primario y secundario. |
+| `ejerciciosGifs.ts` | *(Resolución de media)* | Mapeo y provisión de URLs de animaciones demostrativas de ejercicios. |
+
+### 3. Biblioteca (`src/biblioteca/`)
+- `supabase.ts`: Inicialización del cliente oficial `@supabase/supabase-js` con persistencia en `AsyncStorage` y detección de plataforma.
+
+### 4. Utilidades (`src/utilidades/`)
+- `almacenamientoLocal.ts`: Persistencia de borradores de entrenamiento y caché offline.
+- `temporizador.ts`: Motores de cronómetro y temporizadores de descanso.
+- `hapticos.ts`: Wrappers unificados de retroalimentación háptica adaptados para Móvil y Web.
+- `calculadoraFuerza.ts`: Fórmulas de cálculo de tonelaje y 1RM.
+- `fechas.ts`: Formateo y utilidades de fechas (días de la semana, ISO, marcas temporales).
+- `errores.ts`: Manejador centralizado de errores de red y base de datos.
+- `sesionActiva.ts`: Control de borrador y sesión en curso.
+- `sincronizacion.ts`: Cola de sincronización para operaciones pendientes sin conexión.
+- `notasSesion.ts`: Helpers para notas vinculadas a ejercicios durante la sesión.
+- `usuario.ts`: Identificación y resolución de identificador de usuario activo.
+
+### 5. Constantes (`src/constantes/`)
+- `colores.ts`: Sistema de diseño con la paleta Obsidian Noir (`noir`), contrastes y tokens cromáticos.
+- `tema.ts`: Configuraciones de espaciado, elevaciones y bordes redondeados.
+- `entrenamiento.ts`: Tipos de series (calentamiento, efectiva, fallo, drop-set).
+- `notas.ts`: Lista de categorías predeterminadas de notas.
+- `noir.ts`: Tokens semánticos de modo oscuro y metales.
+
+### 6. Tipos (`src/tipos/`)
+- `index.ts`: Definición completa de tipos de datos (`Rutina`, `Ejercicio`, `SerieRegistro`, `Registro`, `Nota`, `PlanEntrenamiento`, `PerfilUsuario`).
+
+---
+
+## ☁️ Despliegue en Vercel
+
+RutinIA está optimizada para desplegarse en **Vercel** como una Progressive Web Application (PWA) estática:
+
+### Configuración en Vercel:
+- **Framework Preset:** `Other`
+- **Build Command:** `npm run build:web`
+- **Output Directory:** `dist`
+- **Environment Variables:**
+  - `EXPO_PUBLIC_SUPABASE_URL`
+  - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+
+### Pipeline de compilación:
+1. `node scripts/setup-canvaskit.js`: Asegura que el archivo `canvaskit.wasm` necesario para Skia esté disponible en los assets de compilación.
+2. `npx expo export -p web`: Exporta las 12 rutas de Expo Router en HTML estático y empaqueta los bundles de JS/CSS con optimización de producción.
+3. `node scripts/post-export.js`: Copia los manifiestos, favicons y configura los títulos base.
+4. `vercel.json`: Gestiona las rutas SPA para que cualquier refresco en rutas profundas (`/rutinas`, `/progreso`) sea resuelto correctamente por Expo Router.
+
+---
+
+## 📏 Convenciones del Proyecto
+
+- **Nombres en Español:** Todos los módulos, carpetas y componentes deben nombrarse en español.
+- **Convención de Nombres de Archivo:**
+  - Componentes: `PascalCase.tsx` (ej. `TarjetaRutinaEnVivo.tsx`).
+  - Estilos de componentes extraídos: `<NombreComponente>.estilos.ts` (ej. `TarjetaRutinaEnVivo.estilos.ts`).
+  - Utilidades, servicios, hooks y constantes: `camelCase.ts` (ej. `hapticos.ts`, `catalogo.ts`, `useLayout.ts`).
+  - Extensiones de plataforma: `*.web.tsx` para web y `*.native.tsx` para móvil.
+- **Expo Router:**
+  - Las rutas viven exclusivamente en `src/app/`.
+  - No crear archivos que no sean pantallas dentro de `src/app/` (los componentes deben colocarse en `src/componentes/`).
+- **Verificación:** Antes de cada commit, debe validarse que el proyecto compila sin errores:
+  ```bash
+  npx tsc --noEmit    # Typecheck
+  npx expo lint       # Linter
+  npm run build:web   # Exportación estática web
+  ```

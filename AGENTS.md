@@ -29,6 +29,19 @@ Run lint and typecheck before declaring any task done.
 - Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
 - Docs: https://docs.expo.dev/router/introduction.md
 
+## Project Structure & Conventions (Spanish Architecture)
+
+Organize all code outside `src/app/` using domain-driven folders in Spanish:
+- `src/componentes/`: UI components organized by domain subfolders (`comunes`, `navegacion`, `semana`, `rutinas`, `entrenamiento`, `biblioteca`, `progreso`, `notas`, `cuenta`, `modales`, `efectos`, `depuracion`). PascalCase component names.
+- `src/servicios/`: Supabase database queries and business logic services (`rutinas.ts`, `registros.ts`, `planes.ts`, `notas.ts`, `catalogo.ts`, `cuentas.ts`, `favoritosBiblioteca.ts`).
+- `src/biblioteca/`: Base clients and initialization modules (e.g. `supabase.ts`).
+- `src/hooks/`: Custom React hooks (`useLayout.ts`).
+- `src/utilidades/`: Pure utility functions (`temporizador.ts`, `hapticos.ts`, `almacenamientoLocal.ts`, etc.).
+- `src/constantes/`: Design tokens, colors (`colores.ts`), themes, workout constants.
+- `src/tipos/`: TypeScript interface and model definitions (`index.ts`).
+- `supabase/`: Versioned SQL migration and initialization scripts (`01_reset.sql`, `02_multicuenta.sql`, `03_listas_biblioteca.sql`, `04_notas.sql`).
+- `scripts/`: Operational scripts (`setup-canvaskit.js`, `post-export.js`, `qa/`).
+
 ## Building with EAS
 
 Use EAS to build, sign, and submit the app in the cloud (`eas build`, `eas submit`) and to ship over-the-air updates (`eas update`) — no local Xcode or Android Studio required. Run EAS CLI as `bunx eas-cli <command>` in Bun projects, or `npx eas-cli@latest <command>` otherwise; substitute that for bare `eas` in docs examples.

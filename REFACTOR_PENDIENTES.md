@@ -1,78 +1,58 @@
 # REFACTOR_PENDIENTES.md
 
-Archivos y decisiones pendientes de acción futura.  
-Generado durante `refactor/estructura`.
+Registro de decisiones técnicas, deuda de arquitectura y sugerencias de refactorización profunda para RutinIA.  
+Actualizado tras la ejecución del refactor estructural (`refactor/estructura`).
 
 ---
 
-## Archivos con lógica entrelazada (no divididos en Fase 4)
+## 1. Pantallas de Rutas con Estado Fuertemente Entrelazado
 
-> Estos archivos superan las ~1 500 líneas pero se dejan sin dividir
-> hasta confirmar que las fases anteriores están verdes y se puede
-> hacer revisión manual de cada pantalla afectada.
+> **Regla de oro de Expo Router:**  
+> Las rutas en `src/app/` representan pantallas de navegación. En Fase 4 se mantuvieron intactas para garantizar cero riesgo de regresión en reactividad, sincronización de estado y montajes de Expo Router.
 
-| Archivo | Líneas aprox. | Motivo de aplazamiento |
-|---------|--------------|------------------------|
-| `src/app/(tabs)/rutinas.tsx` | ~3 300 | Pantalla de rutinas muy acoplada; dividir requiere refactorizar estado local |
-| `src/app/(tabs)/progreso.tsx` | ~2 000 | Gráficos y datos muy entrelazados |
+| Ruta | Líneas aprox. | Responsabilidades y Motivo de Aplazamiento |
+| :--- | :--- | :--- |
+| `src/app/(tabs)/rutinas.tsx` | ~3 280 | Pantalla de catálogo y gestión de rutinas. Tiene fuertemente entrelazados: estado de filtros, arrastrar y reordenar días/ejercicios, apertura de múltiples modales (edición, duplicación, cambio de plan), buscador interactivo y tarjeta de rutina activa. Separar lógica requiere un hook o store de estado (`useGestionRutinas`). |
+| `src/app/(tabs)/progreso.tsx` | ~2 010 | Pantalla analítica de progreso. Agrupa gráficos de volumen, cálculo dinámico de 1RM, heatmaps de grupos musculares, selector de rangos de fecha y lista de PRs recientes. Mantenerlo íntegro previno desincronizaciones en el renderizado web/móvil. |
+| `src/app/(tabs)/notas.tsx` | ~1 170 | Libreta de notas de entrenamiento con filtrado por categorías, búsqueda en tiempo real, edición inline y confirmaciones de borrado. |
 
----
-
-## Componentes con nombre en inglés no renombrados (Fase 3b pendiente)
-
-> Acordado: la Fase 3 solo reorganiza carpetas.
-> El renombrado de archivos individuales queda aquí para una Fase 3b opcional.
-
-| Nombre actual | Nombre propuesto | Ubicación |
-|---------------|-----------------|-----------|
-| `MainDayCard.tsx` | `TarjetaDiaPrincipal.tsx` | `componentes/semana/` |
-| `SpotlightTabBar.tsx` | `BarraPestanasSpotlight.tsx` | `componentes/navegacion/` |
-| `SpotlightSegmentedTabs.tsx` | `PestanasSegmentadas.tsx` | `componentes/navegacion/` |
-| `EditorialHeader.tsx` | `EncabezadoEditorial.tsx` | `componentes/comunes/` |
-| `GlowButton.tsx` | `BotonBrillo.tsx` | `componentes/efectos/` |
-| `GlowPanel.tsx` | `PanelBrillo.tsx` | `componentes/efectos/` |
-| `ScreenBackground.tsx` | `FondoPantalla.tsx` | `componentes/comunes/` |
-| `SmartWorkoutKeyboard.tsx` | `TecladoInteligente.tsx` | `componentes/entrenamiento/` |
-| `NotesCategoryRail.tsx` | `RielCategoriasNotas.tsx` | `componentes/notas/` |
-| `Semana3DCarousel.tsx` | `CarruselSemana3D.tsx` | `componentes/semana/` |
-| `LiquidMetalButton.tsx` | `BotonMetalLiquido.tsx` | `componentes/efectos/` |
-| `YoungNewtButton.tsx` | `BotonYoungNewt.tsx` | `componentes/efectos/` |
-| `YoungNewtButton.web.tsx` | `BotonYoungNewt.web.tsx` | `componentes/efectos/` |
-| `DockPrincipal.tsx` | Ya en español | — |
-| `liquid-metal/metal/` | `metal/` (ya movido) | `componentes/efectos/metal/` |
-| `base/radiant-button/` | `base/boton-radiante/` | `componentes/efectos/` |
-| `ProgressPrimitives.tsx` | `PrimitivasProgreso.tsx` | `componentes/progreso/` |
-| `CarruselEjerciciosHeader.tsx` | Ya en español | — |
-| `TablaSeriesFocus.tsx` | Ya en español | — |
-| `HeroEjercicioActivo.tsx` | Ya en español | — |
-| `HistorialEjercicioModal.tsx` | Ya en español | — |
+### Propuesta de Refactorización Futura:
+1. **Desacoplar el Estado de las Pantallas:**
+   - Crear un hook contenedor para cada pantalla: `usePantallaRutinas.ts` y `usePantallaProgreso.ts` dentro de `src/hooks/`.
+2. **Dividir en Subcomponentes Dedicados:**
+   - Extraer secciones visuales a `src/componentes/rutinas/` (ej. `FiltrosCategoriasRutinas.tsx`, `SeccionRutinaActiva.tsx`) y `src/componentes/progreso/` (ej. `MapaCalorMuscular.tsx`, `GraficoVolumenSemanal.tsx`).
+3. **Extraer Estilos de Rutas:**
+   - Una vez desacoplados los componentes, extraer los bloques de estilos a archivos independientes o usar el sistema de tokens común.
 
 ---
 
-## DebugViewportOverlay
+## 2. Modales Gigantes de Entrenamiento (Estilos Ya Extraídos)
 
-Movido a `src/components/depuracion/DebugViewportOverlay.tsx`.  
-Se elimina definitivamente después de la resolución del viewport (tarea del usuario).
+> En la **Fase 4**, los bloques de `StyleSheet.create` de estos componentes fueron exitosamente extraídos a archivos `.estilos.ts`, reduciendo entre 700 y 1 400 líneas por archivo. La lógica interna de negocio permanece funcionalmente idéntica.
 
----
+| Componente | Líneas Lógica | Estilos Extraídos | Estado Interno Entrelazado |
+| :--- | :--- | :--- | :--- |
+| `EjecutarEntrenamientoModal.tsx` | ~2 620 | `EjecutarEntrenamientoModal.estilos.ts` (1 369 lín.) | Cronómetro en vivo de descanso, cálculo de placas (plate calculator), registro de RPE/RIR por serie, persistencia de borrador local, audio cues y shaders de Skia. |
+| `SelectorBibliotecaModal.tsx` | ~2 015 | `SelectorBibliotecaModal.estilos.ts` (1 027 lín.) | Catálogo con categorización multi-músculo, pestañas de búsqueda, modal secundario para crear ejercicios personalizados y vista previa de animaciones. |
+| `GestionarRutinaModal.tsx` | ~1 550 | `GestionarRutinaModal.estilos.ts` (720 lín.) | Edición en vivo de bloques de entrenamiento, asignación semanal y target sets. |
 
-## Dependencias en package.json no verificadas
-
-Las siguientes dependencias no se buscaron en src/ de forma exhaustiva.
-Verificar antes de desinstalar:
-
-- `react-native-worklets` — usado internamente por react-native-reanimated
-- `expo-glass-effect` — verificar si algún componente lo usa
-- `expo-device` — posiblemente usado en useLayout o condiciones de plataforma
+### Propuesta de Refactorización Futura:
+- **Hook de Sesión Activa:** Migrar el estado de entrenamiento a un hook desacoplado `useSesionEntrenamiento.ts` para separar la máquina de estados de las series de la capa de presentación.
+- **Micro-componentes de Entrenamiento:** Descomponer `EjecutarEntrenamientoModal` en `BarraControlTiempo.tsx`, `SelectorDiscosCalculadora.tsx` y `FilaSerieEntrenamiento.tsx`.
 
 ---
 
-## artifacts/ en la raíz
+## 3. Componentes de Depuración
 
-Los siguientes archivos temporales se encuentran en `artifacts/` y se consideran
-candidatos a eliminación en una limpieza futura:
+- `src/componentes/depuracion/DebugViewportOverlay.tsx`:  
+  Componente auxiliar utilizado para monitorear en tiempo real las dimensiones del viewport, insets de SafeArea, orientación y ratio de escala en Web y Móvil.
+  - **Acción recomendada:** Mantener en desarrollo. Desactivar o retirar antes del lanzamiento final de producción.
 
-- `artifacts/*.tmp` (rutinas-prefix.tmp, rutinas-return.tmp, rutinas-styles.tmp)
-- `artifacts/splice-rutinas.mjs` — script temporal de edición
-- Todas las capturas PNG/JSON de QA (`qa-*.png`, `qa-*.json`)
-- GIFs de prueba (`cable-bar-lateral-pulldown.gif`)
+---
+
+## 4. Auditoría de Dependencias (`package.json`)
+
+Se recomienda validar periódicamente la necesidad de los siguientes paquetes en futuras versiones del SDK de Expo:
+- `expo-device`: Evaluar si las detecciones de plataforma y hardware pueden simplificarse con las APIs nativas de `Platform.OS` y `react-native`.
+- `react-native-worklets`: Gestionado como dependencia interna de `react-native-reanimated`.
+- `expo-glass-effect`: Validar adopción completa en los componentes de liquid metal y glassmorphism.
