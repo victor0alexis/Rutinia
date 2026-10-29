@@ -33,8 +33,8 @@ import {
   guardarNotaEstandar,
   NotaEstandar,
   obtenerNotasEstandar,
-} from '../../services/notas';
-import { agregarActividad } from '../../services/registros';
+} from '../../servicios/notas';
+import { agregarActividad } from '../../servicios/registros';
 import { aISO, diasDeSemana } from '../../utilidades/fechas';
 import { seguro, confirmarAccion, mostrarMensaje } from '../../utilidades/errores';
 import { subscribirCambioDatos } from '../../utilidades/sincronizacion';

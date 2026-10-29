@@ -11,7 +11,7 @@ import { format, isValid, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { fuentes, noir } from '../constantes/colores';
 import { obtenerConfigCategoria } from '../constantes/notas';
-import type { NotaEstandar } from '../services/notas';
+import type { NotaEstandar } from '../servicios/notas';
 
 type Props = {
   nota: NotaEstandar;

@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fuentes, noir } from '../../constantes/colores';
 import { vibrarBoton } from '../../utilidades/hapticos';
-import { EjercicioGifInfo, obtenerGifEjercicio } from '../../services/ejerciciosGifs';
+import { EjercicioGifInfo, obtenerGifEjercicio } from '../../servicios/ejerciciosGifs';
 import { parsearEjercicioInfo } from '../../utilidades/ejercicios';
 import { useLayout } from '../../hooks/useLayout';
 import EjercicioGif from './EjercicioGif';

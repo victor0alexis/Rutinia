@@ -17,7 +17,7 @@ import {
   ORDENES_BIBLIOTECA,
   OrdenBiblioteca,
   colorDeGrupo,
-} from '../../services/bibliotecaEjercicios';
+} from '../../servicios/bibliotecaEjercicios';
 
 export interface FiltrosBibliotecaState {
   grupos: string[];

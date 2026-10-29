@@ -7,7 +7,7 @@ import EjercicioGif from '../entrenamiento/EjercicioGif';
 import {
   EjercicioBiblioteca,
   colorDeGrupo,
-} from '../../services/bibliotecaEjercicios';
+} from '../../servicios/bibliotecaEjercicios';
 
 interface Props {
   item: EjercicioBiblioteca;

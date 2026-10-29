@@ -50,8 +50,8 @@ import {
   listarRutinasDePlan,
   moverRutina,
   reordenarPlanes,
-} from '../../services/planes';
-import { eliminarRutina } from '../../services/rutinas';
+} from '../../servicios/planes';
+import { eliminarRutina } from '../../servicios/rutinas';
 import { PlanEntrenamiento, Rutina } from '../../tipos';
 import { useLayout } from '../../hooks/useLayout';
 import { mostrarMensaje, seguro } from '../../utilidades/errores';

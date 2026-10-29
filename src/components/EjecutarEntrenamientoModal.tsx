@@ -32,9 +32,9 @@ import {
   obtenerHistorialPrevioRutina,
   obtenerHistorialPrevioEjercicio,
   eliminarEjerciciosObsoletos,
-} from '../services/registros';
-import type { SesionHistorialEjercicio } from '../services/registros';
-import { reemplazarEjercicioEnRutina } from '../services/rutinas';
+} from '../servicios/registros';
+import type { SesionHistorialEjercicio } from '../servicios/registros';
+import { reemplazarEjercicioEnRutina } from '../servicios/rutinas';
 import { seguro, mostrarMensaje } from '../utilidades/errores';
 import { parsearEjercicioInfo } from '../utilidades/ejercicios';
 import {

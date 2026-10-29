@@ -46,8 +46,8 @@ import {
   MetricasProgreso,
   RecordPersonal,
   obtenerMetricasProgreso,
-} from '../../services/progreso';
-import { listarPlanes } from '../../services/planes';
+} from '../../servicios/progreso';
+import { listarPlanes } from '../../servicios/planes';
 import { PlanEntrenamiento } from '../../tipos';
 import { aISO } from '../../utilidades/fechas';
 import { seguro } from '../../utilidades/errores';

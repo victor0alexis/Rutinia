@@ -14,7 +14,7 @@ import { vibrarBoton } from '../../utilidades/hapticos';
 import {
   GRUPOS_MUSCULARES,
   colorDeGrupo,
-} from '../../services/bibliotecaEjercicios';
+} from '../../servicios/bibliotecaEjercicios';
 import SmartTextKeyboard from './SmartTextKeyboard';
 
 interface Props {

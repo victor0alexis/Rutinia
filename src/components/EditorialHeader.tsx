@@ -14,7 +14,7 @@ import {
   CuentaRutinia,
   obtenerCuentaActiva,
   subscribirCambioCuenta,
-} from '../services/cuentas';
+} from '../servicios/cuentas';
 import { vibrarBoton } from '../utilidades/hapticos';
 import GradientText from './GradientText';
 import { RutiniaLogo } from './RutiniaLogo';

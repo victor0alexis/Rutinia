@@ -13,7 +13,7 @@ import MainDayCard from '../../components/MainDayCard';
 import EditorialHeader from '../../components/EditorialHeader';
 import Semana3DCarousel from '../../components/Semana3DCarousel';
 import { LiquidMetalButton } from '../../components/LiquidMetalButton';
-import { registrosDeRango } from '../../services/registros';
+import { registrosDeRango } from '../../servicios/registros';
 import { aISO, diasDeSemana } from '../../utilidades/fechas';
 import { seguro } from '../../utilidades/errores';
 import { EjercicioRegistro, Registro } from '../../tipos';

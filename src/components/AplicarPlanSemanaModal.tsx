@@ -12,8 +12,8 @@ import { colores, DIAS_SEMANA_ABREV, DIAS_SEMANA_NOMBRES, fuentes } from '../con
 import BotonRutinia from './BotonRutinia';
 import { PlanEntrenamiento, Registro, Rutina } from '../tipos';
 import { aISO, diasDeSemana, rangoSemana } from '../utilidades/fechas';
-import { registrosDeRango } from '../services/registros';
-import { aplicarPlanASemana, listarRutinasDePlan } from '../services/planes';
+import { registrosDeRango } from '../servicios/registros';
+import { aplicarPlanASemana, listarRutinasDePlan } from '../servicios/planes';
 import { useLayout } from '../hooks/useLayout';
 
 type Props = {

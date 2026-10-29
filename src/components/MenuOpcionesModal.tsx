@@ -34,7 +34,7 @@ import {
   reenviarConfirmacion,
   SesionExpiradaError,
   subscribirCambioCuenta,
-} from '../services/cuentas';
+} from '../servicios/cuentas';
 import { limpiarCacheDatosLocales } from '../utilidades/almacenamientoLocal';
 import { confirmarAccion, mostrarMensaje } from '../utilidades/errores';
 import { vibrarBoton } from '../utilidades/hapticos';

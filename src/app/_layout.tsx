@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, View, Platform, StatusBar as RNStatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { colores } from '../constantes/colores';
-import { inicializarCuentas } from '../services/cuentas';
+import { inicializarCuentas } from '../servicios/cuentas';
 
 import ConfirmModalGlobal from '../components/ConfirmModalGlobal';
 import { RutiniaLogo } from '../components/RutiniaLogo';

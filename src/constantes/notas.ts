@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { CategoriaNota } from '../services/notas';
+import type { CategoriaNota } from '../servicios/notas';
 
 export const CATEGORIAS: CategoriaNota[] = [
   'General',

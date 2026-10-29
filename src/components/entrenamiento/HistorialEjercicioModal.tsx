@@ -27,7 +27,7 @@ import {
   SesionHistorialEjercicio,
   SerieHistorialEjercicio,
   obtenerHistorialEjercicio,
-} from '../../services/registros';
+} from '../../servicios/registros';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 

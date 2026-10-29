@@ -29,7 +29,7 @@ import {
   colorDeGrupo,
   filtrarEjerciciosBiblioteca,
   normalizarTextoBiblioteca,
-} from '../services/bibliotecaEjercicios';
+} from '../servicios/bibliotecaEjercicios';
 import {
   ListaFavoritosBiblioteca,
   agregarListaFavoritos,
@@ -40,7 +40,7 @@ import {
   eliminarListaFavoritos,
   guardarEstadoFavoritosBiblioteca,
   registrarEjercicioReciente,
-} from '../services/favoritosBiblioteca';
+} from '../servicios/favoritosBiblioteca';
 import SmartTextKeyboard, {
   SugerenciaTeclado,
 } from './biblioteca/SmartTextKeyboard';

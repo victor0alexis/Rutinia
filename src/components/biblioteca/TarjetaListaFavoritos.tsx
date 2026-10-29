@@ -7,8 +7,8 @@ import EjercicioGif from '../entrenamiento/EjercicioGif';
 import {
   EjercicioBiblioteca,
   colorDeGrupo,
-} from '../../services/bibliotecaEjercicios';
-import { ListaFavoritosBiblioteca } from '../../services/favoritosBiblioteca';
+} from '../../servicios/bibliotecaEjercicios';
+import { ListaFavoritosBiblioteca } from '../../servicios/favoritosBiblioteca';
 
 interface Props {
   lista: ListaFavoritosBiblioteca;

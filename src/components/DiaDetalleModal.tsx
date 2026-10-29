@@ -27,15 +27,15 @@ import RutinaLiveCard from './RutinaLiveCard';
 import RadiantButton from './base/radiant-button';
 import YoungNewtButton from './YoungNewtButton';
 import { vibrarBoton } from '../utilidades/hapticos';
-import { NotaEstandar, obtenerNotasEstandar } from '../services/notas';
+import { NotaEstandar, obtenerNotasEstandar } from '../servicios/notas';
 import {
   agregarRutinaAFechas,
   eliminarEjercicio,
   eliminarRegistroRutina,
   guardarNotaDelDia,
-} from '../services/registros';
-import { listarRutinas } from '../services/rutinas';
-import { listarPlanes, listarRutinasDePlan } from '../services/planes';
+} from '../servicios/registros';
+import { listarRutinas } from '../servicios/rutinas';
+import { listarPlanes, listarRutinasDePlan } from '../servicios/planes';
 import { EjercicioRegistro, PlanEntrenamiento, Registro, Rutina } from '../tipos';
 import { SesionActivaInfo } from '../utilidades/sesionActiva';
 import { seguro, confirmarAccion } from '../utilidades/errores';
