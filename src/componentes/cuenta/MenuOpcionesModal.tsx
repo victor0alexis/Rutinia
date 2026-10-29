@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colores, COLORES_PLANES, noir } from '../../constantes/colores';
 import { useLayout } from '../../hooks/useLayout';
+import Svg, { Path } from 'react-native-svg';
 import {
   actualizarEmailActual,
   actualizarPasswordActual,
@@ -28,12 +29,15 @@ import {
   CuentaRutinia,
   eliminarCuentaActual,
   EliminacionNoConfiguradaError,
+  esCuentaGoogle,
   EstadoCuentas,
   iniciarSesion,
+  iniciarSesionConGoogle,
   obtenerEstadoCuentas,
   quitarCuentaDelDispositivo,
   reenviarConfirmacion,
   SesionExpiradaError,
+  SesionGoogleExpiradaError,
   subscribirCambioCuenta,
 } from '../../servicios/cuentas';
 import { limpiarCacheDatosLocales } from '../../utilidades/almacenamientoLocal';
@@ -49,6 +53,7 @@ const SUCCESS = '#3FF2B0';
 const WARNING = noir.champagne;
 type Vista = 'menu' | 'cuentas' | 'auth' | 'perfil';
 type ModoAuth = 'login' | 'registro';
+type ProveedorAuth = 'correo' | 'google';
 type Aviso = { tipo: 'error' | 'exito' | 'info'; texto: string };
 interface Props {
   visible: boolean;
@@ -268,6 +273,68 @@ function BotonSecundario({
     </Pressable>
   );
 }
+
+function IconoGoogle({ size = 18 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+        fill="#4285F4"
+      />
+      <Path
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+        fill="#34A853"
+      />
+      <Path
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+        fill="#FBBC05"
+      />
+      <Path
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+        fill="#EA4335"
+      />
+    </Svg>
+  );
+}
+
+function BotonGoogle({
+  texto = 'Continuar con Google',
+  onPress,
+  cargando,
+  disabled,
+}: {
+  texto?: string;
+  onPress: () => void;
+  cargando?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={() => {
+        if (disabled || cargando) return;
+        vibrarBoton();
+        onPress();
+      }}
+      disabled={disabled || cargando}
+      style={({ pressed }) => [
+        styles.botonGoogle,
+        (disabled || cargando) && { opacity: 0.55 },
+        pressed && { opacity: 0.85, transform: [{ scale: 0.985 }] },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={texto}
+    >
+      {cargando ? (
+        <ActivityIndicator size="small" color="#FFFFFF" />
+      ) : (
+        <>
+          <IconoGoogle size={18} />
+          <Text style={styles.botonGoogleTexto}>{texto}</Text>
+        </>
+      )}
+    </Pressable>
+  );
+}
 export default function MenuOpcionesModal({
   visible,
   onClose,
@@ -280,6 +347,7 @@ export default function MenuOpcionesModal({
   const [aviso, setAviso] = useState<Aviso | null>(null);
   // Autenticación
   const [modoAuth, setModoAuth] = useState<ModoAuth>('login');
+  const [authProveedor, setAuthProveedor] = useState<ProveedorAuth>('correo');
   const [nombreInput, setNombreInput] = useState('');
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
@@ -319,6 +387,7 @@ export default function MenuOpcionesModal({
   };
   const manejarApertura = () => {
     setVista('menu');
+    setAuthProveedor('correo');
     setAviso(null);
     setAvisoAuth(null);
     setAvisoPerfil(null);
@@ -357,12 +426,26 @@ export default function MenuOpcionesModal({
   };
   const volverAlMenu = () => {
     setVista('menu');
+    setAuthProveedor('correo');
     setAvisoAuth(null);
     setAvisoPerfil(null);
   };
   const abrirAuth = (modo: ModoAuth, email?: string | null, mensaje?: string) => {
     vibrarBoton();
     setModoAuth(modo);
+    setAuthProveedor('correo');
+    setNombreInput('');
+    setEmailInput(email || '');
+    setPasswordInput('');
+    setConfirmarPassword('');
+    setVerPassword(false);
+    setAvisoAuth(mensaje ? { tipo: 'info', texto: mensaje } : null);
+    setVista('auth');
+  };
+  const abrirAuthGoogle = (email?: string | null, mensaje?: string) => {
+    vibrarBoton();
+    setModoAuth('login');
+    setAuthProveedor('google');
     setNombreInput('');
     setEmailInput(email || '');
     setPasswordInput('');
@@ -402,11 +485,18 @@ export default function MenuOpcionesModal({
   const seleccionarCuenta = async (cuenta: CuentaRutinia) => {
     if (!estado || cuenta.id === estado.activaId || cambiandoId) return;
     if (cuenta.tipo === 'nube' && !cuenta.sesionGuardada) {
-      abrirAuth(
-        'login',
-        cuenta.email,
-        `La sesión de ${cuenta.email || cuenta.nombre} expiró. Ingresa tu contraseña para volver a entrar.`
-      );
+      if (esCuentaGoogle(cuenta)) {
+        abrirAuthGoogle(
+          cuenta.email,
+          `La sesión de ${cuenta.email || cuenta.nombre} con Google expiró. Vuelve a entrar con Google para continuar.`
+        );
+      } else {
+        abrirAuth(
+          'login',
+          cuenta.email,
+          `La sesión de ${cuenta.email || cuenta.nombre} expiró. Ingresa tu contraseña para volver a entrar.`
+        );
+      }
       return;
     }
     vibrarBoton();
@@ -425,7 +515,9 @@ export default function MenuOpcionesModal({
       setVista('menu');
       onSessionChange?.();
     } catch (err) {
-      if (err instanceof SesionExpiradaError) {
+      if (err instanceof SesionGoogleExpiradaError) {
+        abrirAuthGoogle(err.email, err.message);
+      } else if (err instanceof SesionExpiradaError) {
         abrirAuth('login', err.email, err.message);
       } else {
         setAviso({
@@ -436,6 +528,29 @@ export default function MenuOpcionesModal({
       cargarCuentas();
     } finally {
       setCambiandoId(null);
+    }
+  };
+  // ── Autenticación ─────────────────────────────────────────────────────────
+  const ejecutarLoginGoogle = async () => {
+    setCargandoAuth(true);
+    setAvisoAuth(null);
+    try {
+      const activa = await iniciarSesionConGoogle();
+      if (!activa) return;
+      setAviso({
+        tipo: 'exito',
+        texto: `¡Sesión iniciada! Ahora estás usando ${activa.email || activa.nombre}.`,
+      });
+      setVista('menu');
+      setEstado(await obtenerEstadoCuentas());
+      onSessionChange?.();
+    } catch (err) {
+      setAvisoAuth({
+        tipo: 'error',
+        texto: err instanceof Error ? err.message : 'No se pudo iniciar sesión con Google.',
+      });
+    } finally {
+      setCargandoAuth(false);
     }
   };
   // ── Autenticación ─────────────────────────────────────────────────────────
@@ -709,6 +824,7 @@ export default function MenuOpcionesModal({
   const anchoHoja = Math.min(contentMaxWidth, isCompact ? 420 : 468);
   const titulo = TITULOS[vista];
   const cuentaNube = cuentaActiva?.tipo === 'nube';
+  const cuentaGoogle = cuentaActiva ? esCuentaGoogle(cuentaActiva) : false;
   const hayCuentasNube = estado?.cuentas.some((cuenta) => cuenta.tipo === 'nube') ?? false;
   const renderMenu = () => (
     <>
@@ -743,7 +859,13 @@ export default function MenuOpcionesModal({
                   ]}
                 >
                   <Ionicons
-                    name={cuentaNube ? 'cloud-done-outline' : 'phone-portrait-outline'}
+                    name={
+                      cuentaGoogle
+                        ? 'logo-google'
+                        : cuentaNube
+                          ? 'cloud-done-outline'
+                          : 'phone-portrait-outline'
+                    }
                     size={11}
                     color={cuentaNube ? SUCCESS : WARNING}
                   />
@@ -753,7 +875,11 @@ export default function MenuOpcionesModal({
                       { color: cuentaNube ? SUCCESS : WARNING },
                     ]}
                   >
-                    {cuentaNube ? 'Sincronizado con Supabase' : 'Perfil local'}
+                    {cuentaGoogle
+                      ? 'Sincronizado con Google'
+                      : cuentaNube
+                        ? 'Sincronizado con Supabase'
+                        : 'Perfil local'}
                   </Text>
                 </View>
               </View>
@@ -977,12 +1103,13 @@ export default function MenuOpcionesModal({
           <Text style={styles.contadorCuentas}>{estado?.cuentas.length ?? 0}</Text>
         </View>
         <Text style={styles.descripcionSeccion}>
-          Toca una cuenta para usarla. Las cuentas con candado necesitan que vuelvas a
-          escribir tu contraseña porque su sesión guardada expiró.
+          Toca una cuenta para usarla. Si su sesión guardada expiró, vuelve a entrar con
+          Google o con tu contraseña según el proveedor de la cuenta.
         </Text>
         <View style={styles.listaCuentas}>
           {estado?.cuentas.map((cuenta) => {
             const activa = cuenta.id === estado.activaId;
+            const esGoogle = esCuentaGoogle(cuenta);
             const bloqueada =
               cuenta.tipo === 'nube' && !cuenta.sesionGuardada && !activa;
             const cambiando = cambiandoId === cuenta.id;
@@ -1007,14 +1134,24 @@ export default function MenuOpcionesModal({
                 >
                   <AvatarCuenta cuenta={cuenta} />
                   <View style={styles.filaCuentaInfo}>
-                    <Text style={styles.filaCuentaNombre} numberOfLines={1}>
-                      {cuenta.nombre}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={styles.filaCuentaNombre} numberOfLines={1}>
+                        {cuenta.nombre}
+                      </Text>
+                      {esGoogle ? (
+                        <View style={styles.badgeGoogle}>
+                          <Ionicons name="logo-google" size={9} color={noir.info} />
+                          <Text style={styles.badgeGoogleTexto}>Google</Text>
+                        </View>
+                      ) : null}
+                    </View>
                     <Text style={styles.filaCuentaEmail} numberOfLines={1}>
                       {cuenta.email ||
                         (cuenta.tipo === 'local'
                           ? 'Datos sin cuenta en la nube'
-                          : 'Cuenta de Supabase')}
+                          : esGoogle
+                            ? 'Cuenta de Google'
+                            : 'Cuenta de Supabase')}
                     </Text>
                   </View>
                   {cambiando ? (
@@ -1027,7 +1164,7 @@ export default function MenuOpcionesModal({
                     <View style={styles.estadoCuenta}>
                       <Ionicons name="lock-closed" size={13} color={WARNING} />
                       <Text style={[styles.estadoCuentaTexto, { color: WARNING }]}>
-                        Entrar
+                        {esGoogle ? 'Volver a entrar con Google' : 'Entrar'}
                       </Text>
                     </View>
                   ) : (
@@ -1111,137 +1248,183 @@ export default function MenuOpcionesModal({
       ) : null}
     </>
   );
-  const renderAuth = () => (
-    <>
-      {avisoAuth ? <Alerta aviso={avisoAuth} /> : null}
-      <View style={styles.card}>
-        <View style={styles.tabsAuth}>
-          {(['login', 'registro'] as const).map((modo) => (
-            <Pressable
-              key={modo}
-              onPress={() => {
-                vibrarBoton();
-                setModoAuth(modo);
-                setAvisoAuth(null);
-              }}
-              style={[styles.tabAuth, modoAuth === modo && styles.tabAuthActivo]}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: modoAuth === modo }}
-            >
-              <Text
-                style={[
-                  styles.tabAuthTexto,
-                  modoAuth === modo && styles.tabAuthTextoActivo,
-                ]}
+  const renderAuth = () => {
+    if (authProveedor === 'google') {
+      return (
+        <>
+          {avisoAuth ? <Alerta aviso={avisoAuth} /> : null}
+          <View style={styles.card}>
+            <Text style={styles.authTitulo}>Vuelve a entrar con Google</Text>
+            <Text style={styles.authSub}>
+              La sesión guardada de esta cuenta expiró. Usa Google para recuperar el acceso.
+            </Text>
+            <View style={styles.authCampos}>
+              <View style={styles.googleInfo}>
+                <Ionicons name="logo-google" size={16} color={noir.info} />
+                <Text style={styles.googleInfoTexto}>
+                  {emailInput || 'Cuenta de Google'}
+                </Text>
+              </View>
+            </View>
+            <BotonGoogle
+              texto="Volver a entrar con Google"
+              onPress={ejecutarLoginGoogle}
+              cargando={cargandoAuth}
+            />
+            <Text style={styles.authLegal}>
+              Se abrirá una ventana segura de Google. Rutinia no recibe ni almacena tu
+              contraseña de Google.
+            </Text>
+          </View>
+        </>
+      );
+    }
+
+    return (
+      <>
+        {avisoAuth ? <Alerta aviso={avisoAuth} /> : null}
+        <View style={styles.card}>
+          <View style={styles.tabsAuth}>
+            {(['login', 'registro'] as const).map((modo) => (
+              <Pressable
+                key={modo}
+                onPress={() => {
+                  vibrarBoton();
+                  setModoAuth(modo);
+                  setAvisoAuth(null);
+                }}
+                style={[styles.tabAuth, modoAuth === modo && styles.tabAuthActivo]}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: modoAuth === modo }}
               >
-                {modo === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        <Text style={styles.authTitulo}>
-          {modoAuth === 'login' ? 'Bienvenido de vuelta' : 'Tu nueva cuenta'}
-        </Text>
-        <Text style={styles.authSub}>
-          {modoAuth === 'login'
-            ? 'Entra para recuperar tus rutinas, planes y registros.'
-            : 'Crea una cuenta para sincronizar tu entrenamiento en la nube.'}
-        </Text>
-        <View style={styles.authCampos}>
-          {modoAuth === 'registro' ? (
+                <Text
+                  style={[
+                    styles.tabAuthTexto,
+                    modoAuth === modo && styles.tabAuthTextoActivo,
+                  ]}
+                >
+                  {modo === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={styles.authTitulo}>
+            {modoAuth === 'login' ? 'Bienvenido de vuelta' : 'Tu nueva cuenta'}
+          </Text>
+          <Text style={styles.authSub}>
+            {modoAuth === 'login'
+              ? 'Entra para recuperar tus rutinas, planes y registros.'
+              : 'Crea una cuenta para sincronizar tu entrenamiento en la nube.'}
+          </Text>
+
+          <BotonGoogle
+            texto="Continuar con Google"
+            onPress={ejecutarLoginGoogle}
+            cargando={cargandoAuth}
+          />
+
+          <View style={styles.separadorO}>
+            <View style={styles.separadorLinea} />
+            <Text style={styles.separadorTexto}>o</Text>
+            <View style={styles.separadorLinea} />
+          </View>
+
+          <View style={styles.authCampos}>
+            {modoAuth === 'registro' ? (
+              <Campo
+                icono="person-outline"
+                placeholder="Nombre o apodo"
+                value={nombreInput}
+                onChangeText={setNombreInput}
+                autoCapitalize="words"
+                autoComplete="name"
+                textContentType="name"
+                returnKeyType="next"
+              />
+            ) : null}
             <Campo
-              icono="person-outline"
-              placeholder="Nombre o apodo"
-              value={nombreInput}
-              onChangeText={setNombreInput}
-              autoCapitalize="words"
-              autoComplete="name"
-              textContentType="name"
+              icono="mail-outline"
+              placeholder="correo@ejemplo.com"
+              value={emailInput}
+              onChangeText={setEmailInput}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              textContentType="emailAddress"
               returnKeyType="next"
             />
-          ) : null}
-          <Campo
-            icono="mail-outline"
-            placeholder="correo@ejemplo.com"
-            value={emailInput}
-            onChangeText={setEmailInput}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete="email"
-            textContentType="emailAddress"
-            returnKeyType="next"
-          />
-          <Campo
-            icono="lock-closed-outline"
-            placeholder="Contraseña (mínimo 6 caracteres)"
-            value={passwordInput}
-            onChangeText={setPasswordInput}
-            secureTextEntry={!verPassword}
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete={modoAuth === 'login' ? 'current-password' : 'new-password'}
-            textContentType={modoAuth === 'login' ? 'password' : 'newPassword'}
-            returnKeyType={modoAuth === 'login' ? 'go' : 'next'}
-            onSubmitEditing={modoAuth === 'login' ? ejecutarLogin : undefined}
-            mostrarOcultar
-            oculto={!verPassword}
-            onMostrarOcultar={() => setVerPassword((valor) => !valor)}
-          />
-          {modoAuth === 'registro' ? (
             <Campo
-              icono="shield-checkmark-outline"
-              placeholder="Repite la contraseña"
-              value={confirmarPassword}
-              onChangeText={setConfirmarPassword}
+              icono="lock-closed-outline"
+              placeholder="Contraseña (mínimo 6 caracteres)"
+              value={passwordInput}
+              onChangeText={setPasswordInput}
               secureTextEntry={!verPassword}
               autoCapitalize="none"
               autoCorrect={false}
-              autoComplete="new-password"
-              textContentType="newPassword"
-              returnKeyType="go"
-              onSubmitEditing={ejecutarRegistro}
+              autoComplete={modoAuth === 'login' ? 'current-password' : 'new-password'}
+              textContentType={modoAuth === 'login' ? 'password' : 'newPassword'}
+              returnKeyType={modoAuth === 'login' ? 'go' : 'next'}
+              onSubmitEditing={modoAuth === 'login' ? ejecutarLogin : undefined}
+              mostrarOcultar
+              oculto={!verPassword}
+              onMostrarOcultar={() => setVerPassword((valor) => !valor)}
             />
+            {modoAuth === 'registro' ? (
+              <Campo
+                icono="shield-checkmark-outline"
+                placeholder="Repite la contraseña"
+                value={confirmarPassword}
+                onChangeText={setConfirmarPassword}
+                secureTextEntry={!verPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="new-password"
+                textContentType="newPassword"
+                returnKeyType="go"
+                onSubmitEditing={ejecutarRegistro}
+              />
+            ) : null}
+          </View>
+          <BotonPrimario
+            texto={modoAuth === 'login' ? 'Entrar con correo' : 'Crear mi cuenta con correo'}
+            icono={modoAuth === 'login' ? 'log-in-outline' : 'person-add-outline'}
+            onPress={modoAuth === 'login' ? ejecutarLogin : ejecutarRegistro}
+            cargando={cargandoAuth}
+          />
+          <Text style={styles.authLegal}>
+            {modoAuth === 'registro'
+              ? 'Al crear una cuenta aceptas que tus datos de entrenamiento se guarden en Supabase.'
+              : 'Si olvidaste tu contraseña, puedes restablecerla desde el panel de Supabase.'}
+          </Text>
+          {modoAuth === 'login' ? (
+            <Pressable
+              onPress={() => {
+                if (reenviandoConfirmacion) return;
+                vibrarBoton(15);
+                void reenviarCorreoConfirmacion();
+              }}
+              disabled={reenviandoConfirmacion}
+              style={({ pressed }) => [
+                styles.authReenviarBoton,
+                (pressed || reenviandoConfirmacion) && { opacity: 0.65 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Reenviar correo de confirmación"
+            >
+              {reenviandoConfirmacion ? (
+                <ActivityIndicator size="small" color={noir.champagne} />
+              ) : (
+                <Text style={styles.authReenviarTexto}>
+                  ¿No llegó el correo? Reenviar confirmación
+                </Text>
+              )}
+            </Pressable>
           ) : null}
         </View>
-        <BotonPrimario
-          texto={modoAuth === 'login' ? 'Entrar' : 'Crear mi cuenta'}
-          icono={modoAuth === 'login' ? 'log-in-outline' : 'person-add-outline'}
-          onPress={modoAuth === 'login' ? ejecutarLogin : ejecutarRegistro}
-          cargando={cargandoAuth}
-        />
-        <Text style={styles.authLegal}>
-          {modoAuth === 'registro'
-            ? 'Al crear una cuenta aceptas que tus datos de entrenamiento se guarden en Supabase.'
-            : 'Si olvidaste tu contraseña, puedes restablecerla desde el panel de Supabase.'}
-        </Text>
-        {modoAuth === 'login' ? (
-          <Pressable
-            onPress={() => {
-              if (reenviandoConfirmacion) return;
-              vibrarBoton(15);
-              void reenviarCorreoConfirmacion();
-            }}
-            disabled={reenviandoConfirmacion}
-            style={({ pressed }) => [
-              styles.authReenviarBoton,
-              (pressed || reenviandoConfirmacion) && { opacity: 0.65 },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Reenviar correo de confirmación"
-          >
-            {reenviandoConfirmacion ? (
-              <ActivityIndicator size="small" color={noir.champagne} />
-            ) : (
-              <Text style={styles.authReenviarTexto}>
-                ¿No llegó el correo? Reenviar confirmación
-              </Text>
-            )}
-          </Pressable>
-        ) : null}
-      </View>
-    </>
-  );
+      </>
+    );
+  };
   const renderPerfil = () => (
     <>
       {avisoPerfil ? <Alerta aviso={avisoPerfil} /> : null}
@@ -1255,7 +1438,7 @@ export default function MenuOpcionesModal({
                   {nombrePerfil || cuentaActiva.nombre}
                 </Text>
                 <Text style={styles.perfilEmail} numberOfLines={1}>
-                  {cuentaActiva.email || 'Cuenta de Supabase'}
+                  {cuentaActiva.email || (cuentaGoogle ? 'Cuenta de Google' : 'Cuenta de Supabase')}
                 </Text>
               </View>
             </View>
@@ -1301,66 +1484,83 @@ export default function MenuOpcionesModal({
               cargando={guardandoPerfil}
             />
           </View>
-          <View style={styles.card}>
-            <Text style={styles.cardTitulo}>CORREO ELECTRÓNICO</Text>
-            <Text style={styles.descripcionSeccion}>
-              Supabase enviará un enlace de confirmación al nuevo correo antes de aplicarlo.
-            </Text>
-            <Campo
-              icono="mail-outline"
-              placeholder="correo@ejemplo.com"
-              value={emailPerfil}
-              onChangeText={setEmailPerfil}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="email"
-              textContentType="emailAddress"
-            />
-            <BotonSecundario
-              texto={guardandoEmail ? 'Actualizando…' : 'Actualizar correo'}
-              icono="mail-outline"
-              onPress={guardarEmail}
-              cargando={guardandoEmail}
-            />
-          </View>
-          <View style={styles.card}>
-            <Text style={styles.cardTitulo}>CONTRASEÑA</Text>
-            <Text style={styles.descripcionSeccion}>
-              Usa al menos 6 caracteres. Se aplicará la próxima vez que inicies sesión.
-            </Text>
-            <Campo
-              icono="lock-closed-outline"
-              placeholder="Nueva contraseña"
-              value={passwordNueva}
-              onChangeText={setPasswordNueva}
-              secureTextEntry={!verPasswordNueva}
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="new-password"
-              textContentType="newPassword"
-              mostrarOcultar
-              oculto={!verPasswordNueva}
-              onMostrarOcultar={() => setVerPasswordNueva((valor) => !valor)}
-            />
-            <Campo
-              icono="shield-checkmark-outline"
-              placeholder="Repite la nueva contraseña"
-              value={passwordNueva2}
-              onChangeText={setPasswordNueva2}
-              secureTextEntry={!verPasswordNueva}
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="new-password"
-              textContentType="newPassword"
-            />
-            <BotonSecundario
-              texto={guardandoPassword ? 'Actualizando…' : 'Cambiar contraseña'}
-              icono="key-outline"
-              onPress={guardarPassword}
-              cargando={guardandoPassword}
-            />
-          </View>
+          {cuentaGoogle ? (
+            <View style={styles.card}>
+              <Text style={styles.cardTitulo}>CUENTA DE GOOGLE</Text>
+              <Text style={styles.descripcionSeccion}>
+                Tu cuenta usa Google para iniciar sesión. El correo y la contraseña se administran desde tu cuenta de Google.
+              </Text>
+              <View style={styles.googleInfo}>
+                <Ionicons name="logo-google" size={16} color={noir.info} />
+                <Text style={styles.googleInfoTexto}>
+                  {cuentaActiva.email || 'Sesión de Google'}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <>
+              <View style={styles.card}>
+                <Text style={styles.cardTitulo}>CORREO ELECTRÓNICO</Text>
+                <Text style={styles.descripcionSeccion}>
+                  Supabase enviará un enlace de confirmación al nuevo correo antes de aplicarlo.
+                </Text>
+                <Campo
+                  icono="mail-outline"
+                  placeholder="correo@ejemplo.com"
+                  value={emailPerfil}
+                  onChangeText={setEmailPerfil}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="email"
+                  textContentType="emailAddress"
+                />
+                <BotonSecundario
+                  texto={guardandoEmail ? 'Actualizando…' : 'Actualizar correo'}
+                  icono="mail-outline"
+                  onPress={guardarEmail}
+                  cargando={guardandoEmail}
+                />
+              </View>
+              <View style={styles.card}>
+                <Text style={styles.cardTitulo}>CONTRASEÑA</Text>
+                <Text style={styles.descripcionSeccion}>
+                  Usa al menos 6 caracteres. Se aplicará la próxima vez que inicies sesión.
+                </Text>
+                <Campo
+                  icono="lock-closed-outline"
+                  placeholder="Nueva contraseña"
+                  value={passwordNueva}
+                  onChangeText={setPasswordNueva}
+                  secureTextEntry={!verPasswordNueva}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="new-password"
+                  textContentType="newPassword"
+                  mostrarOcultar
+                  oculto={!verPasswordNueva}
+                  onMostrarOcultar={() => setVerPasswordNueva((valor) => !valor)}
+                />
+                <Campo
+                  icono="shield-checkmark-outline"
+                  placeholder="Repite la nueva contraseña"
+                  value={passwordNueva2}
+                  onChangeText={setPasswordNueva2}
+                  secureTextEntry={!verPasswordNueva}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="new-password"
+                  textContentType="newPassword"
+                />
+                <BotonSecundario
+                  texto={guardandoPassword ? 'Actualizando…' : 'Cambiar contraseña'}
+                  icono="key-outline"
+                  onPress={guardarPassword}
+                  cargando={guardandoPassword}
+                />
+              </View>
+            </>
+          )}
           <View style={styles.card}>
             <Text style={styles.cardTitulo}>SESIÓN Y DISPOSITIVO</Text>
             <Pressable
