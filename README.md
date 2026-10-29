@@ -21,11 +21,15 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=TU_ANON_PUBLIC_KEY
 
 ## Base de datos
 
-- **Proyecto nuevo o de pruebas:** ejecuta `supabase_reset.sql` una sola vez en el SQL Editor. Es destructivo: borra y recrea el esquema.
-- **Proyecto con datos existentes:** ejecuta `supabase_multicuenta.sql`. Añade `usuario_id`, rellena las filas hijas, activa RLS con políticas por cuenta, ajusta el catálogo de ejercicios y crea el RPC `eliminar_mi_cuenta()`.
-- **Datos antiguos de una sola cuenta:** al final de `supabase_multicuenta.sql` hay un bloque opcional para reivindicarlos. Sustituye `<UUID>` por el ID de `auth.users` y ejecútalo por separado. No incluye el catálogo base.
+Los scripts SQL se encuentran en la carpeta `supabase/` y se ejecutan en orden:
 
-Sin ejecutar `supabase_multicuenta.sql`, el botón «Eliminar mi cuenta» no puede borrar la cuenta y el aislamiento real entre cuentas no está garantizado.
+- **`supabase/01_reset.sql`:** ejecuta una sola vez en el SQL Editor para un proyecto nuevo o de pruebas. Es destructivo: borra y recrea el esquema base.
+- **`supabase/02_multicuenta.sql`:** añade `usuario_id`, rellena las filas hijas, activa RLS con políticas por cuenta, ajusta el catálogo de ejercicios y crea el RPC `eliminar_mi_cuenta()`.
+  - **Datos antiguos de una sola cuenta:** al final de este script hay un bloque opcional para reivindicarlos. Sustituye `<UUID>` por el ID de `auth.users` y ejecútalo por separado.
+- **`supabase/03_listas_biblioteca.sql`:** crea las tablas para listas y favoritos de la biblioteca de ejercicios.
+- **`supabase/04_notas.sql`:** estructura y políticas para la tabla de notas.
+
+Sin ejecutar `supabase/02_multicuenta.sql`, el botón «Eliminar mi cuenta» no puede borrar la cuenta y el aislamiento real entre cuentas no está garantizado.
 
 ### Correos de confirmación
 
@@ -44,7 +48,7 @@ La app incluye «Reenviar confirmación» en la pantalla de inicio de sesión.
 
 Las filas creadas antes del multicuenta tienen `usuario_id IS NULL` y siguen existiendo como datos del perfil invitado. **No se borran al crear una cuenta**, pero una cuenta nueva no las ve porque su espacio es independiente.
 
-Para pasarlas a una cuenta concreta, ejecuta el bloque opcional de `supabase_multicuenta.sql` con el UUID de esa cuenta. El bloque **mueve** las filas (no las copia): después dejarán de aparecer en el perfil invitado. Haz una copia de seguridad antes. Si quieres conservar ambas copias, pide una migración basada en duplicar filas.
+Para pasarlas a una cuenta concreta, ejecuta el bloque opcional de `supabase/02_multicuenta.sql` con el UUID de esa cuenta. El bloque **mueve** las filas (no las copia): después dejarán de aparecer en el perfil invitado. Haz una copia de seguridad antes. Si quieres conservar ambas copias, pide una migración basada en duplicar filas.
 
 ## Cuentas
 

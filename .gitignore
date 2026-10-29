@@ -48,3 +48,7 @@ scratch/
 
 # CanvasKit (se copia desde node_modules en install/build)
 public/canvaskit.wasm
+
+# Artefactos y capturas generadas
+artifacts/
+docs/diseno/capturas/
