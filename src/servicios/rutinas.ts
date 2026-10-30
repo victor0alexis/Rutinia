@@ -566,6 +566,104 @@ function elegirNombreExistente(
   return null;
 }
 
+export async function guardarOrdenEnRutina(
+  rutinaId: string,
+  idsEjerciciosEnOrden: string[]
+): Promise<void> {
+  try {
+    if (rutinaId.startsWith('local_')) {
+      const existentes = (await obtenerCacheLocal<Rutina[]>('rutinas')) || [];
+      const rutina = existentes.find((r) => r.id === rutinaId);
+      if (!rutina) return;
+
+      const mapIdToEj = new Map<string, any>();
+      for (const ej of rutina.ejercicios_rutina || []) {
+        if (ej.id) mapIdToEj.set(ej.id, ej);
+      }
+
+      const nuevosOrdenados: any[] = [];
+      // Solo actualiza los que pertenecen a la rutina
+      for (let i = 0; i < idsEjerciciosEnOrden.length; i++) {
+        const id = idsEjerciciosEnOrden[i];
+        const ej = mapIdToEj.get(id);
+        if (ej) {
+          nuevosOrdenados.push({ ...ej, orden: i });
+          mapIdToEj.delete(id);
+        }
+      }
+      // Mantén su posición relativa los que no pertenecen (se añaden al final)
+      const restantes = Array.from(mapIdToEj.values()).map((ej, idx) => ({
+        ...ej,
+        orden: nuevosOrdenados.length + idx,
+      }));
+      nuevosOrdenados.push(...restantes);
+
+      const actualizadas = existentes.map((r) =>
+        r.id === rutinaId ? { ...r, ejercicios_rutina: nuevosOrdenados } : r
+      );
+      await guardarCacheLocal('rutinas', actualizadas);
+      emitirCambioDatos();
+      return;
+    }
+
+    const usuarioId = await getUsuarioId();
+    // Obtener ejercicios de la rutina para saber cuáles pertenecen
+    const { data: ejsRutina, error: errGet } = await supabase
+      .from('ejercicios_rutina')
+      .select('*')
+      .eq('rutina_id', rutinaId);
+
+    if (errGet) throw errGet;
+
+    const idsRutina = new Set((ejsRutina || []).map((e: any) => e.id));
+
+    // Actualizar solo los que pertenecen a la rutina, manteniendo otros sin tocar
+    for (let i = 0; i < idsEjerciciosEnOrden.length; i++) {
+      const id = idsEjerciciosEnOrden[i];
+      if (idsRutina.has(id)) {
+        const { error: errUpd } = await supabase
+          .from('ejercicios_rutina')
+          .update({ orden: i })
+          .eq('id', id);
+        if (errUpd) throw errUpd;
+      }
+    }
+
+    // Actualizar caché local
+    const existentes = (await obtenerCacheLocal<Rutina[]>('rutinas')) || [];
+    const rutinaCache = existentes.find((r) => r.id === rutinaId);
+    if (rutinaCache) {
+      const mapIdToEj = new Map<string, any>();
+      for (const ej of rutinaCache.ejercicios_rutina || []) {
+        if (ej.id) mapIdToEj.set(ej.id, ej);
+      }
+      const nuevosOrdenados: any[] = [];
+      for (let i = 0; i < idsEjerciciosEnOrden.length; i++) {
+        const id = idsEjerciciosEnOrden[i];
+        const ej = mapIdToEj.get(id);
+        if (ej && idsRutina.has(id)) {
+          nuevosOrdenados.push({ ...ej, orden: i });
+          mapIdToEj.delete(id);
+        }
+      }
+      const restantes = Array.from(mapIdToEj.values())
+        .sort((a: any, b: any) => (a.orden ?? 0) - (b.orden ?? 0))
+        .map((ej, idx) => ({ ...ej, orden: nuevosOrdenados.length + idx }));
+      nuevosOrdenados.push(...restantes);
+
+      const actualizadas = existentes.map((r) =>
+        r.id === rutinaId ? { ...r, ejercicios_rutina: nuevosOrdenados.sort((a: any, b: any) => a.orden - b.orden) } : r
+      );
+      await guardarCacheLocal('rutinas', actualizadas);
+    }
+
+    emitirCambioDatos();
+  } catch (err) {
+    console.warn('Error guardando orden en rutina:', err);
+    throw err;
+  }
+}
+
 export async function reemplazarEjercicioEnRutina(
   rutinaId: string,
   nombreOriginal: string,

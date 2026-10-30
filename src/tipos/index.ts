@@ -57,6 +57,7 @@ export type EjercicioRegistro = {
   sustitucion_alcance?: 'solo_hoy' | 'rutina' | null;
   reps_parciales?: number;
   drops?: DropItem[];
+  orden?: number | null;
 };
 
 export type Registro = {
