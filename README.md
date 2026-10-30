@@ -46,6 +46,7 @@ Los scripts de base de datos se encuentran en `supabase/` y deben ejecutarse en 
 2. **`supabase/02_multicuenta.sql`:** Habilita el aislamiento multicuenta con `usuario_id`, Row Level Security (RLS) en todas las entidades, catálogos predeterminados y el RPC `eliminar_mi_cuenta()`.
 3. **`supabase/03_listas_biblioteca.sql`:** Esquema y políticas para la gestión de ejercicios favoritos y colecciones personalizadas (`listas_biblioteca`, `favoritos_biblioteca`).
 4. **`supabase/04_notas.sql`:** Tabla de libreta de notas (`notas`), índices de búsqueda por etiquetas/categorías y políticas RLS asociadas.
+5. **`supabase/05_avatares.sql`:** Creación del bucket público `avatares` (límite de 1 MB, tipos MIME permitidos: `image/jpeg`, `image/png`, `image/webp`) y políticas RLS en `storage.objects` con aislamiento por usuario (`<uid>/avatar.jpg`).
 
 ### Autenticación y Correos de Confirmación
 El servidor SMTP por defecto de Supabase está limitado a miembros del proyecto. Para producción con usuarios externos:
@@ -81,6 +82,27 @@ Rutinia soporta autenticación mediante Google en Web (PWA), iOS y Android sin e
 4. **Flujo de Navegación:**
    - En **Web / PWA (iOS y escritorio)**: Se utiliza redirección de página completa con intercambio de código PKCE y sincronización instantánea al volver a la app, evitando popups bloqueados por el navegador.
    - En **Móvil (Expo Go / Dev Client)**: Se abre mediante `WebBrowser.openAuthSessionAsync` usando deep linking seguro (`rutinia://auth/callback` o `exp://`).
+
+### 👤 Foto de perfil y almacenamiento de avatares
+
+Rutinia permite a los usuarios personalizar su avatar eligiendo una foto desde la biblioteca de su dispositivo o usando la foto de su proveedor (Google).
+
+#### Configuración del Storage en Supabase
+Ejecuta el script `supabase/05_avatares.sql` en el SQL Editor de tu panel de Supabase. Este script:
+- Crea el bucket público de almacenamiento `avatares`.
+- Aplica un límite de tamaño por archivo de 1 MB y restringe los tipos MIME a `image/jpeg`, `image/png` e `image/webp`.
+- Establece políticas RLS sobre `storage.objects`:
+  - **Lectura:** Pública para cualquier avatar del bucket.
+  - **Inserción, Actualización y Eliminación:** Permitida exclusivamente si el primer segmento de la ruta del archivo coincide con el identificador del usuario autenticado (`auth.uid()::text`), bajo el patrón `<uid>/avatar.jpg`.
+
+#### Procesamiento y optimización
+- **Selección:** Utiliza `expo-image-picker` y `expo-image-manipulator` respetando permisos en español tanto en plataformas nativas como en web/PWA.
+- **Validación de origen:** Límite máximo de ~5 MB para la imagen seleccionada con rechazo amigable en caso de excederlo.
+- **Redimensionamiento:** Se recorta centrado en cuadrado 1:1 y se escala a 512×512 píxeles con compresión JPEG (calidad 0.8), garantizando archivos ligeros (< 150 KB) de carga veloz.
+
+#### Modo Nube vs Modo Local
+- **Cuentas en la Nube (Correo / Google):** La imagen procesada se sube a Supabase Storage en `avatares/<uid>/avatar.jpg` (upsert). La URL pública versionada (`?v=timestamp`) se persiste en `user_metadata.avatar_url`. Al eliminar la cuenta mediante `eliminarCuentaActual`, el archivo del avatar se borra del bucket antes de invocar el RPC. Para cuentas Google sin foto personalizada, se utiliza su foto oficial (`user_metadata.picture`) por defecto.
+- **Perfil Local / Invitado:** Sin cuenta en la nube, se genera una miniatura ultraligera de 256×256 px en formato data URL base64 (< 80 KB) persistida en `AsyncStorage` bajo el namespace local.
 
 ---
 
