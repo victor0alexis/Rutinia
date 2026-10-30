@@ -714,6 +714,10 @@ export const styles = StyleSheet.create({
   timerBoxDoneHome: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    flexShrink: 1,
+    maxWidth: '100%',
+    minWidth: 0,
     gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -730,6 +734,8 @@ export const styles = StyleSheet.create({
     letterSpacing: 0.1,
   },
   timerLabelDoneHome: {
+    flexShrink: 1,
+    minWidth: 0,
     fontFamily: fuentes.bold,
     fontSize: 9,
     color: '#3FF2B0',
@@ -758,28 +764,12 @@ export const styles = StyleSheet.create({
     fontSize: 11,
     color: '#3FF2B0',
   },
-  doneRowHome: {
+  timerPillsRowDoneHome: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    paddingHorizontal: 11,
-    paddingVertical: 6.5,
-    borderRadius: 8,
-    backgroundColor: 'rgba(63, 242, 176, 0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(63, 242, 176, 0.22)',
-    borderLeftWidth: 2.5,
-    borderLeftColor: '#3FF2B0',
-  },
-  doneTextHome: {
-    fontFamily: fuentes.bold,
-    fontSize: 11.5,
-    color: '#3FF2B0',
-  },
-  doneSubtextHome: {
-    fontFamily: fuentes.regular,
-    fontSize: 11.5,
-    color: '#98A1AF',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   footerRowHome: {
     flexDirection: 'row',
