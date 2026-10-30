@@ -24,7 +24,6 @@ import {
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { fuentes, noir } from '../../constantes/colores';
-import EncabezadoEditorial from '../../componentes/comunes/EncabezadoEditorial';
 import FondoPantalla from '../../componentes/comunes/FondoPantalla';
 import TextoBrillante from '../../componentes/efectos/TextoBrillante';
 import PestanasSegmentadasSpotlight from '../../componentes/navegacion/PestanasSegmentadasSpotlight';
@@ -319,14 +318,6 @@ export default function ProgresoScreen() {
             paddingBottom: tabBottomPadding,
           }}
         >
-          <EncabezadoEditorial
-            title="Progreso"
-            style={{
-              paddingTop: isLandscape ? 2 : 4,
-              marginBottom: isLandscape ? 4 : 12,
-            }}
-          />
-
           <ScrollView
             style={{ flex: 1 }}
             contentContainerStyle={styles.scrollContent}
