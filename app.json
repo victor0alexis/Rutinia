@@ -34,7 +34,13 @@
           "imageWidth": 76
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Rutinia necesita acceder a tus fotos para que puedas personalizar tu avatar."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
