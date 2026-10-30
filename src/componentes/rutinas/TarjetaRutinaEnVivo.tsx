@@ -542,7 +542,7 @@ export default function TarjetaRutinaEnVivo({
           )}
           {estaFinalizada && (
             <View style={styles.timerSectionLive}>
-              <View style={styles.timerPillsRowLive}>
+              <View style={styles.timerPillsRowDoneHome}>
                 <View style={styles.timerBoxDoneHome}>
                   <Ionicons name="trophy-outline" size={14} color="#3FF2B0" />
                   <Text style={styles.timerTextDoneHome}>
@@ -575,18 +575,6 @@ export default function TarjetaRutinaEnVivo({
                     { width: `${Math.max(porcentajeFinal, 4)}%` },
                   ]}
                 />
-              </View>
-              {/* Snapshot completado con detalle real */}
-              <View style={styles.doneRowHome}>
-                <Ionicons name="ribbon-outline" size={13} color="#3FF2B0" />
-                <Text style={styles.doneTextHome} numberOfLines={1}>
-                  Entrenamiento finalizado{' '}
-                  <Text style={styles.doneSubtextHome}>
-                    · {seriesCompletadasFinal === totalSeriesFinal
-                        ? 'Todas las series completadas'
-                        : `${seriesCompletadasFinal} de ${totalSeriesFinal} series realizadas`}
-                  </Text>
-                </Text>
               </View>
             </View>
           )}
@@ -737,16 +725,16 @@ export default function TarjetaRutinaEnVivo({
                 {totalEjercicios} ejercicios
               </Text>
             </View>
-            <View style={styles.metricChipSeriesHome}>
-              <Ionicons name="repeat-outline" size={11} color={noir.lavender} />
-              <Text style={styles.metricChipSeriesTextHome}>
-                {estaEnProceso
-                  ? `${seriesCompletadasLive}/${totalSeriesLive} series`
-                  : estaFinalizada
-                  ? `${seriesCompletadasFinal}/${totalSeriesFinal} series`
-                  : `${totalSeries} series`}
-              </Text>
-            </View>
+            {!estaFinalizada && (
+              <View style={styles.metricChipSeriesHome}>
+                <Ionicons name="repeat-outline" size={11} color={noir.lavender} />
+                <Text style={styles.metricChipSeriesTextHome}>
+                  {estaEnProceso
+                    ? `${seriesCompletadasLive}/${totalSeriesLive} series`
+                    : `${totalSeries} series`}
+                </Text>
+              </View>
+            )}
           </View>
           <RoutineActionButton
             estado={
