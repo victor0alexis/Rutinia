@@ -1077,7 +1077,7 @@ export default function RutinasScreen() {
             {
               paddingHorizontal: gutter,
               maxWidth: contentMaxWidth,
-              marginBottom: isLandscape ? 6 : 12,
+              marginBottom: isLandscape ? 4 : 12,
             },
           ]}
         >

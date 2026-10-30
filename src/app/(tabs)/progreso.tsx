@@ -323,7 +323,7 @@ export default function ProgresoScreen() {
             title="Progreso"
             style={{
               paddingTop: isLandscape ? 2 : 4,
-              marginBottom: isLandscape ? 4 : 8,
+              marginBottom: isLandscape ? 4 : 12,
             }}
           />
 

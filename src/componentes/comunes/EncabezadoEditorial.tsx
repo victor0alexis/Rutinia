@@ -30,15 +30,16 @@ const TITLE_GRADIENT_COLORS = [
 
 type Props = {
   title?: string;
+  mostrarLogo?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
 /**
  * Cabecera editorial compartida por las secciones principales.
- * Reproduce el lockup de marca con el logotipo oficial de Rutinia y el título de la sección,
- * y conserva el menú de cuenta y ajustes detrás del avatar.
+ * Muestra el logotipo oficial solo cuando la pantalla lo solicita y conserva
+ * el menú de cuenta y ajustes detrás del avatar.
  */
-function EncabezadoEditorial({ title = 'RutinIA', style }: Props) {
+function EncabezadoEditorial({ title = 'RutinIA', mostrarLogo = false, style }: Props) {
   const { isCompact } = useLayout();
   const [cuenta, setCuenta] = useState<CuentaRutinia | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
@@ -66,7 +67,7 @@ function EncabezadoEditorial({ title = 'RutinIA', style }: Props) {
     <>
       <View style={[styles.headerWrap, style]}>
         <View style={styles.brandLockup}>
-          <RutiniaLogo size={32} />
+          {mostrarLogo && <RutiniaLogo size={32} />}
 
           <View style={styles.brandWordmark}>
             <TextoGradiente

@@ -222,9 +222,10 @@ export default function Semana() {
           {/* CABECERA EDITORIAL COMPARTIDA: MARCA + AVATAR */}
           <EncabezadoEditorial
             title="RutinIA"
+            mostrarLogo
             style={{
               paddingTop: isLandscape ? 2 : 4,
-              marginBottom: isLandscape ? 4 : 14,
+              marginBottom: isLandscape ? 4 : 12,
             }}
           />
 

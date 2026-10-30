@@ -5,7 +5,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colores, fuentes } from '../../constantes/colores';
 import { useLayout } from '../../hooks/useLayout';
 import BotonBrillo from './BotonBrillo';
-import { RutiniaLogo } from './RutiniaLogo';
 
 type Props = {
   badgeText?: string;
@@ -111,12 +110,6 @@ export default function EncabezadoSeccion({
         </View>
       )}
 
-      {/* Marca metálica: el componente oficial de Reacticx como logotipo. */}
-      <RutiniaLogo
-        size={isLandscape ? 22 : 28}
-        style={styles.brandMark}
-      />
-
       {/* Badge Superior Micro-Elegante con Borde Luminoso */}
       <View style={styles.badgeGlowBorder}>
         <LinearGradient
@@ -176,10 +169,6 @@ export default function EncabezadoSeccion({
 }
 
 const styles = StyleSheet.create({
-  brandMark: {
-    marginTop: 1,
-    marginBottom: 1,
-  },
   volverContainer: {
     position: 'absolute',
     top: 6,
