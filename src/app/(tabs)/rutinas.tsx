@@ -1686,7 +1686,6 @@ export default function RutinasScreen() {
                         ? DIAS_SEMANA_NOMBRES[dia].slice(0, 3)
                         : null;
                     const esDeHoy = dia === hoyIdx;
-                    const minutos = Math.max(25, Math.round(totalSeries * 2.5));
 
                     return (
                       <GlassSurface
@@ -1725,7 +1724,7 @@ export default function RutinasScreen() {
                             <Text style={styles.routineMeta} numberOfLines={1}>
                               {numEjercicios}{' '}
                               {numEjercicios === 1 ? 'ejercicio' : 'ejercicios'} · {totalSeries}{' '}
-                              series · ~{minutos} min
+                              series
                             </Text>
                           </View>
 

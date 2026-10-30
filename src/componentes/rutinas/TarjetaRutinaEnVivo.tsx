@@ -543,15 +543,15 @@ export default function TarjetaRutinaEnVivo({
           {estaFinalizada && (
             <View style={styles.timerSectionLive}>
               <View style={styles.timerPillsRowDoneHome}>
-                <View style={styles.timerBoxDoneHome}>
-                  <Ionicons name="trophy-outline" size={14} color="#3FF2B0" />
-                  <Text style={styles.timerTextDoneHome}>
-                    {duracionFinalSegs
-                      ? formatearTiempoTexto(duracionFinalSegs)
-                      : `${totalSeries * 2.5} min aprox`}
-                  </Text>
-                  <Text style={styles.timerLabelDoneHome}>TIEMPO DE EJECUCIÓN</Text>
-                </View>
+                {duracionFinalSegs != null && duracionFinalSegs > 0 && (
+                  <View style={styles.timerBoxDoneHome}>
+                    <Ionicons name="trophy-outline" size={14} color="#3FF2B0" />
+                    <Text style={styles.timerTextDoneHome}>
+                      {formatearTiempoTexto(duracionFinalSegs)}
+                    </Text>
+                    <Text style={styles.timerLabelDoneHome}>TIEMPO DE EJECUCIÓN</Text>
+                  </View>
+                )}
                 <View style={styles.seriesPillDoneHome}>
                   <Ionicons
                     name="checkmark-circle"
@@ -581,17 +581,6 @@ export default function TarjetaRutinaEnVivo({
           {estaPendiente && (
             <View style={styles.timerSectionLive}>
               <View style={styles.timerPillsRowLive}>
-                <View style={styles.timerBoxPendingHome}>
-                  <Ionicons
-                    name="stopwatch-outline"
-                    size={14}
-                    color="#5CC8FF"
-                  />
-                  <Text style={styles.timerTextPendingHome}>
-                    ~{Math.max(25, Math.round(totalSeries * 2.5))} min
-                  </Text>
-                  <Text style={styles.timerLabelPendingHome}>TIEMPO ESTIMADO</Text>
-                </View>
                 <View style={styles.seriesPillPendingHome}>
                   <Ionicons
                     name="layers-outline"
@@ -603,10 +592,6 @@ export default function TarjetaRutinaEnVivo({
                   </Text>
                   <Text style={styles.seriesPctPendingHome}>(0%)</Text>
                 </View>
-              </View>
-              {/* Barra de progreso vacía */}
-              <View style={styles.liveProgressBarContainer}>
-                <View style={[styles.liveProgressBarFill, { width: '0%' }]} />
               </View>
               {/* Snapshot primer ejercicio */}
               {ejsPuros.length > 0 && (
@@ -690,27 +675,13 @@ export default function TarjetaRutinaEnVivo({
               )}
             </View>
           )}
-          {estaFinalizada && (
+          {estaFinalizada && duracionFinalSegs != null && duracionFinalSegs > 0 && (
             <View style={styles.timerBoxDone}>
               <Ionicons name="trophy-outline" size={13} color={colores.exito} />
               <Text style={styles.timerTextDone}>
-                {duracionFinalSegs
-                  ? formatearTiempoTexto(duracionFinalSegs)
-                  : `${totalSeries * 2.5} min aprox`}
+                {formatearTiempoTexto(duracionFinalSegs)}
               </Text>
               <Text style={styles.timerLabelDone}>TIEMPO DE EJECUCIÓN</Text>
-            </View>
-          )}
-          {estaPendiente && (
-            <View style={styles.timerBoxPending}>
-              <Ionicons
-                name="stopwatch-outline"
-                size={13}
-                color={colores.suave}
-              />
-              <Text style={styles.timerTextPending}>
-                ~{Math.max(25, Math.round(totalSeries * 2.5))} min estimados
-              </Text>
             </View>
           )}
         </View>

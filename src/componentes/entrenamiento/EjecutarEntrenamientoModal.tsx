@@ -1507,10 +1507,6 @@ export default function EjecutarEntrenamientoModal({
                   {/* Highlights Grid */}
                   <View style={styles.lobbyGrid}>
                     <View style={styles.lobbyGridItem}>
-                      <Ionicons name="time-outline" size={16} color={noir.champagne} />
-                      <Text style={styles.lobbyGridItemText}>~45 min est.</Text>
-                    </View>
-                    <View style={styles.lobbyGridItem}>
                       <Ionicons name="barbell-outline" size={16} color={noir.info} />
                       <Text style={styles.lobbyGridItemText}>Sobrecarga Activa</Text>
                     </View>

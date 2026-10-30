@@ -200,16 +200,6 @@ export const styles = StyleSheet.create({
     color: 'rgba(16, 185, 129, 0.8)',
     letterSpacing: 0.4,
   },
-  timerBoxPending: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  timerTextPending: {
-    fontFamily: fuentes.regular,
-    fontSize: 12,
-    color: colores.suave,
-  },
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -663,31 +653,6 @@ export const styles = StyleSheet.create({
   nextSerieHome: {
     fontFamily: fuentes.regular,
     color: '#98A1AF',
-  },
-  timerBoxPendingHome: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(92, 200, 255, 0.42)',
-    backgroundColor: 'rgba(92, 200, 255, 0.08)',
-    alignSelf: 'flex-start',
-  },
-  timerTextPendingHome: {
-    fontFamily: fuentes.bold,
-    fontSize: 14,
-    color: '#FFFFFF',
-    letterSpacing: 0.1,
-  },
-  timerLabelPendingHome: {
-    fontFamily: fuentes.bold,
-    fontSize: 9,
-    color: '#5CC8FF',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
   },
   seriesPillPendingHome: {
     flexDirection: 'row',
