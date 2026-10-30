@@ -1,6 +1,7 @@
 import { styles } from './MenuOpcionesModal.estilos';
 import React, { useEffect, useState } from 'react';
 import {
+  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
@@ -35,11 +36,14 @@ import {
   iniciarSesionConGoogle,
   obtenerEstadoCuentas,
   quitarCuentaDelDispositivo,
+  quitarFotoPerfilActual,
+  cambiarFotoPerfilActual,
   reenviarConfirmacion,
   SesionExpiradaError,
   SesionGoogleExpiradaError,
   subscribirCambioCuenta,
 } from '../../servicios/cuentas';
+import { seleccionarFotoPerfil } from '../../utilidades/fotoPerfil';
 import { limpiarCacheDatosLocales } from '../../utilidades/almacenamientoLocal';
 import { confirmarAccion, mostrarMensaje } from '../../utilidades/errores';
 import { vibrarBoton } from '../../utilidades/hapticos';
@@ -323,6 +327,7 @@ export default function MenuOpcionesModal({
   const [passwordNueva2, setPasswordNueva2] = useState('');
   const [verPasswordNueva, setVerPasswordNueva] = useState(false);
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [guardandoEmail, setGuardandoEmail] = useState(false);
   const [guardandoPassword, setGuardandoPassword] = useState(false);
   const [avisoPerfil, setAvisoPerfil] = useState<Aviso | null>(null);
@@ -376,7 +381,7 @@ export default function MenuOpcionesModal({
   const cuentaActiva = estado?.activa ?? null;
   const otrasCuentas = estado?.cuentas.filter((c) => c.id !== cuentaActiva?.id) ?? [];
   const manejarCierre = () => {
-    if (cambiandoId || cargandoAuth) return;
+    if (cambiandoId || cargandoAuth || subiendoFoto) return;
     setAviso(null);
     setAvisoAuth(null);
     setAvisoPerfil(null);
@@ -414,7 +419,7 @@ export default function MenuOpcionesModal({
     setVista('auth');
   };
   const abrirPerfil = () => {
-    if (!cuentaActiva || cuentaActiva.tipo !== 'nube') return;
+    if (!cuentaActiva) return;
     vibrarBoton();
     cargarPerfil(cuentaActiva);
     setPasswordNueva('');
@@ -644,6 +649,62 @@ export default function MenuOpcionesModal({
       'Quitar'
     );
   };
+  // ── Foto de perfil ───────────────────────────────────────────────────────
+  const elegirFotoPerfil = async () => {
+    if (subiendoFoto) return;
+    const foto = await seleccionarFotoPerfil();
+    if (!foto) return;
+    setSubiendoFoto(true);
+    setAvisoPerfil(null);
+    try {
+      await cambiarFotoPerfilActual(foto);
+      setEstado(await obtenerEstadoCuentas());
+      setAvisoPerfil({ tipo: 'exito', texto: 'Foto de perfil actualizada.' });
+      onSessionChange?.();
+    } catch (err) {
+      setAvisoPerfil({
+        tipo: 'error',
+        texto: err instanceof Error ? err.message : 'No se pudo subir la foto.',
+      });
+    } finally {
+      setSubiendoFoto(false);
+    }
+  };
+
+  const eliminarFotoPerfil = async () => {
+    if (subiendoFoto) return;
+    setSubiendoFoto(true);
+    setAvisoPerfil(null);
+    try {
+      await quitarFotoPerfilActual();
+      setEstado(await obtenerEstadoCuentas());
+      setAvisoPerfil({ tipo: 'exito', texto: 'Foto de perfil eliminada.' });
+      onSessionChange?.();
+    } catch (err) {
+      setAvisoPerfil({
+        tipo: 'error',
+        texto: err instanceof Error ? err.message : 'No se pudo eliminar la foto.',
+      });
+    } finally {
+      setSubiendoFoto(false);
+    }
+  };
+
+  const mostrarAccionesAvatar = () => {
+    if (subiendoFoto) return;
+    vibrarBoton(15);
+    const tieneAvatar = Boolean(cuentaActiva?.avatarUrl);
+    const botones: { text: string; onPress?: () => void; style?: 'destructive' | 'cancel' }[] = [
+      { text: 'Elegir de la biblioteca', onPress: () => void elegirFotoPerfil() },
+    ];
+    if (tieneAvatar) {
+      botones.push({ text: 'Quitar foto', style: 'destructive', onPress: () => void eliminarFotoPerfil() });
+    }
+    botones.push({ text: 'Cancelar', style: 'cancel' });
+
+    Alert.alert('Foto de perfil', 'Selecciona una opción', botones);
+  };
+
   // ── Perfil ────────────────────────────────────────────────────────────────
   const guardarPerfil = async () => {
     if (!nombrePerfil.trim()) {
@@ -1384,82 +1445,143 @@ export default function MenuOpcionesModal({
       </>
     );
   };
-  const renderPerfil = () => (
-    <>
-      {avisoPerfil ? <Alerta aviso={avisoPerfil} /> : null}
-      {cuentaActiva ? (
-        <>
-          <View style={styles.card}>
-            <View style={styles.perfilHero}>
-              <AvatarCuenta cuenta={{ ...cuentaActiva, color: colorPerfil }} size={62} />
-              <View style={styles.perfilHeroInfo}>
-                <Text style={styles.perfilNombre} numberOfLines={1}>
-                  {nombrePerfil || cuentaActiva.nombre}
-                </Text>
-                <Text style={styles.perfilEmail} numberOfLines={1}>
-                  {cuentaActiva.email || (cuentaGoogle ? 'Cuenta de Google' : 'Cuenta de Supabase')}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.campoLabel}>Nombre visible</Text>
-            <Campo
-              icono="person-outline"
-              placeholder="Tu nombre o apodo"
-              value={nombrePerfil}
-              onChangeText={setNombrePerfil}
-              autoCapitalize="words"
-              autoComplete="name"
-              textContentType="name"
-            />
-            <Text style={styles.campoLabel}>Color de tu avatar</Text>
-            <View style={styles.paleta}>
-              {COLORES_PLANES.map((color) => {
-                const activo = colorPerfil === color;
-                return (
-                  <Pressable
-                    key={color}
-                    onPress={() => {
-                      vibrarBoton();
-                      setColorPerfil(color);
-                    }}
-                    style={[
-                      styles.colorSwatch,
-                      { backgroundColor: color },
-                      activo && styles.colorSwatchActivo,
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: activo }}
-                    accessibilityLabel={`Color de avatar ${color}`}
-                  >
-                    {activo ? <Ionicons name="checkmark" size={15} color="#FFFFFF" /> : null}
-                  </Pressable>
-                );
-              })}
-            </View>
-            <BotonPrimario
-              texto="Guardar perfil"
-              icono="save-outline"
-              onPress={guardarPerfil}
-              cargando={guardandoPerfil}
-            />
-          </View>
-          {cuentaGoogle ? (
-            <View style={styles.card}>
-              <Text style={styles.cardTitulo}>CUENTA DE GOOGLE</Text>
-              <Text style={styles.descripcionSeccion}>
-                Tu cuenta usa Google para iniciar sesión. El correo y la contraseña se administran desde tu cuenta de Google.
+  const renderPerfil = () => {
+    if (!cuentaActiva) return null;
+    const esNube = cuentaActiva.tipo === 'nube';
+    const esLocal = cuentaActiva.tipo === 'local';
+    const tieneAvatar = Boolean(cuentaActiva.avatarUrl);
+    const fechaMiembro = cuentaActiva.creadaEn
+      ? new Date(cuentaActiva.creadaEn).toLocaleDateString('es', { year: 'numeric', month: 'long', day: 'numeric' })
+      : null;
+    return (
+      <>
+        {avisoPerfil ? <Alerta aviso={avisoPerfil} /> : null}
+
+        {/* Cabecera centrada */}
+        <View style={styles.card}>
+          {esLocal ? (
+            <View style={styles.perfilLocalBanner}>
+              <Ionicons name="information-circle-outline" size={16} color={WARNING} />
+              <Text style={styles.perfilLocalBannerTexto}>
+                Estás en el perfil local. Inicia sesión para sincronizar entre dispositivos y guardar tu foto en la nube.
               </Text>
+            </View>
+          ) : null}
+          <View style={styles.perfilCabecera}>
+            <Pressable
+              onPress={mostrarAccionesAvatar}
+              disabled={subiendoFoto}
+              style={({ pressed }) => [
+                styles.perfilAvatarWrap,
+                pressed && { opacity: 0.8 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Cambiar foto de perfil"
+            >
+              <Avatar cuenta={{ ...cuentaActiva, color: colorPerfil }} size={96} />
+              <View style={styles.camaraBadge}>
+                {subiendoFoto ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Ionicons name="camera" size={14} color="#FFFFFF" />
+                )}
+              </View>
+            </Pressable>
+            <Text style={styles.perfilNombreCabecera} numberOfLines={1}>
+              {nombrePerfil || cuentaActiva.nombre}
+            </Text>
+            {cuentaActiva.email ? (
+              <Text style={styles.perfilEmailCabecera} numberOfLines={1}>
+                {cuentaActiva.email}
+              </Text>
+            ) : null}
+            <View style={styles.proveedorBadge}>
+              <Ionicons
+                name={cuentaGoogle ? 'logo-google' : esNube ? 'mail-outline' : 'phone-portrait-outline'}
+                size={11}
+                color={noir.muted}
+              />
+              <Text style={styles.proveedorBadgeTexto}>
+                {cuentaGoogle ? 'Cuenta de Google' : esNube ? 'Correo electrónico' : 'Perfil local'}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Sección: Información personal */}
+        <View style={styles.card}>
+          <Text style={styles.seccionTitulo}>INFORMACIÓN PERSONAL</Text>
+          <Text style={styles.campoLabel}>Nombre visible</Text>
+          <Campo
+            icono="person-outline"
+            placeholder="Tu nombre o apodo"
+            value={nombrePerfil}
+            onChangeText={setNombrePerfil}
+            autoCapitalize="words"
+            autoComplete="name"
+            textContentType="name"
+          />
+          {!tieneAvatar ? (
+            <>
+              <Text style={styles.campoLabel}>Color de acento del avatar</Text>
+              <View style={styles.paleta}>
+                {COLORES_PLANES.map((color) => {
+                  const activo = colorPerfil === color;
+                  return (
+                    <Pressable
+                      key={color}
+                      onPress={() => {
+                        vibrarBoton();
+                        setColorPerfil(color);
+                      }}
+                      style={[
+                        styles.colorSwatch,
+                        { backgroundColor: color },
+                        activo && styles.colorSwatchActivo,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: activo }}
+                      accessibilityLabel={`Color de avatar ${color}`}
+                    >
+                      {activo ? <Ionicons name="checkmark" size={15} color="#FFFFFF" /> : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          ) : null}
+          <BotonPrimario
+            texto="Guardar cambios"
+            icono="save-outline"
+            onPress={guardarPerfil}
+            cargando={guardandoPerfil}
+            disabled={subiendoFoto}
+          />
+          {fechaMiembro ? (
+            <>
+              <View style={styles.divisor} />
+              <View style={styles.infoStatRow}>
+                <Text style={styles.infoStatLabel}>Miembro desde</Text>
+                <Text style={styles.infoStatValor}>{fechaMiembro}</Text>
+              </View>
+            </>
+          ) : null}
+        </View>
+
+        {/* Sección: Acceso y seguridad */}
+        {esNube ? (
+          <View style={styles.card}>
+            <Text style={styles.seccionTitulo}>ACCESO Y SEGURIDAD</Text>
+            {cuentaGoogle ? (
               <View style={styles.googleInfo}>
                 <Ionicons name="logo-google" size={16} color={noir.info} />
                 <Text style={styles.googleInfoTexto}>
-                  {cuentaActiva.email || 'Sesión de Google'}
+                  Tu cuenta usa Google para iniciar sesión. El correo y la contraseña se administran desde tu cuenta de Google.
                 </Text>
               </View>
-            </View>
-          ) : (
-            <>
-              <View style={styles.card}>
-                <Text style={styles.cardTitulo}>CORREO ELECTRÓNICO</Text>
+            ) : (
+              <>
+                <Text style={styles.campoLabel}>Correo electrónico</Text>
                 <Text style={styles.descripcionSeccion}>
                   Supabase enviará un enlace de confirmación al nuevo correo antes de aplicarlo.
                 </Text>
@@ -1480,9 +1602,8 @@ export default function MenuOpcionesModal({
                   onPress={guardarEmail}
                   cargando={guardandoEmail}
                 />
-              </View>
-              <View style={styles.card}>
-                <Text style={styles.cardTitulo}>CONTRASEÑA</Text>
+                <View style={[styles.divisor, { marginVertical: 14 }]} />
+                <Text style={styles.campoLabel}>Contraseña</Text>
                 <Text style={styles.descripcionSeccion}>
                   Usa al menos 6 caracteres. Se aplicará la próxima vez que inicies sesión.
                 </Text>
@@ -1498,7 +1619,7 @@ export default function MenuOpcionesModal({
                   textContentType="newPassword"
                   mostrarOcultar
                   oculto={!verPasswordNueva}
-                  onMostrarOcultar={() => setVerPasswordNueva((valor) => !valor)}
+                  onMostrarOcultar={() => setVerPasswordNueva((v) => !v)}
                 />
                 <Campo
                   icono="shield-checkmark-outline"
@@ -1517,16 +1638,20 @@ export default function MenuOpcionesModal({
                   onPress={guardarPassword}
                   cargando={guardandoPassword}
                 />
-              </View>
-            </>
-          )}
+              </>
+            )}
+          </View>
+        ) : null}
+
+        {/* Sección: Datos y cuenta */}
+        {esNube ? (
           <View style={styles.card}>
-            <Text style={styles.cardTitulo}>SESIÓN Y DISPOSITIVO</Text>
+            <Text style={styles.seccionTitulo}>DATOS Y CUENTA</Text>
             <Pressable
               onPress={cerrarSesion}
               style={({ pressed }) => [styles.dataRow, pressed && { opacity: 0.72 }]}
               accessibilityRole="button"
-              accessibilityLabel="Cerrar sesión"
+              accessibilityLabel="Cerrar sesión en este dispositivo"
             >
               <View style={styles.optionInfo}>
                 <View style={styles.optionIcono}>
@@ -1534,7 +1659,7 @@ export default function MenuOpcionesModal({
                 </View>
                 <View style={styles.optionTexts}>
                   <Text style={styles.optionLabel}>Cerrar sesión</Text>
-                  <Text style={styles.optionSub}>Borra el token guardado y vuelve al perfil local</Text>
+                  <Text style={styles.optionSub}>Cierra la sesión en este dispositivo</Text>
                 </View>
               </View>
               <Ionicons name="chevron-forward" size={17} color={noir.muted2} />
@@ -1552,22 +1677,52 @@ export default function MenuOpcionesModal({
                 </View>
                 <View style={styles.optionTexts}>
                   <Text style={styles.optionLabel}>Quitar de este dispositivo</Text>
-                  <Text style={styles.optionSub}>Borra la sesión guardada, no tus datos</Text>
+                  <Text style={styles.optionSub}>Borra la sesión guardada, no tus datos en la nube</Text>
                 </View>
               </View>
               <Ionicons name="chevron-forward" size={17} color={noir.muted2} />
             </Pressable>
           </View>
+        ) : null}
+
+        {/* Datos locales */}
+        {esLocal ? (
+          <View style={styles.card}>
+            <Text style={styles.seccionTitulo}>DATOS LOCALES</Text>
+            <Pressable
+              onPress={limpiarCache}
+              style={({ pressed }) => [styles.dataRow, pressed && { opacity: 0.72 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Limpiar datos locales"
+            >
+              <View style={styles.optionInfo}>
+                <View style={styles.optionIcono}>
+                  <Ionicons name="trash-bin-outline" size={18} color={DANGER} />
+                </View>
+                <View style={styles.optionTexts}>
+                  <Text style={styles.optionLabel}>Limpiar datos locales</Text>
+                  <Text style={styles.optionSub}>Borra rutinas, planes y registros en caché</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={17} color={noir.muted2} />
+            </Pressable>
+          </View>
+        ) : null}
+
+        {/* Zona de peligro */}
+        {esNube ? (
           <View style={[styles.card, styles.cardPeligro]}>
-            <Text style={[styles.cardTitulo, { color: DANGER }]}>ZONA DE PELIGRO</Text>
+            <Text style={[styles.seccionTitulo, { color: DANGER }]}>ZONA DE PELIGRO</Text>
             <Text style={styles.descripcionSeccion}>
               Eliminar la cuenta borra de forma permanente tu identidad y todos tus datos en
-              la nube. Esta acción no se puede deshacer.
+              la nube (rutinas, planes, registros, notas y favoritos). Esta acción no se puede deshacer.
             </Text>
             <Pressable
               onPress={eliminarCuenta}
+              disabled={subiendoFoto}
               style={({ pressed }) => [
                 styles.botonPeligro,
+                subiendoFoto && { opacity: 0.4 },
                 pressed && { opacity: 0.75 },
               ]}
               accessibilityRole="button"
@@ -1577,10 +1732,10 @@ export default function MenuOpcionesModal({
               <Text style={styles.botonPeligroTexto}>Eliminar mi cuenta</Text>
             </Pressable>
           </View>
-        </>
-      ) : null}
-    </>
-  );
+        ) : null}
+      </>
+    );
+  };
   return (
     <Modal
       visible={visible}
