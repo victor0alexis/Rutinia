@@ -3,11 +3,11 @@ import {
   Pressable,
   StyleProp,
   StyleSheet,
-  Text,
+
   View,
   ViewStyle,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+
 import { fuentes, noir } from '../../constantes/colores';
 import { useLayout } from '../../hooks/useLayout';
 import {
@@ -18,6 +18,7 @@ import {
 import { vibrarBoton } from '../../utilidades/hapticos';
 import TextoGradiente from '../efectos/TextoGradiente';
 import { RutiniaLogo } from './RutiniaLogo';
+import { Avatar } from './Avatar';
 import MenuOpcionesModal from '../cuenta/MenuOpcionesModal';
 
 const TITLE_GRADIENT_COLORS = [
@@ -56,11 +57,11 @@ function EncabezadoEditorial({ title = 'RutinIA', style }: Props) {
     return subscribirCambioCuenta(cargarInfoUsuario);
   }, []);
 
-  const avatarInicial = cuenta?.nombre?.trim().charAt(0).toUpperCase() || 'A';
-  const esNube = cuenta?.tipo === 'nube';
-  const coloresAvatar: [string, string] = esNube
-    ? [cuenta?.color || '#9E1C30', '#13151B']
-    : ['#232631', '#13151B'];
+
+
+
+
+
 
   return (
     <>
@@ -81,6 +82,7 @@ function EncabezadoEditorial({ title = 'RutinIA', style }: Props) {
                 letterSpacing: -0.55,
               }}
             >
+
               {title}
             </TextoGradiente>
             <View style={styles.brandDotSmall} />
@@ -101,25 +103,8 @@ function EncabezadoEditorial({ title = 'RutinIA', style }: Props) {
             accessibilityRole="button"
             accessibilityLabel="Abrir menú de cuenta y ajustes"
           >
-            <LinearGradient
-              colors={coloresAvatar}
-              start={{ x: 0.3, y: 0.1 }}
-              end={{ x: 0.7, y: 0.95 }}
-              style={styles.avatarGradient}
-            >
-              <Text style={styles.avatarText}>{avatarInicial}</Text>
-            </LinearGradient>
+            <Avatar cuenta={cuenta} size={32} mostrarPuntoEstado />
           </Pressable>
-          <View
-            pointerEvents="none"
-            style={[
-              styles.avatarStatus,
-              {
-                backgroundColor: esNube ? noir.mint : noir.champagne,
-                shadowColor: esNube ? noir.mint : noir.champagne,
-              },
-            ]}
-          />
         </View>
       </View>
 
@@ -175,9 +160,9 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.13)',
+
+
+
   },
   avatarGradient: {
     flex: 1,

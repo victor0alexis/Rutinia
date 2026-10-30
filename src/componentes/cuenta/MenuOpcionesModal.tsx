@@ -45,6 +45,7 @@ import { confirmarAccion, mostrarMensaje } from '../../utilidades/errores';
 import { vibrarBoton } from '../../utilidades/hapticos';
 import { emitirCambioDatos } from '../../utilidades/sincronizacion';
 import { RutiniaLogo } from '../comunes/RutiniaLogo';
+import { Avatar } from '../comunes/Avatar';
 const KEY_PREF_UNIDAD = 'rutinia_pref_unidad_peso';
 const KEY_PREF_HAPTICOS = 'rutinia_pref_hapticos';
 const KEY_PREF_TIMER_AUTO = 'rutinia_pref_timer_auto';
@@ -69,50 +70,8 @@ const TITULOS: Record<Vista, string> = {
 function emailValido(valor: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor.trim());
 }
-function inicialDe(cuenta?: CuentaRutinia | null): string {
-  return cuenta?.nombre?.trim().charAt(0).toUpperCase() || 'A';
-}
-function AvatarCuenta({
-  cuenta,
-  size = 44,
-}: {
-  cuenta: CuentaRutinia;
-  size?: number;
-}) {
-  const esNube = cuenta.tipo === 'nube';
-  const radio = size / 2;
-  return (
-    <View
-      style={[
-        styles.avatar,
-        { width: size, height: size, borderRadius: radio },
-      ]}
-    >
-      <LinearGradient
-        colors={
-          esNube
-            ? [cuenta.color || colores.primario, '#15171F']
-            : ['#242833', '#12141A']
-        }
-        start={{ x: 0.25, y: 0.1 }}
-        end={{ x: 0.8, y: 0.95 }}
-        style={styles.avatarGradient}
-      >
-        <Text style={[styles.avatarText, { fontSize: size * 0.38 }]}>
-          {inicialDe(cuenta)}
-        </Text>
-      </LinearGradient>
-      <View
-        style={[
-          styles.avatarDot,
-          {
-            backgroundColor: esNube ? SUCCESS : WARNING,
-            shadowColor: esNube ? SUCCESS : WARNING,
-          },
-        ]}
-      />
-    </View>
-  );
+function AvatarCuenta({ cuenta, size = 44 }: { cuenta: CuentaRutinia; size?: number }) {
+  return <Avatar cuenta={cuenta} size={size} mostrarPuntoEstado />;
 }
 function Alerta({ aviso }: { aviso: Aviso }) {
   const color =
