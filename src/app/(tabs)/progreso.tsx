@@ -124,6 +124,7 @@ export default function ProgresoScreen() {
   const [cargando, setCargando] = useState(true);
   const [metricas, setMetricas] = useState<MetricasProgreso>({
     volumenTotalKg: 0,
+    seriesSoloPlacas: 0,
     diasCompletados: 0,
     seriesTotales: 0,
     rachaDias: 0,
@@ -371,6 +372,11 @@ export default function ProgresoScreen() {
                   'Tu primera marca aparecerá aquí al registrar un entrenamiento'
                 )}
               </Text>
+              {metricas.seriesSoloPlacas > 0 && (
+                <Text style={{ color: noir.muted2, fontSize: 10, marginTop: 4 }}>
+                  Las series solo en placas no se incluyen en métricas en kg.
+                </Text>
+              )}
             </View>
 
             <PestanasSegmentadasSpotlight
@@ -1226,6 +1232,7 @@ function PRCard({
         <Text style={styles.prMeta} numberOfLines={1}>
           {numero(record.maxReps)} reps · {fechaCorta(record.fecha)}
         </Text>
+        {record.composicionCarga ? <Text style={styles.prMeta} numberOfLines={1}>{record.composicionCarga}</Text> : null}
       </Pressable>
     </Animated.View>
   );

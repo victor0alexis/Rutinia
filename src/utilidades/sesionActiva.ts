@@ -1,5 +1,6 @@
 import { calcularSegundosTranscurridos, limpiarTimerSesion, obtenerOIniciarTimer } from './temporizador';
 import { eliminarLocal, escribirLocal, leerLocal } from './almacenamientoLocal';
+import type { CargaSerie } from '../tipos';
 
 type DropDraftItem = {
   orden: number;
@@ -14,6 +15,8 @@ export type SerieEjecucionDraft = {
   reps: string;
   pesoI?: string;
   repsI?: string;
+  carga?: CargaSerie;
+  cargaI?: CargaSerie;
   rir: string;
   nota: string;
   completado: boolean;

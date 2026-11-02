@@ -1,5 +1,5 @@
 import { supabase } from '../biblioteca/supabase';
-import { Registro, Rutina } from '../tipos';
+import { Registro, Rutina, CargaSerie } from '../tipos';
 import {
   guardarCacheLocal,
   leerLocal,
@@ -205,6 +205,7 @@ export async function actualizarEjecucionEjercicio(
     sustitucion_alcance?: 'solo_hoy' | 'rutina' | null;
     reps_parciales?: number;
     drops?: any[];
+    detalles_json?: string | null;
   }
 ) {
   const { error } = await supabase.from('ejercicios_registro').update(datos).eq('id', id);
@@ -572,6 +573,8 @@ export type SerieHistorialEjercicio = {
   drops: DropHistorialEjercicio[];
   volumenKg: number;
   e1RM: number;
+  carga?: CargaSerie | null;
+  cargaI?: CargaSerie | null;
 };
 
 export type SesionHistorialEjercicio = {
@@ -616,6 +619,7 @@ type FilaHistorialEjercicio = {
   peso?: number | null;
   completado?: boolean | null;
   ejercicio_nombre?: string | null;
+  detalles_json?: string | null;
   creado_en?: string | null;
   registros_entrenamiento?: RelacionRegistro | RelacionRegistro[] | null;
 };
@@ -628,6 +632,7 @@ const SELECT_HISTORIAL_EJERCICIO = `
   peso,
   completado,
   ejercicio_nombre,
+  detalles_json,
   creado_en,
   registros_entrenamiento!inner(
     id,
@@ -711,6 +716,8 @@ function construirSeriesHistorial(
   esUnilateral: boolean,
   detalles: ReturnType<typeof parsearEjercicioInfo>['detallesSets']
 ): SerieHistorialEjercicio[] {
+  let cargas: { carga?: CargaSerie | null; cargaI?: CargaSerie | null }[] = [];
+  try { cargas = JSON.parse(fila.detalles_json || '[]'); } catch { cargas = []; }
   if (detalles.length === 0) {
     const peso = numero(fila.peso);
     const reps = numero(fila.repeticiones);
@@ -731,6 +738,8 @@ function construirSeriesHistorial(
         drops: [],
         volumenKg: peso * reps,
         e1RM: calcularE1RM(peso, reps),
+        carga: cargas[0]?.carga || null,
+        cargaI: cargas[0]?.cargaI || null,
       },
     ];
   }
@@ -785,6 +794,8 @@ function construirSeriesHistorial(
         calcularE1RM(pesoD, repsD),
         calcularE1RM(pesoI, repsI)
       ),
+      carga: cargas[index]?.carga || null,
+      cargaI: cargas[index]?.cargaI || null,
     };
   });
 }

@@ -15,6 +15,7 @@ import ResumenEntrenamientoModal from './ResumenEntrenamientoModal';
 import type { EdicionResumen, EjercicioResumen } from './ResumenEntrenamientoModal';
 import SelectorBibliotecaModal from '../biblioteca/SelectorBibliotecaModal';
 import TecladoEntrenamientoInteligente, { CampoEntrenamiento } from './TecladoEntrenamientoInteligente';
+import ConfiguracionCargaEjercicioModal from './ConfiguracionCargaEjercicioModal';
 import {
   actualizarEjecucionEjercicio,
   actualizarEstadoRegistro,
@@ -33,9 +34,10 @@ import {
   parsearNotasSesion,
 } from '../../utilidades/notasSesion';
 import { nombreDia } from '../../utilidades/fechas';
-import { Registro } from '../../tipos';
+import { Registro, CargaSerie } from '../../tipos';
 import { calcularKgSugeridoDrop } from '../../constantes/entrenamiento';
 import { supabase } from '../../biblioteca/supabase';
+import { leerPreferenciasCarga, guardarPreferenciaCarga, normalizarPreferenciaCarga, PREFERENCIA_CARGA_POR_DEFECTO, normalizarNombreParaPreferencia } from '../../utilidades/cargasEjercicio';
 import {
   EstadoTimer,
   obtenerOIniciarTimer,
@@ -78,6 +80,10 @@ export type SerieEjecucion = {
   reps: string;
   pesoI?: string;
   repsI?: string;
+  carga?: CargaSerie;
+  cargaI?: CargaSerie;
+  pesoKgD?: number | null;
+  pesoKgI?: number | null;
   rir: string;
   nota: string;
   completado: boolean;
@@ -105,6 +111,8 @@ type SerieHistorica = {
   repsParciales?: number;
   esDropset?: boolean;
   drops?: DropItemEjecucion[];
+  carga?: CargaSerie;
+  cargaI?: CargaSerie;
 };
 type HistoricoEjercicio = {
   fechaFormateada: string;
@@ -202,6 +210,7 @@ export default function EjecutarEntrenamientoModal({
   const [focusTeclado, setFocusTeclado] = useState<FocusTeclado>(null);
   const scrollBottomPad = (focusTeclado ? 320 : isKeyboardVisible ? 16 : dockHeight) + barBottomPadding + 20;
   const [ejerciciosState, setEjerciciosState] = useState<EjercicioState[]>([]);
+  const [preferenciasCarga, setPreferenciasCarga] = useState<Record<string, ReturnType<typeof normalizarPreferenciaCarga>>>({});
   const [ejercicioActivoIndex, setEjercicioActivoIndex] = useState(0);
   // Espejo síncrono del índice activo: evita que un guardado en vuelo escriba
   // un índice anterior y que la sesión reanude en el ejercicio equivocado.
@@ -225,6 +234,8 @@ export default function EjecutarEntrenamientoModal({
   const [previaEjercicio, setPreviaEjercicio] = useState<{ ejIdx: number; nombre: string } | null>(null);
   const [solicitudTutorial, setSolicitudTutorial] = useState(0);
   const [modalNotaEjercicio, setModalNotaEjercicio] = useState<{ ejIdx: number; nota: string } | null>(null);
+  const [configuracionCargaIdx, setConfiguracionCargaIdx] = useState<number | null>(null);
+  useEffect(() => { leerPreferenciasCarga().then(setPreferenciasCarga).catch(() => undefined); }, []);
   const [confirmacionPermanente, setConfirmacionPermanente] = useState<{
     ejIdx: number;
     nombreOriginal: string;
@@ -288,6 +299,8 @@ export default function EjecutarEntrenamientoModal({
         );
         parsedEjercicios = ejsPure.map((e) => {
           const parsed = parsearEjercicioInfo(e);
+          let cargasGuardadas: { carga?: CargaSerie | null; cargaI?: CargaSerie | null }[] = [];
+          try { cargasGuardadas = JSON.parse((e as any).detalles_json || '[]'); } catch { cargasGuardadas = []; }
           const numSeries = e.series || parsed.detallesSets.length || 1;
           const seriesArray: SerieEjecucion[] = Array.from({ length: numSeries }, (_, i) => {
             const sDetail = parsed.detallesSets[i];
@@ -318,6 +331,8 @@ export default function EjecutarEntrenamientoModal({
               reps: repsStr,
               pesoI: pesoIStr,
               repsI: repsIStr,
+              carga: cargasGuardadas[i]?.carga || undefined,
+              cargaI: cargasGuardadas[i]?.cargaI || undefined,
               rir: rirStr,
               nota: notaStr,
               completado: sDetail ? sDetail.completado : Boolean(e.completado),
@@ -369,6 +384,8 @@ export default function EjecutarEntrenamientoModal({
             if (ePrev.nombre.startsWith('📌')) continue;
             const parsedPrev = parsearEjercicioInfo(ePrev);
             const nLimpio = parsedPrev.nombreLimpio;
+            let cargasPrevias: { carga?: CargaSerie | null; cargaI?: CargaSerie | null }[] = [];
+            try { cargasPrevias = JSON.parse((ePrev as any).detalles_json || '[]'); } catch { cargasPrevias = []; }
             const sPrevArray: SerieHistorica[] = parsedPrev.detallesSets.map((ds) => ({
               peso: ds.pesoD || (ePrev.peso ? ePrev.peso.toString() : ''),
               reps: ds.repsD || (ePrev.repeticiones ? ePrev.repeticiones.toString() : ''),
@@ -377,6 +394,8 @@ export default function EjecutarEntrenamientoModal({
               repsParciales: ds.repsParciales || 0,
               esDropset: ds.esDropset || false,
               drops: ds.drops ? ds.drops.map((d) => ({ ...d })) : [],
+              carga: cargasPrevias[ds.setNum - 1]?.carga || undefined,
+              cargaI: cargasPrevias[ds.setNum - 1]?.cargaI || undefined,
             }));
             map[nLimpio] = {
               fechaFormateada: fechaPrevStr,
@@ -478,6 +497,8 @@ export default function EjecutarEntrenamientoModal({
         reps: s.reps,
         pesoI: s.pesoI,
         repsI: s.repsI,
+        carga: s.carga,
+        cargaI: s.cargaI,
         rir: s.rir,
         completado: s.completado,
         previa: previaStr,
@@ -839,7 +860,8 @@ export default function EjecutarEntrenamientoModal({
       if (campo === 'rir') return drop.rir || '';
       return '';
     }
-    if (campo === 'pesoI') return serie.pesoI !== undefined ? serie.pesoI : serie.peso;
+    if (campo === 'pesoI') return serie.cargaI?.tipo === 'placas' ? String(serie.cargaI.placas || 0) : serie.pesoI !== undefined ? serie.pesoI : serie.peso;
+    if (campo === 'peso' && serie.carga?.tipo === 'placas') return String(serie.carga.placas || 0);
     if (campo === 'repsI') return serie.repsI !== undefined ? serie.repsI : serie.reps;
     return (serie as any)[campo] || '';
   };
@@ -850,10 +872,15 @@ export default function EjecutarEntrenamientoModal({
     if (!ej) return undefined;
     const hist = historialMap[ej.nombre];
     if (campo === 'peso' || campo === 'pesoI') {
-      if (sIdx > 0 && ej.series[sIdx - 1]?.peso) {
-        return ej.series[sIdx - 1].peso;
+      const cargaActual = campo === 'pesoI' ? ej.series[sIdx]?.cargaI : ej.series[sIdx]?.carga;
+      const cargaSerieAnterior = campo === 'pesoI' ? ej.series[sIdx - 1]?.cargaI : ej.series[sIdx - 1]?.carga;
+      if (sIdx > 0 && (cargaActual?.tipo || 'kg') === (cargaSerieAnterior?.tipo || 'kg') && ej.series[sIdx - 1]?.peso) {
+        const anterior = campo === 'pesoI' ? ej.series[sIdx - 1]?.cargaI : ej.series[sIdx - 1]?.carga;
+        return anterior?.tipo === 'placas' ? String(anterior.placas || 0) : (campo === 'pesoI' ? ej.series[sIdx - 1]?.pesoI : ej.series[sIdx - 1]?.peso);
       }
-      return hist?.series[sIdx]?.peso;
+      const cargaPrevia = campo === 'pesoI' ? hist?.series[sIdx]?.cargaI : hist?.series[sIdx]?.carga;
+      if ((cargaActual?.tipo || 'kg') !== (cargaPrevia?.tipo || 'kg')) return undefined;
+      return cargaPrevia?.tipo === 'placas' ? String(cargaPrevia.placas || 0) : hist?.series[sIdx]?.peso;
     }
     if (campo === 'reps' || campo === 'repsI') {
       if (sIdx > 0 && ej.series[sIdx - 1]?.reps) {
@@ -895,6 +922,23 @@ export default function EjecutarEntrenamientoModal({
       return;
     }
     cambiarCampoSerie(ejIdx, sIdx, campo, nuevoValor);
+  };
+  const actualizarCargaDesdeTeclado = (carga: CargaSerie, pesoKg: number | null) => {
+    if (!focusTeclado) return;
+    const { ejIdx, sIdx, campo } = focusTeclado;
+    const ej = ejerciciosState[ejIdx];
+    if (!ej) return;
+    const clave = normalizarNombreParaPreferencia(ej.nombre);
+    const preferencia = preferenciasCarga[clave] || PREFERENCIA_CARGA_POR_DEFECTO;
+    const actualizada = { ...preferencia, tipo: carga.tipo };
+    guardarPreferenciaCarga(ej.nombre, actualizada).catch(() => undefined);
+    setPreferenciasCarga((prev) => ({ ...prev, [clave]: actualizada }));
+    const esIzquierdo = campo === 'pesoI';
+    setEjerciciosState((prev) => {
+      const next = prev.map((item, i) => i !== ejIdx ? item : ({ ...item, series: item.series.map((serie, j) => j !== sIdx ? serie : ({ ...serie, [esIzquierdo ? 'cargaI' : 'carga']: carga, [esIzquierdo ? 'pesoI' : 'peso']: pesoKg == null ? '' : String(pesoKg) })) }));
+      guardarDraftAuto(next);
+      return next;
+    });
   };
   const eliminarSerieConDeshacer = (ejIndex: number, sIndex: number) => {
     const s = ejerciciosState[ejIndex]?.series[sIndex];
@@ -948,6 +992,8 @@ export default function EjecutarEntrenamientoModal({
             if (!historica) return serie;
             return {
               ...serie,
+              carga: historica.carga || undefined,
+              cargaI: historica.cargaI || undefined,
               peso: historica.pesoD > 0 ? String(historica.pesoD) : '',
               reps: historica.repsD > 0 ? String(historica.repsD) : '',
               pesoI: historica.pesoI > 0 ? String(historica.pesoI) : '',
@@ -1231,6 +1277,8 @@ export default function EjecutarEntrenamientoModal({
           reps: s.reps || '',
           pesoI: s.pesoI || '',
           repsI: s.repsI || '',
+          carga: s.carga,
+          cargaI: s.cargaI,
           rir: s.rir || '',
           nota: s.nota || '',
         })),
@@ -1359,6 +1407,7 @@ export default function EjecutarEntrenamientoModal({
             sustitucion_alcance: ej.sustitucion_alcance || null,
             reps_parciales: payload.totalParciales,
             drops: payload.allDrops,
+            detalles_json: JSON.stringify(ej.series.map((s) => ({ carga: s.carga || null, cargaI: s.cargaI || null }))),
           };
           // Si el id es temporal generado por sustitución, insertamos nueva fila
           if (esIdTemporal(ej.id)) {
@@ -1430,6 +1479,8 @@ export default function EjecutarEntrenamientoModal({
             reps: serieEditada.reps,
             pesoI: serieEditada.pesoI,
             repsI: serieEditada.repsI,
+            carga: serieEditada.carga,
+            cargaI: serieEditada.cargaI,
             rir: serieEditada.rir,
             nota: serieEditada.nota,
           };
@@ -1447,6 +1498,7 @@ export default function EjecutarEntrenamientoModal({
         completado: payload.todasCompletadas,
         reps_parciales: payload.totalParciales,
         drops: payload.allDrops,
+        detalles_json: JSON.stringify(ej.series.map((s) => ({ carga: s.carga || null, cargaI: s.cargaI || null }))),
       });
     }
     await sincronizarNotasEjercicios(
@@ -1923,6 +1975,9 @@ export default function EjecutarEntrenamientoModal({
                     pesoPara1RM={ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.peso}
                     repsPara1RM={ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.reps}
                     valorPrevioSugerido={obtenerValorPrevioSugerido()}
+                    carga={focusTeclado.campo === 'pesoI' ? ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.cargaI : ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.carga}
+                    preferenciaCarga={preferenciasCarga[normalizarNombreParaPreferencia(ejerciciosState[focusTeclado.ejIdx]?.nombre || '')] || PREFERENCIA_CARGA_POR_DEFECTO}
+                    onChangeCarga={actualizarCargaDesdeTeclado}
                     onChangeValor={actualizarValorDesdeTeclado}
                     onNext={avanzarCampoTeclado}
                     onCompletarSerie={completarSerieDesdeTeclado}
@@ -2214,6 +2269,19 @@ export default function EjecutarEntrenamientoModal({
                     </View>
                     <Ionicons name="chevron-forward" size={15} color={noir.muted} />
                   </Pressable>
+                  <Pressable
+                    onPress={() => { setEjercicioMenu(null); setConfiguracionCargaIdx(ejercicioMenu); }}
+                    style={styles.sheetOption}
+                  >
+                    <View style={[styles.sheetIconBox, { backgroundColor: 'rgba(92, 200, 255, 0.13)' }]}>
+                      <Ionicons name="options-outline" size={18} color={noir.info} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sheetOptionText}>Ajustes de carga</Text>
+                      <Text style={styles.sheetOptionSubtext}>Unidad, barra, base, placas y discos</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={15} color={noir.muted} />
+                  </Pressable>
                   {/* Reemplazar */}
                   <Pressable
                     onPress={() => {
@@ -2255,6 +2323,21 @@ export default function EjecutarEntrenamientoModal({
           </Pressable>
         </Pressable>
       </Modal>
+      {configuracionCargaIdx !== null && <ConfiguracionCargaEjercicioModal
+        visible={configuracionCargaIdx !== null && Boolean(ejerciciosState[configuracionCargaIdx])}
+        nombreEjercicio={ejerciciosState[configuracionCargaIdx ?? -1]?.nombre || ''}
+        preferencia={preferenciasCarga[normalizarNombreParaPreferencia(ejerciciosState[configuracionCargaIdx ?? -1]?.nombre || '')] || PREFERENCIA_CARGA_POR_DEFECTO}
+        onClose={() => setConfiguracionCargaIdx(null)}
+        onGuardar={(preferencia) => {
+          const idx = configuracionCargaIdx;
+          if (idx === null || !ejerciciosState[idx]) return;
+          const nombre = ejerciciosState[idx].nombre;
+          guardarPreferenciaCarga(nombre, preferencia).catch(() => undefined);
+          setPreferenciasCarga((prev) => ({ ...prev, [normalizarNombreParaPreferencia(nombre)]: preferencia }));
+          setConfiguracionCargaIdx(null);
+          mostrarSnackbar('Ajustes de carga guardados.');
+        }}
+      />}
       {/* MODAL / SHEET: ALCANCE DEL REEMPLAZO */}
       <Modal
         visible={reemplazoMenu !== null}

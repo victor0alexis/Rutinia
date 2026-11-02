@@ -23,6 +23,7 @@ import { differenceInCalendarDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { noir } from '../../constantes/colores';
 import { useLayout } from '../../hooks/useLayout';
+import { formatearDetalleCarga, leerPreferenciasCarga, normalizarNombreParaPreferencia } from '../../utilidades/cargasEjercicio';
 import { vibrarBoton } from '../../utilidades/hapticos';
 import {
   SesionHistorialEjercicio,
@@ -410,10 +411,20 @@ function EtiquetaSerie({
 function FilaSerie({
   serie,
   esUnilateral,
+  convertirPlacasKg,
+  kgPorPlaca,
 }: {
   serie: SerieHistorialEjercicio;
   esUnilateral: boolean;
+  convertirPlacasKg: boolean;
+  kgPorPlaca: number | null;
 }) {
+  const formatoLado = (peso: number, reps: number, carga?: SerieHistorialEjercicio['carga']) =>
+    carga?.tipo === 'placas' && convertirPlacasKg && kgPorPlaca
+      ? `${formatearNumero((carga.placas || 0) * kgPorPlaca)} kg × ${reps || '—'}`
+      : carga?.tipo === 'placas' && peso <= 0
+      ? `${carga.placas || 0} placas × ${reps || '—'} reps`
+      : formatearSerie(peso, reps);
   return (
     <View style={styles.serieRow}>
       <View
@@ -436,16 +447,16 @@ function FilaSerie({
           {esUnilateral ? (
             <>
               <Text style={styles.serieValue}>
-                D {formatearSerie(serie.pesoD, serie.repsD)}
+                D {formatoLado(serie.pesoD, serie.repsD, serie.carga)}
               </Text>
               <Text style={styles.serieSeparator}>·</Text>
               <Text style={styles.serieValue}>
-                I {formatearSerie(serie.pesoI, serie.repsI)}
+                I {formatoLado(serie.pesoI, serie.repsI, serie.cargaI)}
               </Text>
             </>
           ) : (
             <Text style={styles.serieValue}>
-              {formatearSerie(serie.pesoD, serie.repsD)}
+              {formatoLado(serie.pesoD, serie.repsD, serie.carga)}
             </Text>
           )}
           {serie.rir !== null && (
@@ -468,6 +479,11 @@ function FilaSerie({
             />
           )}
         </View>
+        {(serie.carga || serie.cargaI) && (
+          <Text style={{ color: noir.muted, fontSize: 10, marginTop: 3 }}>
+            {formatearDetalleCarga(serie.carga)}{serie.cargaI ? ` · I: ${formatearDetalleCarga(serie.cargaI)}` : ''}
+          </Text>
+        )}
         {serie.drops.length > 0 && (
           <Text style={styles.serieDrops}>
             Drops:{' '}
@@ -500,6 +516,9 @@ function TarjetaSesion({
   deltaProgreso,
   unidadProgreso,
   onUsar,
+  convertirPlacasKg,
+  kgPorPlaca,
+  onToggleConversion,
 }: {
   sesion: SesionHistorialEjercicio;
   esUltima: boolean;
@@ -507,6 +526,9 @@ function TarjetaSesion({
   deltaProgreso: number | null;
   unidadProgreso: 'kg' | 'reps';
   onUsar?: (sesion: SesionHistorialEjercicio) => void;
+  convertirPlacasKg: boolean;
+  kgPorPlaca: number | null;
+  onToggleConversion: () => void;
 }) {
   const contexto = contextoDeSesion(sesion);
   const tieneCarga = sesion.mejorE1RM > 0;
@@ -611,6 +633,7 @@ function TarjetaSesion({
       <View style={styles.seriesBox}>
         <View style={styles.seriesBoxHeader}>
           <Text style={styles.seriesBoxTitle}>SERIES REGISTRADAS</Text>
+          {kgPorPlaca && <Pressable onPress={onToggleConversion}><Text style={{ color: noir.info, fontSize: 10 }}>{convertirPlacasKg ? 'Ver placas' : 'Convertir historial'}</Text></Pressable>}
           <Text style={styles.seriesBoxCount}>
             {sesion.seriesCompletadas}/{sesion.series.length} completadas
           </Text>
@@ -620,6 +643,8 @@ function TarjetaSesion({
             key={`${sesion.id}-serie-${serie.setNum}`}
             serie={serie}
             esUnilateral={sesion.esUnilateral}
+            convertirPlacasKg={convertirPlacasKg}
+            kgPorPlaca={kgPorPlaca}
           />
         ))}
       </View>
@@ -701,6 +726,16 @@ export default function HistorialEjercicioModal({
   const [error, setError] = useState<string | null>(null);
   const [recarga, setRecarga] = useState(0);
   const [metrica, setMetrica] = useState<MetricaGrafica>('e1rm');
+  const [kgPorPlaca, setKgPorPlaca] = useState<number | null>(null);
+  const [convertirPlacasKg, setConvertirPlacasKg] = useState(false);
+  useEffect(() => {
+    let activo = true;
+    leerPreferenciasCarga().then((preferencias) => {
+      const equivalencia = preferencias[normalizarNombreParaPreferencia(nombreEjercicio)]?.kgPorPlaca || null;
+      if (activo) { setKgPorPlaca(equivalencia); setConvertirPlacasKg(false); }
+    }).catch(() => undefined);
+    return () => { activo = false; };
+  }, [nombreEjercicio]);
   useEffect(() => {
     if (!visible || !nombreEjercicio.trim()) return;
     let cancelado = false;
@@ -1252,6 +1287,9 @@ export default function HistorialEjercicioModal({
                       }
                       deltaProgreso={delta}
                       unidadProgreso={resumen.unidadProgreso}
+                      kgPorPlaca={kgPorPlaca}
+                      convertirPlacasKg={convertirPlacasKg}
+                      onToggleConversion={() => setConvertirPlacasKg((value) => !value)}
                       onUsar={onUsarSesion ? usarSesion : undefined}
                     />
                   );

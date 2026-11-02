@@ -252,3 +252,6 @@ RutinIA está optimizada para desplegarse en **Vercel** como una Progressive Web
   npx expo lint       # Linter
   npm run build:web   # Exportación estática web
   ```
+# Carga por kg, placas y discos
+
+En el entrenamiento en vivo se puede registrar la carga en kg, placas o discos por lado. Las preferencias de carga se guardan localmente por cuenta y nombre normalizado del ejercicio; el detalle por serie se serializa en `detalles_json` sin alterar registros antiguos en kg ni requerir una migración SQL. Las placas sin equivalencia conocida se excluyen del volumen y 1RM en kg.
