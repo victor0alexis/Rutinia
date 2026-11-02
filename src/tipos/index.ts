@@ -21,6 +21,20 @@ type DropItem = {
   rir?: number | string | null;
 };
 
+export type TipoCarga = 'kg' | 'placas' | 'discos_barra' | 'discos_maquina';
+
+export type DiscoPorLado = {
+  disco: number;
+  cantidadPorLado: number;
+};
+
+export type CargaSerie = {
+  tipo: TipoCarga;
+  placas?: number;
+  discosPorLado?: DiscoPorLado[];
+  pesoBase?: number;
+};
+
 type EjercicioRutina = {
   id: string;
   rutina_id: string;
@@ -50,6 +64,7 @@ export type EjercicioRegistro = {
   series: number | null;
   repeticiones: number | null;
   peso: number | null;
+  detalles_json?: string | null;
   completado: boolean;
   ejercicio_nombre?: string | null;
   sustituye_a_ejercicio_id?: string | null;

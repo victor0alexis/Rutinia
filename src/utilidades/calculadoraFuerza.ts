@@ -31,13 +31,16 @@ export type DistribucionDiscos = {
   cantidadPorLado: number;
 };
 
+export const DISCOS_OLIMPICOS_KG = [25, 20, 15, 10, 5, 2.5, 1.25] as const;
+
 /**
  * Calcula la combinación óptima de discos por cada lado de la barra olímpica estándar.
  * Discos olímpicos estándar disponibles: 25, 20, 15, 10, 5, 2.5, 1.25 kg.
  */
 export const calcularDiscosPorLado = (
   pesoTotalStr: string | number,
-  pesoBarra = 20
+  pesoBarra = 20,
+  discosDisponibles: readonly number[] = DISCOS_OLIMPICOS_KG
 ): {
   pesoPorLado: number;
   discos: DistribucionDiscos[];
@@ -51,11 +54,10 @@ export const calcularDiscosPorLado = (
   }
 
   const pesoPorLado = (pesoTotal - pesoBarra) / 2;
-  const discosDisponibles = [25, 20, 15, 10, 5, 2.5, 1.25];
   let remanente = pesoPorLado;
   const resultado: DistribucionDiscos[] = [];
 
-  for (const d of discosDisponibles) {
+  for (const d of [...discosDisponibles].sort((a, b) => b - a)) {
     if (remanente >= d - 0.001) {
       const cantidad = Math.floor((remanente + 0.0001) / d);
       if (cantidad > 0) {
@@ -71,3 +73,15 @@ export const calcularDiscosPorLado = (
     posible: remanente < 0.25,
   };
 };
+
+/** Suma el peso base y los discos cargados en ambos lados. */
+export function calcularPesoTotalConDiscos(
+  discosPorLado: readonly DistribucionDiscos[],
+  pesoBase = 20
+): number {
+  const pesoDiscosPorLado = discosPorLado.reduce(
+    (total, item) => total + item.disco * item.cantidadPorLado,
+    0
+  );
+  return Math.round((Math.max(0, pesoBase) + pesoDiscosPorLado * 2) * 100) / 100;
+}
