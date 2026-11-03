@@ -688,6 +688,17 @@ const SELECT_HISTORIAL_EJERCICIO = `
   )
 `;
 
+// Algunas instalaciones antiguas aún no tienen esta columna opcional.
+const SELECT_HISTORIAL_EJERCICIO_SIN_DETALLES = SELECT_HISTORIAL_EJERCICIO.replace(
+  /^\s*detalles_json,\s*$/m,
+  ''
+);
+
+function faltaColumnaDetallesJson(error: { code?: string; message?: string } | null): boolean {
+  if (!error || !/detalles_json/i.test(error.message || '')) return false;
+  return error.code === '42703' || error.code === 'PGRST204' || /does not exist|not find|schema cache/i.test(error.message || '');
+}
+
 function nombreDeRelacion(valor: RelacionNombre | undefined): string | null {
   if (!valor) return null;
   const item = Array.isArray(valor) ? valor[0] : valor;
@@ -1016,11 +1027,11 @@ export async function obtenerHistorialEjercicio(
   const primeraPalabra = sinAcentos(nombreLimpio.split(/\s+/)[0] || '');
   const usuarioId = await getUsuarioId();
 
-  const [porNombre, porCampo, porPalabra] = await Promise.all([
+  const consultarHistorial = (select: string) => Promise.all([
     filtrarPorPropietario(
       supabase
         .from('ejercicios_registro')
-        .select(SELECT_HISTORIAL_EJERCICIO)
+        .select(select)
         .eq('registros_entrenamiento.completado', true)
         .ilike('nombre', `%${nombreLimpio}%`),
       usuarioId
@@ -1028,7 +1039,7 @@ export async function obtenerHistorialEjercicio(
     filtrarPorPropietario(
       supabase
         .from('ejercicios_registro')
-        .select(SELECT_HISTORIAL_EJERCICIO)
+        .select(select)
         .eq('registros_entrenamiento.completado', true)
         .eq('ejercicio_nombre', nombreLimpio),
       usuarioId
@@ -1037,13 +1048,20 @@ export async function obtenerHistorialEjercicio(
       ? filtrarPorPropietario(
           supabase
             .from('ejercicios_registro')
-            .select(SELECT_HISTORIAL_EJERCICIO)
+            .select(select)
             .eq('registros_entrenamiento.completado', true)
             .ilike('nombre', `%${primeraPalabra}%`),
           usuarioId
         ).order('creado_en', { ascending: false })
       : Promise.resolve({ data: [], error: null }),
   ]);
+
+  let resultados = await consultarHistorial(SELECT_HISTORIAL_EJERCICIO);
+  if (resultados.some((resultado) => faltaColumnaDetallesJson(resultado.error))) {
+    // Conserva la previa para bases que todavía almacenan solo kg/reps.
+    resultados = await consultarHistorial(SELECT_HISTORIAL_EJERCICIO_SIN_DETALLES);
+  }
+  const [porNombre, porCampo, porPalabra] = resultados;
 
   if (porNombre.error && porCampo.error && porPalabra.error) {
     throw new Error(
