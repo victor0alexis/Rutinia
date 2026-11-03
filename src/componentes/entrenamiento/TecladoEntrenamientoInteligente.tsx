@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fuentes, noir } from '../../constantes/colores';
 import { vibrarBoton } from '../../utilidades/hapticos';
-import { calcular1RMEstimado } from '../../utilidades/calculadoraFuerza';
+import { calcular1RMEstimado, estadoRangoRepeticiones } from '../../utilidades/calculadoraFuerza';
 import { useLayout } from '../../hooks/useLayout';
 import type { CargaSerie, TipoCarga } from '../../tipos';
 import { calcularKgDesdeCarga, formatearComposicionDiscos, PREFERENCIA_CARGA_POR_DEFECTO, type PreferenciaCargaEjercicio } from '../../utilidades/cargasEjercicio';
@@ -25,6 +25,9 @@ type Props = {
   serieNumero: number;
   pesoPara1RM?: string;
   repsPara1RM?: string;
+  repsMin?: number;
+  repsMax?: number;
+  estadoSerie?: 'normal' | 'fallo' | 'no_hecha';
   valorPrevioSugerido?: string;
   carga?: CargaSerie;
   preferenciaCarga?: PreferenciaCargaEjercicio;
@@ -45,6 +48,9 @@ export default function TecladoEntrenamientoInteligente({
   serieNumero,
   pesoPara1RM,
   repsPara1RM,
+  repsMin,
+  repsMax,
+  estadoSerie = 'normal',
   valorPrevioSugerido,
   carga,
   preferenciaCarga = PREFERENCIA_CARGA_POR_DEFECTO,
@@ -86,9 +92,10 @@ export default function TecladoEntrenamientoInteligente({
   const estimacion1RM = useMemo(() => {
     const p = esDecimal ? valorActual : pesoPara1RM;
     const r = modo === 'reps' || modo === 'repsI' ? valorActual : repsPara1RM;
-    if (!p || !r) return null;
+    if (!p || !r || estadoSerie === 'no_hecha') return null;
     return calcular1RMEstimado(p, r);
-  }, [valorActual, pesoPara1RM, repsPara1RM, esDecimal, modo]);
+  }, [valorActual, pesoPara1RM, repsPara1RM, esDecimal, modo, estadoSerie]);
+  const estadoReps = estadoRangoRepeticiones(modo === 'reps' || modo === 'repsI' ? valorActual : '', repsMin, repsMax);
 
   // Cálculo de discos olímpicos
 
@@ -276,7 +283,9 @@ export default function TecladoEntrenamientoInteligente({
               <Text style={styles.kbDisplayUnit}>{unidad}</Text>
             </View>
             <Text style={styles.kbDisplayHint} numberOfLines={1}>
-              {valorPrevioSugerido
+              {modo === 'reps' && repsMin && repsMax
+                ? `Objetivo ${repsMin}${repsMin === repsMax ? '' : `–${repsMax}`} reps${estadoSerie === 'no_hecha' ? ' · NO HECHA' : estadoSerie === 'fallo' ? ' · FALLO' : estadoReps === 'en_rango' ? ' · En rango' : estadoReps === 'bajo' ? ' · Bajo' : estadoReps === 'sobre' ? ' · Sube carga' : ''}`
+                : valorPrevioSugerido
                 ? `Previa ${valorPrevioSugerido}${esDecimal ? ' kg' : esParciales ? 'p' : ' reps'}`
                 : 'Ajusta el valor con el teclado'}
             </Text>

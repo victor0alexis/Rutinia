@@ -37,7 +37,6 @@ import {
 import { nombreDia } from '../../utilidades/fechas';
 import { Registro, CargaSerie } from '../../tipos';
 import { calcularKgSugeridoDrop } from '../../constantes/entrenamiento';
-import { supabase } from '../../biblioteca/supabase';
 import { leerPreferenciasCarga, guardarPreferenciaCarga, normalizarPreferenciaCarga, PREFERENCIA_CARGA_POR_DEFECTO, normalizarNombreParaPreferencia } from '../../utilidades/cargasEjercicio';
 import {
   EstadoTimer,
@@ -160,6 +159,7 @@ function crearSerieVacia(): SerieEjecucion {
     rir: '',
     nota: '',
     completado: false,
+    estado: 'normal',
     repsParciales: 0,
     tieneParciales: false,
     esDropset: false,
@@ -508,9 +508,9 @@ export default function EjecutarEntrenamientoModal({
     return ejerciciosState.map((ej, idx) => ({
       id: ej.id || `ej-${idx}`,
       nombre: ej.nombre,
-      completado: ej.series.length > 0 && ej.series.every((s) => s.completado),
-      totalSeries: ej.series.length,
-      seriesCompletadas: ej.series.filter((s) => s.completado).length,
+      completado: ej.series.length > 0 && ej.series.every((s) => s.completado || s.estado === 'no_hecha'),
+      totalSeries: ej.series.filter((s) => s.estado !== 'no_hecha').length,
+      seriesCompletadas: ej.series.filter((s) => s.completado && s.estado !== 'no_hecha').length,
       origenSesion: ej.origenSesion || 'rutina',
     }));
   }, [ejerciciosState]);
@@ -553,20 +553,23 @@ export default function EjecutarEntrenamientoModal({
     });
   }, [ejActivo, historialMap]);
   const seriesCompletadasActivo = ejActivo
-    ? ejActivo.series.filter((s) => s.completado).length
+    ? ejActivo.series.filter((s) => s.completado && s.estado !== 'no_hecha').length
     : 0;
-  const totalSeriesActivo = ejActivo?.series.length || 0;
+  const totalSeriesActivo = ejActivo?.series.filter((s) => s.estado !== 'no_hecha').length || 0;
   const indiceSerieDockRaw =
-    ejActivo?.series.findIndex((s) => !s.completado) ?? -1;
+    ejActivo?.series.findIndex((s) => !s.completado && s.estado !== 'no_hecha') ?? -1;
   const indiceSerieDock = indiceSerieDockRaw >= 0 ? indiceSerieDockRaw : null;
   const siguienteEjercicioIdx =
     indexValido + 1 < ejerciciosState.length ? indexValido + 1 : null;
-  const todasCompletadasActivo =
-    totalSeriesActivo > 0 && seriesCompletadasActivo >= totalSeriesActivo;
+  const todasCompletadasActivo = Boolean(ejActivo?.series.length) && ejActivo.series.every((s) => s.completado || s.estado === 'no_hecha');
   if (!fecha || !registro) return null;
-  const totalSeriesEnSesion = ejerciciosState.reduce((acc, ej) => acc + ej.series.length, 0);
+  const totalSeriesEnSesion = ejerciciosState.reduce((acc, ej) => acc + ej.series.filter((s) => s.estado !== 'no_hecha').length, 0);
   const totalSeriesCompletadas = ejerciciosState.reduce(
-    (acc, ej) => acc + ej.series.filter((s) => s.completado).length,
+    (acc, ej) => acc + ej.series.filter((s) => s.completado && s.estado !== 'no_hecha').length,
+    0
+  );
+  const totalSeriesNoHechas = ejerciciosState.reduce(
+    (acc, ej) => acc + ej.series.filter((s) => s.estado === 'no_hecha').length,
     0
   );
   // Iniciar la sesión de entrenamiento desde el lobby
@@ -665,9 +668,15 @@ export default function EjecutarEntrenamientoModal({
               reps: ultimaSerie ? ultimaSerie.reps : '',
               pesoI: ultimaSerie ? ultimaSerie.pesoI : '',
               repsI: ultimaSerie ? ultimaSerie.repsI : '',
+              repsMin: ultimaSerie?.repsMin,
+              repsMax: ultimaSerie?.repsMax,
+              carga: ultimaSerie?.carga ? { ...ultimaSerie.carga } : undefined,
+              cargaI: ultimaSerie?.cargaI ? { ...ultimaSerie.cargaI } : undefined,
               rir: ultimaSerie ? ultimaSerie.rir : '',
               nota: '',
               completado: false,
+              estado: 'normal' as const,
+              tipo: ultimaSerie?.tipo || 'normal',
               repsParciales: 0,
               tieneParciales: false,
               esDropset: false,
@@ -689,6 +698,7 @@ export default function EjecutarEntrenamientoModal({
           ...sTarget,
           id: Date.now().toString() + Math.random().toString(),
           completado: false,
+          estado: 'normal',
           drops: sTarget.drops.map((d) => ({ ...d })),
         };
         const nuevasSeries = [...ej.series];
@@ -797,8 +807,20 @@ export default function EjecutarEntrenamientoModal({
         }
       }
     }
-    cambiarCampoSerie(ejIndex, sIndex, 'completado', !s.completado);
+    setEjerciciosState((prev) => {
+      const next = prev.map((ej, index) => index !== ejIndex ? ej : {
+        ...ej,
+        series: ej.series.map((serie, indexSerie) => indexSerie !== sIndex ? serie : {
+          ...serie,
+          completado: !s.completado,
+          estado: serie.estado === 'no_hecha' ? 'normal' : serie.estado,
+        }),
+      });
+      guardarDraftAuto(next);
+      return next;
+    });
   };
+
   /* FUNCIONES DE CONTROL PARA SMART WORKOUT KEYBOARD */
   const pasarASiguienteSerie = (ejIdx: number, sIdx: number) => {
     const ej = ejerciciosState[ejIdx];
@@ -1423,7 +1445,7 @@ export default function EjecutarEntrenamientoModal({
       let maxReps = 0;
       let seriesCompletadas = 0;
       ej.series.forEach((s) => {
-        if (s.completado) {
+        if (s.completado && s.estado !== 'no_hecha') {
           seriesCompletadas++;
           const pD = Number(s.peso) || 0;
           const rD = Number(s.reps) || 0;
@@ -1452,8 +1474,9 @@ export default function EjecutarEntrenamientoModal({
         id: ej.id,
         nombre: ej.nombre,
         esUnilateral: ej.esUnilateral,
-        seriesTotal: ej.series.length,
+        seriesTotal: ej.series.filter((s) => s.estado !== 'no_hecha').length,
         seriesCompletadas,
+        seriesNoHechas: ej.series.filter((s) => s.estado === 'no_hecha').length,
         pesoMaximo: maxPeso,
         repsMaximas: maxReps,
         tieneSobrecarga,
@@ -1467,6 +1490,8 @@ export default function EjecutarEntrenamientoModal({
           repsI: s.repsI || '',
           carga: s.carga,
           cargaI: s.cargaI,
+          estado: s.estado || 'normal',
+          tipo: s.tipo || 'normal',
           repsMin: s.repsMin,
           repsMax: s.repsMax,
           rir: s.rir || '',
@@ -1505,11 +1530,11 @@ export default function EjecutarEntrenamientoModal({
   const construirPayloadEjercicio = (ej: EjercicioState) => {
     const primeraSerie = ej.series[0];
     const numSeriesTotal = ej.series.length;
-    const repsPrimera = primeraSerie?.reps ? Number(primeraSerie.reps) : null;
+    const repsPrimera = primeraSerie?.repsMin ?? (primeraSerie?.reps ? Number(primeraSerie.reps) : null);
     const pesoPrimero = primeraSerie?.peso ? Number(primeraSerie.peso) : null;
-    const todasCompletadas = ej.series.every((s) => s.completado);
+    const todasCompletadas = ej.series.every((s) => s.completado || s.estado === 'no_hecha');
     const tieneDatos = ej.series.some(
-      (s) => Boolean(s.peso || s.reps || s.pesoI || s.repsI || s.rir || s.nota || s.completado || s.tieneParciales || s.esDropset)
+      (s) => Boolean(s.peso || s.reps || s.repsMin || s.estado !== 'normal' || s.pesoI || s.repsI || s.rir || s.nota || s.completado || s.tieneParciales || s.esDropset)
     );
     const resumenSeries = tieneDatos
       ? ej.series
@@ -1529,16 +1554,20 @@ export default function EjecutarEntrenamientoModal({
               const strI = [pI, rI].filter(Boolean).join(' ');
               const rir = s.rir ? `RIR ${s.rir}` : '';
               const n = s.nota ? `[${s.nota}]` : '';
-              const c = s.completado ? '✓' : '';
+              const estadoTag = s.estado === 'no_hecha' ? '[NH]' : s.estado === 'fallo' ? '[F]' : s.tipo === 'calentamiento' ? '[W]' : '';
+              const objetivoTag = s.repsMin ? `[OBJ:${s.repsMin}${s.repsMax && s.repsMax !== s.repsMin ? `-${s.repsMax}` : ''}]` : '';
+              const c = s.completado && s.estado !== 'no_hecha' ? '✓' : '';
               const resumenBrazo = `D ${strD} | I ${strI}`.trim();
-              return `${idx + 1}ª: ${[resumenBrazo, rir, dropsStr, n, c].filter(Boolean).join(' ')}`;
+              return `${idx + 1}ª: ${[estadoTag, resumenBrazo, objetivoTag, rir, dropsStr, n, c].filter(Boolean).join(' ')}`;
             } else {
               const p = s.peso ? `${s.peso}k` : '';
               const r = s.reps ? (s.repsParciales && s.repsParciales > 0 ? `${s.reps}+${s.repsParciales}p` : `${s.reps}r`) : '';
               const rir = s.rir ? `RIR ${s.rir}` : '';
               const n = s.nota ? `[${s.nota}]` : '';
-              const c = s.completado ? '✓' : '';
-              return `${idx + 1}ª: ${[p, r, rir, dropsStr, n, c].filter(Boolean).join(' ')}`;
+              const estadoTag = s.estado === 'no_hecha' ? '[NH]' : s.estado === 'fallo' ? '[F]' : s.tipo === 'calentamiento' ? '[W]' : '';
+              const objetivoTag = s.repsMin ? `[OBJ:${s.repsMin}${s.repsMax && s.repsMax !== s.repsMin ? `-${s.repsMax}` : ''}]` : '';
+              const c = s.completado && s.estado !== 'no_hecha' ? '✓' : '';
+              return `${idx + 1}ª: ${[estadoTag, p, r, objetivoTag, rir, dropsStr, n, c].filter(Boolean).join(' ')}`;
             }
           })
           .join(' • ')
@@ -1598,20 +1627,26 @@ export default function EjecutarEntrenamientoModal({
             sustitucion_alcance: ej.sustitucion_alcance || null,
             reps_parciales: payload.totalParciales,
             drops: payload.allDrops,
-            detalles_json: JSON.stringify(ej.series.map((s) => ({ carga: s.carga || null, cargaI: s.cargaI || null, repsMin: s.repsMin ?? null, repsMax: s.repsMax ?? null, origenSesion: ej.origenSesion || 'rutina', ordenSesion: ej.ordenSesion ?? payload.ordenSesion }))),
+            detalles_json: JSON.stringify(ej.series.map((s) => ({ carga: s.carga || null, cargaI: s.cargaI || null, estado: s.estado || 'normal', tipo: s.tipo || 'normal', repsMin: s.repsMin ?? null, repsMax: s.repsMax ?? null, origenSesion: ej.origenSesion || 'rutina', ordenSesion: ej.ordenSesion ?? payload.ordenSesion }))),
           };
           // Si el id es temporal generado por sustitución, insertamos nueva fila
           if (esIdTemporal(ej.id)) {
-            const { data: filaInsertada, error: errorInsert } = await supabase
-              .from('ejercicios_registro')
-              .insert({
-                registro_id: registro.id,
-                ...datos,
-              })
-              .select('id')
-              .single();
-            if (errorInsert) throw errorInsert;
-            if (filaInsertada?.id) idsConservados.push(filaInsertada.id);
+            const filaId = await crearEjercicioRegistroSesion({
+              registroId: registro.id,
+              nombre: datos.nombre,
+              ejercicio_nombre: datos.ejercicio_nombre,
+              series: datos.series,
+              repeticiones: datos.repeticiones,
+              peso: datos.peso,
+              completado: datos.completado,
+              reps_parciales: datos.reps_parciales,
+              drops: datos.drops,
+              sustituye_a_nombre: datos.sustituye_a_nombre,
+              sustituye_a_ejercicio_id: datos.sustituye_a_ejercicio_id,
+              sustitucion_alcance: datos.sustitucion_alcance,
+              detalles_json: datos.detalles_json,
+            });
+            if (filaId) idsConservados.push(filaId);
             else limpiezaSegura = false;
           } else {
             await actualizarEjecucionEjercicio(ej.id, datos);
@@ -1672,6 +1707,10 @@ export default function EjecutarEntrenamientoModal({
             repsI: serieEditada.repsI,
             carga: serieEditada.carga,
             cargaI: serieEditada.cargaI,
+            estado: serieEditada.estado ?? serie.estado,
+            tipo: serieEditada.tipo ?? serie.tipo,
+            repsMin: serieEditada.repsMin ?? serie.repsMin,
+            repsMax: serieEditada.repsMax ?? serie.repsMax,
             rir: serieEditada.rir,
             nota: serieEditada.nota,
           };
@@ -1689,7 +1728,7 @@ export default function EjecutarEntrenamientoModal({
         completado: payload.todasCompletadas,
         reps_parciales: payload.totalParciales,
         drops: payload.allDrops,
-        detalles_json: JSON.stringify(ej.series.map((s) => ({ carga: s.carga || null, cargaI: s.cargaI || null, repsMin: s.repsMin ?? null, repsMax: s.repsMax ?? null, origenSesion: ej.origenSesion || 'rutina', ordenSesion: ej.ordenSesion ?? payload.ordenSesion }))),
+        detalles_json: JSON.stringify(ej.series.map((s) => ({ carga: s.carga || null, cargaI: s.cargaI || null, estado: s.estado || 'normal', tipo: s.tipo || 'normal', repsMin: s.repsMin ?? null, repsMax: s.repsMax ?? null, origenSesion: ej.origenSesion || 'rutina', ordenSesion: ej.ordenSesion ?? payload.ordenSesion }))),
       });
     }
     await sincronizarNotasEjercicios(
@@ -1976,11 +2015,17 @@ export default function EjecutarEntrenamientoModal({
                           if (patch.estado !== undefined) {
                             cambiarCampoSerie(indexValido, sIdx, 'estado' as any, patch.estado);
                           }
-                          if (patch.repsMin !== undefined) {
-                            cambiarCampoSerie(indexValido, sIdx, 'repsMin' as any, patch.repsMin);
+                          if ('repsMin' in patch) {
+                            cambiarCampoSerie(indexValido, sIdx, 'repsMin', patch.repsMin);
                           }
-                          if (patch.repsMax !== undefined) {
-                            cambiarCampoSerie(indexValido, sIdx, 'repsMax' as any, patch.repsMax);
+                          if ('repsMax' in patch) {
+                            cambiarCampoSerie(indexValido, sIdx, 'repsMax', patch.repsMax);
+                          }
+                          if (patch.completado !== undefined) {
+                            cambiarCampoSerie(indexValido, sIdx, 'completado', patch.completado);
+                          }
+                          if (patch.rir !== undefined) {
+                            cambiarCampoSerie(indexValido, sIdx, 'rir', patch.rir);
                           }
                         }}
                       />
@@ -2175,6 +2220,9 @@ export default function EjecutarEntrenamientoModal({
                     }
                     pesoPara1RM={ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.peso}
                     repsPara1RM={ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.reps}
+                    repsMin={ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.repsMin}
+                    repsMax={ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.repsMax}
+                    estadoSerie={ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.estado || 'normal'}
                     valorPrevioSugerido={obtenerValorPrevioSugerido()}
                     carga={focusTeclado.campo === 'pesoI' ? ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.cargaI : ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.carga}
                     preferenciaCarga={preferenciasCarga[normalizarNombreParaPreferencia(ejerciciosState[focusTeclado.ejIdx]?.nombre || '')] || PREFERENCIA_CARGA_POR_DEFECTO}
@@ -2199,6 +2247,7 @@ export default function EjecutarEntrenamientoModal({
           segundosTranscurridos={segundosTranscurridos}
           totalSeriesEnSesion={totalSeriesEnSesion}
           totalSeriesCompletadas={totalSeriesCompletadas}
+          totalSeriesNoHechas={totalSeriesNoHechas}
           volumenTotalKg={volumenTotalKg}
           ejerciciosResumen={ejerciciosResumen}
           notasSesion={notasSesion}

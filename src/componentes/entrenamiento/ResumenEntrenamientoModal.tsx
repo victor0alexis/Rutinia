@@ -18,6 +18,10 @@ export type SerieResumen = {
   repsI: string;
   carga?: CargaSerie;
   cargaI?: CargaSerie;
+  estado?: 'normal' | 'fallo' | 'no_hecha';
+  tipo?: 'normal' | 'calentamiento' | 'fallo';
+  repsMin?: number;
+  repsMax?: number;
   rir: string;
   nota: string;
 };
@@ -27,6 +31,7 @@ export type EjercicioResumen = {
   esUnilateral: boolean;
   seriesTotal: number;
   seriesCompletadas: number;
+  seriesNoHechas: number;
   pesoMaximo: number;
   repsMaximas: number;
   tieneSobrecarga: boolean;
@@ -51,6 +56,7 @@ type Props = {
   segundosTranscurridos: number;
   totalSeriesEnSesion: number;
   totalSeriesCompletadas: number;
+  totalSeriesNoHechas: number;
   volumenTotalKg: number;
   ejerciciosResumen: EjercicioResumen[];
   notasSesion: string;
@@ -69,6 +75,7 @@ export default function ResumenEntrenamientoModal({
   segundosTranscurridos,
   totalSeriesEnSesion,
   totalSeriesCompletadas,
+  totalSeriesNoHechas,
   volumenTotalKg,
   ejerciciosResumen,
   notasSesion,
@@ -294,7 +301,7 @@ export default function ResumenEntrenamientoModal({
                   />
                 </View>
                 <Text style={styles.heroSub} numberOfLines={1}>
-                  {totalSeriesCompletadas} de {totalSeriesEnSesion} series ·{' '}
+                  {totalSeriesCompletadas} de {totalSeriesEnSesion} series{totalSeriesNoHechas > 0 ? ` · ${totalSeriesNoHechas} no hechas` : ''} ·{' '}
                   {totalEjerciciosCompletados}/{ejerciciosResumen.length} ejercicios completados
                 </Text>
                 <View style={styles.doneBadge}>
@@ -431,6 +438,11 @@ export default function ResumenEntrenamientoModal({
                                   {ej.seriesCompletadas}/{ej.seriesTotal}
                                 </Text>
                               </Text>
+                              {ej.seriesNoHechas > 0 && (
+                                <Text style={[styles.exerciseSubDetail, { color: noir.muted }]}>
+                                  {ej.seriesNoHechas} no hechas
+                                </Text>
+                              )}
                               {ej.pesoMaximo > 0 && (
                                 <Text style={styles.exerciseSubDetail}>
                                   Máx{' '}
@@ -440,12 +452,14 @@ export default function ResumenEntrenamientoModal({
                                 </Text>
                               )}
                             </View>
-                            {ej.series.some((serie) => serie.carga || serie.cargaI) && (
+                            {ej.series.some((serie) => serie.carga || serie.cargaI || serie.estado === 'fallo' || serie.estado === 'no_hecha' || serie.repsMin) && (
                               <Text style={{ color: noir.muted, fontSize: 10, marginTop: 3 }} numberOfLines={2}>
-                                {ej.series.filter((serie) => serie.carga || serie.cargaI).map((serie, serieIdx) => {
+                                {ej.series.filter((serie) => serie.carga || serie.cargaI || serie.estado === 'fallo' || serie.estado === 'no_hecha' || serie.repsMin).map((serie, serieIdx) => {
                                   const carga = serie.carga;
                                   const total = carga?.tipo === 'placas' ? `${carga.placas || 0} placas` : serie.peso ? `${serie.peso} kg` : '—';
-                                  return `S${serieIdx + 1}: ${total}${carga ? ` · ${formatearDetalleCarga(carga)}` : ''}`;
+                                  const estado = serie.estado === 'no_hecha' ? ' · NO HECHA' : serie.estado === 'fallo' ? ' · 🔥 FALLO' : '';
+                                  const objetivo = serie.repsMin ? ` · Objetivo ${serie.repsMin}${serie.repsMax && serie.repsMax !== serie.repsMin ? `–${serie.repsMax}` : ''} reps` : '';
+                                  return `S${serieIdx + 1}: ${total}${carga ? ` · ${formatearDetalleCarga(carga)}` : ''}${objetivo}${estado}`;
                                 }).join('  ·  ')}
                               </Text>
                             )}

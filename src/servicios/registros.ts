@@ -208,7 +208,15 @@ export async function actualizarEjecucionEjercicio(
     detalles_json?: string | null;
   }
 ) {
-  const { error } = await supabase.from('ejercicios_registro').update(datos).eq('id', id);
+  let { error } = await supabase.from('ejercicios_registro').update(datos).eq('id', id);
+  if (
+    error &&
+    datos.detalles_json !== undefined &&
+    faltaColumnaDetallesJson(error)
+  ) {
+    const { detalles_json: _detalles, ...datosCompatibles } = datos;
+    ({ error } = await supabase.from('ejercicios_registro').update(datosCompatibles).eq('id', id));
+  }
   if (error) throw error;
 }
 
@@ -219,27 +227,39 @@ export async function crearEjercicioRegistroSesion(datos: {
   series: number;
   repeticiones?: number | null;
   peso?: number | null;
-  detalles_json: string;
+  completado?: boolean;
+  ejercicio_nombre?: string | null;
+  reps_parciales?: number;
+  drops?: any[];
+  sustituye_a_nombre?: string | null;
+  sustituye_a_ejercicio_id?: string | null;
+  sustitucion_alcance?: 'solo_hoy' | 'rutina' | null;
+  detalles_json?: string | null;
 }): Promise<string> {
   const usuarioId = await getUsuarioId();
   const fila: Record<string, unknown> = {
     registro_id: datos.registroId,
     nombre: datos.nombre,
-    ejercicio_nombre: datos.nombre,
     series: datos.series,
     repeticiones: datos.repeticiones ?? null,
     peso: datos.peso ?? null,
-    completado: false,
-    detalles_json: datos.detalles_json,
+    completado: datos.completado ?? false,
+    ejercicio_nombre: datos.ejercicio_nombre ?? datos.nombre,
+    reps_parciales: datos.reps_parciales ?? 0,
+    drops: datos.drops ?? [],
+    sustituye_a_nombre: datos.sustituye_a_nombre ?? null,
+    sustituye_a_ejercicio_id: datos.sustituye_a_ejercicio_id ?? null,
+    sustitucion_alcance: datos.sustitucion_alcance ?? null,
   };
+  if (datos.detalles_json !== undefined) fila.detalles_json = datos.detalles_json;
   if (usuarioId) fila.usuario_id = usuarioId;
-  const { data, error } = await supabase
-    .from('ejercicios_registro')
-    .insert(fila as any)
-    .select('id')
-    .single();
+  let { data, error } = await supabase.from('ejercicios_registro').insert(fila as any).select('id').single();
+  if (error && 'detalles_json' in fila && faltaColumnaDetallesJson(error)) {
+    const { detalles_json: _detalles, ...filaCompatible } = fila;
+    ({ data, error } = await supabase.from('ejercicios_registro').insert(filaCompatible as any).select('id').single());
+  }
   if (error) throw error;
-  return data.id;
+  return data!.id;
 }
 
 /**
@@ -527,12 +547,15 @@ export async function obtenerHistorialPrevioEjercicio(
       const matchResumen = (item.nombre || '').match(/\((.*?)\)$/);
       if (matchResumen && matchResumen[1]) {
         const rawSets = matchResumen[1].split('•').map((s: string) => s.trim());
-        let detallesCarga: { carga?: CargaSerie | null; cargaI?: CargaSerie | null }[] = [];
+        let detallesCarga: { carga?: CargaSerie | null; cargaI?: CargaSerie | null; estado?: string; repsMin?: number; repsMax?: number }[] = [];
         try { detallesCarga = JSON.parse((item as any).detalles_json || '[]'); } catch { detallesCarga = []; }
-        const seriesPrevias = rawSets.map((setStr: string, setIdx: number) => {
+        const seriesPrevias = rawSets.flatMap((setStr: string, setIdx: number) => {
+          const estado = (detallesCarga[setIdx] as any)?.estado || (setStr.includes('[NH]') ? 'no_hecha' : setStr.includes('[F]') ? 'fallo' : 'normal');
+          if (estado === 'no_hecha') return [];
           const datosStr = setStr.replace(/^\d+ª:\s*/, '').replace(/✓/g, '').trim();
           const matchK = datosStr.match(/(\d+(?:\.\d+)?)k/);
           const matchR = datosStr.match(/(\d+)(?:[-–](\d+))?r/);
+          const matchObjetivo = setStr.match(/\[OBJ:(\d{1,3})(?:[-–](\d{1,3}))?\]/i);
           const matchRir = datosStr.match(/RIR\s*(\d+)/i);
           const matchParcial = datosStr.match(/\+(\d+)p/);
 
@@ -558,8 +581,8 @@ export async function obtenerHistorialPrevioEjercicio(
           return {
             peso: matchK ? matchK[1] : (item.peso ? item.peso.toString() : ''),
             reps: matchR ? (matchR[2] ? `${matchR[1]}-${matchR[2]}` : matchR[1]) : (item.repeticiones ? item.repeticiones.toString() : ''),
-            repsMin: matchR ? Number(matchR[1]) : undefined,
-            repsMax: matchR ? Number(matchR[2] || matchR[1]) : undefined,
+            repsMin: detallesCarga[setIdx]?.repsMin ?? (matchObjetivo ? Number(matchObjetivo[1]) : matchR ? Number(matchR[1]) : undefined),
+            repsMax: detallesCarga[setIdx]?.repsMax ?? (matchObjetivo ? Number(matchObjetivo[2] || matchObjetivo[1]) : matchR ? Number(matchR[2] || matchR[1]) : undefined),
             rir: matchRir ? matchRir[1] : '',
             nota: '',
             repsParciales: matchParcial ? parseInt(matchParcial[1], 10) : 0,
@@ -769,7 +792,14 @@ function construirSeriesHistorial(
   esUnilateral: boolean,
   detalles: ReturnType<typeof parsearEjercicioInfo>['detallesSets']
 ): SerieHistorialEjercicio[] {
-  let cargas: { carga?: CargaSerie | null; cargaI?: CargaSerie | null }[] = [];
+  let cargas: {
+    carga?: CargaSerie | null;
+    cargaI?: CargaSerie | null;
+    estado?: 'normal' | 'fallo' | 'no_hecha';
+    tipo?: 'normal' | 'calentamiento' | 'fallo';
+    repsMin?: number | null;
+    repsMax?: number | null;
+  }[] = [];
   try { cargas = JSON.parse(fila.detalles_json || '[]'); } catch { cargas = []; }
   if (detalles.length === 0) {
     const peso = numero(fila.peso);
@@ -830,10 +860,10 @@ function construirSeriesHistorial(
       0
     );
 
-    const estado = (cargas[index] as any)?.estado || detalle.estado || ((cargas[index] as any)?.tipo === 'fallo' ? 'fallo' : 'normal');
-    const tipo = (cargas[index] as any)?.tipo || detalle.tipo || 'normal';
-    const repsMin = (cargas[index] as any)?.repsMin ?? detalle.repsMin ?? null;
-    const repsMax = (cargas[index] as any)?.repsMax ?? detalle.repsMax ?? null;
+    const estado = cargas[index]?.estado || detalle.estado || (cargas[index]?.tipo === 'fallo' ? 'fallo' : 'normal');
+    const tipo = cargas[index]?.tipo || detalle.tipo || 'normal';
+    const repsMin = cargas[index]?.repsMin ?? detalle.repsMin ?? null;
+    const repsMax = cargas[index]?.repsMax ?? detalle.repsMax ?? null;
     const esNoHecha = estado === 'no_hecha';
 
     return {
@@ -896,7 +926,10 @@ function construirSesionHistorial(
       serie.repsD > 0 ||
       serie.pesoI > 0 ||
       serie.repsI > 0 ||
-      Boolean(serie.nota)
+      Boolean(serie.nota) ||
+      serie.estado === 'fallo' ||
+      serie.estado === 'no_hecha' ||
+      Boolean(serie.repsMin)
   );
   if (!tieneDatos && !notaEjercicio) return null;
 
@@ -915,6 +948,7 @@ function construirSesionHistorial(
   let volumenKg = 0;
 
   for (const serie of series) {
+    if (serie.estado === 'no_hecha') continue;
     volumenKg += serie.volumenKg;
     mejorE1RM = Math.max(mejorE1RM, serie.e1RM);
     mejorReps = Math.max(mejorReps, serie.repsD, serie.repsI);

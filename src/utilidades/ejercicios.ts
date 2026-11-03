@@ -111,11 +111,13 @@ export function parsearEjercicioInfo(e: {
 
       const isComplete = !esNoHecha && (setStr.includes('✓') || Boolean(e.completado));
       if (!esNoHecha && setStr.includes('✓')) seriesCompletadas++;
+      const matchObjetivo = setStr.match(/\[OBJ:(\d{1,3})(?:[-–](\d{1,3}))?\]/i);
 
       const datosStr = setStr
         .replace(/^\d+ª:\s*/, '')
         .replace(/✓/g, '')
         .replace(/\[(NH|no_hecha|omitida|F|fallo|W|calentamiento)\]/gi, '')
+        .replace(/\[OBJ:\d{1,3}(?:[-–]\d{1,3})?\]/gi, '')
         .trim();
 
       let pesoD: string | undefined;
@@ -127,6 +129,10 @@ export function parsearEjercicioInfo(e: {
       let repsParciales: number | undefined;
       let repsMin: number | undefined;
       let repsMax: number | undefined;
+      if (matchObjetivo) {
+        repsMin = Number(matchObjetivo[1]);
+        repsMax = Number(matchObjetivo[2] || matchObjetivo[1]);
+      }
       let esDropset = false;
       const drops: DropDetalleParsed[] = [];
 
@@ -223,8 +229,13 @@ export function parsearEjercicioInfo(e: {
       });
     });
 
-    if (e.completado && seriesCompletadas === 0 && totalSeries > 0) {
-      seriesCompletadas = totalSeries;
+    if (
+      e.completado &&
+      seriesCompletadas === 0 &&
+      totalSeries > 0 &&
+      !rawSets.some((setStr) => /\[(NH|no_hecha|omitida)\]/i.test(setStr))
+    ) {
+      seriesCompletadas = totalSeries - detallesSets.filter((set) => set.estado === 'no_hecha').length;
     }
   } else {
     if (e.peso || e.repeticiones) {

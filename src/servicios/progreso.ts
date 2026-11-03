@@ -43,6 +43,7 @@ export type HabitoTrackerStat = {
 export type MetricasProgreso = {
   volumenTotalKg: number;
   seriesSoloPlacas: number;
+  seriesNoHechas: number;
   diasCompletados: number;
   seriesTotales: number;
   rachaDias: number;
@@ -60,6 +61,7 @@ export async function obtenerMetricasProgreso(desde: string, hasta: string): Pro
 
   let volumenTotalKg = 0;
   let seriesSoloPlacas = 0;
+  let seriesNoHechas = 0;
   let seriesTotales = 0;
   const diasUnicos = new Set<string>();
   const mapEjercicios: Record<string, { series: number; maxPeso: number; maxReps: number; fechaMax: string; esUnilateral: boolean; composicionCarga: string }> = {};
@@ -152,14 +154,19 @@ export async function obtenerMetricasProgreso(desde: string, hasta: string): Pro
     ejs.forEach((e) => {
       const parsed = parsearEjercicioInfo(e);
       const nombreLimpio = parsed.nombreLimpio;
-      const numSeries = e.series || parsed.detallesSets.length || 1;
-
       let volEj = 0;
       let maxPesoEnEj = 0;
       let maxRepsEnEj = 0;
       let cargasSeries: { carga?: CargaSerie | null }[] = [];
       try { cargasSeries = JSON.parse((e as any).detalles_json || '[]'); } catch { cargasSeries = []; }
+      const noHechasEj = parsed.detallesSets.filter((set, setIdx) =>
+        ((cargasSeries[setIdx] as any)?.estado || set.estado) === 'no_hecha'
+      ).length;
+      seriesNoHechas += noHechasEj;
+      const numSeries = Math.max(0, (e.series || parsed.detallesSets.length || 1) - noHechasEj);
       parsed.detallesSets.forEach((set, setIdx) => {
+        const estado = (cargasSeries[setIdx] as any)?.estado || set.estado || 'normal';
+        if (estado === 'no_hecha') return;
         const carga = cargasSeries[setIdx]?.carga;
         if (carga?.tipo === 'placas' && !set.pesoD) seriesSoloPlacas++;
       });
@@ -402,6 +409,7 @@ export async function obtenerMetricasProgreso(desde: string, hasta: string): Pro
   return {
     volumenTotalKg: Math.round(volumenTotalKg),
     seriesSoloPlacas,
+    seriesNoHechas,
     diasCompletados: diasUnicos.size,
     seriesTotales,
     rachaDias,

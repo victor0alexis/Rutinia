@@ -125,6 +125,7 @@ export default function ProgresoScreen() {
   const [metricas, setMetricas] = useState<MetricasProgreso>({
     volumenTotalKg: 0,
     seriesSoloPlacas: 0,
+    seriesNoHechas: 0,
     diasCompletados: 0,
     seriesTotales: 0,
     rachaDias: 0,
@@ -261,6 +262,7 @@ export default function ProgresoScreen() {
 
   const hayActividad =
     metricas.seriesTotales > 0 ||
+    metricas.seriesNoHechas > 0 ||
     metricas.volumenTotalKg > 0 ||
     metricas.diasCompletados > 0 ||
     entrenamientos > 0;
@@ -422,7 +424,7 @@ export default function ProgresoScreen() {
                     <Text style={styles.volumeUnit}>kg</Text>
                   </View>
                   <Text style={styles.summaryMeta} numberOfLines={1}>
-                    {numero(metricas.seriesTotales)} series ·{' '}
+                    {numero(metricas.seriesTotales)} series{metricas.seriesNoHechas > 0 ? ` · ${numero(metricas.seriesNoHechas)} no hechas` : ''} ·{' '}
                     {entrenamientos}{' '}
                     {entrenamientos === 1
                       ? 'entrenamiento'
