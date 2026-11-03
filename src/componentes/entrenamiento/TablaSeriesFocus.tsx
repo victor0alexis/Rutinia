@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import {
+  Alert,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +16,7 @@ import { vibrarBoton } from '../../utilidades/hapticos';
 import { DROPSET_MAX_DROPS, calcularKgSugeridoDrop } from '../../constantes/entrenamiento';
 import type { CargaSerie } from '../../tipos';
 import { formatearDetalleCarga } from '../../utilidades/cargasEjercicio';
+import { debeSugerirSubirCarga, estadoRangoRepeticiones, parsearRangoRepeticiones } from '../../utilidades/calculadoraFuerza';
 
 interface SerieItem {
   id?: string;
@@ -73,9 +77,12 @@ export default function TablaSeriesFocus({
   onToggleUnilateral,
 }: Props) {
   const [menuSerieIdx, setMenuSerieIdx] = useState<number | null>(null);
+  const [rangoTexto, setRangoTexto] = useState('');
 
   const abrirMenu = (idx: number) => {
     vibrarBoton(12);
+    const serie = series[idx];
+    setRangoTexto(serie?.repsMin ? `${serie.repsMin}${serie.repsMax && serie.repsMax !== serie.repsMin ? `-${serie.repsMax}` : ''}` : '');
     setMenuSerieIdx(idx);
   };
 
@@ -86,7 +93,23 @@ export default function TablaSeriesFocus({
   const serieSeleccionada = menuSerieIdx !== null ? series[menuSerieIdx] : null;
   const dropsActuales = serieSeleccionada?.drops || [];
   const puedeAnadirDrop = dropsActuales.length < DROPSET_MAX_DROPS;
-  const primeraIncompleta = series.findIndex((s) => !s.completado);
+  const primeraIncompleta = series.findIndex((s) => !s.completado && s.estado !== 'no_hecha');
+  const sugerirSubirCarga = debeSugerirSubirCarga(series);
+  const indiceUltimaTrabajada = series.map((serie) => serie.estado !== 'no_hecha').lastIndexOf(true);
+
+  const confirmarRango = () => {
+    if (menuSerieIdx === null) return;
+    if (!rangoTexto.trim()) {
+      onActualizarSerie(menuSerieIdx, { repsMin: undefined, repsMax: undefined });
+      return;
+    }
+    const rango = parsearRangoRepeticiones(rangoTexto);
+    if (!rango) {
+      Alert.alert('Rango no válido', 'Usa un rango entre 1 y 100, con el mínimo igual o menor que el máximo. Ejemplo: 8-12.');
+      return;
+    }
+    onActualizarSerie(menuSerieIdx, rango);
+  };
 
   const handleAnadirDrop = () => {
     if (menuSerieIdx === null || !serieSeleccionada || !puedeAnadirDrop) return;
@@ -244,10 +267,15 @@ export default function TablaSeriesFocus({
             const filaEnfocada = focusCampoActivo?.sIdx === sIdx;
             const esObjetivo = primeraIncompleta === sIdx;
             const tieneParciales = Boolean(s.repsParciales && s.repsParciales > 0);
+            const repsIDisplay = s.repsI !== undefined && s.repsI !== '' ? s.repsI : s.reps;
+            const rangoVisible = s.repsMin && s.repsMax
+              ? `${s.repsMin}${s.repsMin === s.repsMax ? '' : `–${s.repsMax}`}`
+              : '';
+            const estadoReps = estadoRangoRepeticiones(s.reps || repsIDisplay || '', s.repsMin, s.repsMax);
+            const repsSobreObjetivo = estadoReps === 'sobre' && s.estado !== 'fallo';
 
             // Valores lado izquierdo: si están vacíos se muestra el mismo valor que el lado derecho
             const pesoIDisplay = s.pesoI !== undefined && s.pesoI !== '' ? s.pesoI : s.peso;
-            const repsIDisplay = s.repsI !== undefined && s.repsI !== '' ? s.repsI : s.reps;
 
             return (
               <View key={s.id || `set-${sIdx}`} style={styles.serieBlock}>
@@ -258,14 +286,21 @@ export default function TablaSeriesFocus({
                     esObjetivo && styles.serieRowObjetivo,
                     filaEnfocada && styles.serieRowFocus,
                     s.completado && styles.serieRowCompletada,
+                    s.estado === 'fallo' && styles.serieRowFallo,
+                    s.estado === 'no_hecha' && styles.serieRowNoHecha,
                   ]}
                 >
                   {/* SET NUM */}
-                  <View
+                  <Pressable
+                    onLongPress={() => abrirMenu(sIdx)}
+                    delayLongPress={330}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Opciones de serie ${s.setNum}`}
                     style={[
                       styles.setNumBadge,
                       s.completado && styles.setNumBadgeDone,
                       s.tipo === 'calentamiento' && styles.setNumWarmup,
+                      s.estado === 'no_hecha' && styles.setNumBadgeNoHecha,
                     ]}
                   >
                     <Text
@@ -279,7 +314,7 @@ export default function TablaSeriesFocus({
                         ? 'W'
                         : String(s.setNum).padStart(2, '0')}
                     </Text>
-                  </View>
+                  </Pressable>
 
                   {/* CARGA PREVIA */}
                   <Text style={styles.colPreviaText} numberOfLines={1}>
@@ -302,8 +337,8 @@ export default function TablaSeriesFocus({
                       {/* INPUT REPS DERECHO */}
                       <View style={[styles.inputBox, styles.inputBoxRepsGroup, esFocusReps && styles.inputBoxActivo]}>
                         <Pressable onPress={() => onFocusCampo(sIdx, 'reps')} style={styles.repsTouchArea} hitSlop={2}>
-                          <Text style={[styles.inputText, !s.reps && styles.inputPlaceholder, esFocusReps && styles.inputTextActivo]}>
-                            {s.reps || (s.repsMin && s.repsMax ? `${s.repsMin}-${s.repsMax}` : '0')}
+                          <Text style={[styles.inputText, !s.reps && styles.inputPlaceholder, esFocusReps && styles.inputTextActivo, estadoReps === 'en_rango' && styles.repsEnRango, estadoReps === 'bajo' && styles.repsBajoRango, repsSobreObjetivo && styles.repsSobreRango]}>
+                            {s.reps || rangoVisible || '0'}
                           </Text>
                         </Pressable>
                         {tieneParciales && (
@@ -335,7 +370,7 @@ export default function TablaSeriesFocus({
                         style={[styles.inputBox, esFocusRepsI && styles.inputBoxActivo, styles.inputBoxUnilateralI]}
                       >
                         <Text style={[styles.inputText, !s.repsI && styles.inputPlaceholder, esFocusRepsI && styles.inputTextActivo]}>
-                          {repsIDisplay || '0'}
+                          {repsIDisplay || rangoVisible || '0'}
                         </Text>
                       </Pressable>
                     </>
@@ -377,9 +412,12 @@ export default function TablaSeriesFocus({
                               styles.inputText,
                               !s.reps && styles.inputPlaceholder,
                               esFocusReps && styles.inputTextActivo,
+                              estadoReps === 'en_rango' && styles.repsEnRango,
+                              estadoReps === 'bajo' && styles.repsBajoRango,
+                              repsSobreObjetivo && styles.repsSobreRango,
                             ]}
                           >
-                            {s.reps || (s.repsMin && s.repsMax ? `${s.repsMin}-${s.repsMax}` : '0')}
+                            {s.reps || rangoVisible || '0'}
                           </Text>
                         </Pressable>
 
@@ -433,7 +471,7 @@ export default function TablaSeriesFocus({
                     hitSlop={6}
                   >
                     <Ionicons
-                      name={s.completado ? 'checkmark' : 'checkmark-outline'}
+                      name={s.estado === 'no_hecha' ? 'refresh-outline' : s.completado ? 'checkmark' : 'checkmark-outline'}
                       size={15}
                       color={s.completado ? '#06120D' : 'rgba(255, 255, 255, 0.4)'}
                     />
@@ -451,7 +489,32 @@ export default function TablaSeriesFocus({
                       color="rgba(255, 255, 255, 0.45)"
                     />
                   </Pressable>
+                  {s.estado === 'no_hecha' && <View pointerEvents="none" style={styles.serieStrike} />}
                 </View>
+
+                {(s.estado === 'fallo' || s.estado === 'no_hecha' || rangoVisible || sugerirSubirCarga) && (
+                  <View style={styles.serieMetaRow}>
+                    {s.estado === 'fallo' && (
+                      <View style={[styles.serieEstadoBadge, styles.serieFalloBadge]}>
+                        <Ionicons name="flame" size={9} color={noir.champagne} />
+                        <Text style={[styles.serieEstadoText, { color: noir.champagne }]}>FALLO</Text>
+                      </View>
+                    )}
+                    {s.estado === 'no_hecha' && (
+                      <View style={[styles.serieEstadoBadge, styles.serieNoHechaBadge]}>
+                        <Text style={[styles.serieEstadoText, { color: noir.muted }]}>NO HECHA</Text>
+                      </View>
+                    )}
+                    {Boolean(rangoVisible) && (
+                      <Text style={[styles.rangoFeedback, estadoReps === 'en_rango' && styles.repsEnRango, estadoReps === 'bajo' && styles.repsBajoRango, repsSobreObjetivo && styles.repsSobreRango]}>
+                        {repsSobreObjetivo ? 'Sube carga' : `Objetivo ${rangoVisible} reps${estadoReps === 'en_rango' ? ' · En rango' : estadoReps === 'bajo' ? ' · Bajo' : ''}`}
+                      </Text>
+                    )}
+                    {sugerirSubirCarga && sIdx === indiceUltimaTrabajada && (
+                      <Text style={[styles.rangoFeedback, styles.repsEnRango]}>Todas al máximo · sube carga</Text>
+                    )}
+                  </View>
+                )}
 
                 {(s.carga || s.cargaI) && <Text style={{ color: noir.muted, fontSize: 9, marginLeft: 50, marginTop: 3 }}>{formatearDetalleCarga(s.carga)}{s.cargaI ? ` · I: ${formatearDetalleCarga(s.cargaI)}` : ''}</Text>}
 
@@ -573,6 +636,70 @@ export default function TablaSeriesFocus({
                   </Text>
                 )}
               </View>
+
+              <Text style={styles.menuSectionLabel}>ESTADO Y OBJETIVO</Text>
+              <View style={styles.menuConfigBox}>
+                <Text style={styles.rangeLabel}>Rango de repeticiones objetivo</Text>
+                <View style={styles.rangeInputRow}>
+                  <TextInput
+                    value={rangoTexto}
+                    onChangeText={(value) => {
+                      setRangoTexto(value);
+                      if (menuSerieIdx === null) return;
+                      if (!value.trim()) {
+                        onActualizarSerie(menuSerieIdx, { repsMin: undefined, repsMax: undefined });
+                        return;
+                      }
+                      const rango = parsearRangoRepeticiones(value);
+                      if (rango) onActualizarSerie(menuSerieIdx, rango);
+                    }}
+                    onEndEditing={confirmarRango}
+                    placeholder="8-12"
+                    placeholderTextColor={noir.muted2}
+                    keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric'}
+                    maxLength={7}
+                    accessibilityLabel="Rango de repeticiones, por ejemplo 8 a 12"
+                    style={styles.rangeInput}
+                  />
+                  <Text style={styles.menuOptionSub}>1–100 reps</Text>
+                </View>
+              </View>
+
+              <Pressable
+                style={styles.menuOption}
+                onPress={() => {
+                  if (menuSerieIdx === null) return;
+                  const quitar = serieSeleccionada?.estado === 'no_hecha';
+                  onActualizarSerie(menuSerieIdx, { estado: quitar ? 'normal' : 'no_hecha', completado: false });
+                  cerrarMenu();
+                }}
+              >
+                <View style={[styles.menuIconBox, styles.menuIconDanger]}>
+                  <Ionicons name="remove-circle-outline" size={18} color={noir.muted} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.menuOptionText}>{serieSeleccionada?.estado === 'no_hecha' ? 'Reactivar serie' : 'Marcar como no hecha'}</Text>
+                  <Text style={styles.menuOptionSub}>No suma al entrenamiento; puedes cambiarlo después</Text>
+                </View>
+              </Pressable>
+
+              <Pressable
+                style={styles.menuOption}
+                onPress={() => {
+                  if (menuSerieIdx === null) return;
+                  const quitar = serieSeleccionada?.estado === 'fallo';
+                  onActualizarSerie(menuSerieIdx, { estado: quitar ? 'normal' : 'fallo', completado: !quitar, rir: quitar ? '' : '0' });
+                  cerrarMenu();
+                }}
+              >
+                <View style={[styles.menuIconBox, styles.menuIconChamp]}>
+                  <Ionicons name="flame" size={18} color={noir.champagne} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.menuOptionText}>{serieSeleccionada?.estado === 'fallo' ? 'Quitar marca de fallo' : 'Marcar al fallo muscular'}</Text>
+                  <Text style={styles.menuOptionSub}>Cuenta como completada y fija RIR en 0</Text>
+                </View>
+              </Pressable>
 
               <Text style={styles.menuSectionLabel}>TÉCNICA</Text>
 
@@ -910,6 +1037,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   serieRow: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: 46,
@@ -932,6 +1060,65 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(63, 242, 176, 0.15)',
     backgroundColor: 'rgba(63, 242, 176, 0.04)',
   },
+  serieRowFallo: {
+    borderColor: 'rgba(255, 209, 102, 0.2)',
+  },
+  serieRowNoHecha: {
+    opacity: 0.48,
+  },
+  serieStrike: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    top: '50%',
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.52)',
+  },
+  serieMetaRow: {
+    minHeight: 16,
+    marginLeft: 46,
+    marginTop: -1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 5,
+  },
+  serieEstadoBadge: {
+    minHeight: 15,
+    paddingHorizontal: 5,
+    borderRadius: 5,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  serieFalloBadge: {
+    borderColor: 'rgba(255,209,102,0.24)',
+    backgroundColor: 'rgba(255,209,102,0.07)',
+  },
+  serieNoHechaBadge: {
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.035)',
+  },
+  serieEstadoText: {
+    fontFamily: fuentes.bold,
+    fontSize: 7,
+    letterSpacing: 0.35,
+  },
+  rangoFeedback: {
+    color: noir.muted,
+    fontFamily: fuentes.semiBold,
+    fontSize: 8,
+  },
+  repsEnRango: {
+    color: noir.mint,
+  },
+  repsBajoRango: {
+    color: noir.champagne,
+  },
+  repsSobreRango: {
+    color: '#F08A9B',
+  },
   setNumBadge: {
     width: 32,
     height: 32,
@@ -946,6 +1133,9 @@ const styles = StyleSheet.create({
   setNumBadgeDone: {
     backgroundColor: 'rgba(63, 242, 176, 0.14)',
     borderColor: 'rgba(63, 242, 176, 0.32)',
+  },
+  setNumBadgeNoHecha: {
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   setNumWarmup: {
     backgroundColor: 'rgba(255, 209, 102, 0.12)',
@@ -1276,6 +1466,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.055)',
     gap: 9,
+  },
+  rangeLabel: {
+    color: noir.text,
+    fontFamily: fuentes.bold,
+    fontSize: 11,
+  },
+  rangeInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  rangeInput: {
+    minWidth: 104,
+    minHeight: 38,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(92, 200, 255, 0.2)',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    color: noir.platinum,
+    fontFamily: fuentes.bold,
+    fontSize: 14,
+    textAlign: 'center',
   },
   menuConfigHeader: {
     flexDirection: 'row',

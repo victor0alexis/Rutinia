@@ -259,3 +259,7 @@ En el entrenamiento en vivo se puede registrar la carga en kg, placas o discos p
 # Añadir ejercicios durante una sesión
 
 Desde el carrusel del entrenamiento en vivo se puede añadir un ejercicio solo a la sesión o guardarlo también en la rutina, al final o después del ejercicio activo. Los añadidos de la sesión quedan marcados como «Añadido hoy» y su origen y orden se guardan en `detalles_json`, sin migración SQL.
+
+# Estados y rangos de series
+
+En el entrenamiento en vivo, cada serie admite el estado «No hecha» (reversible y excluido de métricas) o «Fallo muscular» (completada con RIR 0), además de un objetivo de repeticiones como `8-12`. El rango y los estados se conservan como detalles opcionales para mantener la compatibilidad con sesiones y rutinas antiguas sin migración SQL.

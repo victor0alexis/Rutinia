@@ -26,6 +26,44 @@ export const calcular1RMEstimado = (
   return Math.round(estimado * 10) / 10;
 };
 
+export type RangoRepeticiones = { repsMin: number; repsMax: number };
+
+/** Acepta "8", "8-12" y "8–12"; los objetivos válidos van de 1 a 100. */
+export function parsearRangoRepeticiones(valor: string): RangoRepeticiones | null {
+  const limpio = valor.trim();
+  const match = limpio.match(/^(\d{1,3})(?:\s*[-–]\s*(\d{1,3}))?$/);
+  if (!match) return null;
+  const repsMin = Number(match[1]);
+  const repsMax = Number(match[2] || match[1]);
+  if (repsMin < 1 || repsMax > 100 || repsMin > repsMax) return null;
+  return { repsMin, repsMax };
+}
+
+export function estadoRangoRepeticiones(
+  reps: string | number,
+  repsMin?: number,
+  repsMax?: number
+): 'bajo' | 'en_rango' | 'sobre' | null {
+  const actual = typeof reps === 'string' ? Number(reps) : reps;
+  if (!Number.isFinite(actual) || actual <= 0 || !repsMin || !repsMax) return null;
+  if (actual < repsMin) return 'bajo';
+  if (actual > repsMax) return 'sobre';
+  return 'en_rango';
+}
+
+/** Solo recomienda subir cuando todas las series trabajadas llegaron al tope sin fallo. */
+export function debeSugerirSubirCarga(
+  series: { reps?: string; repsMax?: number; completado?: boolean; estado?: string }[]
+): boolean {
+  const trabajadas = series.filter((serie) => serie.estado !== 'no_hecha');
+  return trabajadas.length > 0 && trabajadas.every((serie) =>
+    serie.estado !== 'fallo' &&
+    serie.completado === true &&
+    Boolean(serie.repsMax) &&
+    Number(serie.reps) >= Number(serie.repsMax)
+  );
+}
+
 export type DistribucionDiscos = {
   disco: number;
   cantidadPorLado: number;

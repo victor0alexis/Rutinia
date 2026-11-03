@@ -388,11 +388,13 @@ function GraficoEvolucion({
 }
 function EtiquetaSerie({
   texto,
+  icono,
   color = noir.muted,
   borde = 'rgba(255, 255, 255, 0.1)',
   fondo = 'rgba(255, 255, 255, 0.045)',
 }: {
   texto: string;
+  icono?: IoniconName;
   color?: string;
   borde?: string;
   fondo?: string;
@@ -404,6 +406,7 @@ function EtiquetaSerie({
         { borderColor: borde, backgroundColor: fondo },
       ]}
     >
+      {icono && <Ionicons name={icono} size={9} color={color} />}
       <Text style={[styles.serieTagText, { color }]}>{texto}</Text>
     </View>
   );
@@ -462,6 +465,15 @@ function FilaSerie({
           {serie.rir !== null && (
             <EtiquetaSerie texto={`RIR ${serie.rir}`} />
           )}
+          {serie.estado === 'fallo' && (
+            <EtiquetaSerie texto="FALLO" icono="flame" color={noir.champagne} borde="rgba(255,209,102,0.2)" fondo="rgba(255,209,102,0.065)" />
+          )}
+          {serie.estado === 'no_hecha' && (
+            <EtiquetaSerie texto="NO HECHA" color={noir.muted} borde="rgba(255,255,255,0.1)" fondo="rgba(255,255,255,0.035)" />
+          )}
+          {serie.repsMin && serie.repsMax && (
+            <EtiquetaSerie texto={`Objetivo ${serie.repsMin}${serie.repsMax === serie.repsMin ? '' : `–${serie.repsMax}`}`} color={noir.info} />
+          )}
           {serie.repsParciales > 0 && (
             <EtiquetaSerie
               texto={`+${serie.repsParciales}p`}
@@ -502,9 +514,9 @@ function FilaSerie({
         )}
       </View>
       <Ionicons
-        name={serie.completado ? 'checkmark-circle' : 'ellipse-outline'}
+        name={serie.estado === 'no_hecha' ? 'remove-circle-outline' : serie.completado ? 'checkmark-circle' : 'ellipse-outline'}
         size={13}
-        color={serie.completado ? noir.mint : noir.muted2}
+        color={serie.estado === 'no_hecha' ? noir.muted : serie.completado ? noir.mint : noir.muted2}
       />
     </View>
   );

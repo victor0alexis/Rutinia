@@ -33,6 +33,7 @@ import { listarPlanes } from '../../servicios/planes';
 import { PlanEntrenamiento, Rutina } from '../../tipos';
 import { useLayout } from '../../hooks/useLayout';
 import { vibrarBoton } from '../../utilidades/hapticos';
+import { parsearRangoRepeticiones } from '../../utilidades/calculadoraFuerza';
 
 const DANGER = '#F08A9B';
 
@@ -42,6 +43,8 @@ type SerieInput = {
   reps: string;
   pesoI?: string;
   repsI?: string;
+  repsMin?: number;
+  repsMax?: number;
   rir: string;
   nota: string;
   repsParciales?: number;
@@ -323,12 +326,20 @@ export default function GestionarRutinaModal({
               if (matchR) repsStr = matchR[1];
             }
 
+            const repsMinGuardadas = sDetail?.repsMin ?? (e as any).repsMin ?? (e.repeticiones || undefined);
+            const repsMaxGuardadas = sDetail?.repsMax ?? (e as any).repsMax ?? (e.repeticiones || undefined);
+            if (repsMinGuardadas && repsMaxGuardadas && repsMinGuardadas !== repsMaxGuardadas) {
+              repsStr = `${repsMinGuardadas}-${repsMaxGuardadas}`;
+            }
+
             return {
               id: i.toString() + Math.random().toString(),
               peso: pesoStr,
               reps: repsStr,
               pesoI: pesoIStr,
               repsI: repsIStr,
+              repsMin: repsMinGuardadas,
+              repsMax: repsMaxGuardadas,
               rir: rirStr,
               nota: notaStr,
               repsParciales: sDetail?.repsParciales || 0,
@@ -438,7 +449,13 @@ export default function GestionarRutinaModal({
       const payloadEjercicios = ejerciciosValidos.map((ej) => {
         const primeraSerie = ej.series[0];
         const numSeriesTotal = ej.series.length;
-        const repsPrimera = primeraSerie?.reps ? Number(primeraSerie.reps) : null;
+        const rangoPrimero = primeraSerie?.reps?.trim()
+          ? parsearRangoRepeticiones(primeraSerie.reps)
+          : null;
+        if (primeraSerie?.reps?.trim() && !rangoPrimero) {
+          throw new Error('El rango de repeticiones debe estar entre 1 y 100 y el mínimo no puede superar al máximo. Ejemplo: 8-12.');
+        }
+        const repsPrimera = rangoPrimero?.repsMin ?? null;
         const pesoPrimero = primeraSerie?.peso ? Number(primeraSerie.peso) : null;
 
         const tieneDatos = ej.series.some((s) => Boolean(s.peso || s.reps || s.pesoI || s.repsI || s.rir || s.nota));
@@ -481,11 +498,26 @@ export default function GestionarRutinaModal({
         const nombreBase = tagU + nombreLimpio;
         const nombreFinal = resumenSeries ? `${nombreBase} (${resumenSeries})` : nombreBase;
 
+        const rangosSeries = ej.series.map((serie) => {
+          const rango = serie.reps.trim() ? parsearRangoRepeticiones(serie.reps) : null;
+          if (serie.reps.trim() && !rango) {
+            throw new Error('El rango de repeticiones debe estar entre 1 y 100 y el mínimo no puede superar al máximo. Ejemplo: 8-12.');
+          }
+          return rango;
+        });
+
         return {
           nombre: nombreFinal,
           series: numSeriesTotal,
           repeticiones: repsPrimera,
           peso: pesoPrimero,
+          repsMin: rangoPrimero?.repsMin ?? null,
+          repsMax: rangoPrimero?.repsMax ?? null,
+          detalles_json: JSON.stringify(rangosSeries.map((rango) => ({
+            estado: 'normal',
+            repsMin: rango?.repsMin ?? null,
+            repsMax: rango?.repsMax ?? null,
+          }))),
         };
       });
 
