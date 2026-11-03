@@ -166,6 +166,8 @@ export async function obtenerMetricasProgreso(desde: string, hasta: string): Pro
 
       if (parsed.detallesSets.length > 0) {
         parsed.detallesSets.forEach((set, setIdx) => {
+          const estado = (cargasSeries[setIdx] as any)?.estado || set.estado || 'normal';
+          if (estado === 'no_hecha') return; // Excluir series no hechas de volumen y PRs
           const esPlacasSinEquivalencia = cargasSeries[setIdx]?.carga?.tipo === 'placas' && !set.pesoD;
           const pD = esPlacasSinEquivalencia ? 0 : Number(set.pesoD) || (e.peso || 0);
           const rD = Number(set.repsD) || (e.repeticiones || 1);

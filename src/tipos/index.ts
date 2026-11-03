@@ -28,6 +28,8 @@ export type DiscoPorLado = {
   cantidadPorLado: number;
 };
 
+export type EstadoSerie = 'normal' | 'fallo' | 'no_hecha';
+
 export type CargaSerie = {
   tipo: TipoCarga;
   placas?: number;
@@ -44,6 +46,8 @@ type EjercicioRutina = {
   peso: number | null;
   orden: number;
   detallesJson?: string; // Para almacenar el array de series en formato JSON
+  repsMin?: number | null;
+  repsMax?: number | null;
 };
 
 export type Rutina = {
@@ -72,6 +76,8 @@ export type EjercicioRegistro = {
   sustitucion_alcance?: 'solo_hoy' | 'rutina' | null;
   reps_parciales?: number;
   drops?: DropItem[];
+  repsMin?: number | null;
+  repsMax?: number | null;
 };
 
 export type Registro = {

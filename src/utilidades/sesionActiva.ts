@@ -24,6 +24,10 @@ export type SerieEjecucionDraft = {
   tieneParciales?: boolean;
   esDropset?: boolean;
   drops?: DropDraftItem[];
+  tipo?: 'normal' | 'calentamiento' | 'fallo';
+  estado?: 'normal' | 'fallo' | 'no_hecha';
+  repsMin?: number;
+  repsMax?: number;
 };
 
 export type EjercicioStateDraft = {
@@ -35,6 +39,8 @@ export type EjercicioStateDraft = {
   sustituye_a_ejercicio_id?: string | null;
   sustitucion_alcance?: 'solo_hoy' | 'rutina' | null;
   notaEjercicio?: string;
+  origenSesion?: 'rutina' | 'solo_hoy';
+  ordenSesion?: number;
 };
 
 

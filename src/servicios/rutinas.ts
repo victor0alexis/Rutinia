@@ -22,6 +22,9 @@ export type EjercicioNuevo = {
   series: number | null;
   repeticiones: number | null;
   peso: number | null;
+  repsMin?: number | null;
+  repsMax?: number | null;
+  detalles_json?: string | null;
 };
 
 /** Configuración que hereda un ejercicio al reemplazar a otro en la rutina. */
@@ -110,7 +113,7 @@ export async function crearRutina(
         const fila: any = {
           nombre: e.nombre,
           series: e.series,
-          repeticiones: e.repeticiones,
+          repeticiones: e.repsMin ?? e.repeticiones,
           peso: e.peso,
           rutina_id: rutina.id,
           orden: i,
@@ -158,7 +161,7 @@ export async function crearRutina(
         rutina_id: rutinaId,
         nombre: e.nombre,
         series: e.series,
-        repeticiones: e.repeticiones,
+        repeticiones: e.repsMin ?? e.repeticiones,
         peso: e.peso,
         orden: i,
       })),
@@ -253,7 +256,8 @@ export async function eliminarRutina(id: string): Promise<void> {
 async function sincronizarRutinaConRegistrosYActiva(
   rutinaId: string,
   nuevoNombre: string,
-  nuevosEjercicios: EjercicioNuevo[]
+  nuevosEjercicios: EjercicioNuevo[],
+  registroIdExcluir?: string
 ): Promise<void> {
   try {
     const usuarioId = await getUsuarioId();
@@ -269,7 +273,7 @@ async function sincronizarRutinaConRegistrosYActiva(
           .eq('completado', false);
 
         if (!error && data) {
-          regsIncompletos = data;
+          regsIncompletos = data.filter((reg) => reg.id !== registroIdExcluir);
         }
 
         for (const reg of regsIncompletos) {
@@ -293,8 +297,9 @@ async function sincronizarRutinaConRegistrosYActiva(
                 registro_id: reg.id,
                 nombre: e.nombre,
                 series: e.series,
-                repeticiones: e.repeticiones,
+                repeticiones: e.repsMin ?? e.repeticiones,
                 peso: e.peso,
+                detalles_json: e.detalles_json || null,
                 completado: false,
               };
               if (usuarioId) fila.usuario_id = usuarioId;
@@ -331,6 +336,7 @@ async function sincronizarRutinaConRegistrosYActiva(
                 series: ne.series,
                 repeticiones: ne.repeticiones,
                 peso: ne.peso,
+                detalles_json: ne.detalles_json || null,
                 completado: false,
               }));
               return {
@@ -404,6 +410,10 @@ async function sincronizarRutinaConRegistrosYActiva(
                   tieneParciales: Boolean(sDetail?.repsParciales && sDetail.repsParciales > 0),
                   esDropset: Boolean(sDetail?.esDropset),
                   drops: [],
+                  estado: sDetail?.estado || 'normal',
+                  tipo: sDetail?.tipo || 'normal',
+                  repsMin: sDetail?.repsMin ?? (ne.repsMin ?? (ne.repeticiones || undefined)),
+                  repsMax: sDetail?.repsMax ?? (ne.repsMax ?? (ne.repeticiones || undefined)),
                 };
               });
 
@@ -458,7 +468,7 @@ export async function actualizarRutina(
                 rutina_id: rutinaId,
                 nombre: e.nombre,
                 series: e.series,
-                repeticiones: e.repeticiones,
+                repeticiones: e.repsMin ?? e.repeticiones,
                 peso: e.peso,
                 orden: i,
               })),
@@ -521,7 +531,7 @@ export async function actualizarRutina(
               rutina_id: rutinaId,
               nombre: e.nombre,
               series: e.series,
-              repeticiones: e.repeticiones,
+              repeticiones: e.repsMin ?? e.repeticiones,
               peso: e.peso,
               orden: i,
             })),
@@ -702,6 +712,71 @@ export async function reemplazarEjercicioEnRutina(
   } catch (err) {
     console.warn('Error sincronizando reemplazo de ejercicio:', err);
   }
+}
+
+/** Inserta un ejercicio en la rutina conservando el orden y publica el cambio. */
+export async function agregarEjercicioARutina(
+  rutinaId: string,
+  ejercicio: EjercicioNuevo,
+  posicion: number,
+  registroIdExcluir?: string
+): Promise<void> {
+  if (rutinaId.startsWith('local_')) {
+    const rutinas = (await obtenerCacheLocal<Rutina[]>('rutinas')) || [];
+    await guardarCacheLocal('rutinas', rutinas.map((rutina) => {
+      if (rutina.id !== rutinaId) return rutina;
+      const items = [...(rutina.ejercicios_rutina || [])].sort((a, b) => a.orden - b.orden);
+      const insertAt = Math.min(Math.max(posicion, 0), items.length);
+      items.splice(insertAt, 0, { id: `${rutinaId}_${Date.now()}`, rutina_id: rutinaId, ...ejercicio, repeticiones: ejercicio.repsMin ?? ejercicio.repeticiones, orden: insertAt } as any);
+      return { ...rutina, ejercicios_rutina: items.map((item, orden) => ({ ...item, orden })) };
+    }));
+    const rutinaActualizada = (await obtenerCacheLocal<Rutina[]>('rutinas'))?.find((rutina) => rutina.id === rutinaId);
+    if (rutinaActualizada) {
+      await sincronizarRutinaConRegistrosYActiva(rutinaId, rutinaActualizada.nombre, rutinaActualizada.ejercicios_rutina.map((item) => ({ nombre: item.nombre, series: item.series, repeticiones: item.repeticiones, peso: item.peso, repsMin: item.repsMin, repsMax: item.repsMax, detalles_json: (item as any).detalles_json || (item as any).detallesJson })), registroIdExcluir);
+    }
+    emitirCambioDatos();
+    return;
+  }
+
+  const usuarioId = await getUsuarioId();
+  const { data: existentes, error: errorSelect } = await supabase
+    .from('ejercicios_rutina')
+    .select('*')
+    .eq('rutina_id', rutinaId)
+    .order('orden', { ascending: true });
+  if (errorSelect) throw errorSelect;
+  const items = [...(existentes || [])].sort((a, b) => a.orden - b.orden);
+  const insertAt = Math.min(Math.max(posicion, 0), items.length);
+  const { data: nuevo, error: errorInsert } = await supabase
+    .from('ejercicios_rutina')
+    .insert({ ...ejercicio, repeticiones: ejercicio.repsMin ?? ejercicio.repeticiones, rutina_id: rutinaId, orden: items.length, ...(usuarioId ? { usuario_id: usuarioId } : {}) } as any)
+    .select('*')
+    .single();
+  if (errorInsert) throw errorInsert;
+  items.splice(insertAt, 0, nuevo);
+  for (let indice = 0; indice < items.length; indice += 1) {
+    const { error } = await supabase.from('ejercicios_rutina').update({ orden: -(indice + 1) }).eq('id', items[indice].id);
+    if (error) throw error;
+  }
+  for (let orden = 0; orden < items.length; orden += 1) {
+    const { error } = await supabase.from('ejercicios_rutina').update({ orden }).eq('id', items[orden].id);
+    if (error) throw error;
+  }
+
+  const cache = (await obtenerCacheLocal<Rutina[]>('rutinas')) || [];
+  await guardarCacheLocal('rutinas', cache.map((rutina) => {
+    if (rutina.id !== rutinaId) return rutina;
+    const cacheItems = [...(rutina.ejercicios_rutina || [])].sort((a, b) => a.orden - b.orden);
+    cacheItems.splice(insertAt, 0, nuevo as any);
+    return { ...rutina, ejercicios_rutina: cacheItems.map((item, orden) => ({ ...item, orden })) };
+  }));
+  const rutinaActualizada = (await obtenerCacheLocal<Rutina[]>('rutinas'))?.find((rutina) => rutina.id === rutinaId);
+  const { data: datosRutina } = await supabase.from('rutinas').select('nombre').eq('id', rutinaId).maybeSingle();
+  const nombreRutina = datosRutina?.nombre || rutinaActualizada?.nombre;
+  if (nombreRutina) {
+    await sincronizarRutinaConRegistrosYActiva(rutinaId, nombreRutina, items.map((item) => ({ nombre: item.nombre, series: item.series, repeticiones: item.repeticiones, peso: item.peso, repsMin: item.repsMin, repsMax: item.repsMax, detalles_json: item.detalles_json })), registroIdExcluir);
+  }
+  emitirCambioDatos();
 }
 
 

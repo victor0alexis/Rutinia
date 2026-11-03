@@ -31,6 +31,8 @@ export type EjercicioResumen = {
   repsMaximas: number;
   tieneSobrecarga: boolean;
   notaEjercicio: string;
+  origenSesion?: 'rutina' | 'solo_hoy';
+  ordenSesion?: number;
   series: SerieResumen[];
 };
 export type EjercicioEdicionResumen = {
@@ -417,6 +419,11 @@ export default function ResumenEntrenamientoModal({
                                 </View>
                               )}
                             </View>
+                            {(ej.origenSesion === 'solo_hoy' || ej.ordenSesion) && (
+                              <Text style={{ color: noir.muted, fontSize: 9, marginTop: 2 }}>
+                                {`Ejercicio ${ej.ordenSesion ?? idx + 1}`}{ej.origenSesion === 'solo_hoy' ? ' · Añadido hoy' : ''}
+                              </Text>
+                            )}
                             <View style={styles.exerciseSubRow}>
                               <Text style={styles.exerciseSubDetail}>
                                 Series{' '}

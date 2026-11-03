@@ -255,3 +255,7 @@ RutinIA está optimizada para desplegarse en **Vercel** como una Progressive Web
 # Carga por kg, placas y discos
 
 En el entrenamiento en vivo se puede registrar la carga en kg, placas o discos por lado. Las preferencias de carga se guardan localmente por cuenta y nombre normalizado del ejercicio; el detalle por serie se serializa en `detalles_json` sin alterar registros antiguos en kg ni requerir una migración SQL. Las placas sin equivalencia conocida se excluyen del volumen y 1RM en kg.
+
+# Añadir ejercicios durante una sesión
+
+Desde el carrusel del entrenamiento en vivo se puede añadir un ejercicio solo a la sesión o guardarlo también en la rutina, al final o después del ejercicio activo. Los añadidos de la sesión quedan marcados como «Añadido hoy» y su origen y orden se guardan en `detalles_json`, sin migración SQL.

@@ -588,6 +588,11 @@ function TarjetaSesion({
           )}
         </View>
       </View>
+      {(sesion.origenSesion === 'solo_hoy' || sesion.ordenSesion) && (
+        <Text style={{ color: noir.muted, fontSize: 9, marginTop: -3, marginBottom: 7 }}>
+          {`Ejercicio ${sesion.ordenSesion ?? 'de la sesión'}`}{sesion.origenSesion === 'solo_hoy' ? ' · Añadido hoy' : ''}
+        </Text>
+      )}
       <View style={styles.sessionStats}>
         <View style={styles.sessionStat}>
           <Text style={styles.sessionStatLabel}>MEJOR SERIE</Text>

@@ -21,6 +21,8 @@ interface SerieItem {
   reps: string;
   pesoI?: string;
   repsI?: string;
+  repsMin?: number;
+  repsMax?: number;
   carga?: CargaSerie;
   cargaI?: CargaSerie;
   rir?: string;
@@ -28,6 +30,7 @@ interface SerieItem {
   previa?: string;
   repsParciales?: number;
   tipo?: 'normal' | 'calentamiento' | 'fallo';
+  estado?: 'normal' | 'fallo' | 'no_hecha';
   drops?: {
     orden: number;
     peso: string;
@@ -300,7 +303,7 @@ export default function TablaSeriesFocus({
                       <View style={[styles.inputBox, styles.inputBoxRepsGroup, esFocusReps && styles.inputBoxActivo]}>
                         <Pressable onPress={() => onFocusCampo(sIdx, 'reps')} style={styles.repsTouchArea} hitSlop={2}>
                           <Text style={[styles.inputText, !s.reps && styles.inputPlaceholder, esFocusReps && styles.inputTextActivo]}>
-                            {s.reps || '0'}
+                            {s.reps || (s.repsMin && s.repsMax ? `${s.repsMin}-${s.repsMax}` : '0')}
                           </Text>
                         </Pressable>
                         {tieneParciales && (
@@ -376,7 +379,7 @@ export default function TablaSeriesFocus({
                               esFocusReps && styles.inputTextActivo,
                             ]}
                           >
-                            {s.reps || '0'}
+                            {s.reps || (s.repsMin && s.repsMax ? `${s.repsMin}-${s.repsMax}` : '0')}
                           </Text>
                         </Pressable>
 
