@@ -19,7 +19,6 @@ import { format, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { fuentes, noir } from '../../constantes/colores';
 import { CATEGORIAS, obtenerConfigCategoria } from '../../constantes/notas';
-import EncabezadoEditorial from '../../componentes/comunes/EncabezadoEditorial';
 import PanelBrillo from '../../componentes/comunes/PanelBrillo';
 import FondoPantalla from '../../componentes/comunes/FondoPantalla';
 import RielCategoriasNotas from '../../componentes/notas/RielCategoriasNotas';
@@ -273,14 +272,6 @@ export default function Notas() {
             paddingBottom: tabBottomPadding,
           }}
         >
-          <EncabezadoEditorial
-            title="Notas"
-            style={{
-              paddingTop: isLandscape ? 2 : 4,
-              marginBottom: isLandscape ? 4 : 12,
-            }}
-          />
-
           {/* SALUDO EDITORIAL: LA BIBLIOTECA COMO PARTE DE LA MARCA */}
           <View
             style={[

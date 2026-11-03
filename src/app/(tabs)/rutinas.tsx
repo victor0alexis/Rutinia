@@ -33,7 +33,6 @@ import GestionarPlanModal from '../../componentes/rutinas/GestionarPlanModal';
 import EliminarPlanModal from '../../componentes/rutinas/EliminarPlanModal';
 import AplicarPlanSemanaModal from '../../componentes/semana/AplicarPlanSemanaModal';
 import GestionarRutinaModal from '../../componentes/rutinas/GestionarRutinaModal';
-import EncabezadoEditorial from '../../componentes/comunes/EncabezadoEditorial';
 import { subscribirCambioDatos } from '../../utilidades/sincronizacion';
 import { diasDeSemana } from '../../utilidades/fechas';
 import { vibrarBoton } from '../../utilidades/hapticos';
@@ -1070,20 +1069,6 @@ export default function RutinasScreen() {
         </title>
       </Head>
       <SafeAreaView edges={['top']} style={styles.screen}>
-        {/* CABECERA: MARCA (SOLO EN DETALLE) + AVATAR */}
-        <View
-          style={[
-            styles.headerOuter,
-            {
-              paddingHorizontal: gutter,
-              maxWidth: contentMaxWidth,
-              marginBottom: isLandscape ? 4 : 12,
-            },
-          ]}
-        >
-          <EncabezadoEditorial title="Rutinas" />
-        </View>
-
         <ScrollView
           ref={scrollRef}
           contentContainerStyle={[
@@ -2046,105 +2031,6 @@ export default function RutinasScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-  },
-  headerOuter: {
-    width: '100%',
-    alignSelf: 'center',
-    paddingTop: 2,
-    position: 'relative',
-    zIndex: 60,
-  },
-  headerWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 30,
-    position: 'relative',
-    zIndex: 60,
-  },
-  brandLockup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    minWidth: 0,
-  },
-  brandMark: {
-    width: 30,
-    height: 30,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.24)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#E2EFFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.14,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  brandMarkText: {
-    color: '#F8FBFF',
-    fontFamily: fuentes.extraBold,
-    fontSize: 15,
-    letterSpacing: -1.2,
-    paddingBottom: 1,
-  },
-  brandWordmark: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 4,
-    minWidth: 0,
-  },
-  brandDotSmall: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: noir.pearl,
-    marginBottom: 4,
-    shadowColor: '#E2EFFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.65,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  avatarWrap: {
-    position: 'relative',
-    width: 32,
-    height: 32,
-    flexShrink: 0,
-  },
-  avatarButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.13)',
-  },
-  avatarGradient: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    color: '#E8EDF5',
-    fontFamily: fuentes.semiBold,
-    fontSize: 11,
-  },
-  avatarStatus: {
-    position: 'absolute',
-    right: -1,
-    bottom: -1,
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
-    backgroundColor: noir.mint,
-    borderWidth: 2,
-    borderColor: '#06070A',
-    shadowColor: noir.mint,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.55,
-    shadowRadius: 4,
-    elevation: 2,
   },
   accountMenu: {
     position: 'absolute',

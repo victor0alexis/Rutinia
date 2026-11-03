@@ -24,12 +24,14 @@ interface EjercicioCarruselItem {
   completado: boolean;
   totalSeries: number;
   seriesCompletadas: number;
+  origenSesion?: 'rutina' | 'solo_hoy';
 }
 
 interface Props {
   ejercicios: EjercicioCarruselItem[];
   activoIndex: number;
   onSelectEjercicio: (index: number) => void;
+  onAddEjercicio?: () => void;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -47,6 +49,7 @@ export default function CarruselEjerciciosEncabezado({
   ejercicios,
   activoIndex,
   onSelectEjercicio,
+  onAddEjercicio,
   style,
 }: Props) {
   const { isCompact } = useLayout();
@@ -162,7 +165,10 @@ export default function CarruselEjerciciosEncabezado({
 
         <View style={styles.scrollWrap} onLayout={handleViewportLayout}>
           {total === 0 ? (
-            <Text style={styles.emptyText}>Sin ejercicios</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={styles.emptyText}>Sin ejercicios</Text>
+              {onAddEjercicio && <BotonAnadirEjercicio onPress={onAddEjercicio} />}
+            </View>
           ) : (
             <ScrollView
               ref={scrollRef}
@@ -181,6 +187,7 @@ export default function CarruselEjerciciosEncabezado({
                   onPress={() => irA(index)}
                 />
               ))}
+              {onAddEjercicio && <BotonAnadirEjercicio onPress={onAddEjercicio} />}
             </ScrollView>
           )}
         </View>
@@ -295,6 +302,8 @@ function CarouselEjercicioCard({ item, activo, width, height, onPress }: CardPro
         {nombreVisible}
       </Text>
 
+      {item.origenSesion === 'solo_hoy' && <Text style={styles.addedToday}>Añadido hoy</Text>}
+
       <View style={[styles.cardTrack, activo && styles.cardTrackActive]}>
         <View
           style={[
@@ -308,6 +317,15 @@ function CarouselEjercicioCard({ item, activo, width, height, onPress }: CardPro
           ]}
         />
       </View>
+    </Pressable>
+  );
+}
+
+function BotonAnadirEjercicio({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.addExercise, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Añadir ejercicio">
+      <Ionicons name="add" size={20} color={noir.info} />
+      <Text style={styles.addExerciseText}>Añadir ejercicio</Text>
     </Pressable>
   );
 }
@@ -524,6 +542,30 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.07)',
     overflow: 'hidden',
     marginTop: 5,
+  },
+  addedToday: {
+    color: noir.info,
+    fontFamily: fuentes.bold,
+    fontSize: 6.2,
+    marginTop: 2,
+  },
+  addExercise: {
+    width: 84,
+    height: 86,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(92, 200, 255, 0.34)',
+    backgroundColor: 'rgba(92, 200, 255, 0.055)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  addExerciseText: {
+    color: noir.info,
+    fontFamily: fuentes.bold,
+    fontSize: 8,
+    textAlign: 'center',
   },
   cardTrackActive: {
     backgroundColor: 'rgba(9, 12, 18, 0.12)',

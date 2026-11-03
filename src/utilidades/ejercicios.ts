@@ -25,6 +25,10 @@ interface SetDetalleParsed {
   tieneParciales?: boolean;
   esDropset?: boolean;
   drops?: DropDetalleParsed[];
+  estado?: 'normal' | 'fallo' | 'no_hecha';
+  tipo?: 'normal' | 'calentamiento' | 'fallo';
+  repsMin?: number;
+  repsMax?: number;
 }
 
 export interface InfoEjercicioParsed {
@@ -99,12 +103,19 @@ export function parsearEjercicioInfo(e: {
     totalSeries = Math.max(totalSeries, rawSets.length);
 
     rawSets.forEach((setStr, idx) => {
-      const isComplete = setStr.includes('✓') || Boolean(e.completado);
-      if (setStr.includes('✓')) seriesCompletadas++;
+      const esNoHecha = setStr.includes('[NH]') || setStr.toLowerCase().includes('[no_hecha]') || setStr.toLowerCase().includes('[omitida]');
+      const esFallo = setStr.includes('[F]') || setStr.toLowerCase().includes('[fallo]');
+      const esWarmup = setStr.includes('[W]') || setStr.toLowerCase().includes('[calentamiento]');
+      const estado: 'normal' | 'fallo' | 'no_hecha' = esNoHecha ? 'no_hecha' : esFallo ? 'fallo' : 'normal';
+      const tipo: 'normal' | 'calentamiento' | 'fallo' = esWarmup ? 'calentamiento' : esFallo ? 'fallo' : 'normal';
+
+      const isComplete = !esNoHecha && (setStr.includes('✓') || Boolean(e.completado));
+      if (!esNoHecha && setStr.includes('✓')) seriesCompletadas++;
 
       const datosStr = setStr
         .replace(/^\d+ª:\s*/, '')
         .replace(/✓/g, '')
+        .replace(/\[(NH|no_hecha|omitida|F|fallo|W|calentamiento)\]/gi, '')
         .trim();
 
       let pesoD: string | undefined;
@@ -114,6 +125,8 @@ export function parsearEjercicioInfo(e: {
       let rir: string | undefined;
       let nota: string | undefined;
       let repsParciales: number | undefined;
+      let repsMin: number | undefined;
+      let repsMax: number | undefined;
       let esDropset = false;
       const drops: DropDetalleParsed[] = [];
 
@@ -151,23 +164,31 @@ export function parsearEjercicioInfo(e: {
 
       if (datosStr.includes('|') || datosStr.includes('D ') || datosStr.includes('I ')) {
         detectadoUnilateralEnSets = true;
-        const matchD = datosStr.match(/D\s*(?:(\d+(?:\.\d+)?)k)?\s*(?:(\d+)r)?/i);
+        const matchD = datosStr.match(/D\s*(?:(\d+(?:\.\d+)?)k)?\s*(?:(\d+)(?:[-–](\d+))?r)?/i);
         if (matchD) {
           if (matchD[1]) pesoD = matchD[1];
-          if (matchD[2]) repsD = matchD[2];
+          if (matchD[2]) {
+            repsD = matchD[3] ? `${matchD[2]}-${matchD[3]}` : matchD[2];
+            repsMin = parseInt(matchD[2], 10);
+            repsMax = matchD[3] ? parseInt(matchD[3], 10) : repsMin;
+          }
         }
 
-        const matchI = datosStr.match(/I\s*(?:(\d+(?:\.\d+)?)k)?\s*(?:(\d+)r)?/i);
+        const matchI = datosStr.match(/I\s*(?:(\d+(?:\.\d+)?)k)?\s*(?:(\d+)(?:[-–](\d+))?r)?/i);
         if (matchI) {
           if (matchI[1]) pesoI = matchI[1];
-          if (matchI[2]) repsI = matchI[2];
+          if (matchI[2]) repsI = matchI[3] ? `${matchI[2]}-${matchI[3]}` : matchI[2];
         }
       } else {
         // Bilateral normal
         const matchK = datosStr.match(/^(\d+(?:\.\d+)?)k/);
         if (matchK) pesoD = matchK[1];
-        const matchR = datosStr.match(/(\d+)r/);
-        if (matchR) repsD = matchR[1];
+        const matchR = datosStr.match(/(?:^|\s)(?:(\d+)(?:[-–](\d+))?r)/);
+        if (matchR) {
+          repsD = matchR[2] ? `${matchR[1]}-${matchR[2]}` : matchR[1];
+          repsMin = parseInt(matchR[1], 10);
+          repsMax = matchR[2] ? parseInt(matchR[2], 10) : repsMin;
+        }
       }
 
       const matchRIR = datosStr.match(/RIR\s*(\d+)/i);
@@ -195,6 +216,10 @@ export function parsearEjercicioInfo(e: {
         tieneParciales: Boolean(repsParciales && repsParciales > 0),
         esDropset,
         drops: drops.length > 0 ? drops : undefined,
+        estado,
+        tipo,
+        repsMin,
+        repsMax,
       });
     });
 

@@ -8,6 +8,13 @@ import { supabase } from '../biblioteca/supabase';
 import { establecerNamespaceDatos, limpiarCacheDeCuenta } from '../utilidades/almacenamientoLocal';
 import { emitirCambioSesionActiva } from '../utilidades/sesionActiva';
 import { emitirCambioDatos } from '../utilidades/sincronizacion';
+import {
+  eliminarAvatarLocalDeStorage,
+  FotoPerfilProcesada,
+  generarMiniaturaLocal,
+  guardarAvatarLocalEnStorage,
+  leerAvatarLocalDeStorage,
+} from '../utilidades/fotoPerfil';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -42,6 +49,7 @@ export type CuentaRutinia = {
   /** Indica si en este dispositivo existe una sesión reutilizable. */
   sesionGuardada: boolean;
   proveedor?: ProveedorCuenta;
+  avatarUrl: string | null;
 };
 
 export function esCuentaGoogle(cuenta: CuentaRutinia | null | undefined): boolean {
@@ -131,6 +139,7 @@ function cuentaLocal(): CuentaRutinia {
     ultimaVez: Date.now(),
     sesionGuardada: false,
     proveedor: 'correo',
+    avatarUrl: null,
   };
 }
 
@@ -159,6 +168,17 @@ function nombreDeUsuario(user: User): string {
   return user.email?.split('@')[0]?.trim() || 'Atleta';
 }
 
+function avatarDeUsuario(user: User): string | null {
+  const meta = (user.user_metadata || {}) as Record<string, unknown>;
+  if (typeof meta.avatar_url === 'string' && meta.avatar_url.trim()) {
+    return meta.avatar_url.trim();
+  }
+  if (typeof meta.picture === 'string' && meta.picture.trim()) {
+    return meta.picture.trim();
+  }
+  return null;
+}
+
 function normalizarRegistro(valor: unknown): RegistroCuentas {
   if (!valor || typeof valor !== 'object') {
     return { version: 1, activaId: ID_LOCAL, cuentas: [cuentaLocal()] };
@@ -172,6 +192,11 @@ function normalizarRegistro(valor: unknown): RegistroCuentas {
     if (!item || typeof item !== 'object') continue;
     const cuenta = item as Partial<CuentaRutinia>;
     if (!cuenta.id || (cuenta.tipo !== 'local' && cuenta.tipo !== 'nube')) continue;
+
+    const avatarUrl =
+      typeof cuenta.avatarUrl === 'string' && cuenta.avatarUrl.trim()
+        ? cuenta.avatarUrl.trim()
+        : null;
 
     const proveedor: ProveedorCuenta =
       cuenta.proveedor === 'google' ? 'google' : 'correo';
@@ -190,6 +215,7 @@ function normalizarRegistro(valor: unknown): RegistroCuentas {
       creadaEn: typeof cuenta.creadaEn === 'number' ? cuenta.creadaEn : Date.now(),
       ultimaVez: typeof cuenta.ultimaVez === 'number' ? cuenta.ultimaVez : Date.now(),
       sesionGuardada: Boolean(cuenta.sesionGuardada),
+      avatarUrl,
       proveedor,
     });
   }
@@ -268,6 +294,7 @@ function upsertCuentaEnRegistro(
     creadaEn: existente?.creadaEn ?? (user.created_at ? Date.parse(user.created_at) : ahora),
     ultimaVez: ahora,
     sesionGuardada: conSesion || Boolean(existente?.sesionGuardada),
+    avatarUrl: avatarDeUsuario(user),
     proveedor,
   };
 
@@ -473,6 +500,11 @@ function suscribirEventosAuth(): void {
           try {
             const registro = await leerRegistro();
             if (registro.activaId === ID_LOCAL) return;
+            const avatarLocal = await leerAvatarLocalDeStorage();
+            const cuentaLocalItem = registro.cuentas.find((cuenta) => cuenta.id === ID_LOCAL);
+            if (cuentaLocalItem) {
+              cuentaLocalItem.avatarUrl = avatarLocal;
+            }
             registro.activaId = ID_LOCAL;
             await guardarRegistro(registro);
             establecerNamespaceDatos(null);
@@ -509,6 +541,11 @@ async function ejecutarInicializacion(): Promise<void> {
   }
 
   const registro = await leerRegistro();
+  const avatarLocal = await leerAvatarLocalDeStorage();
+  const cuentaLocalItem = registro.cuentas.find((cuenta) => cuenta.id === ID_LOCAL);
+  if (cuentaLocalItem) {
+    cuentaLocalItem.avatarUrl = avatarLocal;
+  }
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -842,6 +879,7 @@ export async function cambiarCuenta(cuentaId: string): Promise<CuentaRutinia> {
   if (!destino) throw new Error('La cuenta seleccionada ya no existe en este dispositivo.');
 
   if (destino.tipo === 'local') {
+    destino.avatarUrl = await leerAvatarLocalDeStorage();
     await guardarSesionActualSiHay();
     await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
     return fijarCuentaActiva(ID_LOCAL);
@@ -975,6 +1013,12 @@ export async function eliminarCuentaActual(): Promise<void> {
     throw new Error('El perfil local no se elimina como una cuenta en la nube.');
   }
 
+  try {
+    await supabase.storage.from('avatares').remove([`${cuenta.id}/avatar.jpg`]);
+  } catch (err) {
+    console.warn('Error eliminando avatar del bucket al borrar cuenta:', err);
+  }
+
   const { error } = await supabase.rpc('eliminar_mi_cuenta');
 
   if (error) {
@@ -1004,10 +1048,39 @@ export async function eliminarCuentaActual(): Promise<void> {
 export async function actualizarPerfilActual(datos: {
   nombre?: string;
   color?: string;
+  avatar_url?: string | null;
 }): Promise<CuentaRutinia> {
+  const cuentaActiva = await obtenerCuentaActiva();
+
+  if (cuentaActiva.tipo === 'local') {
+    const registro = await leerRegistro();
+    const cuenta = registro.cuentas.find((item) => item.id === ID_LOCAL);
+    if (!cuenta) throw new Error('No se encontró el perfil local.');
+
+    if (datos.nombre !== undefined) {
+      cuenta.nombre = datos.nombre.trim() || NOMBRE_LOCAL;
+    }
+    if (datos.color !== undefined) {
+      cuenta.color = colorValido(datos.color, ID_LOCAL);
+    }
+    if (datos.avatar_url !== undefined) {
+      cuenta.avatarUrl = datos.avatar_url;
+      if (datos.avatar_url) {
+        await guardarAvatarLocalEnStorage(datos.avatar_url);
+      } else {
+        await eliminarAvatarLocalDeStorage();
+      }
+    }
+
+    await guardarRegistro(registro);
+    notificar();
+    await publicarCambioDeDatos();
+    return cuenta;
+  }
   const meta: Record<string, unknown> = {};
   if (datos.nombre !== undefined) meta.nombre = datos.nombre.trim();
   if (datos.color !== undefined) meta.color = datos.color;
+  if (datos.avatar_url !== undefined) meta.avatar_url = datos.avatar_url;
 
   const { data, error } = await supabase.auth.updateUser({ data: meta });
   if (error) throw traducirErrorAuth(error);
@@ -1019,6 +1092,106 @@ export async function actualizarPerfilActual(datos: {
   notificar();
   await publicarCambioDeDatos();
   return cuenta;
+}
+
+function decodificarBase64AArrayBuffer(base64: string): ArrayBuffer {
+  const base64Limpio = base64.includes(',') ? base64.split(',')[1] : base64;
+  const lookup = new Uint8Array(256);
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  for (let i = 0; i < chars.length; i += 1) {
+    lookup[chars.charCodeAt(i)] = i;
+  }
+  const len = base64Limpio.length;
+  let bufferLength = Math.floor(len * 0.75);
+  if (base64Limpio[len - 1] === '=') {
+    bufferLength -= 1;
+    if (base64Limpio[len - 2] === '=') {
+      bufferLength -= 1;
+    }
+  }
+  const arrayBuffer = new ArrayBuffer(bufferLength);
+  const bytes = new Uint8Array(arrayBuffer);
+  let p = 0;
+  for (let i = 0; i < len; i += 4) {
+    const encoded1 = lookup[base64Limpio.charCodeAt(i)];
+    const encoded2 = lookup[base64Limpio.charCodeAt(i + 1)];
+    const encoded3 = lookup[base64Limpio.charCodeAt(i + 2)];
+    const encoded4 = lookup[base64Limpio.charCodeAt(i + 3)];
+    bytes[p++] = (encoded1 << 2) | (encoded2 >> 4);
+    if (base64Limpio[i + 2] !== '=' && p < bufferLength) {
+      bytes[p++] = ((encoded2 & 15) << 4) | (encoded3 >> 2);
+    }
+    if (base64Limpio[i + 3] !== '=' && p < bufferLength) {
+      bytes[p++] = ((encoded3 & 3) << 6) | (encoded4 & 63);
+    }
+  }
+  return arrayBuffer;
+}
+
+export async function cambiarFotoPerfilActual(
+  fotoSeleccionada: FotoPerfilProcesada
+): Promise<CuentaRutinia> {
+  const cuenta = await obtenerCuentaActiva();
+
+  if (cuenta.tipo === 'local') {
+    const dataUrl = await generarMiniaturaLocal(fotoSeleccionada.uri);
+    return await actualizarPerfilActual({ avatar_url: dataUrl });
+  }
+
+  let arrayBuffer: ArrayBuffer;
+  if (fotoSeleccionada.base64) {
+    arrayBuffer = decodificarBase64AArrayBuffer(fotoSeleccionada.base64);
+  } else {
+    const respuesta = await fetch(fotoSeleccionada.uri);
+    arrayBuffer = await respuesta.arrayBuffer();
+  }
+
+  const ruta = `${cuenta.id}/avatar.jpg`;
+  const { error: uploadError } = await supabase.storage
+    .from('avatares')
+    .upload(ruta, arrayBuffer, {
+      contentType: 'image/jpeg',
+      upsert: true,
+    });
+
+  if (uploadError) {
+    const msg = uploadError.message.toLowerCase();
+    if (msg.includes('bucket not found') || msg.includes('does not exist')) {
+      throw new Error(
+        'El bucket de almacenamiento "avatares" no existe en Supabase. Ejecuta supabase/05_avatares.sql en el SQL Editor.'
+      );
+    }
+    throw new Error(`No se pudo subir la foto de perfil: ${uploadError.message}`);
+  }
+
+  const { data: urlData } = supabase.storage.from('avatares').getPublicUrl(ruta);
+  const urlPublicaConVersion = `${urlData.publicUrl}?v=${Date.now()}`;
+
+  return await actualizarPerfilActual({ avatar_url: urlPublicaConVersion });
+}
+
+export async function quitarFotoPerfilActual(): Promise<CuentaRutinia> {
+  const cuenta = await obtenerCuentaActiva();
+
+  if (cuenta.tipo === 'local') {
+    return await actualizarPerfilActual({ avatar_url: null });
+  }
+
+  const ruta = `${cuenta.id}/avatar.jpg`;
+  await supabase.storage.from('avatares').remove([ruta]).catch(() => undefined);
+
+  let urlRetorno: string | null = null;
+  if (esCuentaGoogle(cuenta)) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const picture = (user?.user_metadata as Record<string, unknown> | undefined)?.picture;
+    if (typeof picture === 'string' && picture.trim()) {
+      urlRetorno = picture.trim();
+    }
+  }
+
+  return await actualizarPerfilActual({ avatar_url: urlRetorno });
 }
 
 export async function actualizarEmailActual(email: string): Promise<{

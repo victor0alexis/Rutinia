@@ -2,6 +2,8 @@ import { registrosDeRango } from './registros';
 import { listarRutinas } from './rutinas';
 import { parsearEjercicioInfo } from '../utilidades/ejercicios';
 import { esNotaDeEjercicio, parsearNotasSesion } from '../utilidades/notasSesion';
+import { formatearDetalleCarga } from '../utilidades/cargasEjercicio';
+import type { CargaSerie } from '../tipos';
 
 export type RecordPersonal = {
   nombreEjercicio: string;
@@ -10,6 +12,7 @@ export type RecordPersonal = {
   fecha: string;
   totalSeries: number;
   esUnilateral?: boolean;
+  composicionCarga?: string;
 };
 
 export type EstadisticaRutina = {
@@ -39,6 +42,7 @@ export type HabitoTrackerStat = {
 
 export type MetricasProgreso = {
   volumenTotalKg: number;
+  seriesSoloPlacas: number;
   diasCompletados: number;
   seriesTotales: number;
   rachaDias: number;
@@ -55,9 +59,10 @@ export async function obtenerMetricasProgreso(desde: string, hasta: string): Pro
   ]);
 
   let volumenTotalKg = 0;
+  let seriesSoloPlacas = 0;
   let seriesTotales = 0;
   const diasUnicos = new Set<string>();
-  const mapEjercicios: Record<string, { series: number; maxPeso: number; maxReps: number; fechaMax: string; esUnilateral: boolean }> = {};
+  const mapEjercicios: Record<string, { series: number; maxPeso: number; maxReps: number; fechaMax: string; esUnilateral: boolean; composicionCarga: string }> = {};
   const mapRutinas: Record<
     string,
     {
@@ -152,10 +157,19 @@ export async function obtenerMetricasProgreso(desde: string, hasta: string): Pro
       let volEj = 0;
       let maxPesoEnEj = 0;
       let maxRepsEnEj = 0;
+      let cargasSeries: { carga?: CargaSerie | null }[] = [];
+      try { cargasSeries = JSON.parse((e as any).detalles_json || '[]'); } catch { cargasSeries = []; }
+      parsed.detallesSets.forEach((set, setIdx) => {
+        const carga = cargasSeries[setIdx]?.carga;
+        if (carga?.tipo === 'placas' && !set.pesoD) seriesSoloPlacas++;
+      });
 
       if (parsed.detallesSets.length > 0) {
-        parsed.detallesSets.forEach((set) => {
-          const pD = Number(set.pesoD) || (e.peso || 0);
+        parsed.detallesSets.forEach((set, setIdx) => {
+          const estado = (cargasSeries[setIdx] as any)?.estado || set.estado || 'normal';
+          if (estado === 'no_hecha') return; // Excluir series no hechas de volumen y PRs
+          const esPlacasSinEquivalencia = cargasSeries[setIdx]?.carga?.tipo === 'placas' && !set.pesoD;
+          const pD = esPlacasSinEquivalencia ? 0 : Number(set.pesoD) || (e.peso || 0);
           const rD = Number(set.repsD) || (e.repeticiones || 1);
           const pI = parsed.esUnilateral ? (Number(set.pesoI) || pD) : 0;
           const rI = parsed.esUnilateral ? (Number(set.repsI) || rD) : 0;
@@ -206,6 +220,7 @@ export async function obtenerMetricasProgreso(desde: string, hasta: string): Pro
           maxReps: 0,
           fechaMax: r.fecha,
           esUnilateral: parsed.esUnilateral,
+          composicionCarga: '',
         };
       }
 
@@ -214,6 +229,9 @@ export async function obtenerMetricasProgreso(desde: string, hasta: string): Pro
         mapEjercicios[nombreLimpio].maxPeso = maxPesoEnEj;
         mapEjercicios[nombreLimpio].maxReps = maxRepsEnEj;
         mapEjercicios[nombreLimpio].fechaMax = r.fecha;
+        const indiceSerieRecord = parsed.detallesSets.findIndex((set) => Number(set.pesoD) === maxPesoEnEj);
+        const detalleCarga = indiceSerieRecord >= 0 ? formatearDetalleCarga(cargasSeries[indiceSerieRecord]?.carga) : '';
+        mapEjercicios[nombreLimpio].composicionCarga = detalleCarga;
       }
     });
 
@@ -353,6 +371,7 @@ export async function obtenerMetricasProgreso(desde: string, hasta: string): Pro
       fecha: data.fechaMax,
       totalSeries: data.series,
       esUnilateral: data.esUnilateral,
+      composicionCarga: data.composicionCarga,
     }))
     .sort((a, b) => b.maxPeso - a.maxPeso);
 
@@ -382,6 +401,7 @@ export async function obtenerMetricasProgreso(desde: string, hasta: string): Pro
 
   return {
     volumenTotalKg: Math.round(volumenTotalKg),
+    seriesSoloPlacas,
     diasCompletados: diasUnicos.size,
     seriesTotales,
     rachaDias,

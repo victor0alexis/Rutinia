@@ -1,5 +1,5 @@
 import { supabase } from '../biblioteca/supabase';
-import { Registro, Rutina } from '../tipos';
+import { Registro, Rutina, CargaSerie } from '../tipos';
 import {
   guardarCacheLocal,
   leerLocal,
@@ -205,10 +205,41 @@ export async function actualizarEjecucionEjercicio(
     sustitucion_alcance?: 'solo_hoy' | 'rutina' | null;
     reps_parciales?: number;
     drops?: any[];
+    detalles_json?: string | null;
   }
 ) {
   const { error } = await supabase.from('ejercicios_registro').update(datos).eq('id', id);
   if (error) throw error;
+}
+
+/** Crea una fila del ejercicio recién añadido en el registro del día. */
+export async function crearEjercicioRegistroSesion(datos: {
+  registroId: string;
+  nombre: string;
+  series: number;
+  repeticiones?: number | null;
+  peso?: number | null;
+  detalles_json: string;
+}): Promise<string> {
+  const usuarioId = await getUsuarioId();
+  const fila: Record<string, unknown> = {
+    registro_id: datos.registroId,
+    nombre: datos.nombre,
+    ejercicio_nombre: datos.nombre,
+    series: datos.series,
+    repeticiones: datos.repeticiones ?? null,
+    peso: datos.peso ?? null,
+    completado: false,
+    detalles_json: datos.detalles_json,
+  };
+  if (usuarioId) fila.usuario_id = usuarioId;
+  const { data, error } = await supabase
+    .from('ejercicios_registro')
+    .insert(fila as any)
+    .select('id')
+    .single();
+  if (error) throw error;
+  return data.id;
 }
 
 /**
@@ -496,10 +527,12 @@ export async function obtenerHistorialPrevioEjercicio(
       const matchResumen = (item.nombre || '').match(/\((.*?)\)$/);
       if (matchResumen && matchResumen[1]) {
         const rawSets = matchResumen[1].split('•').map((s: string) => s.trim());
-        const seriesPrevias = rawSets.map((setStr: string) => {
+        let detallesCarga: { carga?: CargaSerie | null; cargaI?: CargaSerie | null }[] = [];
+        try { detallesCarga = JSON.parse((item as any).detalles_json || '[]'); } catch { detallesCarga = []; }
+        const seriesPrevias = rawSets.map((setStr: string, setIdx: number) => {
           const datosStr = setStr.replace(/^\d+ª:\s*/, '').replace(/✓/g, '').trim();
           const matchK = datosStr.match(/(\d+(?:\.\d+)?)k/);
-          const matchR = datosStr.match(/(\d+)r/);
+          const matchR = datosStr.match(/(\d+)(?:[-–](\d+))?r/);
           const matchRir = datosStr.match(/RIR\s*(\d+)/i);
           const matchParcial = datosStr.match(/\+(\d+)p/);
 
@@ -524,12 +557,16 @@ export async function obtenerHistorialPrevioEjercicio(
 
           return {
             peso: matchK ? matchK[1] : (item.peso ? item.peso.toString() : ''),
-            reps: matchR ? matchR[1] : (item.repeticiones ? item.repeticiones.toString() : ''),
+            reps: matchR ? (matchR[2] ? `${matchR[1]}-${matchR[2]}` : matchR[1]) : (item.repeticiones ? item.repeticiones.toString() : ''),
+            repsMin: matchR ? Number(matchR[1]) : undefined,
+            repsMax: matchR ? Number(matchR[2] || matchR[1]) : undefined,
             rir: matchRir ? matchRir[1] : '',
             nota: '',
             repsParciales: matchParcial ? parseInt(matchParcial[1], 10) : 0,
             esDropset: drops.length > 0,
             drops,
+            carga: detallesCarga[setIdx]?.carga || undefined,
+            cargaI: detallesCarga[setIdx]?.cargaI || undefined,
           };
         });
 
@@ -572,6 +609,12 @@ export type SerieHistorialEjercicio = {
   drops: DropHistorialEjercicio[];
   volumenKg: number;
   e1RM: number;
+  carga?: CargaSerie | null;
+  cargaI?: CargaSerie | null;
+  tipo?: 'normal' | 'calentamiento' | 'fallo';
+  estado?: 'normal' | 'fallo' | 'no_hecha';
+  repsMin?: number | null;
+  repsMax?: number | null;
 };
 
 export type SesionHistorialEjercicio = {
@@ -593,6 +636,8 @@ export type SesionHistorialEjercicio = {
   volumenKg: number;
   notaEjercicio: string;
   notaSesion: string;
+  origenSesion?: 'rutina' | 'solo_hoy';
+  ordenSesion?: number;
 };
 
 type RelacionNombre = { nombre?: string | null } | { nombre?: string | null }[] | null;
@@ -616,6 +661,7 @@ type FilaHistorialEjercicio = {
   peso?: number | null;
   completado?: boolean | null;
   ejercicio_nombre?: string | null;
+  detalles_json?: string | null;
   creado_en?: string | null;
   registros_entrenamiento?: RelacionRegistro | RelacionRegistro[] | null;
 };
@@ -628,6 +674,7 @@ const SELECT_HISTORIAL_EJERCICIO = `
   peso,
   completado,
   ejercicio_nombre,
+  detalles_json,
   creado_en,
   registros_entrenamiento!inner(
     id,
@@ -640,6 +687,17 @@ const SELECT_HISTORIAL_EJERCICIO = `
     planes_entrenamiento(nombre)
   )
 `;
+
+// Algunas instalaciones antiguas aún no tienen esta columna opcional.
+const SELECT_HISTORIAL_EJERCICIO_SIN_DETALLES = SELECT_HISTORIAL_EJERCICIO.replace(
+  /^\s*detalles_json,\s*$/m,
+  ''
+);
+
+function faltaColumnaDetallesJson(error: { code?: string; message?: string } | null): boolean {
+  if (!error || !/detalles_json/i.test(error.message || '')) return false;
+  return error.code === '42703' || error.code === 'PGRST204' || /does not exist|not find|schema cache/i.test(error.message || '');
+}
 
 function nombreDeRelacion(valor: RelacionNombre | undefined): string | null {
   if (!valor) return null;
@@ -711,6 +769,8 @@ function construirSeriesHistorial(
   esUnilateral: boolean,
   detalles: ReturnType<typeof parsearEjercicioInfo>['detallesSets']
 ): SerieHistorialEjercicio[] {
+  let cargas: { carga?: CargaSerie | null; cargaI?: CargaSerie | null }[] = [];
+  try { cargas = JSON.parse(fila.detalles_json || '[]'); } catch { cargas = []; }
   if (detalles.length === 0) {
     const peso = numero(fila.peso);
     const reps = numero(fila.repeticiones);
@@ -731,6 +791,8 @@ function construirSeriesHistorial(
         drops: [],
         volumenKg: peso * reps,
         e1RM: calcularE1RM(peso, reps),
+        carga: cargas[0]?.carga || null,
+        cargaI: cargas[0]?.cargaI || null,
       },
     ];
   }
@@ -768,6 +830,12 @@ function construirSeriesHistorial(
       0
     );
 
+    const estado = (cargas[index] as any)?.estado || detalle.estado || ((cargas[index] as any)?.tipo === 'fallo' ? 'fallo' : 'normal');
+    const tipo = (cargas[index] as any)?.tipo || detalle.tipo || 'normal';
+    const repsMin = (cargas[index] as any)?.repsMin ?? detalle.repsMin ?? null;
+    const repsMax = (cargas[index] as any)?.repsMax ?? detalle.repsMax ?? null;
+    const esNoHecha = estado === 'no_hecha';
+
     return {
       setNum: detalle.setNum || index + 1,
       pesoD,
@@ -776,15 +844,21 @@ function construirSeriesHistorial(
       repsI,
       rir: numeroOpcional(detalle.rir),
       nota: detalle.nota || '',
-      completado: Boolean(detalle.completado),
+      completado: esNoHecha ? false : Boolean(detalle.completado),
       repsParciales: detalle.repsParciales || 0,
       esDropset: Boolean(detalle.esDropset || drops.length > 0),
       drops,
-      volumenKg: volumenD + volumenI + volumenDrops,
-      e1RM: Math.max(
+      volumenKg: esNoHecha ? 0 : volumenD + volumenI + volumenDrops,
+      e1RM: esNoHecha ? 0 : Math.max(
         calcularE1RM(pesoD, repsD),
         calcularE1RM(pesoI, repsI)
       ),
+      carga: cargas[index]?.carga || null,
+      cargaI: cargas[index]?.cargaI || null,
+      tipo,
+      estado,
+      repsMin,
+      repsMax,
     };
   });
 }
@@ -803,6 +877,11 @@ function construirSesionHistorial(
     peso: fila.peso,
     completado: Boolean(fila.completado),
   });
+  let metadatosSesion: { origenSesion?: 'rutina' | 'solo_hoy'; ordenSesion?: number } = {};
+  try {
+    const detalles = JSON.parse(fila.detalles_json || '[]');
+    metadatosSesion = { origenSesion: detalles[0]?.origenSesion, ordenSesion: Number(detalles[0]?.ordenSesion) || undefined };
+  } catch { /* Compatible con filas antiguas sin detalles JSON. */ }
 
   const series = construirSeriesHistorial(
     fila,
@@ -886,6 +965,7 @@ function construirSesionHistorial(
     volumenKg,
     notaEjercicio: notaEjercicio.trim(),
     notaSesion: parsearNotasSesion(registro.notas).nota,
+    ...metadatosSesion,
   };
 }
 
@@ -947,11 +1027,11 @@ export async function obtenerHistorialEjercicio(
   const primeraPalabra = sinAcentos(nombreLimpio.split(/\s+/)[0] || '');
   const usuarioId = await getUsuarioId();
 
-  const [porNombre, porCampo, porPalabra] = await Promise.all([
+  const consultarHistorial = (select: string) => Promise.all([
     filtrarPorPropietario(
       supabase
         .from('ejercicios_registro')
-        .select(SELECT_HISTORIAL_EJERCICIO)
+        .select(select)
         .eq('registros_entrenamiento.completado', true)
         .ilike('nombre', `%${nombreLimpio}%`),
       usuarioId
@@ -959,7 +1039,7 @@ export async function obtenerHistorialEjercicio(
     filtrarPorPropietario(
       supabase
         .from('ejercicios_registro')
-        .select(SELECT_HISTORIAL_EJERCICIO)
+        .select(select)
         .eq('registros_entrenamiento.completado', true)
         .eq('ejercicio_nombre', nombreLimpio),
       usuarioId
@@ -968,13 +1048,20 @@ export async function obtenerHistorialEjercicio(
       ? filtrarPorPropietario(
           supabase
             .from('ejercicios_registro')
-            .select(SELECT_HISTORIAL_EJERCICIO)
+            .select(select)
             .eq('registros_entrenamiento.completado', true)
             .ilike('nombre', `%${primeraPalabra}%`),
           usuarioId
         ).order('creado_en', { ascending: false })
       : Promise.resolve({ data: [], error: null }),
   ]);
+
+  let resultados = await consultarHistorial(SELECT_HISTORIAL_EJERCICIO);
+  if (resultados.some((resultado) => faltaColumnaDetallesJson(resultado.error))) {
+    // Conserva la previa para bases que todavía almacenan solo kg/reps.
+    resultados = await consultarHistorial(SELECT_HISTORIAL_EJERCICIO_SIN_DETALLES);
+  }
+  const [porNombre, porCampo, porPalabra] = resultados;
 
   if (porNombre.error && porCampo.error && porPalabra.error) {
     throw new Error(

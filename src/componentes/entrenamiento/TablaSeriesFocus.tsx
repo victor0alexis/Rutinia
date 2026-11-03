@@ -11,6 +11,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { fuentes, noir } from '../../constantes/colores';
 import { vibrarBoton } from '../../utilidades/hapticos';
 import { DROPSET_MAX_DROPS, calcularKgSugeridoDrop } from '../../constantes/entrenamiento';
+import type { CargaSerie } from '../../tipos';
+import { formatearDetalleCarga } from '../../utilidades/cargasEjercicio';
 
 interface SerieItem {
   id?: string;
@@ -19,11 +21,16 @@ interface SerieItem {
   reps: string;
   pesoI?: string;
   repsI?: string;
+  repsMin?: number;
+  repsMax?: number;
+  carga?: CargaSerie;
+  cargaI?: CargaSerie;
   rir?: string;
   completado: boolean;
   previa?: string;
   repsParciales?: number;
   tipo?: 'normal' | 'calentamiento' | 'fallo';
+  estado?: 'normal' | 'fallo' | 'no_hecha';
   drops?: {
     orden: number;
     peso: string;
@@ -296,7 +303,7 @@ export default function TablaSeriesFocus({
                       <View style={[styles.inputBox, styles.inputBoxRepsGroup, esFocusReps && styles.inputBoxActivo]}>
                         <Pressable onPress={() => onFocusCampo(sIdx, 'reps')} style={styles.repsTouchArea} hitSlop={2}>
                           <Text style={[styles.inputText, !s.reps && styles.inputPlaceholder, esFocusReps && styles.inputTextActivo]}>
-                            {s.reps || '0'}
+                            {s.reps || (s.repsMin && s.repsMax ? `${s.repsMin}-${s.repsMax}` : '0')}
                           </Text>
                         </Pressable>
                         {tieneParciales && (
@@ -318,7 +325,7 @@ export default function TablaSeriesFocus({
                         style={[styles.inputBox, esFocusPesoI && styles.inputBoxActivo, styles.inputBoxUnilateralI]}
                       >
                         <Text style={[styles.inputText, !s.pesoI && styles.inputPlaceholder, esFocusPesoI && styles.inputTextActivo]}>
-                          {pesoIDisplay || '0'}
+                          {s.cargaI?.tipo === 'placas' && !s.pesoI ? `${s.cargaI.placas || 0} pl` : pesoIDisplay || '0'}
                         </Text>
                       </Pressable>
 
@@ -347,7 +354,7 @@ export default function TablaSeriesFocus({
                             esFocusKg && styles.inputTextActivo,
                           ]}
                         >
-                          {s.peso || '0'}
+                            {s.carga?.tipo === 'placas' && !s.peso ? `${s.carga.placas || 0} pl` : s.peso || '0'}
                         </Text>
                       </Pressable>
 
@@ -372,7 +379,7 @@ export default function TablaSeriesFocus({
                               esFocusReps && styles.inputTextActivo,
                             ]}
                           >
-                            {s.reps || '0'}
+                            {s.reps || (s.repsMin && s.repsMax ? `${s.repsMin}-${s.repsMax}` : '0')}
                           </Text>
                         </Pressable>
 
@@ -445,6 +452,8 @@ export default function TablaSeriesFocus({
                     />
                   </Pressable>
                 </View>
+
+                {(s.carga || s.cargaI) && <Text style={{ color: noir.muted, fontSize: 9, marginLeft: 50, marginTop: 3 }}>{formatearDetalleCarga(s.carga)}{s.cargaI ? ` · I: ${formatearDetalleCarga(s.cargaI)}` : ''}</Text>}
 
                 {/* Subfilas de Drop Sets subordinadas */}
                 {s.drops && s.drops.map((drop, dIdx) => {

@@ -24,7 +24,6 @@ import {
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { fuentes, noir } from '../../constantes/colores';
-import EncabezadoEditorial from '../../componentes/comunes/EncabezadoEditorial';
 import FondoPantalla from '../../componentes/comunes/FondoPantalla';
 import TextoBrillante from '../../componentes/efectos/TextoBrillante';
 import PestanasSegmentadasSpotlight from '../../componentes/navegacion/PestanasSegmentadasSpotlight';
@@ -125,6 +124,7 @@ export default function ProgresoScreen() {
   const [cargando, setCargando] = useState(true);
   const [metricas, setMetricas] = useState<MetricasProgreso>({
     volumenTotalKg: 0,
+    seriesSoloPlacas: 0,
     diasCompletados: 0,
     seriesTotales: 0,
     rachaDias: 0,
@@ -319,14 +319,6 @@ export default function ProgresoScreen() {
             paddingBottom: tabBottomPadding,
           }}
         >
-          <EncabezadoEditorial
-            title="Progreso"
-            style={{
-              paddingTop: isLandscape ? 2 : 4,
-              marginBottom: isLandscape ? 4 : 12,
-            }}
-          />
-
           <ScrollView
             style={{ flex: 1 }}
             contentContainerStyle={styles.scrollContent}
@@ -380,6 +372,11 @@ export default function ProgresoScreen() {
                   'Tu primera marca aparecerá aquí al registrar un entrenamiento'
                 )}
               </Text>
+              {metricas.seriesSoloPlacas > 0 && (
+                <Text style={{ color: noir.muted2, fontSize: 10, marginTop: 4 }}>
+                  Las series solo en placas no se incluyen en métricas en kg.
+                </Text>
+              )}
             </View>
 
             <PestanasSegmentadasSpotlight
@@ -1235,6 +1232,7 @@ function PRCard({
         <Text style={styles.prMeta} numberOfLines={1}>
           {numero(record.maxReps)} reps · {fechaCorta(record.fecha)}
         </Text>
+        {record.composicionCarga ? <Text style={styles.prMeta} numberOfLines={1}>{record.composicionCarga}</Text> : null}
       </Pressable>
     </Animated.View>
   );

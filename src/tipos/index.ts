@@ -21,6 +21,22 @@ type DropItem = {
   rir?: number | string | null;
 };
 
+export type TipoCarga = 'kg' | 'placas' | 'discos_barra' | 'discos_maquina';
+
+export type DiscoPorLado = {
+  disco: number;
+  cantidadPorLado: number;
+};
+
+export type EstadoSerie = 'normal' | 'fallo' | 'no_hecha';
+
+export type CargaSerie = {
+  tipo: TipoCarga;
+  placas?: number;
+  discosPorLado?: DiscoPorLado[];
+  pesoBase?: number;
+};
+
 type EjercicioRutina = {
   id: string;
   rutina_id: string;
@@ -30,6 +46,8 @@ type EjercicioRutina = {
   peso: number | null;
   orden: number;
   detallesJson?: string; // Para almacenar el array de series en formato JSON
+  repsMin?: number | null;
+  repsMax?: number | null;
 };
 
 export type Rutina = {
@@ -50,6 +68,7 @@ export type EjercicioRegistro = {
   series: number | null;
   repeticiones: number | null;
   peso: number | null;
+  detalles_json?: string | null;
   completado: boolean;
   ejercicio_nombre?: string | null;
   sustituye_a_ejercicio_id?: string | null;
@@ -58,6 +77,8 @@ export type EjercicioRegistro = {
   reps_parciales?: number;
   drops?: DropItem[];
   orden?: number | null;
+  repsMin?: number | null;
+  repsMax?: number | null;
 };
 
 export type Registro = {

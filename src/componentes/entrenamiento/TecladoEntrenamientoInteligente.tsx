@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import {
   Platform,
   Pressable,
@@ -10,8 +10,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fuentes, noir } from '../../constantes/colores';
 import { vibrarBoton } from '../../utilidades/hapticos';
-import { calcular1RMEstimado, calcularDiscosPorLado } from '../../utilidades/calculadoraFuerza';
+import { calcular1RMEstimado } from '../../utilidades/calculadoraFuerza';
 import { useLayout } from '../../hooks/useLayout';
+import type { CargaSerie, TipoCarga } from '../../tipos';
+import { calcularKgDesdeCarga, formatearComposicionDiscos, PREFERENCIA_CARGA_POR_DEFECTO, type PreferenciaCargaEjercicio } from '../../utilidades/cargasEjercicio';
 
 export type CampoEntrenamiento = 'peso' | 'reps' | 'rir' | 'pesoI' | 'repsI' | 'parciales';
 
@@ -24,6 +26,9 @@ type Props = {
   pesoPara1RM?: string;
   repsPara1RM?: string;
   valorPrevioSugerido?: string;
+  carga?: CargaSerie;
+  preferenciaCarga?: PreferenciaCargaEjercicio;
+  onChangeCarga?: (carga: CargaSerie, pesoKg: number | null) => void;
   esUnilateral?: boolean;
   lado?: 'D' | 'I';
   onChangeValor: (val: string) => void;
@@ -41,6 +46,9 @@ export default function TecladoEntrenamientoInteligente({
   pesoPara1RM,
   repsPara1RM,
   valorPrevioSugerido,
+  carga,
+  preferenciaCarga = PREFERENCIA_CARGA_POR_DEFECTO,
+  onChangeCarga,
   esUnilateral = false,
   lado,
   onChangeValor,
@@ -49,7 +57,25 @@ export default function TecladoEntrenamientoInteligente({
   onClose,
 }: Props) {
   const { barBottomPadding, isLandscape, isTablet } = useLayout();
-  const [mostrarCalculadoraDiscos, setMostrarCalculadoraDiscos] = useState(false);
+  const tipoCarga: TipoCarga = carga?.tipo || preferenciaCarga.tipo;
+  const cargaDiscos = carga?.discosPorLado || [];
+  const placas = carga?.placas || 0;
+  const agregarDisco = (disco: number) => {
+    const lista = [...cargaDiscos];
+    const existente = lista.find((item) => item.disco === disco);
+    if (existente) existente.cantidadPorLado += 1;
+    else lista.push({ disco, cantidadPorLado: 1 });
+    const nueva: CargaSerie = { tipo: tipoCarga, pesoBase: tipoCarga === 'discos_barra' ? preferenciaCarga.pesoBarra : preferenciaCarga.pesoBase, discosPorLado: lista };
+    onChangeCarga?.(nueva, calcularKgDesdeCarga(nueva, preferenciaCarga));
+  };
+  const cambiarModoCarga = (tipo: TipoCarga) => {
+    const nueva: CargaSerie = tipo === 'placas'
+      ? { tipo, placas: 0 }
+      : tipo === 'discos_barra' || tipo === 'discos_maquina'
+      ? { tipo, pesoBase: tipo === 'discos_barra' ? preferenciaCarga.pesoBarra : preferenciaCarga.pesoBase, discosPorLado: [] }
+      : { tipo: 'kg' };
+    onChangeCarga?.(nueva, tipo === 'kg' ? null : calcularKgDesdeCarga(nueva, preferenciaCarga));
+  };
 
   // Determinar si el campo activo admite decimales
   const esDecimal = modo === 'peso' || modo === 'pesoI';
@@ -65,11 +91,6 @@ export default function TecladoEntrenamientoInteligente({
   }, [valorActual, pesoPara1RM, repsPara1RM, esDecimal, modo]);
 
   // Cálculo de discos olímpicos
-  const infoDiscos = useMemo(() => {
-    const pesoNum = parseFloat(valorActual.replace(',', '.'));
-    if (!pesoNum || isNaN(pesoNum)) return null;
-    return calcularDiscosPorLado(pesoNum, 20);
-  }, [valorActual]);
 
   // Lógica de digitación
   const presionarDigito = useCallback(
@@ -168,9 +189,9 @@ export default function TecladoEntrenamientoInteligente({
   const etiquetaCampo = () => {
     switch (modo) {
       case 'peso':
-        return esUnilateral ? 'PESO DERECHO (KG)' : 'CARGA / PESO (KG)';
+        return tipoCarga === 'placas' ? 'PESO DERECHO (PLACAS)' : tipoCarga.startsWith('discos_') ? 'DISCOS POR LADO' : esUnilateral ? 'PESO DERECHO (KG)' : 'CARGA / PESO (KG)';
       case 'pesoI':
-        return 'PESO IZQUIERDO (KG)';
+        return tipoCarga === 'placas' ? 'PESO IZQUIERDO (PLACAS)' : tipoCarga.startsWith('discos_') ? 'DISCOS POR LADO · I' : 'PESO IZQUIERDO (KG)';
       case 'reps':
         return esUnilateral ? 'REPS DERECHO' : 'REPETICIONES';
       case 'repsI':
@@ -184,7 +205,7 @@ export default function TecladoEntrenamientoInteligente({
     }
   };
 
-  const unidad = esDecimal ? 'kg' : esRIR ? 'RIR' : esParciales ? '+ reps' : 'reps';
+  const unidad = esDecimal ? tipoCarga === 'placas' ? 'placas' : tipoCarga.startsWith('discos_') ? 'por lado' : 'kg' : esRIR ? 'RIR' : esParciales ? '+ reps' : 'reps';
 
   if (!visible) return null;
 
@@ -204,6 +225,16 @@ export default function TecladoEntrenamientoInteligente({
         ]}
       >
         <View style={styles.kbHandle} />
+
+        {(modo === 'peso' || modo === 'pesoI') && (
+          <View style={{ flexDirection: 'row', gap: 6, marginHorizontal: 18, marginBottom: 8 }}>
+            {([{ id: 'kg', label: 'kg' }, { id: 'placas', label: 'Placas' }, { id: tipoCarga === 'discos_maquina' ? 'discos_maquina' : 'discos_barra', label: 'Discos' }] as const).map((opcion) => (
+              <Pressable key={opcion.id} onPress={() => cambiarModoCarga(opcion.id)} style={{ paddingVertical: 7, paddingHorizontal: 13, borderRadius: 16, backgroundColor: tipoCarga === opcion.id ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.06)' }}>
+                <Text style={{ color: noir.platinum, fontFamily: fuentes.bold, fontSize: 12 }}>{opcion.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
 
         {/* BARRA SUPERIOR: contexto de la serie */}
         <View style={styles.headerBar}>
@@ -263,26 +294,24 @@ export default function TecladoEntrenamientoInteligente({
         </View>
 
         {/* CALCULADORA DE DISCOS (Si está desplegada) */}
-        {esDecimal && mostrarCalculadoraDiscos && infoDiscos && (
-          <View style={styles.barraDiscos}>
-            <View style={styles.barraDiscosHeader}>
-              <Ionicons name="barbell-outline" size={12} color={noir.info} />
-              <Text style={styles.barraDiscosTitulo}>
-                Barra 20 kg + {infoDiscos.pesoPorLado} kg / lado
-              </Text>
+        {esDecimal && tipoCarga === 'placas' && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18, paddingVertical: 8 }}>
+            <Pressable onPress={() => { const n = Math.max(0, placas - 1); const c: CargaSerie = { tipo: 'placas', placas: n }; onChangeCarga?.(c, calcularKgDesdeCarga(c, preferenciaCarga)); }}><Text style={styles.btnStepperText}>−</Text></Pressable>
+            <Text style={styles.kbDisplayValue}>{placas} placas{preferenciaCarga.kgPorPlaca ? ` · ${placas * preferenciaCarga.kgPorPlaca} kg` : ''}</Text>
+            <Pressable onPress={() => { const c: CargaSerie = { tipo: 'placas', placas: placas + 1 }; onChangeCarga?.(c, calcularKgDesdeCarga(c, preferenciaCarga)); }}><Text style={styles.btnStepperText}>+</Text></Pressable>
+          </View>
+        )}
+        {esDecimal && (tipoCarga === 'discos_barra' || tipoCarga === 'discos_maquina') && (
+          <View style={{ paddingHorizontal: 18, paddingBottom: 8 }}>
+            <Text style={styles.kbDisplayHint}>{tipoCarga === 'discos_barra' ? `Barra ${preferenciaCarga.pesoBarra} kg + ` : `Base ${preferenciaCarga.pesoBase} kg + `}{formatearComposicionDiscos(cargaDiscos)} = {carga ? calcularKgDesdeCarga(carga, preferenciaCarga) ?? '—' : '—'} kg</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 7 }}>
+              {preferenciaCarga.discosDisponibles.map((disco) => <Pressable key={disco} onPress={() => agregarDisco(disco)} style={styles.chipDisco}><Text style={styles.chipDiscoPeso}>{disco} kg +</Text></Pressable>)}
             </View>
-            <View style={styles.discosRow}>
-              {infoDiscos.discos.length > 0 ? (
-                infoDiscos.discos.map((d, idx) => (
-                  <View key={idx} style={styles.chipDisco}>
-                    <Text style={styles.chipDiscoCant}>{d.cantidadPorLado}×</Text>
-                    <Text style={styles.chipDiscoPeso}>{d.disco}k</Text>
-                  </View>
-                ))
-              ) : (
-                <Text style={styles.discosVacio}>Solo la barra olímpica (20 kg)</Text>
-              )}
-            </View>
+            {preferenciaCarga.discosDisponibles.length > 0 && (
+              <Pressable onPress={() => agregarDisco(Math.min(...preferenciaCarga.discosDisponibles))} style={{ alignSelf: 'flex-start', marginTop: 8, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 12, backgroundColor: 'rgba(92, 200, 255, 0.1)' }}>
+                <Text style={{ color: noir.info, fontFamily: fuentes.bold, fontSize: 10 }}>Siguiente paso: +{Math.min(...preferenciaCarga.discosDisponibles)} kg por lado</Text>
+              </Pressable>
+            )}
           </View>
         )}
 
@@ -317,25 +346,6 @@ export default function TecladoEntrenamientoInteligente({
                   <Text style={styles.btnStepperText}>+5</Text>
                 </Pressable>
               </View>
-
-              {/* Botón Calculadora de Discos */}
-              <Pressable
-                onPress={() => {
-                  vibrarBoton(10);
-                  setMostrarCalculadoraDiscos(!mostrarCalculadoraDiscos);
-                }}
-                style={({ pressed }) => [
-                  styles.btnAccionEspecial,
-                  mostrarCalculadoraDiscos && styles.btnAccionEspecialActiva,
-                  pressed && { opacity: 0.7 },
-                ]}
-              >
-                <Ionicons
-                  name="barbell"
-                  size={14}
-                  color={mostrarCalculadoraDiscos ? noir.info : noir.muted}
-                />
-              </Pressable>
 
               {/* Botón Copiar Previo */}
               {Boolean(valorPrevioSugerido) && (
@@ -449,7 +459,7 @@ export default function TecladoEntrenamientoInteligente({
         </View>
 
         {/* TECLADO NUMÉRICO TÁCTIL (GRID 3x4 + COLUMNA DE ACCIÓN) */}
-        <View style={styles.gridContenedor}>
+        <View style={[styles.gridContenedor, esDecimal && tipoCarga !== 'kg' && { display: 'none' }]}>
           <View style={styles.gridNumerico}>
             {/* FILA 1 */}
             <View style={styles.tecladoFila}>

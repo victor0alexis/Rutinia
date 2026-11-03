@@ -9,11 +9,15 @@ import TextoBrillante from '../efectos/TextoBrillante';
 import { BotonMetalLiquido } from '../efectos/BotonMetalLiquido';
 import { formatearTiempoTexto } from '../../utilidades/temporizador';
 import { useLayout } from '../../hooks/useLayout';
+import type { CargaSerie } from '../../tipos';
+import { formatearDetalleCarga } from '../../utilidades/cargasEjercicio';
 export type SerieResumen = {
   peso: string;
   reps: string;
   pesoI: string;
   repsI: string;
+  carga?: CargaSerie;
+  cargaI?: CargaSerie;
   rir: string;
   nota: string;
 };
@@ -27,6 +31,8 @@ export type EjercicioResumen = {
   repsMaximas: number;
   tieneSobrecarga: boolean;
   notaEjercicio: string;
+  origenSesion?: 'rutina' | 'solo_hoy';
+  ordenSesion?: number;
   series: SerieResumen[];
 };
 export type EjercicioEdicionResumen = {
@@ -413,6 +419,11 @@ export default function ResumenEntrenamientoModal({
                                 </View>
                               )}
                             </View>
+                            {(ej.origenSesion === 'solo_hoy' || ej.ordenSesion) && (
+                              <Text style={{ color: noir.muted, fontSize: 9, marginTop: 2 }}>
+                                {`Ejercicio ${ej.ordenSesion ?? idx + 1}`}{ej.origenSesion === 'solo_hoy' ? ' · Añadido hoy' : ''}
+                              </Text>
+                            )}
                             <View style={styles.exerciseSubRow}>
                               <Text style={styles.exerciseSubDetail}>
                                 Series{' '}
@@ -429,6 +440,15 @@ export default function ResumenEntrenamientoModal({
                                 </Text>
                               )}
                             </View>
+                            {ej.series.some((serie) => serie.carga || serie.cargaI) && (
+                              <Text style={{ color: noir.muted, fontSize: 10, marginTop: 3 }} numberOfLines={2}>
+                                {ej.series.filter((serie) => serie.carga || serie.cargaI).map((serie, serieIdx) => {
+                                  const carga = serie.carga;
+                                  const total = carga?.tipo === 'placas' ? `${carga.placas || 0} placas` : serie.peso ? `${serie.peso} kg` : '—';
+                                  return `S${serieIdx + 1}: ${total}${carga ? ` · ${formatearDetalleCarga(carga)}` : ''}`;
+                                }).join('  ·  ')}
+                              </Text>
+                            )}
                           </View>
                           <View style={styles.exerciseCheck}>
                             {modoEdicion ? (
@@ -463,6 +483,7 @@ export default function ResumenEntrenamientoModal({
                             />
                             {draft.series.map((serie, sIdx) => (
                               <View key={`${ej.id}-serie-${sIdx}`} style={styles.editSerieBlock}>
+                                {(serie.carga || serie.cargaI) && <Text style={styles.editSerieHint}>{formatearDetalleCarga(serie.carga)}{serie.cargaI ? ` · I: ${formatearDetalleCarga(serie.cargaI)}` : ''}</Text>}
                                 <View style={styles.editSerieHeader}>
                                   <View style={styles.editSerieBadge}>
                                     <Text style={styles.editSerieBadgeText}>S{sIdx + 1}</Text>
