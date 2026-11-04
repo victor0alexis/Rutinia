@@ -1,5 +1,5 @@
 import type { CargaSerie, DiscoPorLado, TipoCarga } from '../tipos';
-import { calcularPesoTotalConDiscos } from './calculadoraFuerza';
+import { calcularDiscosPorLado, calcularPesoTotalConDiscos } from './calculadoraFuerza';
 import { leerLocal, escribirLocal } from './almacenamientoLocal';
 
 export interface PreferenciaCargaEjercicio {
@@ -99,6 +99,113 @@ export function calcularKgDesdeCarga(
   const pesoBase =
     carga.pesoBase ?? (carga.tipo === 'discos_barra' ? preferencia.pesoBarra : preferencia.pesoBase);
   return calcularPesoTotalConDiscos(carga.discosPorLado || [], pesoBase);
+}
+
+/**
+ * Infiere la unidad de carga de un ejercicio a partir de sus series.
+ * Es la fuente de verdad para sesiones antiguas que no guardaron `modoKg`.
+ */
+export function inferirTipoCargaDesdeSeries(
+  series: { carga?: CargaSerie; cargaI?: CargaSerie }[]
+): TipoCarga {
+  const conteo = new Map<TipoCarga, number>();
+  for (const serie of series) {
+    for (const carga of [serie.carga, serie.cargaI]) {
+      if (!carga?.tipo) continue;
+      conteo.set(carga.tipo, (conteo.get(carga.tipo) || 0) + 1);
+    }
+  }
+  const noKg = [...conteo.entries()].filter(([tipo]) => tipo !== 'kg');
+  if (noKg.length === 0) return 'kg';
+  return noKg.sort((a, b) => b[1] - a[1])[0][0];
+}
+
+/**
+ * Convierte la carga de una serie al modo elegido sin perder el valor en kg
+ * cuando existe una equivalencia. Las repeticiones, RIR y estados no se tocan.
+ */
+export function convertirCargaAModo(
+  cargaActual: CargaSerie | undefined,
+  tipoDestino: TipoCarga,
+  pesoActual: string,
+  preferencia: PreferenciaCargaEjercicio
+): { carga?: CargaSerie; peso: string } {
+  const pesoNumero = Number(pesoActual.replace(',', '.')) || 0;
+  const calculadoActual = cargaActual ? calcularKgDesdeCarga(cargaActual, preferencia) : null;
+  const kgActual = pesoNumero > 0 ? pesoNumero : calculadoActual && calculadoActual > 0 ? calculadoActual : 0;
+
+  if (tipoDestino === 'kg') {
+    return { carga: undefined, peso: kgActual > 0 ? String(kgActual) : '' };
+  }
+
+  if (tipoDestino === 'placas') {
+    const placasPrevias =
+      cargaActual?.tipo === 'placas' ? Math.max(0, Math.floor(cargaActual.placas || 0)) : 0;
+    let placas = placasPrevias;
+    if (placas === 0 && preferencia.kgPorPlaca && kgActual > 0) {
+      placas = Math.max(0, Math.round(kgActual / preferencia.kgPorPlaca));
+    }
+    const kgPlacas = preferencia.kgPorPlaca
+      ? Math.round(placas * preferencia.kgPorPlaca * 100) / 100
+      : 0;
+    return {
+      carga: { tipo: 'placas', placas },
+      peso: kgPlacas > 0 ? String(kgPlacas) : '',
+    };
+  }
+
+  const base = tipoDestino === 'discos_barra' ? preferencia.pesoBarra : preferencia.pesoBase;
+  let discos: DiscoPorLado[] =
+    cargaActual?.tipo === tipoDestino
+      ? (cargaActual.discosPorLado || []).map((item) => ({ ...item }))
+      : [];
+
+  // Si venimos de kg/placas, proponemos la combinación de discos más cercana.
+  if (discos.length === 0 && kgActual > base && preferencia.discosDisponibles.length > 0) {
+    const distribucion = calcularDiscosPorLado(kgActual, base, preferencia.discosDisponibles);
+    discos = distribucion.discos.map((item) => ({ ...item }));
+  }
+
+  const carga: CargaSerie = { tipo: tipoDestino, pesoBase: base, discosPorLado: discos };
+  if (kgActual <= 0) return { carga, peso: '' };
+  const kgDiscos = calcularKgDesdeCarga(carga, preferencia);
+  return { carga, peso: kgDiscos != null ? String(kgDiscos) : '' };
+}
+
+/**
+ * Recalcula el total en kg de una carga ya registrada tras cambiar la
+ * configuración del equipo (barra, base, kg por placa...).
+ */
+export function recalcularPesoDeCarga(
+  carga: CargaSerie | undefined,
+  preferencia: PreferenciaCargaEjercicio,
+  pesoActual = ''
+): { carga?: CargaSerie; peso: string } {
+  if (!carga || carga.tipo === 'kg') return { carga: undefined, peso: pesoActual };
+  const actualizada: CargaSerie = {
+    ...carga,
+    pesoBase:
+      carga.tipo === 'discos_barra'
+        ? preferencia.pesoBarra
+        : carga.tipo === 'discos_maquina'
+        ? preferencia.pesoBase
+        : carga.pesoBase,
+  };
+  const kg = calcularKgDesdeCarga(actualizada, preferencia);
+  return { carga: actualizada, peso: kg != null && kg > 0 ? String(kg) : '' };
+}
+
+export function formatearPreviaSerie(serie: {
+  peso: string;
+  reps: string;
+  carga?: CargaSerie;
+}): string | undefined {
+  if (!serie.peso && !serie.reps && !serie.carga) return undefined;
+  const reps = serie.reps || '—';
+  if (serie.carga?.tipo === 'placas') {
+    return `${Math.max(0, Math.floor(serie.carga.placas || 0))}pl × ${reps}`;
+  }
+  return `${serie.peso || '—'} × ${reps}`;
 }
 
 export function crearCargaDesdeValor(

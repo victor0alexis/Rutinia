@@ -13,17 +13,18 @@ import type { TipoCarga } from '../../tipos';
 type Props = {
   visible: boolean;
   nombreEjercicio: string;
+  tipo: TipoCarga;
   preferencia: PreferenciaCargaEjercicio;
   onClose: () => void;
   onGuardar: (preferencia: PreferenciaCargaEjercicio) => void;
 };
 
-const MODOS: { tipo: TipoCarga; titulo: string }[] = [
-  { tipo: 'kg', titulo: 'Kilogramos' },
-  { tipo: 'placas', titulo: 'Placas' },
-  { tipo: 'discos_barra', titulo: 'Discos · barra' },
-  { tipo: 'discos_maquina', titulo: 'Discos · máquina' },
-];
+const ETIQUETA_MODO: Record<TipoCarga, string> = {
+  kg: 'Kilogramos',
+  placas: 'Placas',
+  discos_barra: 'Discos · barra',
+  discos_maquina: 'Discos · máquina',
+};
 
 function Stepper({
   etiqueta,
@@ -61,11 +62,14 @@ function Stepper({
 export default function ConfiguracionCargaEjercicioModal({
   visible,
   nombreEjercicio,
+  tipo,
   preferencia,
   onClose,
   onGuardar,
 }: Props) {
-  const [draft, setDraft] = useState(() => normalizarPreferenciaCarga(preferencia));
+  const [draft, setDraft] = useState(() =>
+    normalizarPreferenciaCarga({ ...preferencia, tipo })
+  );
 
   const cambiar = (patch: Partial<PreferenciaCargaEjercicio>) => {
     setDraft((actual) => normalizarPreferenciaCarga({ ...actual, ...patch }));
@@ -89,18 +93,32 @@ export default function ConfiguracionCargaEjercicioModal({
             <Text style={styles.title} numberOfLines={2}>{nombreEjercicio}</Text>
             <Text style={styles.subtitle}>La configuración se guarda en esta cuenta y se reutiliza la próxima vez.</Text>
 
-            <Text style={styles.sectionLabel}>TIPO DE CARGA</Text>
-            <View style={styles.modes}>
-              {MODOS.map((modo) => (
-                <Pressable
-                  key={modo.tipo}
-                  onPress={() => cambiar({ tipo: modo.tipo })}
-                  style={[styles.mode, draft.tipo === modo.tipo && styles.modeActive]}
-                >
-                  <Text style={[styles.modeText, draft.tipo === modo.tipo && styles.modeTextActive]}>{modo.titulo}</Text>
-                </Pressable>
-              ))}
+            <Text style={styles.sectionLabel}>UNIDAD ACTIVA</Text>
+            <View style={styles.modeResumen}>
+              <Ionicons
+                name={
+                  draft.tipo === 'placas'
+                    ? 'albums-outline'
+                    : draft.tipo === 'kg'
+                    ? 'barbell-outline'
+                    : 'disc-outline'
+                }
+                size={15}
+                color={noir.info}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modeResumenText}>{ETIQUETA_MODO[draft.tipo]}</Text>
+                <Text style={styles.modeResumenSub}>
+                  Cámbiala desde el encabezado de Carga de la tabla.
+                </Text>
+              </View>
             </View>
+
+            {draft.tipo === 'kg' ? (
+              <Text style={styles.helper}>
+                La carga en kg no necesita equipo: se registra directamente en cada serie.
+              </Text>
+            ) : null}
 
             {draft.tipo === 'discos_barra' ? (
               <>
@@ -203,11 +221,9 @@ const styles = StyleSheet.create({
   title: { color: noir.text, fontFamily: fuentes.black, fontSize: 19 },
   subtitle: { color: noir.muted, fontFamily: fuentes.medium, fontSize: 11, lineHeight: 16 },
   sectionLabel: { color: noir.muted2, fontFamily: fuentes.bold, fontSize: 9, letterSpacing: 1, marginTop: 8 },
-  modes: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  mode: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 9, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-  modeActive: { backgroundColor: 'rgba(92,200,255,0.12)', borderColor: 'rgba(92,200,255,0.42)' },
-  modeText: { color: noir.muted, fontFamily: fuentes.bold, fontSize: 10 },
-  modeTextActive: { color: noir.info },
+  modeResumen: { flexDirection: 'row', alignItems: 'center', gap: 9, padding: 11, borderRadius: 11, backgroundColor: 'rgba(92,200,255,0.07)', borderWidth: 1, borderColor: 'rgba(92,200,255,0.22)' },
+  modeResumenText: { color: noir.platinum, fontFamily: fuentes.bold, fontSize: 12 },
+  modeResumenSub: { color: noir.muted, fontFamily: fuentes.regular, fontSize: 9, marginTop: 1 },
   configRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: 11, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.035)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
   configLabel: { color: noir.text, fontFamily: fuentes.semiBold, fontSize: 12 },
   helper: { color: noir.muted, fontFamily: fuentes.regular, fontSize: 10, lineHeight: 14, marginHorizontal: 2 },

@@ -37,7 +37,7 @@ import {
 import { nombreDia } from '../../utilidades/fechas';
 import { Registro, CargaSerie, TipoCarga } from '../../tipos';
 import { calcularKgSugeridoDrop } from '../../constantes/entrenamiento';
-import { leerPreferenciasCarga, guardarPreferenciaCarga, normalizarPreferenciaCarga, PREFERENCIA_CARGA_POR_DEFECTO, normalizarNombreParaPreferencia } from '../../utilidades/cargasEjercicio';
+import { leerPreferenciasCarga, guardarPreferenciaCarga, normalizarPreferenciaCarga, PREFERENCIA_CARGA_POR_DEFECTO, normalizarNombreParaPreferencia, calcularKgDesdeCarga, convertirCargaAModo, formatearPreviaSerie, inferirTipoCargaDesdeSeries, recalcularPesoDeCarga } from '../../utilidades/cargasEjercicio';
 import {
   EstadoTimer,
   obtenerOIniciarTimer,
@@ -179,6 +179,22 @@ function crearCargaInicial(preferencia: ReturnType<typeof normalizarPreferenciaC
   }
   return undefined;
 }
+/**
+ * El modo guardado solo se usa si alguna serie lo respalda. Así los borradores
+ * antiguos que cambiaron el encabezado sin cambiar la carga no muestran un
+ * modo que no se corresponde con sus datos.
+ */
+function resolverModoCargaEjercicio(ej: EjercicioState): TipoCarga {
+  if (ej.modoKg && ej.series.some((serie) => (serie.carga?.tipo ?? 'kg') === ej.modoKg)) {
+    return ej.modoKg;
+  }
+  return inferirTipoCargaDesdeSeries(ej.series);
+}
+function resolverModoRepsEjercicio(ej: EjercicioState): 'reps' | 'rango' {
+  if (ej.modoReps) return ej.modoReps;
+  return ej.series.some((serie) => serie.repsMin || serie.repsMax) ? 'rango' : 'reps';
+}
+
 /** Copia profunda de series para que el nuevo ejercicio no comparta referencias. */
 function heredarSeries(series: SerieEjecucion[]): SerieEjecucion[] {
   return series.map((serie) => ({
@@ -307,17 +323,24 @@ export default function EjecutarEntrenamientoModal({
         parsedEjercicios = borradorPrevio.ejerciciosState.map((ej) => ({
           ...ej,
           esUnilateral: ej.esUnilateral ?? parsearEjercicioInfo({ nombre: ej.nombre }).esUnilateral,
-          series: ej.series.map((s) => ({
-            ...s,
-            repsParciales: s.repsParciales || 0,
-            tieneParciales: Boolean(s.tieneParciales || (s.repsParciales && s.repsParciales > 0)),
-            esDropset: Boolean(s.esDropset || (s.drops && s.drops.length > 0)),
-            drops: s.drops ? s.drops.map((d) => ({ ...d })) : [],
-            estado: s.estado || (s.tipo === 'fallo' ? 'fallo' : 'normal'),
-            tipo: s.tipo || 'normal',
-            repsMin: s.repsMin,
-            repsMax: s.repsMax,
-          })),
+          series: ej.series.map((s) => {
+            const estado = s.estado || (s.tipo === 'fallo' ? 'fallo' : 'normal');
+            return {
+              ...s,
+              repsParciales: s.repsParciales || 0,
+              tieneParciales: Boolean(s.tieneParciales || (s.repsParciales && s.repsParciales > 0)),
+              esDropset: Boolean(s.esDropset || (s.drops && s.drops.length > 0)),
+              drops: s.drops ? s.drops.map((d) => ({ ...d })) : [],
+              estado,
+              tipo: s.tipo || (estado === 'fallo' ? 'fallo' : 'normal'),
+              // Un estado no_hecha nunca puede quedar completado; un fallo
+              // siempre cuenta como completado y parte de RIR 0.
+              completado: estado === 'no_hecha' ? false : estado === 'fallo' ? true : s.completado,
+              rir: estado === 'fallo' && !s.rir ? '0' : s.rir,
+              repsMin: s.repsMin,
+              repsMax: s.repsMax,
+            };
+          }),
         }));
         notasTexto = borradorPrevio.notasSesion || '';
       } else {
@@ -370,6 +393,10 @@ export default function EjecutarEntrenamientoModal({
               reps: d.reps,
               rir: d.rir,
             }));
+            const estado =
+              (cargasGuardadas[i] as any)?.estado ||
+              sDetail?.estado ||
+              ((cargasGuardadas[i] as any)?.tipo === 'fallo' ? 'fallo' : 'normal');
             return {
               id: i.toString() + Math.random().toString(),
               peso: pesoStr,
@@ -378,14 +405,21 @@ export default function EjecutarEntrenamientoModal({
               repsI: repsIStr,
               carga: cargasGuardadas[i]?.carga || undefined,
               cargaI: cargasGuardadas[i]?.cargaI || undefined,
-              rir: rirStr,
+              rir: estado === 'fallo' && !rirStr ? '0' : rirStr,
               nota: notaStr,
-              completado: sDetail ? sDetail.completado : Boolean(e.completado),
+              completado:
+                estado === 'no_hecha'
+                  ? false
+                  : estado === 'fallo'
+                  ? true
+                  : sDetail
+                  ? sDetail.completado
+                  : Boolean(e.completado),
               repsParciales: rParciales,
               tieneParciales: tieneP,
               esDropset: esDrop,
               drops: dropsArray,
-              estado: (cargasGuardadas[i] as any)?.estado || sDetail?.estado || ((cargasGuardadas[i] as any)?.tipo === 'fallo' ? 'fallo' : 'normal'),
+              estado,
               tipo: (cargasGuardadas[i] as any)?.tipo || sDetail?.tipo || 'normal',
               repsMin: (cargasGuardadas[i] as any)?.repsMin ?? sDetail?.repsMin ?? undefined,
               repsMax: (cargasGuardadas[i] as any)?.repsMax ?? sDetail?.repsMax ?? undefined,
@@ -538,12 +572,14 @@ export default function EjecutarEntrenamientoModal({
     Math.max(0, ejerciciosState.length - 1)
   );
   const ejActivo = ejerciciosState[indexValido] || ejerciciosState[0];
+  const modoKgActivo = ejActivo ? resolverModoCargaEjercicio(ejActivo) : 'kg';
+  const modoRepsActivo = ejActivo ? resolverModoRepsEjercicio(ejActivo) : 'reps';
   const seriesFocus = useMemo(() => {
     if (!ejActivo) return [];
     const hist = historialMap[ejActivo.nombre];
     return ejActivo.series.map((s, sIdx) => {
       const prevSet = hist?.series[sIdx];
-      const previaStr = prevSet ? `${prevSet.peso} × ${prevSet.reps}` : undefined;
+      const previaStr = prevSet ? formatearPreviaSerie(prevSet) : undefined;
       return {
         id: s.id,
         setNum: sIdx + 1,
@@ -689,7 +725,92 @@ export default function EjecutarEntrenamientoModal({
   };
   const toggleUnilateralEjercicio = (ejIdx: number) => {
     setEjerciciosState((prev) => {
-      const next = prev.map((ej, i) => (i === ejIdx ? { ...ej, esUnilateral: !ej.esUnilateral } : ej));
+      const next = prev.map((ej, i) => {
+        if (i !== ejIdx) return ej;
+        const activar = !ej.esUnilateral;
+        return {
+          ...ej,
+          esUnilateral: activar,
+          series: activar
+            ? ej.series.map((serie) => ({
+                ...serie,
+                cargaI:
+                  serie.cargaI ??
+                  (serie.carga
+                    ? {
+                        ...serie.carga,
+                        discosPorLado: (serie.carga.discosPorLado || []).map((item) => ({ ...item })),
+                      }
+                    : undefined),
+                pesoI: serie.pesoI !== undefined && serie.pesoI !== '' ? serie.pesoI : serie.peso,
+                repsI: serie.repsI !== undefined && serie.repsI !== '' ? serie.repsI : serie.reps,
+              }))
+            : ej.series,
+        };
+      });
+      guardarDraftAuto(next);
+      return next;
+    });
+  };
+  const obtenerPreferenciaEjercicio = (ej: EjercicioState) =>
+    preferenciasCarga[normalizarNombreParaPreferencia(ej.nombre)] || PREFERENCIA_CARGA_POR_DEFECTO;
+  const preferenciaActiva = ejActivo ? obtenerPreferenciaEjercicio(ejActivo) : PREFERENCIA_CARGA_POR_DEFECTO;
+  const resumenEquipoActivo =
+    modoKgActivo === 'kg'
+      ? 'Entrada directa en kg'
+      : modoKgActivo === 'placas'
+      ? preferenciaActiva.kgPorPlaca
+        ? `${preferenciaActiva.kgPorPlaca} kg por placa`
+        : 'Sin equivalencia en kg'
+      : modoKgActivo === 'discos_barra'
+      ? `Barra ${preferenciaActiva.pesoBarra} kg · ${preferenciaActiva.discosDisponibles.length} discos`
+      : `Base ${preferenciaActiva.pesoBase} kg · ${preferenciaActiva.discosDisponibles.length} discos`;
+  /**
+   * El encabezado de Carga es la única fuente de verdad del modo. Al cambiarlo
+   * se convierten todas las series del ejercicio para que las celdas y el
+   * teclado editen siempre la misma unidad.
+   */
+  const aplicarModoCarga = (modo: TipoCarga) => {
+    const ej = ejerciciosState[indexValido];
+    if (!ej) return;
+    const clave = normalizarNombreParaPreferencia(ej.nombre);
+    const preferencia = { ...obtenerPreferenciaEjercicio(ej), tipo: modo };
+    guardarPreferenciaCarga(ej.nombre, preferencia).catch(() => undefined);
+    setPreferenciasCarga((prev) => ({ ...prev, [clave]: preferencia }));
+    setEjerciciosState((prev) => {
+      const next = prev.map((item, i) => {
+        if (i !== indexValido) return item;
+        return {
+          ...item,
+          modoKg: modo,
+          series: item.series.map((serie) => {
+            const principal = convertirCargaAModo(serie.carga, modo, serie.peso, preferencia);
+            if (!item.esUnilateral) {
+              return { ...serie, carga: principal.carga, peso: principal.peso };
+            }
+            const izquierdo = convertirCargaAModo(
+              serie.cargaI,
+              modo,
+              serie.pesoI !== undefined && serie.pesoI !== '' ? serie.pesoI : serie.peso,
+              preferencia
+            );
+            return {
+              ...serie,
+              carga: principal.carga,
+              peso: principal.peso,
+              cargaI: izquierdo.carga,
+              pesoI: izquierdo.peso,
+            };
+          }),
+        };
+      });
+      guardarDraftAuto(next);
+      return next;
+    });
+  };
+  const aplicarModoReps = (modo: 'reps' | 'rango') => {
+    setEjerciciosState((prev) => {
+      const next = prev.map((ej, i) => (i === indexValido ? { ...ej, modoReps: modo } : ej));
       guardarDraftAuto(next);
       return next;
     });
@@ -855,6 +976,22 @@ export default function EjecutarEntrenamientoModal({
   const toggleCompletarSerie = (ejIndex: number, sIndex: number) => {
     const s = ejerciciosState[ejIndex]?.series[sIndex];
     if (!s) return;
+    // El check de una serie "No hecha" la reactiva; no la marca completada.
+    if (s.estado === 'no_hecha') {
+      setEjerciciosState((prev) => {
+        const next = prev.map((ej, index) => index !== ejIndex ? ej : {
+          ...ej,
+          series: ej.series.map((serie, indexSerie) => indexSerie !== sIndex ? serie : {
+            ...serie,
+            estado: 'normal',
+            completado: false,
+          }),
+        });
+        guardarDraftAuto(next);
+        return next;
+      });
+      return;
+    }
     if (!s.completado) {
       if (s.esDropset && s.drops.length > 0) {
         const dropIncompleto = s.drops.find((d) => !d.reps || d.reps.trim() === '' || Number(d.reps) <= 0);
@@ -873,7 +1010,8 @@ export default function EjecutarEntrenamientoModal({
         series: ej.series.map((serie, indexSerie) => indexSerie !== sIndex ? serie : {
           ...serie,
           completado: !s.completado,
-          estado: serie.estado === 'no_hecha' ? 'normal' : serie.estado,
+          // Desmarcar una serie al fallo la devuelve a normal: fallo = completada.
+          estado: s.completado && serie.estado === 'fallo' ? 'normal' : serie.estado,
         }),
       });
       guardarDraftAuto(next);
@@ -967,8 +1105,10 @@ export default function EjecutarEntrenamientoModal({
   const obtenerValorActualTeclado = (): string => {
     if (!focusTeclado) return '';
     const { ejIdx, sIdx, campo, dropIdx } = focusTeclado;
-    const serie = ejerciciosState[ejIdx]?.series[sIdx];
+    const ej = ejerciciosState[ejIdx];
+    const serie = ej?.series[sIdx];
     if (!serie) return '';
+    const modoCarga = ej ? resolverModoCargaEjercicio(ej) : 'kg';
     if (campo === 'parciales') {
       return serie.repsParciales ? String(serie.repsParciales) : '';
     }
@@ -980,8 +1120,14 @@ export default function EjecutarEntrenamientoModal({
       if (campo === 'rir') return drop.rir || '';
       return '';
     }
-    if (campo === 'pesoI') return serie.cargaI?.tipo === 'placas' ? String(serie.cargaI.placas || 0) : serie.pesoI !== undefined ? serie.pesoI : serie.peso;
-    if (campo === 'peso' && serie.carga?.tipo === 'placas') return String(serie.carga.placas || 0);
+    if (campo === 'pesoI') {
+      return modoCarga === 'placas'
+        ? String(serie.cargaI?.placas || 0)
+        : serie.pesoI !== undefined
+        ? serie.pesoI
+        : serie.peso;
+    }
+    if (campo === 'peso' && modoCarga === 'placas') return String(serie.carga?.placas || 0);
     if (campo === 'repsI') return serie.repsI !== undefined ? serie.repsI : serie.reps;
     return (serie as any)[campo] || '';
   };
@@ -1039,6 +1185,14 @@ export default function EjecutarEntrenamientoModal({
     if (dropIdx !== undefined) {
       const campoDrop = campo === 'peso' ? 'kg' : campo;
       cambiarCampoDrop(ejIdx, sIdx, dropIdx, campoDrop as any, nuevoValor);
+      return;
+    }
+    // En modo placas la celda muestra y edita el número de placas, no kg.
+    if ((campo === 'peso' || campo === 'pesoI') && resolverModoCargaEjercicio(ej) === 'placas') {
+      const preferencia = obtenerPreferenciaEjercicio(ej);
+      const placas = Math.max(0, parseInt(nuevoValor.replace(',', '.'), 10) || 0);
+      const carga: CargaSerie = { tipo: 'placas', placas };
+      actualizarCargaDesdeTeclado(carga, calcularKgDesdeCarga(carga, preferencia));
       return;
     }
     cambiarCampoSerie(ejIdx, sIdx, campo, nuevoValor);
@@ -1205,6 +1359,20 @@ export default function EjecutarEntrenamientoModal({
     const esUnilateralNuevo = parsearEjercicioInfo({
       nombre: nombreNuevoLimpio,
     }).esUnilateral;
+    const preferenciaNueva =
+      (await leerPreferenciasCarga())[normalizarNombreParaPreferencia(nombreNuevoLimpio)] ||
+      PREFERENCIA_CARGA_POR_DEFECTO;
+    const seriesNuevas: SerieEjecucion[] =
+      modo === 'rutina'
+        ? heredarSeries(ejActual.series)
+        : [
+            (() => {
+              const serie = crearSerieVacia();
+              serie.carga = crearCargaInicial(preferenciaNueva);
+              if (esUnilateralNuevo) serie.cargaI = crearCargaInicial(preferenciaNueva);
+              return serie;
+            })(),
+          ];
     // Reutilizamos el id real del registro para que el guardado actualice la
     // misma fila y el ejercicio anterior desaparezca también de la base de datos.
     const idEjercicio = esIdTemporal(ejActual.id)
@@ -1215,10 +1383,10 @@ export default function EjecutarEntrenamientoModal({
       id: idEjercicio,
       nombre: nombreNuevoLimpio,
       esUnilateral: esUnilateralNuevo,
-      series:
-        modo === 'rutina'
-          ? heredarSeries(ejActual.series)
-          : [crearSerieVacia()],
+      series: seriesNuevas,
+      modoKg:
+        modo === 'rutina' ? inferirTipoCargaDesdeSeries(seriesNuevas) : preferenciaNueva.tipo,
+      modoReps: seriesNuevas.some((serie) => serie.repsMin || serie.repsMax) ? 'rango' : 'reps',
       sustituye_a_nombre: ejActual.sustituye_a_nombre || nombreOriginal,
       sustituye_a_ejercicio_id: ejActual.sustituye_a_ejercicio_id || null,
       sustitucion_alcance: modo,
@@ -1317,6 +1485,8 @@ export default function EjecutarEntrenamientoModal({
         notaEjercicio: '',
         origenSesion,
         ordenSesion: indexInsercion + 1,
+        modoKg: inferirTipoCargaDesdeSeries(seriesBase),
+        modoReps: seriesBase.some((serie) => serie.repsMin || serie.repsMax) ? 'rango' : 'reps',
       };
 
       if (modo === 'rutina') {
@@ -1592,7 +1762,9 @@ export default function EjecutarEntrenamientoModal({
     const numSeriesTotal = ej.series.length;
     const repsPrimera = primeraSerie?.repsMin ?? (primeraSerie?.reps ? Number(primeraSerie.reps) : null);
     const pesoPrimero = primeraSerie?.peso ? Number(primeraSerie.peso) : null;
-    const todasCompletadas = ej.series.every((s) => s.completado || s.estado === 'no_hecha');
+    const seriesTrabajadas = ej.series.filter((s) => s.estado !== 'no_hecha');
+    const todasCompletadas =
+      seriesTrabajadas.length > 0 && seriesTrabajadas.every((s) => s.completado);
     const tieneDatos = ej.series.some(
       (s) => Boolean(s.peso || s.reps || s.repsMin || s.estado !== 'normal' || s.pesoI || s.repsI || s.rir || s.nota || s.completado || s.tieneParciales || s.esDropset)
     );
@@ -2031,22 +2203,12 @@ export default function EjecutarEntrenamientoModal({
                         onEliminarSerie={(sIdx) => {
                           eliminarSerieConDeshacer(indexValido, sIdx);
                         }}
-                        modoKg={ejActivo.modoKg ?? 'kg'}
-                        modoReps={ejActivo.modoReps ?? 'reps'}
-                        onCambiarModoKg={(modo) => {
-                          setEjerciciosState((prev) => {
-                            const next = prev.map((ej, i) => i === indexValido ? { ...ej, modoKg: modo } : ej);
-                            guardarDraftAuto(next);
-                            return next;
-                          });
-                        }}
-                        onCambiarModoReps={(modo) => {
-                          setEjerciciosState((prev) => {
-                            const next = prev.map((ej, i) => i === indexValido ? { ...ej, modoReps: modo } : ej);
-                            guardarDraftAuto(next);
-                            return next;
-                          });
-                        }}
+                        modoKg={modoKgActivo}
+                        modoReps={modoRepsActivo}
+                        resumenEquipo={resumenEquipoActivo}
+                        onConfigurarCarga={() => setConfiguracionCargaIdx(indexValido)}
+                        onCambiarModoKg={aplicarModoCarga}
+                        onCambiarModoReps={aplicarModoReps}
                         onActualizarSerie={(sIdx, patch) => {
                           if (patch.drops) {
                             setEjerciciosState((prev) => {
@@ -2310,6 +2472,7 @@ export default function EjecutarEntrenamientoModal({
                     estadoSerie={ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.estado || 'normal'}
                     valorPrevioSugerido={obtenerValorPrevioSugerido()}
                     carga={focusTeclado.campo === 'pesoI' ? ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.cargaI : ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.carga}
+                    tipoCarga={resolverModoCargaEjercicio(ejerciciosState[focusTeclado.ejIdx] || ejActivo)}
                     preferenciaCarga={preferenciasCarga[normalizarNombreParaPreferencia(ejerciciosState[focusTeclado.ejIdx]?.nombre || '')] || PREFERENCIA_CARGA_POR_DEFECTO}
                     onChangeCarga={actualizarCargaDesdeTeclado}
                     onChangeValor={actualizarValorDesdeTeclado}
@@ -2645,20 +2808,6 @@ export default function EjecutarEntrenamientoModal({
                     <Ionicons name="chevron-forward" size={15} color={noir.muted} />
                   </Pressable>
                   <Pressable
-                    onPress={() => { setEjercicioMenu(null); setConfiguracionCargaIdx(ejercicioMenu); }}
-                    style={styles.sheetOption}
-                  >
-                    <View style={[styles.sheetIconBox, { backgroundColor: 'rgba(92, 200, 255, 0.13)' }]}>
-                      <Ionicons name="options-outline" size={18} color={noir.info} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.sheetOptionText}>Ajustes de carga</Text>
-                      <Text style={styles.sheetOptionSubtext}>Unidad, barra, base, placas y discos</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={15} color={noir.muted} />
-                  </Pressable>
-                  {/* Reemplazar */}
-                  <Pressable
                     onPress={() => {
                       const idx = ejercicioMenu;
                       setEjercicioMenu(null);
@@ -2698,21 +2847,57 @@ export default function EjecutarEntrenamientoModal({
           </Pressable>
         </Pressable>
       </Modal>
-      {configuracionCargaIdx !== null && <ConfiguracionCargaEjercicioModal
-        visible={configuracionCargaIdx !== null && Boolean(ejerciciosState[configuracionCargaIdx])}
-        nombreEjercicio={ejerciciosState[configuracionCargaIdx ?? -1]?.nombre || ''}
-        preferencia={preferenciasCarga[normalizarNombreParaPreferencia(ejerciciosState[configuracionCargaIdx ?? -1]?.nombre || '')] || PREFERENCIA_CARGA_POR_DEFECTO}
-        onClose={() => setConfiguracionCargaIdx(null)}
-        onGuardar={(preferencia) => {
-          const idx = configuracionCargaIdx;
-          if (idx === null || !ejerciciosState[idx]) return;
-          const nombre = ejerciciosState[idx].nombre;
-          guardarPreferenciaCarga(nombre, preferencia).catch(() => undefined);
-          setPreferenciasCarga((prev) => ({ ...prev, [normalizarNombreParaPreferencia(nombre)]: preferencia }));
-          setConfiguracionCargaIdx(null);
-          mostrarSnackbar('Ajustes de carga guardados.');
-        }}
-      />}
+      {configuracionCargaIdx !== null && (() => {
+        const ejercicioConfig = ejerciciosState[configuracionCargaIdx];
+        if (!ejercicioConfig) return null;
+        const tipoConfig = resolverModoCargaEjercicio(ejercicioConfig);
+        return <ConfiguracionCargaEjercicioModal
+          visible
+          nombreEjercicio={ejercicioConfig.nombre}
+          tipo={tipoConfig}
+          preferencia={obtenerPreferenciaEjercicio(ejercicioConfig)}
+          onClose={() => setConfiguracionCargaIdx(null)}
+          onGuardar={(preferencia) => {
+            const idx = configuracionCargaIdx;
+            const actual = ejerciciosState[idx];
+            if (idx === null || !actual) return;
+            const normalizada = { ...normalizarPreferenciaCarga(preferencia), tipo: tipoConfig };
+            guardarPreferenciaCarga(actual.nombre, normalizada).catch(() => undefined);
+            setPreferenciasCarga((prev) => ({ ...prev, [normalizarNombreParaPreferencia(actual.nombre)]: normalizada }));
+            setEjerciciosState((prev) => {
+              const next = prev.map((item, i) => {
+                if (i !== idx) return item;
+                return {
+                  ...item,
+                  modoKg: tipoConfig,
+                  series: item.series.map((serie) => {
+                    const principal = recalcularPesoDeCarga(serie.carga, normalizada, serie.peso);
+                    if (!item.esUnilateral) {
+                      return { ...serie, carga: principal.carga, peso: principal.peso };
+                    }
+                    const izquierdo = recalcularPesoDeCarga(
+                      serie.cargaI,
+                      normalizada,
+                      serie.pesoI !== undefined && serie.pesoI !== '' ? serie.pesoI : serie.peso
+                    );
+                    return {
+                      ...serie,
+                      carga: principal.carga,
+                      peso: principal.peso,
+                      cargaI: izquierdo.carga,
+                      pesoI: izquierdo.peso,
+                    };
+                  }),
+                };
+              });
+              guardarDraftAuto(next);
+              return next;
+            });
+            setConfiguracionCargaIdx(null);
+            mostrarSnackbar('Ajustes de carga guardados.');
+          }}
+        />;
+      })()}
       {/* MODAL / SHEET: ALCANCE DEL REEMPLAZO */}
       <Modal
         visible={reemplazoMenu !== null}

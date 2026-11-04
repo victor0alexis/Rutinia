@@ -456,7 +456,11 @@ export default function ResumenEntrenamientoModal({
                               <Text style={{ color: noir.muted, fontSize: 10, marginTop: 3 }} numberOfLines={2}>
                                 {ej.series.filter((serie) => serie.carga || serie.cargaI || serie.estado === 'fallo' || serie.estado === 'no_hecha' || serie.repsMin).map((serie, serieIdx) => {
                                   const carga = serie.carga;
-                                  const total = carga?.tipo === 'placas' ? `${carga.placas || 0} placas` : serie.peso ? `${serie.peso} kg` : '—';
+                                  const total = carga?.tipo === 'placas'
+                                    ? `${carga.placas || 0} placas${serie.peso ? ` · ${serie.peso} kg` : ''}`
+                                    : serie.peso
+                                    ? `${serie.peso} kg`
+                                    : '—';
                                   const estado = serie.estado === 'no_hecha' ? ' · NO HECHA' : serie.estado === 'fallo' ? ' · 🔥 FALLO' : '';
                                   const objetivo = serie.repsMin ? ` · Objetivo ${serie.repsMin}${serie.repsMax && serie.repsMax !== serie.repsMin ? `–${serie.repsMax}` : ''} reps` : '';
                                   return `S${serieIdx + 1}: ${total}${carga ? ` · ${formatearDetalleCarga(carga)}` : ''}${objetivo}${estado}`;
