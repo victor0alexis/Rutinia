@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { fuentes, noir } from '../../constantes/colores';
 import { vibrarBoton } from '../../utilidades/hapticos';
 import { DROPSET_MAX_DROPS, calcularKgSugeridoDrop } from '../../constantes/entrenamiento';
-import type { CargaSerie } from '../../tipos';
+import type { CargaSerie, TipoCarga } from '../../tipos';
 import { formatearDetalleCarga } from '../../utilidades/cargasEjercicio';
 import { debeSugerirSubirCarga, estadoRangoRepeticiones, parsearRangoRepeticiones } from '../../utilidades/calculadoraFuerza';
 
@@ -61,6 +61,15 @@ interface Props {
   onActualizarSerie: (sIdx: number, patch: Partial<SerieItem>) => void;
   onIntercambiarEjercicio?: (modo: 'solo_hoy' | 'rutina') => void;
   onToggleUnilateral?: () => void;
+  /**
+   * Registra el nodo de la fila que contiene el campo activo para que el
+   * contenedor pueda desplazar la tabla y mantenerlo visible sobre el teclado.
+   */
+  registrarNodoFoco?: (nodo: View | null) => void;
+  modoKg?: TipoCarga;
+  modoReps?: 'reps' | 'rango';
+  onCambiarModoKg?: (modo: TipoCarga) => void;
+  onCambiarModoReps?: (modo: 'reps' | 'rango') => void;
 }
 
 export default function TablaSeriesFocus({
@@ -75,9 +84,15 @@ export default function TablaSeriesFocus({
   onActualizarSerie,
   onIntercambiarEjercicio,
   onToggleUnilateral,
+  registrarNodoFoco,
+  modoKg = 'kg',
+  modoReps = 'reps',
+  onCambiarModoKg,
+  onCambiarModoReps,
 }: Props) {
   const [menuSerieIdx, setMenuSerieIdx] = useState<number | null>(null);
   const [rangoTexto, setRangoTexto] = useState('');
+  const [dropdownColumna, setDropdownColumna] = useState<'kg' | 'reps' | null>(null);
 
   const abrirMenu = (idx: number) => {
     vibrarBoton(12);
@@ -189,6 +204,18 @@ export default function TablaSeriesFocus({
     cerrarMenu();
   };
 
+  // ── Helpers para etiquetas de modo ───────────────────────────────────────────
+  const labelModoKg: Record<TipoCarga, string> = {
+    kg: 'KG',
+    placas: 'Placas',
+    discos_barra: 'Discos B.',
+    discos_maquina: 'Discos M.',
+  };
+  const labelModoReps: Record<'reps' | 'rango', string> = {
+    reps: 'REPS',
+    rango: 'Rango',
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.tableCard}>
@@ -245,13 +272,101 @@ export default function TablaSeriesFocus({
           <View style={styles.headerRow}>
             <Text style={[styles.headerCol, styles.colSet]}>SET</Text>
             <Text style={[styles.headerCol, styles.colPrevia]}>PREVIA</Text>
-            <Text style={[styles.headerCol, styles.colInput]}>KG</Text>
-            <Text style={[styles.headerCol, styles.colInput]}>REPS</Text>
+
+            {/* KG column header — dropdown picker */}
+            <Pressable
+              style={[styles.colInput, styles.headerColBtn, modoKg !== 'kg' && styles.headerColBtnActivo]}
+              onPress={() => setDropdownColumna(dropdownColumna === 'kg' ? null : 'kg')}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel="Cambiar modo de carga"
+            >
+              <Text style={[styles.headerCol, modoKg !== 'kg' && styles.headerColTextActivo]}>
+                {labelModoKg[modoKg]}
+              </Text>
+              <Ionicons
+                name={dropdownColumna === 'kg' ? 'chevron-up' : 'chevron-down'}
+                size={8}
+                color={modoKg !== 'kg' ? noir.mint : 'rgba(255,255,255,0.4)'}
+              />
+            </Pressable>
+
+            {/* REPS column header — dropdown picker */}
+            <Pressable
+              style={[styles.colInput, styles.headerColBtn, modoReps !== 'reps' && styles.headerColBtnActivo]}
+              onPress={() => setDropdownColumna(dropdownColumna === 'reps' ? null : 'reps')}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel="Cambiar modo de repeticiones"
+            >
+              <Text style={[styles.headerCol, modoReps !== 'reps' && styles.headerColTextActivo]}>
+                {labelModoReps[modoReps]}
+              </Text>
+              <Ionicons
+                name={dropdownColumna === 'reps' ? 'chevron-up' : 'chevron-down'}
+                size={8}
+                color={modoReps !== 'reps' ? noir.mint : 'rgba(255,255,255,0.4)'}
+              />
+            </Pressable>
+
             <Text style={[styles.headerCol, styles.colRir]}>RIR</Text>
             <View style={styles.colCheckHeader}>
               <Ionicons name="sparkles" size={11} color={noir.mint} />
             </View>
             <View style={styles.colMenuHeader} />
+          </View>
+        )}
+
+        {/* ── Dropdowns de columna ─────────────────────────────────────────────────── */}
+        {dropdownColumna === 'kg' && (
+          <View style={styles.colDropdown}>
+            {([
+              { tipo: 'kg' as TipoCarga, label: 'Kilogramos', sub: 'Entrada directa en kg' },
+              { tipo: 'placas' as TipoCarga, label: 'Placas', sub: 'Calcula carga total por placas + barra' },
+              { tipo: 'discos_barra' as TipoCarga, label: 'Discos · barra', sub: 'Muestra discos de cada lado' },
+              { tipo: 'discos_maquina' as TipoCarga, label: 'Discos · máquina', sub: 'Selector de discos para máquina' },
+            ] as const).map(({ tipo, label, sub }) => (
+              <Pressable
+                key={tipo}
+                style={[styles.colDropdownItem, modoKg === tipo && styles.colDropdownItemActivo]}
+                onPress={() => {
+                  vibrarBoton(10);
+                  onCambiarModoKg?.(tipo);
+                  setDropdownColumna(null);
+                }}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.colDropdownItemText, modoKg === tipo && styles.colDropdownItemTextActivo]}>{label}</Text>
+                  <Text style={styles.colDropdownItemSub}>{sub}</Text>
+                </View>
+                {modoKg === tipo && <Ionicons name="checkmark" size={14} color={noir.mint} />}
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        {dropdownColumna === 'reps' && (
+          <View style={styles.colDropdown}>
+            {([
+              { modo: 'reps' as const, label: 'Repeticiones', sub: 'Número entero de reps realizadas' },
+              { modo: 'rango' as const, label: 'Rango objetivo', sub: 'Ej. 8-12 · define el rango antes de empezar' },
+            ]).map(({ modo, label, sub }) => (
+              <Pressable
+                key={modo}
+                style={[styles.colDropdownItem, modoReps === modo && styles.colDropdownItemActivo]}
+                onPress={() => {
+                  vibrarBoton(10);
+                  onCambiarModoReps?.(modo);
+                  setDropdownColumna(null);
+                }}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.colDropdownItemText, modoReps === modo && styles.colDropdownItemTextActivo]}>{label}</Text>
+                  <Text style={styles.colDropdownItemSub}>{sub}</Text>
+                </View>
+                {modoReps === modo && <Ionicons name="checkmark" size={14} color={noir.mint} />}
+              </Pressable>
+            ))}
           </View>
         )}
 
@@ -281,6 +396,7 @@ export default function TablaSeriesFocus({
               <View key={s.id || `set-${sIdx}`} style={styles.serieBlock}>
                 {/* Fila Principal de la Serie */}
                 <View
+                  ref={filaEnfocada && focusCampoActivo?.dropIdx === undefined ? registrarNodoFoco : undefined}
                   style={[
                     styles.serieRow,
                     esObjetivo && styles.serieRowObjetivo,
@@ -524,7 +640,11 @@ export default function TablaSeriesFocus({
                   const esFocusDropReps = focusCampoActivo?.sIdx === sIdx && focusCampoActivo?.campo === 'reps' && focusCampoActivo?.dropIdx === dIdx;
 
                   return (
-                    <View key={`drop-${dIdx}`} style={styles.dropRow}>
+                    <View
+                      key={`drop-${dIdx}`}
+                      ref={esFocusDropKg || esFocusDropReps ? registrarNodoFoco : undefined}
+                      style={styles.dropRow}
+                    >
                       <View style={styles.dropBadge}>
                         <Text style={styles.dropBadgeText}>D{dIdx + 1}</Text>
                       </View>
@@ -1578,5 +1698,57 @@ const styles = StyleSheet.create({
   },
   chipParcialTextActivo: {
     color: noir.champagne,
+  },
+  // ── Column header dropdown styles ───────────────────────────────────────────────────
+  headerColBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    paddingVertical: 3,
+    borderRadius: 5,
+  },
+  headerColBtnActivo: {
+    backgroundColor: 'rgba(63, 242, 176, 0.09)',
+    borderWidth: 1,
+    borderColor: 'rgba(63, 242, 176, 0.25)',
+  },
+  headerColTextActivo: {
+    color: noir.mint,
+  },
+  colDropdown: {
+    marginHorizontal: 6,
+    marginBottom: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.09)',
+    backgroundColor: 'rgba(10, 12, 17, 0.9)',
+    overflow: 'hidden',
+  },
+  colDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+    gap: 8,
+  },
+  colDropdownItemActivo: {
+    backgroundColor: 'rgba(63, 242, 176, 0.07)',
+  },
+  colDropdownItemText: {
+    color: noir.text,
+    fontFamily: fuentes.bold,
+    fontSize: 12,
+  },
+  colDropdownItemTextActivo: {
+    color: noir.mint,
+  },
+  colDropdownItemSub: {
+    color: noir.muted,
+    fontFamily: fuentes.medium,
+    fontSize: 9,
+    marginTop: 1,
   },
 });

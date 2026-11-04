@@ -38,6 +38,8 @@ type Props = {
   onNext: () => void;
   onCompletarSerie: () => void;
   onClose: () => void;
+  /** Notifica la altura real del panel para mantener el campo activo visible. */
+  onMedirAltura?: (altura: number) => void;
 };
 
 export default function TecladoEntrenamientoInteligente({
@@ -61,6 +63,7 @@ export default function TecladoEntrenamientoInteligente({
   onNext,
   onCompletarSerie,
   onClose,
+  onMedirAltura,
 }: Props) {
   const { barBottomPadding, isLandscape, isTablet } = useLayout();
   const tipoCarga: TipoCarga = carga?.tipo || preferenciaCarga.tipo;
@@ -224,6 +227,7 @@ export default function TecladoEntrenamientoInteligente({
           paddingBottom: Math.max(barBottomPadding, 8),
         },
       ]}
+      onLayout={(event) => onMedirAltura?.(event.nativeEvent.layout.height)}
     >
       <View
         style={[

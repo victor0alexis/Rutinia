@@ -1,6 +1,6 @@
 import { styles } from './EjecutarEntrenamientoModal.estilos';
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View, KeyboardAvoidingView, Keyboard, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { colores, fuentes, noir } from '../../constantes/colores';
@@ -35,7 +35,7 @@ import {
   parsearNotasSesion,
 } from '../../utilidades/notasSesion';
 import { nombreDia } from '../../utilidades/fechas';
-import { Registro, CargaSerie } from '../../tipos';
+import { Registro, CargaSerie, TipoCarga } from '../../tipos';
 import { calcularKgSugeridoDrop } from '../../constantes/entrenamiento';
 import { leerPreferenciasCarga, guardarPreferenciaCarga, normalizarPreferenciaCarga, PREFERENCIA_CARGA_POR_DEFECTO, normalizarNombreParaPreferencia } from '../../utilidades/cargasEjercicio';
 import {
@@ -107,6 +107,8 @@ export type EjercicioState = {
   notaEjercicio?: string;
   origenSesion?: 'rutina' | 'solo_hoy';
   ordenSesion?: number;
+  modoKg?: TipoCarga;
+  modoReps?: 'reps' | 'rango';
 };
 type SerieHistorica = {
   peso: string;
@@ -217,6 +219,7 @@ export default function EjecutarEntrenamientoModal({
   // ── Responsive layout centralizado con useLayout ───────────────────────────
   const {
     width,
+    height: alturaPantalla,
     isLandscape,
     isTablet,
     gutter,
@@ -227,7 +230,23 @@ export default function EjecutarEntrenamientoModal({
   } = useLayout();
   const dockHeight = isLandscape ? 76 : 98;
   const [focusTeclado, setFocusTeclado] = useState<FocusTeclado>(null);
-  const scrollBottomPad = (focusTeclado ? 320 : isKeyboardVisible ? 16 : dockHeight) + barBottomPadding + 20;
+  // Altura real del teclado táctil de entrenamiento, para no tapar el campo activo.
+  const [altoTecladoEntrenamiento, setAltoTecladoEntrenamiento] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollOffsetRef = useRef(0);
+  const nodoFocoRef = useRef<View | null>(null);
+  const registrarNodoFoco = useCallback((nodo: View | null) => {
+    // Solo guardamos nodos válidos: al cambiar de fila, el desmontaje del ref
+    // anterior no debe borrar el nodo nuevo ya registrado.
+    if (nodo) nodoFocoRef.current = nodo;
+  }, []);
+  const scrollBottomPad = (
+    focusTeclado
+      ? Math.max(altoTecladoEntrenamiento + 16, 320)
+      : isKeyboardVisible
+      ? 16
+      : dockHeight
+  ) + barBottomPadding + 20;
   const [ejerciciosState, setEjerciciosState] = useState<EjercicioState[]>([]);
   const ejerciciosStateActualRef = useRef(ejerciciosState);
   const [preferenciasCarga, setPreferenciasCarga] = useState<Record<string, ReturnType<typeof normalizarPreferenciaCarga>>>({});
@@ -562,6 +581,47 @@ export default function EjecutarEntrenamientoModal({
   const siguienteEjercicioIdx =
     indexValido + 1 < ejerciciosState.length ? indexValido + 1 : null;
   const todasCompletadasActivo = Boolean(ejActivo?.series.length) && ejActivo.series.every((s) => s.completado || s.estado === 'no_hecha');
+  // Mantiene el campo activo de la tabla visible por encima del teclado de
+  // entrenamiento al enfocar una celda o al avanzar de campo/serie. Solo
+  // desplaza lo necesario para evitar saltos al cambiar entre campos.
+  useEffect(() => {
+    if (!focusTeclado || altoTecladoEntrenamiento <= 0) return;
+    const temporizador = setTimeout(() => {
+      const nodo = nodoFocoRef.current;
+      const scroll = scrollRef.current;
+      // El handle nativo del ScrollView define el área visible real, también en web.
+      const viewport = scroll?.getNativeScrollRef();
+      if (!nodo || !scroll || !viewport) return;
+      nodo.measureInWindow((_x, y, _ancho, alto) => {
+        viewport.measureInWindow((_sx, sy, _sw, sh) => {
+          const margen = 12;
+          const limiteSuperior = sy + margen;
+          const limiteInferior = sy + sh - altoTecladoEntrenamiento - margen;
+          const espacioVisible = limiteInferior - limiteSuperior;
+          let delta = 0;
+          if (espacioVisible <= 0) {
+            // El teclado cubre todo el área visible (p. ej. landscape muy bajo):
+            // cualquier desplazamiento dejaría el campo oculto igualmente.
+            return;
+          }
+          if (espacioVisible < alto) {
+            // Cabe parte de la fila: llévala al borde superior para mostrar lo máximo posible.
+            delta = y - limiteSuperior;
+          } else if (y + alto > limiteInferior) {
+            delta = y + alto - limiteInferior;
+          } else if (y < limiteSuperior) {
+            delta = y - limiteSuperior;
+          }
+          if (Math.abs(delta) < 1) return;
+          scroll.scrollTo({
+            y: Math.max(0, scrollOffsetRef.current + delta),
+            animated: true,
+          });
+        });
+      });
+    }, 80);
+    return () => clearTimeout(temporizador);
+  }, [focusTeclado, altoTecladoEntrenamiento, isKeyboardVisible, alturaPantalla, width]);
   if (!fecha || !registro) return null;
   const totalSeriesEnSesion = ejerciciosState.reduce((acc, ej) => acc + ej.series.filter((s) => s.estado !== 'no_hecha').length, 0);
   const totalSeriesCompletadas = ejerciciosState.reduce(
@@ -1891,6 +1951,7 @@ export default function EjecutarEntrenamientoModal({
                 />
                 {/* Contenido Scrollable del Ejercicio Activo */}
                 <ScrollView
+                  ref={scrollRef}
                   contentContainerStyle={{
                     paddingHorizontal: gutter,
                     paddingBottom: scrollBottomPad + 40,
@@ -1898,6 +1959,10 @@ export default function EjecutarEntrenamientoModal({
                   }}
                   keyboardShouldPersistTaps="handled"
                   showsVerticalScrollIndicator={false}
+                  scrollEventThrottle={16}
+                  onScroll={(event) => {
+                    scrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+                  }}
                 >
                   {Boolean(ejActivo) && (
                     <>
@@ -1945,6 +2010,9 @@ export default function EjecutarEntrenamientoModal({
                             : null
                         }
                         onFocusCampo={(sIdx, campo, dropIdx) => {
+                          // Si venía abierto el teclado nativo (p. ej. notas), lo
+                          // cerramos para dejar sitio al teclado de entrenamiento.
+                          Keyboard.dismiss();
                           const campoTeclado = campo === 'kg' ? 'peso' : campo;
                           setFocusTeclado({
                             ejIdx: indexValido,
@@ -1953,6 +2021,7 @@ export default function EjecutarEntrenamientoModal({
                             dropIdx,
                           });
                         }}
+                        registrarNodoFoco={registrarNodoFoco}
                         onToggleCompletado={(sIdx) => {
                           toggleCompletarSerie(indexValido, sIdx);
                         }}
@@ -1961,6 +2030,22 @@ export default function EjecutarEntrenamientoModal({
                         }}
                         onEliminarSerie={(sIdx) => {
                           eliminarSerieConDeshacer(indexValido, sIdx);
+                        }}
+                        modoKg={ejActivo.modoKg ?? 'kg'}
+                        modoReps={ejActivo.modoReps ?? 'reps'}
+                        onCambiarModoKg={(modo) => {
+                          setEjerciciosState((prev) => {
+                            const next = prev.map((ej, i) => i === indexValido ? { ...ej, modoKg: modo } : ej);
+                            guardarDraftAuto(next);
+                            return next;
+                          });
+                        }}
+                        onCambiarModoReps={(modo) => {
+                          setEjerciciosState((prev) => {
+                            const next = prev.map((ej, i) => i === indexValido ? { ...ej, modoReps: modo } : ej);
+                            guardarDraftAuto(next);
+                            return next;
+                          });
                         }}
                         onActualizarSerie={(sIdx, patch) => {
                           if (patch.drops) {
@@ -2231,6 +2316,7 @@ export default function EjecutarEntrenamientoModal({
                     onNext={avanzarCampoTeclado}
                     onCompletarSerie={completarSerieDesdeTeclado}
                     onClose={() => setFocusTeclado(null)}
+                    onMedirAltura={setAltoTecladoEntrenamiento}
                   />
                 )}
               </View>
