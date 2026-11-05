@@ -765,6 +765,9 @@ export default function EjecutarEntrenamientoModal({
       : modoKgActivo === 'discos_barra'
       ? `Barra ${preferenciaActiva.pesoBarra} kg · ${preferenciaActiva.discosDisponibles.length} discos`
       : `Base ${preferenciaActiva.pesoBase} kg · ${preferenciaActiva.discosDisponibles.length} discos`;
+  const ejercicioConfig =
+    configuracionCargaIdx !== null ? ejerciciosState[configuracionCargaIdx] : null;
+  const tipoConfig = ejercicioConfig ? resolverModoCargaEjercicio(ejercicioConfig) : 'kg';
   /**
    * El encabezado de Carga es la única fuente de verdad del modo. Al cambiarlo
    * se convierten todas las series del ejercicio para que las celdas y el
@@ -983,7 +986,7 @@ export default function EjecutarEntrenamientoModal({
           ...ej,
           series: ej.series.map((serie, indexSerie) => indexSerie !== sIndex ? serie : {
             ...serie,
-            estado: 'normal',
+            estado: 'normal' as const,
             completado: false,
           }),
         });
@@ -1138,15 +1141,26 @@ export default function EjecutarEntrenamientoModal({
     if (!ej) return undefined;
     const hist = historialMap[ej.nombre];
     if (campo === 'peso' || campo === 'pesoI') {
-      const cargaActual = campo === 'pesoI' ? ej.series[sIdx]?.cargaI : ej.series[sIdx]?.carga;
+      const modoActual = resolverModoCargaEjercicio(ej);
       const cargaSerieAnterior = campo === 'pesoI' ? ej.series[sIdx - 1]?.cargaI : ej.series[sIdx - 1]?.carga;
-      if (sIdx > 0 && (cargaActual?.tipo || 'kg') === (cargaSerieAnterior?.tipo || 'kg') && ej.series[sIdx - 1]?.peso) {
-        const anterior = campo === 'pesoI' ? ej.series[sIdx - 1]?.cargaI : ej.series[sIdx - 1]?.carga;
-        return anterior?.tipo === 'placas' ? String(anterior.placas || 0) : (campo === 'pesoI' ? ej.series[sIdx - 1]?.pesoI : ej.series[sIdx - 1]?.peso);
+      const tipoAnterior = cargaSerieAnterior?.tipo ?? 'kg';
+      const tieneAnterior =
+        sIdx > 0 &&
+        ((tipoAnterior === 'placas' && (cargaSerieAnterior?.placas || 0) > 0) ||
+          (tipoAnterior !== 'placas' && Boolean(ej.series[sIdx - 1]?.peso)));
+      if (tieneAnterior && modoActual === tipoAnterior) {
+        return tipoAnterior === 'placas'
+          ? String(cargaSerieAnterior?.placas || 0)
+          : campo === 'pesoI'
+          ? ej.series[sIdx - 1]?.pesoI
+          : ej.series[sIdx - 1]?.peso;
       }
       const cargaPrevia = campo === 'pesoI' ? hist?.series[sIdx]?.cargaI : hist?.series[sIdx]?.carga;
-      if ((cargaActual?.tipo || 'kg') !== (cargaPrevia?.tipo || 'kg')) return undefined;
-      return cargaPrevia?.tipo === 'placas' ? String(cargaPrevia.placas || 0) : hist?.series[sIdx]?.peso;
+      const tipoPrevio = cargaPrevia?.tipo ?? 'kg';
+      if (modoActual !== tipoPrevio) return undefined;
+      return tipoPrevio === 'placas'
+        ? String(cargaPrevia?.placas || 0)
+        : hist?.series[sIdx]?.peso;
     }
     if (campo === 'reps' || campo === 'repsI') {
       if (sIdx > 0 && ej.series[sIdx - 1]?.reps) {
@@ -1159,6 +1173,8 @@ export default function EjecutarEntrenamientoModal({
   const actualizarValorDesdeTeclado = (nuevoValor: string) => {
     if (!focusTeclado) return;
     const { ejIdx, sIdx, campo, dropIdx } = focusTeclado;
+    const ej = ejerciciosState[ejIdx];
+    if (!ej) return;
     if (campo === 'parciales') {
       const numVal = parseInt(nuevoValor, 10);
       const finalReps = isNaN(numVal) || numVal < 0 ? 0 : numVal;
@@ -2465,8 +2481,18 @@ export default function EjecutarEntrenamientoModal({
                         ? 'I'
                         : undefined
                     }
-                    pesoPara1RM={ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.peso}
-                    repsPara1RM={ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.reps}
+                    pesoPara1RM={
+                      focusTeclado.campo === 'pesoI'
+                        ? ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.pesoI ||
+                          ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.peso
+                        : ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.peso
+                    }
+                    repsPara1RM={
+                      focusTeclado.campo === 'repsI'
+                        ? ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.repsI ||
+                          ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.reps
+                        : ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.reps
+                    }
                     repsMin={ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.repsMin}
                     repsMax={ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.repsMax}
                     estadoSerie={ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.estado || 'normal'}
@@ -2847,11 +2873,8 @@ export default function EjecutarEntrenamientoModal({
           </Pressable>
         </Pressable>
       </Modal>
-      {configuracionCargaIdx !== null && (() => {
-        const ejercicioConfig = ejerciciosState[configuracionCargaIdx];
-        if (!ejercicioConfig) return null;
-        const tipoConfig = resolverModoCargaEjercicio(ejercicioConfig);
-        return <ConfiguracionCargaEjercicioModal
+      {ejercicioConfig && (
+        <ConfiguracionCargaEjercicioModal
           visible
           nombreEjercicio={ejercicioConfig.nombre}
           tipo={tipoConfig}
@@ -2859,7 +2882,7 @@ export default function EjecutarEntrenamientoModal({
           onClose={() => setConfiguracionCargaIdx(null)}
           onGuardar={(preferencia) => {
             const idx = configuracionCargaIdx;
-            const actual = ejerciciosState[idx];
+            const actual = idx !== null ? ejerciciosState[idx] : null;
             if (idx === null || !actual) return;
             const normalizada = { ...normalizarPreferenciaCarga(preferencia), tipo: tipoConfig };
             guardarPreferenciaCarga(actual.nombre, normalizada).catch(() => undefined);
@@ -2896,8 +2919,8 @@ export default function EjecutarEntrenamientoModal({
             setConfiguracionCargaIdx(null);
             mostrarSnackbar('Ajustes de carga guardados.');
           }}
-        />;
-      })()}
+        />
+      )}
       {/* MODAL / SHEET: ALCANCE DEL REEMPLAZO */}
       <Modal
         visible={reemplazoMenu !== null}

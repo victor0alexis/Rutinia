@@ -252,14 +252,18 @@ RutinIA está optimizada para desplegarse en **Vercel** como una Progressive Web
   npx expo lint       # Linter
   npm run build:web   # Exportación estática web
   ```
-# Carga por kg, placas y discos
+# Registro de series desde el encabezado
 
-En el entrenamiento en vivo se puede registrar la carga en kg, placas o discos por lado. Las preferencias de carga se guardan localmente por cuenta y nombre normalizado del ejercicio; el detalle por serie se serializa en `detalles_json` sin alterar registros antiguos en kg ni requerir una migración SQL. Las placas sin equivalencia conocida se excluyen del volumen y 1RM en kg.
+En **REGISTRO DE SERIES** los encabezados son la única fuente de verdad del modo: **Carga** permite elegir `kg`, `placas`, `discos de barra` o `discos de máquina`; **Reps** permite elegir `reps` o `rango`; **RIR** se introduce como valor numérico. Los selectores viven en el encabezado y el teclado solo facilita la entrada de valores.
+
+Al cambiar el modo de carga se convierten todas las series del ejercicio a la nueva unidad sin perder repeticiones, RIR ni estado: kg ↔ placas usa `kgPorPlaca`, y kg/placas → discos propone la combinación más cercana con los discos disponibles. Cada serie muestra el valor en la unidad elegida y, cuando existe equivalencia, el total calculado en kg.
+
+La configuración del equipo (barra, base de máquina, kg por placa y discos disponibles) se abre desde **Configurar equipo** en el menú del encabezado de Carga y se guarda por ejercicio y cuenta. Las preferencias se guardan localmente; el detalle por serie se serializa en `detalles_json` sin alterar registros antiguos ni requerir una migración SQL. Las placas sin equivalencia conocida no suman al volumen ni al 1RM.
+
+# Estados, fallo y rangos de series
+
+Cada serie admite un objetivo de repeticiones como `8-12` y los estados **No hecha** (reversible, no completada y excluida de volumen, 1RM, PRs y progresiones), **Fallo muscular** (completada con RIR 0 editable) y completada/pendiente. «No hecha» se muestra tachada y con su propia etiqueta para no confundirse con una serie pendiente. El rango y los estados se guardan como detalles opcionales para mantener la compatibilidad con sesiones y rutinas antiguas sin migración SQL.
 
 # Añadir ejercicios durante una sesión
 
 Desde el carrusel del entrenamiento en vivo se puede añadir un ejercicio solo a la sesión o guardarlo también en la rutina, al final o después del ejercicio activo. Los añadidos de la sesión quedan marcados como «Añadido hoy» y su origen y orden se guardan en `detalles_json`, sin migración SQL.
-
-# Estados y rangos de series
-
-En el entrenamiento en vivo, cada serie admite el estado «No hecha» (reversible y excluido de métricas) o «Fallo muscular» (completada con RIR 0), además de un objetivo de repeticiones como `8-12`. El rango y los estados se conservan como detalles opcionales para mantener la compatibilidad con sesiones y rutinas antiguas sin migración SQL.

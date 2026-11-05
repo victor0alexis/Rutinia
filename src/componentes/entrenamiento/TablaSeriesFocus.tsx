@@ -275,7 +275,7 @@ export default function TablaSeriesFocus({
               onPress={() => setDropdownColumna(dropdownColumna === 'kg' ? null : 'kg')}
               hitSlop={4}
               accessibilityRole="button"
-              accessibilityLabel="Cambiar modo de carga del lado derecho"
+              accessibilityLabel="Cambiar modo de carga"
             >
               <Text style={[styles.headerCol, modoKg !== 'kg' && styles.headerColTextActivo]}>
                 {labelModoCargaCorta[modoKg]}-D
@@ -291,7 +291,7 @@ export default function TablaSeriesFocus({
               onPress={() => setDropdownColumna(dropdownColumna === 'reps' ? null : 'reps')}
               hitSlop={4}
               accessibilityRole="button"
-              accessibilityLabel="Cambiar modo de repeticiones del lado derecho"
+              accessibilityLabel="Cambiar modo de repeticiones"
             >
               <Text style={[styles.headerCol, modoReps !== 'reps' && styles.headerColTextActivo]}>
                 {modoReps === 'rango' ? 'RGO' : 'R'}-D
@@ -307,7 +307,7 @@ export default function TablaSeriesFocus({
               onPress={() => setDropdownColumna(dropdownColumna === 'kg' ? null : 'kg')}
               hitSlop={4}
               accessibilityRole="button"
-              accessibilityLabel="Cambiar modo de carga del lado izquierdo"
+              accessibilityLabel="Cambiar modo de carga"
             >
               <Text style={[styles.headerCol, modoKg !== 'kg' && styles.headerColTextActivo]}>
                 {labelModoCargaCorta[modoKg]}-I
@@ -323,7 +323,7 @@ export default function TablaSeriesFocus({
               onPress={() => setDropdownColumna(dropdownColumna === 'reps' ? null : 'reps')}
               hitSlop={4}
               accessibilityRole="button"
-              accessibilityLabel="Cambiar modo de repeticiones del lado izquierdo"
+              accessibilityLabel="Cambiar modo de repeticiones"
             >
               <Text style={[styles.headerCol, modoReps !== 'reps' && styles.headerColTextActivo]}>
                 {modoReps === 'rango' ? 'RGO' : 'R'}-I
@@ -393,7 +393,7 @@ export default function TablaSeriesFocus({
           <View style={styles.colDropdown}>
             {([
               { tipo: 'kg' as TipoCarga, label: 'Kilogramos', sub: 'Entrada directa en kg' },
-              { tipo: 'placas' as TipoCarga, label: 'Placas', sub: 'Calcula carga total por placas + barra' },
+              { tipo: 'placas' as TipoCarga, label: 'Placas', sub: 'Calcula el total con el kg por placa' },
               { tipo: 'discos_barra' as TipoCarga, label: 'Discos · barra', sub: 'Muestra discos de cada lado' },
               { tipo: 'discos_maquina' as TipoCarga, label: 'Discos · máquina', sub: 'Selector de discos para máquina' },
             ] as const).map(({ tipo, label, sub }) => (
@@ -490,7 +490,9 @@ export default function TablaSeriesFocus({
             // Valores lado izquierdo: si están vacíos se muestra el mismo valor que el lado derecho
             const pesoIDisplay = s.pesoI !== undefined && s.pesoI !== '' ? s.pesoI : s.peso;
             const placasD = s.carga?.tipo === 'placas' ? s.carga.placas || 0 : 0;
-            const placasI = s.cargaI?.tipo === 'placas' ? s.cargaI.placas || 0 : 0;
+            // En sesiones antiguas unilaterales puede faltar cargAI; igual que
+            // con el peso, se asume el mismo valor del lado derecho.
+            const placasI = s.cargaI?.tipo === 'placas' ? s.cargaI.placas || 0 : s.cargaI ? 0 : placasD;
             const cargaDDisplay =
               modoKg === 'placas' ? `${Math.max(0, Math.floor(placasD))} pl` : s.peso || '0';
             const cargaIDisplay =
