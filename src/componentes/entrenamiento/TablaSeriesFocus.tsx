@@ -1,13 +1,10 @@
 import { useState } from 'react';
 import {
-  Alert,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,7 +13,7 @@ import { vibrarBoton } from '../../utilidades/hapticos';
 import { DROPSET_MAX_DROPS, calcularKgSugeridoDrop } from '../../constantes/entrenamiento';
 import type { CargaSerie, TipoCarga } from '../../tipos';
 import { formatearDetalleCarga } from '../../utilidades/cargasEjercicio';
-import { debeSugerirSubirCarga, estadoRangoRepeticiones, parsearRangoRepeticiones } from '../../utilidades/calculadoraFuerza';
+import { debeSugerirSubirCarga, estadoRangoRepeticiones } from '../../utilidades/calculadoraFuerza';
 
 interface SerieItem {
   id?: string;
@@ -33,6 +30,7 @@ interface SerieItem {
   completado: boolean;
   previa?: string;
   repsParciales?: number;
+  esRestPause?: boolean;
   tipo?: 'normal' | 'calentamiento' | 'fallo';
   estado?: 'normal' | 'fallo' | 'no_hecha';
   drops?: {
@@ -59,7 +57,6 @@ interface Props {
   onAnadirSerie: () => void;
   onEliminarSerie: (sIdx: number) => void;
   onActualizarSerie: (sIdx: number, patch: Partial<SerieItem>) => void;
-  onIntercambiarEjercicio?: (modo: 'solo_hoy' | 'rutina') => void;
   onToggleUnilateral?: () => void;
   /**
    * Registra el nodo de la fila que contiene el campo activo para que el
@@ -84,7 +81,6 @@ export default function TablaSeriesFocus({
   onAnadirSerie,
   onEliminarSerie,
   onActualizarSerie,
-  onIntercambiarEjercicio,
   onToggleUnilateral,
   registrarNodoFoco,
   modoKg = 'kg',
@@ -95,13 +91,10 @@ export default function TablaSeriesFocus({
   onCambiarModoReps,
 }: Props) {
   const [menuSerieIdx, setMenuSerieIdx] = useState<number | null>(null);
-  const [rangoTexto, setRangoTexto] = useState('');
-  const [dropdownColumna, setDropdownColumna] = useState<'kg' | 'reps' | null>(null);
+  const [dropdownColumna, setDropdownColumna] = useState<'kg' | 'reps' | 'estado' | null>(null);
 
   const abrirMenu = (idx: number) => {
     vibrarBoton(12);
-    const serie = series[idx];
-    setRangoTexto(serie?.repsMin ? `${serie.repsMin}${serie.repsMax && serie.repsMax !== serie.repsMin ? `-${serie.repsMax}` : ''}` : '');
     setMenuSerieIdx(idx);
   };
 
@@ -115,21 +108,9 @@ export default function TablaSeriesFocus({
   const primeraIncompleta = series.findIndex((s) => !s.completado && s.estado !== 'no_hecha');
   const sugerirSubirCarga = debeSugerirSubirCarga(series);
   const indiceUltimaTrabajada = series.map((serie) => serie.estado !== 'no_hecha').lastIndexOf(true);
-
-  const confirmarRango = () => {
-    if (menuSerieIdx === null) return;
-    if (!rangoTexto.trim()) {
-      onActualizarSerie(menuSerieIdx, { repsMin: undefined, repsMax: undefined });
-      return;
-    }
-    const rango = parsearRangoRepeticiones(rangoTexto);
-    if (!rango) {
-      Alert.alert('Rango no válido', 'Usa un rango entre 1 y 100, con el mínimo igual o menor que el máximo. Ejemplo: 8-12.');
-      return;
-    }
-    onActualizarSerie(menuSerieIdx, rango);
-    onCambiarModoReps?.('rango');
-  };
+  const indiceEstadoRaw = focusCampoActivo?.sIdx ?? (primeraIncompleta >= 0 ? primeraIncompleta : 0);
+  const indiceEstado = series[indiceEstadoRaw] ? indiceEstadoRaw : null;
+  const serieEstado = indiceEstado !== null ? series[indiceEstado] : null;
 
   const handleAnadirDrop = () => {
     if (menuSerieIdx === null || !serieSeleccionada || !puedeAnadirDrop) return;
@@ -151,10 +132,13 @@ export default function TablaSeriesFocus({
     cerrarMenu();
   };
 
-  const handleQuitarDrops = () => {
-    if (menuSerieIdx === null) return;
-    onActualizarSerie(menuSerieIdx, { drops: [] });
-    cerrarMenu();
+  const handleEliminarDrop = (sIdx: number, dIdx: number) => {
+    const serie = series[sIdx];
+    if (!serie) return;
+    const drops = (serie.drops || [])
+      .filter((_, index) => index !== dIdx)
+      .map((drop, index) => ({ ...drop, orden: index + 1 }));
+    onActualizarSerie(sIdx, { drops });
   };
 
   const handleToggleParciales = () => {
@@ -170,37 +154,18 @@ export default function TablaSeriesFocus({
     cerrarMenu();
   };
 
-  const handleCambiarParciales = (delta: number) => {
+  const handleToggleRestPause = () => {
     if (menuSerieIdx === null || !serieSeleccionada) return;
-    const actual = serieSeleccionada.repsParciales || 3;
-    const nuevo = Math.max(1, actual + delta);
     onActualizarSerie(menuSerieIdx, {
-      repsParciales: nuevo,
-    });
-  };
-
-  const handleSeleccionarParcialesDirecto = (cant: number) => {
-    if (menuSerieIdx === null) return;
-    onActualizarSerie(menuSerieIdx, {
-      repsParciales: cant,
-    });
-    onFocusCampo(menuSerieIdx, 'parciales');
-    cerrarMenu();
-  };
-
-  const handleToggleCalentamiento = () => {
-    if (menuSerieIdx === null || !serieSeleccionada) return;
-    const esWarmup = serieSeleccionada.tipo === 'calentamiento';
-    onActualizarSerie(menuSerieIdx, {
-      tipo: esWarmup ? 'normal' : 'calentamiento',
+      esRestPause: !serieSeleccionada.esRestPause,
     });
     cerrarMenu();
   };
 
-  const handleIntercambiar = (modo: 'solo_hoy' | 'rutina') => {
-    cerrarMenu();
-    // Espera a que el sheet termine de cerrarse antes de abrir el selector.
-    setTimeout(() => onIntercambiarEjercicio?.(modo), 160);
+  const aplicarEstadoSerie = (patch: Partial<SerieItem>) => {
+    if (indiceEstado === null) return;
+    onActualizarSerie(indiceEstado, patch);
+    setDropdownColumna(null);
   };
 
   const handleEliminar = () => {
@@ -225,6 +190,41 @@ export default function TablaSeriesFocus({
   const labelModoReps: Record<'reps' | 'rango', string> = {
     reps: 'REPS',
     rango: 'Rango',
+  };
+
+  const renderEstadoHeader = () => {
+    if (!serieEstado) return <View style={styles.colCheckHeader} />;
+    const activo = dropdownColumna === 'estado';
+    const esFallo = serieEstado.estado === 'fallo';
+    const esNoHecha = serieEstado.estado === 'no_hecha';
+    return (
+      <Pressable
+        style={[styles.colCheckHeader, styles.estadoHeaderBtn, activo && styles.estadoHeaderBtnActivo]}
+        onPress={() => setDropdownColumna(activo ? null : 'estado')}
+        hitSlop={4}
+        accessibilityRole="button"
+        accessibilityLabel={`Estado de la serie ${serieEstado.setNum}: ${esFallo ? 'fallo' : esNoHecha ? 'no hecha' : 'normal'}`}
+      >
+        <Ionicons
+          name={
+            esFallo
+              ? 'flame'
+              : esNoHecha
+              ? 'remove-circle-outline'
+              : serieEstado.completado
+              ? 'checkmark-circle'
+              : 'ellipse-outline'
+          }
+          size={12}
+          color={esFallo ? noir.champagne : esNoHecha ? noir.muted : serieEstado.completado ? noir.mint : 'rgba(255,255,255,0.5)'}
+        />
+        <Ionicons
+          name={activo ? 'chevron-up' : 'chevron-down'}
+          size={7}
+          color={esFallo ? noir.champagne : esNoHecha ? noir.muted : 'rgba(255,255,255,0.4)'}
+        />
+      </Pressable>
+    );
   };
 
   return (
@@ -334,9 +334,7 @@ export default function TablaSeriesFocus({
                 color={modoReps !== 'reps' ? noir.mint : 'rgba(255,255,255,0.4)'}
               />
             </Pressable>
-            <View style={styles.colCheckHeader}>
-              <Ionicons name="sparkles" size={11} color={noir.mint} />
-            </View>
+            {renderEstadoHeader()}
             <View style={styles.colMenuHeader} />
           </View>
         ) : (
@@ -381,9 +379,7 @@ export default function TablaSeriesFocus({
             </Pressable>
 
             <Text style={[styles.headerCol, styles.colRir]}>RIR</Text>
-            <View style={styles.colCheckHeader}>
-              <Ionicons name="sparkles" size={11} color={noir.mint} />
-            </View>
+            {renderEstadoHeader()}
             <View style={styles.colMenuHeader} />
           </View>
         )}
@@ -460,6 +456,79 @@ export default function TablaSeriesFocus({
                 {modoReps === modo && <Ionicons name="checkmark" size={14} color={noir.mint} />}
               </Pressable>
             ))}
+          </View>
+        )}
+
+        {dropdownColumna === 'estado' && serieEstado && (
+          <View style={styles.colDropdown}>
+            <View style={styles.estadoDropdownHead}>
+              <Text style={styles.estadoDropdownTitle}>
+                ESTADO · SERIE {String(serieEstado.setNum).padStart(2, '0')}
+              </Text>
+              <Text style={styles.estadoDropdownSub}>
+                {serieEstado.estado === 'fallo'
+                  ? 'Fallo muscular'
+                  : serieEstado.estado === 'no_hecha'
+                  ? 'No hecha'
+                  : serieEstado.completado
+                  ? 'Completada'
+                  : 'Pendiente'}
+              </Text>
+            </View>
+            <Pressable
+              style={[
+                styles.colDropdownItem,
+                serieEstado.estado === 'no_hecha' && styles.colDropdownItemActivoNoHecha,
+              ]}
+              onPress={() => {
+                vibrarBoton(10);
+                if (serieEstado.estado === 'no_hecha') {
+                  aplicarEstadoSerie({ estado: 'normal', completado: true });
+                } else {
+                  aplicarEstadoSerie({ estado: 'no_hecha', completado: false });
+                }
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.colDropdownItemText, serieEstado.estado === 'no_hecha' && styles.colDropdownItemTextActivo]}>
+                  {serieEstado.estado === 'no_hecha' ? 'Marcar como hecha' : 'Marcar como no hecha'}
+                </Text>
+                <Text style={styles.colDropdownItemSub}>
+                  {serieEstado.estado === 'no_hecha'
+                    ? 'Vuelve a contar en el entrenamiento'
+                    : 'No suma al entrenamiento; puedes cambiarlo después'}
+                </Text>
+              </View>
+              {serieEstado.estado === 'no_hecha' && (
+                <Ionicons name="checkmark" size={14} color={noir.mint} />
+              )}
+            </Pressable>
+            <Pressable
+              style={[
+                styles.colDropdownItem,
+                serieEstado.estado === 'fallo' && styles.colDropdownItemActivoFallo,
+              ]}
+              onPress={() => {
+                vibrarBoton(10);
+                if (serieEstado.estado === 'fallo') {
+                  aplicarEstadoSerie({ estado: 'normal', completado: false, rir: '' });
+                } else {
+                  aplicarEstadoSerie({ estado: 'fallo', completado: true, rir: '0' });
+                }
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.colDropdownItemText, serieEstado.estado === 'fallo' && styles.colDropdownItemTextActivo]}>
+                  {serieEstado.estado === 'fallo' ? 'Quitar fallo muscular' : 'Marcar como fallo muscular'}
+                </Text>
+                <Text style={styles.colDropdownItemSub}>
+                  Cuenta como completada y fija RIR en 0
+                </Text>
+              </View>
+              {serieEstado.estado === 'fallo' && (
+                <Ionicons name="checkmark" size={14} color={noir.champagne} />
+              )}
+            </Pressable>
           </View>
         )}
 
@@ -719,7 +788,7 @@ export default function TablaSeriesFocus({
                   {s.estado === 'no_hecha' && <View pointerEvents="none" style={styles.serieStrike} />}
                 </View>
 
-                {(s.estado === 'fallo' || s.estado === 'no_hecha' || Boolean(rangoVisible) || (modoReps === 'rango' && esObjetivo && !rangoVisible) || (modoReps === 'rango' && sugerirSubirCarga)) && (
+                {(s.estado === 'fallo' || s.estado === 'no_hecha' || s.esRestPause || Boolean(rangoVisible) || (modoReps === 'rango' && esObjetivo && !rangoVisible) || (modoReps === 'rango' && sugerirSubirCarga)) && (
                   <View style={styles.serieMetaRow}>
                     {s.estado === 'fallo' && (
                       <View style={[styles.serieEstadoBadge, styles.serieFalloBadge]}>
@@ -732,9 +801,14 @@ export default function TablaSeriesFocus({
                         <Text style={[styles.serieEstadoText, { color: noir.muted }]}>NO HECHA</Text>
                       </View>
                     )}
+                    {s.esRestPause && (
+                      <View style={[styles.serieEstadoBadge, styles.serieRestPauseBadge]}>
+                        <Text style={[styles.serieEstadoText, { color: noir.info }]}>REST-PAUSE</Text>
+                      </View>
+                    )}
                     {modoReps === 'rango' && esObjetivo && !rangoVisible && (
-                      <Pressable onPress={() => abrirMenu(sIdx)} hitSlop={4}>
-                        <Text style={styles.rangoFeedback}>Define el rango objetivo</Text>
+                      <Pressable onPress={() => onFocusCampo(sIdx, 'reps')} hitSlop={4}>
+                        <Text style={styles.rangoFeedback}>Define el rango en el teclado</Text>
                       </Pressable>
                     )}
                     {Boolean(rangoVisible) && (
@@ -823,7 +897,14 @@ export default function TablaSeriesFocus({
                         />
                       </Pressable>
 
-                      <View style={styles.menuButton} />
+                      <Pressable
+                        onPress={() => handleEliminarDrop(sIdx, dIdx)}
+                        style={styles.dropDeleteButton}
+                        hitSlop={6}
+                        accessibilityLabel={`Eliminar drop ${dIdx + 1}`}
+                      >
+                        <Ionicons name="close" size={13} color="rgba(255, 255, 255, 0.45)" />
+                      </Pressable>
                     </View>
                   );
                 })}
@@ -879,74 +960,25 @@ export default function TablaSeriesFocus({
                 )}
               </View>
 
-              <Text style={styles.menuSectionLabel}>ESTADO Y OBJETIVO</Text>
-              <View style={styles.menuConfigBox}>
-                <Text style={styles.rangeLabel}>Rango de repeticiones objetivo</Text>
-                <View style={styles.rangeInputRow}>
-                  <TextInput
-                    value={rangoTexto}
-                    onChangeText={(value) => {
-                      setRangoTexto(value);
-                      if (menuSerieIdx === null) return;
-                      if (!value.trim()) {
-                        onActualizarSerie(menuSerieIdx, { repsMin: undefined, repsMax: undefined });
-                        return;
-                      }
-                      const rango = parsearRangoRepeticiones(value);
-                      if (rango) {
-                        onActualizarSerie(menuSerieIdx, rango);
-                        onCambiarModoReps?.('rango');
-                      }
-                    }}
-                    onEndEditing={confirmarRango}
-                    placeholder="8-12"
-                    placeholderTextColor={noir.muted2}
-                    keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric'}
-                    maxLength={7}
-                    accessibilityLabel="Rango de repeticiones, por ejemplo 8 a 12"
-                    style={styles.rangeInput}
-                  />
-                  <Text style={styles.menuOptionSub}>1–100 reps</Text>
-                </View>
-              </View>
-
-              <Pressable
-                style={styles.menuOption}
-                onPress={() => {
-                  if (menuSerieIdx === null) return;
-                  const quitar = serieSeleccionada?.estado === 'no_hecha';
-                  onActualizarSerie(menuSerieIdx, { estado: quitar ? 'normal' : 'no_hecha', completado: false });
-                  cerrarMenu();
-                }}
-              >
-                <View style={[styles.menuIconBox, styles.menuIconDanger]}>
-                  <Ionicons name="remove-circle-outline" size={18} color={noir.muted} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.menuOptionText}>{serieSeleccionada?.estado === 'no_hecha' ? 'Reactivar serie' : 'Marcar como no hecha'}</Text>
-                  <Text style={styles.menuOptionSub}>No suma al entrenamiento; puedes cambiarlo después</Text>
-                </View>
-              </Pressable>
-
-              <Pressable
-                style={styles.menuOption}
-                onPress={() => {
-                  if (menuSerieIdx === null) return;
-                  const quitar = serieSeleccionada?.estado === 'fallo';
-                  onActualizarSerie(menuSerieIdx, { estado: quitar ? 'normal' : 'fallo', completado: !quitar, rir: quitar ? '' : '0' });
-                  cerrarMenu();
-                }}
-              >
-                <View style={[styles.menuIconBox, styles.menuIconChamp]}>
-                  <Ionicons name="flame" size={18} color={noir.champagne} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.menuOptionText}>{serieSeleccionada?.estado === 'fallo' ? 'Quitar marca de fallo' : 'Marcar al fallo muscular'}</Text>
-                  <Text style={styles.menuOptionSub}>Cuenta como completada y fija RIR en 0</Text>
-                </View>
-              </Pressable>
-
               <Text style={styles.menuSectionLabel}>TÉCNICA</Text>
+
+              <Pressable
+                style={({ pressed }) => [styles.menuOption, pressed && { opacity: 0.72 }]}
+                onPress={handleToggleParciales}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.menuOptionText}>
+                    {serieSeleccionada?.repsParciales
+                      ? `Repeticiones parciales · +${serieSeleccionada.repsParciales}p`
+                      : 'Repeticiones parciales'}
+                  </Text>
+                  <Text style={styles.menuOptionSub}>
+                    {serieSeleccionada?.repsParciales
+                      ? 'Toca para quitarlas'
+                      : 'Repeticiones extra después del fallo muscular'}
+                  </Text>
+                </View>
+              </Pressable>
 
               <Pressable
                 style={({ pressed }) => [
@@ -957,181 +989,35 @@ export default function TablaSeriesFocus({
                 onPress={handleAnadirDrop}
                 disabled={!puedeAnadirDrop}
               >
-                <View style={[styles.menuIconBox, styles.menuIconInfo]}>
-                  <Ionicons name="arrow-down-circle-outline" size={18} color={noir.info} />
-                </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.menuOptionText}>
                     {puedeAnadirDrop
                       ? dropsActuales.length > 0
-                        ? `Añadir otro Drop Set (${dropsActuales.length}/${DROPSET_MAX_DROPS})`
-                        : 'Añadir Drop Set'
-                      : 'Drop Set completo'}
+                        ? `Drop Set · añadir otro (${dropsActuales.length}/${DROPSET_MAX_DROPS})`
+                        : 'Drop Set'
+                      : 'Drop Set · límite alcanzado'}
                   </Text>
                   <Text style={styles.menuOptionSub}>
-                    Disminuye el peso al fallo sin descanso
+                    Menos peso y más repeticiones, sin descanso
                   </Text>
                 </View>
               </Pressable>
 
-              {dropsActuales.length > 0 && (
-                <Pressable style={styles.menuOption} onPress={handleQuitarDrops}>
-                  <View style={[styles.menuIconBox, styles.menuIconDanger]}>
-                    <Ionicons name="remove-circle-outline" size={18} color="#F08A9B" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.menuOptionText}>Quitar Drop Set</Text>
-                    <Text style={styles.menuOptionSub}>
-                      Vuelve a una serie convencional
-                    </Text>
-                  </View>
-                </Pressable>
-              )}
-
-              {/* Opción Reps Parciales Configurable */}
-              <View style={styles.menuConfigBox}>
-                <View style={styles.menuConfigHeader}>
-                  <View style={[styles.menuIconBox, styles.menuIconChamp]}>
-                    <Ionicons name="flash-outline" size={18} color={noir.champagne} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.menuOptionText}>
-                      {serieSeleccionada?.repsParciales
-                        ? `Reps Parciales (+${serieSeleccionada.repsParciales}p)`
-                        : 'Añadir Reps Parciales (+p)'}
-                    </Text>
-                    <Text style={styles.menuOptionSub}>
-                      Repeticiones tras el fallo muscular
-                    </Text>
-                  </View>
-                  <Pressable
-                    onPress={handleToggleParciales}
-                    style={[
-                      styles.switchBadge,
-                      serieSeleccionada?.repsParciales
-                        ? styles.switchBadgeActivo
-                        : styles.switchBadgeInactivo,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.switchBadgeText,
-                        Boolean(serieSeleccionada?.repsParciales) && styles.switchBadgeTextActivo,
-                      ]}
-                    >
-                      {serieSeleccionada?.repsParciales ? 'ACTIVADO' : 'AÑADIR'}
-                    </Text>
-                  </Pressable>
-                </View>
-
-                {Boolean(serieSeleccionada?.repsParciales && serieSeleccionada.repsParciales > 0) && (
-                  <View style={styles.parcialesConfigRow}>
-                    <View style={styles.parcialesStepper}>
-                      <Pressable
-                        onPress={() => handleCambiarParciales(-1)}
-                        style={styles.stepperBtn}
-                        hitSlop={6}
-                      >
-                        <Ionicons name="remove" size={15} color={noir.text} />
-                      </Pressable>
-                      <Text style={styles.stepperValue}>
-                        +{serieSeleccionada?.repsParciales}p
-                      </Text>
-                      <Pressable
-                        onPress={() => handleCambiarParciales(1)}
-                        style={styles.stepperBtn}
-                        hitSlop={6}
-                      >
-                        <Ionicons name="add" size={15} color={noir.text} />
-                      </Pressable>
-                    </View>
-
-                    <View style={styles.parcialesChipsRow}>
-                      {[1, 2, 3, 4, 5].map((num) => (
-                        <Pressable
-                          key={num}
-                          onPress={() => handleSeleccionarParcialesDirecto(num)}
-                          style={[
-                            styles.chipParcial,
-                            serieSeleccionada?.repsParciales === num && styles.chipParcialActivo,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.chipParcialText,
-                              serieSeleccionada?.repsParciales === num && styles.chipParcialTextActivo,
-                            ]}
-                          >
-                            +{num}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  </View>
-                )}
-              </View>
-
-              <Pressable style={styles.menuOption} onPress={handleToggleCalentamiento}>
-                <View style={[styles.menuIconBox, styles.menuIconLav]}>
-                  <Ionicons name="flame-outline" size={18} color={noir.lavender} />
-                </View>
+              <Pressable
+                style={({ pressed }) => [styles.menuOption, pressed && { opacity: 0.72 }]}
+                onPress={handleToggleRestPause}
+              >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.menuOptionText}>
-                    {serieSeleccionada?.tipo === 'calentamiento'
-                      ? 'Convertir en Serie Normal'
-                      : 'Marcar como Calentamiento (W)'}
+                    {serieSeleccionada?.esRestPause ? 'Quitar Rest-Pause' : 'Rest-Pause'}
                   </Text>
                   <Text style={styles.menuOptionSub}>
-                    No cuenta para el volumen de hipertrofia
+                    {serieSeleccionada?.esRestPause
+                      ? 'Vuelve a una serie convencional'
+                      : 'Mismo peso con un breve descanso'}
                   </Text>
                 </View>
               </Pressable>
-
-              {Boolean(onIntercambiarEjercicio) && (
-                <>
-                  <Text style={styles.menuSectionLabel}>EJERCICIO</Text>
-
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.menuOption,
-                      styles.menuOptionSwap,
-                      pressed && { opacity: 0.72 },
-                    ]}
-                    onPress={() => handleIntercambiar('solo_hoy')}
-                  >
-                    <View style={[styles.menuIconBox, styles.menuIconInfo]}>
-                      <Ionicons name="swap-horizontal" size={18} color={noir.info} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.menuOptionText}>Intercambiar solo hoy</Text>
-                      <Text style={styles.menuOptionSub}>
-                        Sustituye este ejercicio únicamente en la sesión actual
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={14} color={noir.muted2} />
-                  </Pressable>
-
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.menuOption,
-                      styles.menuOptionRoutine,
-                      pressed && { opacity: 0.72 },
-                    ]}
-                    onPress={() => handleIntercambiar('rutina')}
-                  >
-                    <View style={[styles.menuIconBox, styles.menuIconLav]}>
-                      <Ionicons name="repeat" size={18} color={noir.lavender} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.menuOptionText}>Intercambiar en la rutina</Text>
-                      <Text style={styles.menuOptionSub}>
-                        Cambio definitivo para las próximas sesiones
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={14} color={noir.muted2} />
-                  </Pressable>
-                </>
-              )}
 
               <Pressable
                 style={({ pressed }) => [
@@ -1141,12 +1027,12 @@ export default function TablaSeriesFocus({
                 ]}
                 onPress={handleEliminar}
               >
-                <View style={[styles.menuIconBox, styles.menuIconDanger]}>
-                  <Ionicons name="trash-outline" size={18} color="#F08A9B" />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.menuOptionText, { color: '#F08A9B' }]}>
+                    Eliminar serie
+                  </Text>
+                  <Text style={styles.menuOptionSub}>Se puede deshacer</Text>
                 </View>
-                <Text style={[styles.menuOptionText, { color: '#F08A9B' }]}>
-                  Eliminar esta serie
-                </Text>
               </Pressable>
             </ScrollView>
           </Pressable>
@@ -1272,6 +1158,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  estadoHeaderBtn: {
+    flexDirection: 'row',
+    gap: 1,
+    borderRadius: 6,
+    minHeight: 22,
+  },
+  estadoHeaderBtnActivo: {
+    backgroundColor: 'rgba(63, 242, 176, 0.09)',
+    borderWidth: 1,
+    borderColor: 'rgba(63, 242, 176, 0.24)',
+  },
   colMenuHeader: {
     width: 24,
   },
@@ -1344,6 +1241,10 @@ const styles = StyleSheet.create({
   serieNoHechaBadge: {
     borderColor: 'rgba(255,255,255,0.12)',
     backgroundColor: 'rgba(255,255,255,0.035)',
+  },
+  serieRestPauseBadge: {
+    borderColor: 'rgba(92,200,255,0.24)',
+    backgroundColor: 'rgba(92,200,255,0.07)',
   },
   serieEstadoText: {
     fontFamily: fuentes.bold,
@@ -1531,6 +1432,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: 1,
   },
+  dropDeleteButton: {
+    width: 24,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 1,
+  },
   dropRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1644,13 +1552,13 @@ const styles = StyleSheet.create({
   menuOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 11,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderRadius: 12,
+    gap: 10,
+    paddingVertical: 13,
+    paddingHorizontal: 13,
+    borderRadius: 13,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.045)',
-    backgroundColor: 'rgba(255, 255, 255, 0.022)',
+    borderColor: 'rgba(255, 255, 255, 0.065)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
   },
   menuOptionDisabled: {
     opacity: 0.45,
@@ -1857,6 +1765,26 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(10, 12, 17, 0.9)',
     overflow: 'hidden',
   },
+  estadoDropdownHead: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  estadoDropdownTitle: {
+    color: noir.text,
+    fontFamily: fuentes.bold,
+    fontSize: 9,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  estadoDropdownSub: {
+    color: noir.muted,
+    fontFamily: fuentes.medium,
+    fontSize: 9,
+    marginTop: 2,
+  },
   colDropdownItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1868,6 +1796,12 @@ const styles = StyleSheet.create({
   },
   colDropdownItemActivo: {
     backgroundColor: 'rgba(63, 242, 176, 0.07)',
+  },
+  colDropdownItemActivoNoHecha: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  colDropdownItemActivoFallo: {
+    backgroundColor: 'rgba(255, 209, 102, 0.07)',
   },
   colDropdownItemText: {
     color: noir.text,

@@ -92,6 +92,7 @@ export type SerieEjecucion = {
   repsParciales: number;
   tieneParciales: boolean;
   esDropset: boolean;
+  esRestPause: boolean;
   drops: DropItemEjecucion[];
   tipo?: 'normal' | 'calentamiento' | 'fallo';
   estado?: 'normal' | 'fallo' | 'no_hecha';
@@ -165,6 +166,7 @@ function crearSerieVacia(): SerieEjecucion {
     repsParciales: 0,
     tieneParciales: false,
     esDropset: false,
+    esRestPause: false,
     drops: [],
   };
 }
@@ -330,6 +332,7 @@ export default function EjecutarEntrenamientoModal({
               repsParciales: s.repsParciales || 0,
               tieneParciales: Boolean(s.tieneParciales || (s.repsParciales && s.repsParciales > 0)),
               esDropset: Boolean(s.esDropset || (s.drops && s.drops.length > 0)),
+              esRestPause: Boolean(s.esRestPause),
               drops: s.drops ? s.drops.map((d) => ({ ...d })) : [],
               estado,
               tipo: s.tipo || (estado === 'fallo' ? 'fallo' : 'normal'),
@@ -418,6 +421,7 @@ export default function EjecutarEntrenamientoModal({
               repsParciales: rParciales,
               tieneParciales: tieneP,
               esDropset: esDrop,
+              esRestPause: Boolean((cargasGuardadas[i] as any)?.esRestPause),
               drops: dropsArray,
               estado,
               tipo: (cargasGuardadas[i] as any)?.tipo || sDetail?.tipo || 'normal',
@@ -595,6 +599,7 @@ export default function EjecutarEntrenamientoModal({
         completado: s.completado,
         previa: previaStr,
         repsParciales: s.repsParciales,
+        esRestPause: s.esRestPause,
         tipo: s.tipo || 'normal',
         estado: s.estado || 'normal',
         drops: (s.drops || []).map((d) => ({
@@ -864,6 +869,7 @@ export default function EjecutarEntrenamientoModal({
               repsParciales: 0,
               tieneParciales: false,
               esDropset: false,
+              esRestPause: false,
               drops: [],
             },
           ],
@@ -1218,6 +1224,24 @@ export default function EjecutarEntrenamientoModal({
     }
     cambiarCampoSerie(ejIdx, sIdx, campo, nuevoValor);
   };
+  const actualizarRangoDesdeTeclado = (repsMin?: number, repsMax?: number) => {
+    if (!focusTeclado) return;
+    const { ejIdx, sIdx } = focusTeclado;
+    setEjerciciosState((prev) => {
+      const next = prev.map((ej, i) => {
+        if (i !== ejIdx) return ej;
+        return {
+          ...ej,
+          modoReps: repsMin != null || repsMax != null ? 'rango' : ej.modoReps,
+          series: ej.series.map((serie, j) =>
+            j !== sIdx ? serie : { ...serie, repsMin, repsMax }
+          ),
+        };
+      });
+      guardarDraftAuto(next);
+      return next;
+    });
+  };
   const actualizarCargaDesdeTeclado = (carga: CargaSerie, pesoKg: number | null) => {
     if (!focusTeclado) return;
     const { ejIdx, sIdx, campo } = focusTeclado;
@@ -1487,6 +1511,7 @@ export default function EjecutarEntrenamientoModal({
             repsParciales: serie.repsParciales || 0,
             tieneParciales: Boolean(serie.repsParciales),
             esDropset: Boolean(serie.esDropset),
+            esRestPause: Boolean(serie.esRestPause),
             drops: (serie.drops || []).map((drop: any) => ({ ...drop, kg: String(drop.kg || '') })),
             completado: false,
           }))
@@ -1787,7 +1812,7 @@ export default function EjecutarEntrenamientoModal({
     const todasCompletadas =
       seriesTrabajadas.length > 0 && seriesTrabajadas.every((s) => s.completado);
     const tieneDatos = ej.series.some(
-      (s) => Boolean(s.peso || s.reps || s.repsMin || s.estado !== 'normal' || s.pesoI || s.repsI || s.rir || s.nota || s.completado || s.tieneParciales || s.esDropset)
+      (s) => Boolean(s.peso || s.reps || s.repsMin || s.estado !== 'normal' || s.pesoI || s.repsI || s.rir || s.nota || s.completado || s.tieneParciales || s.esDropset || s.esRestPause)
     );
     const resumenSeries = tieneDatos
       ? ej.series
@@ -1796,6 +1821,7 @@ export default function EjecutarEntrenamientoModal({
             if (s.esDropset && s.drops && s.drops.length > 0) {
               dropsStr = s.drops.map((d) => ` → ${d.kg}k ${d.reps}r${d.rir ? ` RIR ${d.rir}` : ''}`).join('') + ' ↓';
             }
+            const tecnicaTag = s.esRestPause ? '[RP]' : '';
             if (ej.esUnilateral) {
               const pD = s.peso ? `${s.peso}k` : '';
               const rD = s.reps ? (s.repsParciales && s.repsParciales > 0 ? `${s.reps}+${s.repsParciales}p` : `${s.reps}r`) : '';
@@ -1811,7 +1837,7 @@ export default function EjecutarEntrenamientoModal({
               const objetivoTag = s.repsMin ? `[OBJ:${s.repsMin}${s.repsMax && s.repsMax !== s.repsMin ? `-${s.repsMax}` : ''}]` : '';
               const c = s.completado && s.estado !== 'no_hecha' ? '✓' : '';
               const resumenBrazo = `D ${strD} | I ${strI}`.trim();
-              return `${idx + 1}ª: ${[estadoTag, resumenBrazo, objetivoTag, rir, dropsStr, n, c].filter(Boolean).join(' ')}`;
+              return `${idx + 1}ª: ${[estadoTag, tecnicaTag, resumenBrazo, objetivoTag, rir, dropsStr, n, c].filter(Boolean).join(' ')}`;
             } else {
               const p = s.peso ? `${s.peso}k` : '';
               const r = s.reps ? (s.repsParciales && s.repsParciales > 0 ? `${s.reps}+${s.repsParciales}p` : `${s.reps}r`) : '';
@@ -1820,7 +1846,7 @@ export default function EjecutarEntrenamientoModal({
               const estadoTag = s.estado === 'no_hecha' ? '[NH]' : s.estado === 'fallo' ? '[F]' : s.tipo === 'calentamiento' ? '[W]' : '';
               const objetivoTag = s.repsMin ? `[OBJ:${s.repsMin}${s.repsMax && s.repsMax !== s.repsMin ? `-${s.repsMax}` : ''}]` : '';
               const c = s.completado && s.estado !== 'no_hecha' ? '✓' : '';
-              return `${idx + 1}ª: ${[estadoTag, p, r, objetivoTag, rir, dropsStr, n, c].filter(Boolean).join(' ')}`;
+              return `${idx + 1}ª: ${[estadoTag, tecnicaTag, p, r, objetivoTag, rir, dropsStr, n, c].filter(Boolean).join(' ')}`;
             }
           })
           .join(' • ')
@@ -1880,7 +1906,7 @@ export default function EjecutarEntrenamientoModal({
             sustitucion_alcance: ej.sustitucion_alcance || null,
             reps_parciales: payload.totalParciales,
             drops: payload.allDrops,
-            detalles_json: JSON.stringify(ej.series.map((s) => ({ carga: s.carga || null, cargaI: s.cargaI || null, estado: s.estado || 'normal', tipo: s.tipo || 'normal', repsMin: s.repsMin ?? null, repsMax: s.repsMax ?? null, origenSesion: ej.origenSesion || 'rutina', ordenSesion: ej.ordenSesion ?? payload.ordenSesion }))),
+            detalles_json: JSON.stringify(ej.series.map((s) => ({ carga: s.carga || null, cargaI: s.cargaI || null, estado: s.estado || 'normal', tipo: s.tipo || 'normal', repsMin: s.repsMin ?? null, repsMax: s.repsMax ?? null, esRestPause: Boolean(s.esRestPause), origenSesion: ej.origenSesion || 'rutina', ordenSesion: ej.ordenSesion ?? payload.ordenSesion }))),
           };
           // Si el id es temporal generado por sustitución, insertamos nueva fila
           if (esIdTemporal(ej.id)) {
@@ -1981,7 +2007,7 @@ export default function EjecutarEntrenamientoModal({
         completado: payload.todasCompletadas,
         reps_parciales: payload.totalParciales,
         drops: payload.allDrops,
-        detalles_json: JSON.stringify(ej.series.map((s) => ({ carga: s.carga || null, cargaI: s.cargaI || null, estado: s.estado || 'normal', tipo: s.tipo || 'normal', repsMin: s.repsMin ?? null, repsMax: s.repsMax ?? null, origenSesion: ej.origenSesion || 'rutina', ordenSesion: ej.ordenSesion ?? payload.ordenSesion }))),
+        detalles_json: JSON.stringify(ej.series.map((s) => ({ carga: s.carga || null, cargaI: s.cargaI || null, estado: s.estado || 'normal', tipo: s.tipo || 'normal', repsMin: s.repsMin ?? null, repsMax: s.repsMax ?? null, esRestPause: Boolean(s.esRestPause), origenSesion: ej.origenSesion || 'rutina', ordenSesion: ej.ordenSesion ?? payload.ordenSesion }))),
       });
     }
     await sincronizarNotasEjercicios(
@@ -2190,9 +2216,6 @@ export default function EjecutarEntrenamientoModal({
                         esUnilateral={ejActivo.esUnilateral}
                         nombreEjercicio={ejActivo.nombre}
                         onToggleUnilateral={() => toggleUnilateralEjercicio(indexValido)}
-                        onIntercambiarEjercicio={(modo) => {
-                          setSelectorIntercambio({ ejIdx: indexValido, modo });
-                        }}
                         focusCampoActivo={
                           focusTeclado && focusTeclado.ejIdx === indexValido
                             ? {
@@ -2282,6 +2305,9 @@ export default function EjecutarEntrenamientoModal({
                           }
                           if (patch.estado !== undefined) {
                             cambiarCampoSerie(indexValido, sIdx, 'estado' as any, patch.estado);
+                          }
+                          if ('esRestPause' in patch) {
+                            cambiarCampoSerie(indexValido, sIdx, 'esRestPause' as any, patch.esRestPause);
                           }
                           if ('repsMin' in patch) {
                             cambiarCampoSerie(indexValido, sIdx, 'repsMin', patch.repsMin);
@@ -2471,6 +2497,7 @@ export default function EjecutarEntrenamientoModal({
                 {/* TECLADO INTELIGENTE DE ENTRENAMIENTO */}
                 {focusTeclado && (
                   <TecladoEntrenamientoInteligente
+                    key={`${focusTeclado.ejIdx}-${focusTeclado.sIdx}-${focusTeclado.campo}-${focusTeclado.dropIdx ?? 'base'}-${modoRepsActivo}`}
                     visible={Boolean(focusTeclado)}
                     modo={focusTeclado.campo}
                     valorActual={obtenerValorActualTeclado()}
@@ -2500,6 +2527,8 @@ export default function EjecutarEntrenamientoModal({
                     }
                     repsMin={ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.repsMin}
                     repsMax={ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.repsMax}
+                    modoReps={modoRepsActivo}
+                    onChangeRango={actualizarRangoDesdeTeclado}
                     estadoSerie={ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.estado || 'normal'}
                     valorPrevioSugerido={obtenerValorPrevioSugerido()}
                     carga={focusTeclado.campo === 'pesoI' ? ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.cargaI : ejerciciosState[focusTeclado.ejIdx]?.series[focusTeclado.sIdx]?.carga}

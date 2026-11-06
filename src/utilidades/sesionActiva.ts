@@ -23,6 +23,7 @@ export type SerieEjecucionDraft = {
   repsParciales?: number;
   tieneParciales?: boolean;
   esDropset?: boolean;
+  esRestPause?: boolean;
   drops?: DropDraftItem[];
   tipo?: 'normal' | 'calentamiento' | 'fallo';
   estado?: 'normal' | 'fallo' | 'no_hecha';

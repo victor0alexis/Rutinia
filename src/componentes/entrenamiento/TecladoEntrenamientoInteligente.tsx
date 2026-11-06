@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Platform,
   Pressable,
@@ -27,6 +27,8 @@ type Props = {
   repsPara1RM?: string;
   repsMin?: number;
   repsMax?: number;
+  modoReps?: 'reps' | 'rango';
+  onChangeRango?: (repsMin?: number, repsMax?: number) => void;
   estadoSerie?: 'normal' | 'fallo' | 'no_hecha';
   valorPrevioSugerido?: string;
   carga?: CargaSerie;
@@ -53,6 +55,8 @@ export default function TecladoEntrenamientoInteligente({
   repsPara1RM,
   repsMin,
   repsMax,
+  modoReps = 'reps',
+  onChangeRango,
   estadoSerie = 'normal',
   valorPrevioSugerido,
   carga,
@@ -68,15 +72,55 @@ export default function TecladoEntrenamientoInteligente({
   onMedirAltura,
 }: Props) {
   const { barBottomPadding, isLandscape, isTablet } = useLayout();
+  const [campoRangoActivo, setCampoRangoActivo] = useState<'reps' | 'min' | 'max'>('reps');
+  const [rangoMinTexto, setRangoMinTexto] = useState(repsMin != null ? String(repsMin) : '');
+  const [rangoMaxTexto, setRangoMaxTexto] = useState(repsMax != null ? String(repsMax) : '');
   // La unidad la decide el encabezado de la tabla; el teclado solo introduce valores.
   const tipoCarga: TipoCarga = tipoCargaProp;
   const esPeso = modo === 'peso' || modo === 'pesoI';
   const esRIR = modo === 'rir';
   const esParciales = modo === 'parciales';
+  const esModoRango = modoReps === 'rango' && (modo === 'reps' || modo === 'repsI');
   const esPlacas = esPeso && tipoCarga === 'placas';
   const esDiscos = esPeso && (tipoCarga === 'discos_barra' || tipoCarga === 'discos_maquina');
   const aceptaDecimales = esPeso && tipoCarga === 'kg';
   const mostrarTecladoNumerico = !esPeso || tipoCarga === 'kg' || tipoCarga === 'placas';
+
+  const rangoMinNum = rangoMinTexto ? parseInt(rangoMinTexto, 10) : undefined;
+  const rangoMaxNum = rangoMaxTexto ? parseInt(rangoMaxTexto, 10) : undefined;
+  const rangoValido =
+    (rangoMinNum == null || (rangoMinNum >= 1 && rangoMinNum <= 100)) &&
+    (rangoMaxNum == null || (rangoMaxNum >= 1 && rangoMaxNum <= 100)) &&
+    (rangoMinNum == null || rangoMaxNum == null || rangoMinNum <= rangoMaxNum);
+  const editandoRango = esModoRango && campoRangoActivo !== 'reps';
+  const valorEditable = editandoRango
+    ? campoRangoActivo === 'min'
+      ? rangoMinTexto
+      : rangoMaxTexto
+    : valorActual;
+
+  const actualizarValorEditable = useCallback(
+    (texto: string) => {
+      if (!editandoRango) {
+        onChangeValor(texto);
+        return;
+      }
+      const limpio = texto.replace(/[^0-9]/g, '').slice(0, 3);
+      if (campoRangoActivo === 'min') setRangoMinTexto(limpio);
+      else setRangoMaxTexto(limpio);
+
+      const nextMin = campoRangoActivo === 'min' ? limpio : rangoMinTexto;
+      const nextMax = campoRangoActivo === 'max' ? limpio : rangoMaxTexto;
+      const min = nextMin ? parseInt(nextMin, 10) : undefined;
+      const max = nextMax ? parseInt(nextMax, 10) : undefined;
+      const valido =
+        (min == null || (min >= 1 && min <= 100)) &&
+        (max == null || (max >= 1 && max <= 100)) &&
+        (min == null || max == null || min <= max);
+      if (valido) onChangeRango?.(min, max);
+    },
+    [editandoRango, campoRangoActivo, rangoMinTexto, rangoMaxTexto, onChangeRango, onChangeValor]
+  );
 
   const cargaDiscos = carga?.tipo === tipoCarga ? carga.discosPorLado || [] : [];
   const baseDiscos =
@@ -136,16 +180,17 @@ export default function TecladoEntrenamientoInteligente({
   const presionarDigito = useCallback(
     (d: string) => {
       vibrarBoton(10);
-      if (!valorActual || valorActual === '0') {
-        onChangeValor(d);
+      if (!valorEditable || valorEditable === '0') {
+        actualizarValorEditable(d);
         return;
       }
-      if (esParciales && valorActual.length >= 2) return; // Limitar reps parciales a 2 dígitos
-      if (esPlacas && valorActual.length >= 3) return; // Placas: máximo 3 dígitos
-      if (valorActual.length >= 6) return; // Limitar longitud
-      onChangeValor(valorActual + d);
+      if (esParciales && valorEditable.length >= 2) return; // Limitar reps parciales a 2 dígitos
+      if (esPlacas && valorEditable.length >= 3) return; // Placas: máximo 3 dígitos
+      if (editandoRango && valorEditable.length >= 3) return;
+      if (!editandoRango && valorEditable.length >= 6) return; // Limitar longitud
+      actualizarValorEditable(valorEditable + d);
     },
-    [valorActual, esParciales, esPlacas, onChangeValor]
+    [valorEditable, esParciales, esPlacas, editandoRango, actualizarValorEditable]
   );
 
   const presionarPunto = useCallback(() => {
@@ -160,16 +205,33 @@ export default function TecladoEntrenamientoInteligente({
 
   const presionarBackspace = useCallback(() => {
     vibrarBoton(12);
-    if (!valorActual || valorActual.length <= 1) {
-      onChangeValor('');
+    if (!valorEditable || valorEditable.length <= 1) {
+      actualizarValorEditable('');
       return;
     }
-    onChangeValor(valorActual.slice(0, -1));
-  }, [valorActual, onChangeValor]);
+    actualizarValorEditable(valorEditable.slice(0, -1));
+  }, [valorEditable, actualizarValorEditable]);
 
   const limpiar = () => {
     vibrarBoton(15);
-    onChangeValor('');
+    actualizarValorEditable('');
+  };
+
+  const manejarSiguiente = () => {
+    if (esModoRango && campoRangoActivo !== 'reps') {
+      vibrarBoton(12);
+      setCampoRangoActivo('reps');
+      return;
+    }
+    onNext();
+  };
+
+  const manejarCompletar = () => {
+    if (esModoRango && !rangoValido) {
+      vibrarBoton(20);
+      return;
+    }
+    onCompletarSerie();
   };
 
   // Soporte para teclado físico en Web (Desktop / Laptop)
@@ -193,7 +255,11 @@ export default function TecladoEntrenamientoInteligente({
       } else if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault();
         vibrarBoton(15);
-        onNext();
+        if (esModoRango && campoRangoActivo !== 'reps') {
+          setCampoRangoActivo('reps');
+        } else {
+          onNext();
+        }
       } else if (e.key === 'Escape') {
         e.preventDefault();
         onClose();
@@ -204,7 +270,7 @@ export default function TecladoEntrenamientoInteligente({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [visible, aceptaDecimales, onNext, onClose, presionarDigito, presionarPunto, presionarBackspace]);
+  }, [visible, aceptaDecimales, esModoRango, campoRangoActivo, onNext, onClose, presionarDigito, presionarPunto, presionarBackspace]);
 
   // Ajustes rápidos (+/- kilos)
   const ajustarPeso = (delta: number) => {
@@ -217,7 +283,7 @@ export default function TecladoEntrenamientoInteligente({
   // Chips rápidos de repeticiones
   const seleccionarRepsRapidas = (r: number) => {
     vibrarBoton(15);
-    onChangeValor(r.toString());
+    actualizarValorEditable(r.toString());
   };
 
   // Chips rápidos de RIR
@@ -244,8 +310,16 @@ export default function TecladoEntrenamientoInteligente({
           ? 'DISCOS POR LADO · I · TOTAL'
           : 'PESO IZQUIERDO (KG)';
       case 'reps':
+        if (esModoRango) {
+          if (campoRangoActivo === 'min') return 'RANGO · MÍNIMO';
+          if (campoRangoActivo === 'max') return 'RANGO · MÁXIMO';
+        }
         return esUnilateral ? 'REPS DERECHO' : 'REPETICIONES';
       case 'repsI':
+        if (esModoRango) {
+          if (campoRangoActivo === 'min') return 'RANGO · MÍNIMO';
+          if (campoRangoActivo === 'max') return 'RANGO · MÁXIMO';
+        }
         return 'REPS IZQUIERDO';
       case 'rir':
         return 'REPS EN RESERVA (RIR)';
@@ -328,12 +402,14 @@ export default function TecladoEntrenamientoInteligente({
             <Text style={styles.kbDisplayLabel}>{etiquetaCampo()}</Text>
             <View style={styles.kbDisplayValueRow}>
               <Text style={styles.kbDisplayValue} numberOfLines={1}>
-                {valorActual || '0'}
+                {valorEditable || '0'}
               </Text>
-              <Text style={styles.kbDisplayUnit}>{unidad}</Text>
+              <Text style={styles.kbDisplayUnit}>{editandoRango ? 'reps' : unidad}</Text>
             </View>
             <Text style={styles.kbDisplayHint} numberOfLines={1}>
-              {modo === 'reps' && repsMin && repsMax
+              {esModoRango
+                ? `Rango ${rangoMinTexto || '—'}–${rangoMaxTexto || '—'} reps${!rangoValido ? ' · Revisa los valores' : estadoSerie === 'no_hecha' ? ' · NO HECHA' : estadoSerie === 'fallo' ? ' · FALLO' : estadoReps === 'en_rango' ? ' · En rango' : estadoReps === 'bajo' ? ' · Bajo' : estadoReps === 'sobre' ? ' · Sube carga' : ''}`
+                : modo === 'reps' && repsMin && repsMax
                 ? `Objetivo ${repsMin}${repsMin === repsMax ? '' : `–${repsMax}`} reps${estadoSerie === 'no_hecha' ? ' · NO HECHA' : estadoSerie === 'fallo' ? ' · FALLO' : estadoReps === 'en_rango' ? ' · En rango' : estadoReps === 'bajo' ? ' · Bajo' : estadoReps === 'sobre' ? ' · Sube carga' : ''}`
                 : esPlacas
                 ? `Total ${
@@ -357,6 +433,66 @@ export default function TecladoEntrenamientoInteligente({
             </View>
           )}
         </View>
+
+        {esModoRango && (
+          <View style={styles.rangoEditor}>
+            <Text style={styles.rangoEditorLabel}>RANGO OBJETIVO</Text>
+            <View style={styles.rangoEditorRow}>
+              <Pressable
+                onPress={() => {
+                  vibrarBoton(8);
+                  setCampoRangoActivo('min');
+                }}
+                style={[
+                  styles.rangoCampo,
+                  campoRangoActivo === 'min' && styles.rangoCampoActivo,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Editar repeticiones mínimas"
+              >
+                <Text style={styles.rangoCampoLabel}>MÍN</Text>
+                <Text style={styles.rangoCampoValor}>{rangoMinTexto || '—'}</Text>
+              </Pressable>
+              <Text style={styles.rangoSeparador}>–</Text>
+              <Pressable
+                onPress={() => {
+                  vibrarBoton(8);
+                  setCampoRangoActivo('max');
+                }}
+                style={[
+                  styles.rangoCampo,
+                  campoRangoActivo === 'max' && styles.rangoCampoActivo,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Editar repeticiones máximas"
+              >
+                <Text style={styles.rangoCampoLabel}>MÁX</Text>
+                <Text style={styles.rangoCampoValor}>{rangoMaxTexto || '—'}</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  vibrarBoton(8);
+                  setCampoRangoActivo('reps');
+                }}
+                style={[
+                  styles.rangoCampo,
+                  styles.rangoCampoReales,
+                  campoRangoActivo === 'reps' && styles.rangoCampoActivo,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Editar repeticiones realizadas"
+              >
+                <Text style={styles.rangoCampoLabel}>REALES</Text>
+                <Text style={styles.rangoCampoValor}>{valorActual || '0'}</Text>
+              </Pressable>
+            </View>
+            {!rangoValido && (
+              <Text style={styles.rangoError}>
+                Usa valores de 1 a 100. El mínimo no puede superar el máximo.
+              </Text>
+            )}
+          </View>
+        )}
 
         {/* COMPOSITOR DE DISCOS: solo introduce la carga; la configuración vive en el encabezado */}
         {esDiscos && (
@@ -500,14 +636,14 @@ export default function TecladoEntrenamientoInteligente({
                   onPress={() => seleccionarRepsRapidas(num)}
                   style={({ pressed }) => [
                     styles.chipRep,
-                    valorActual === num.toString() && styles.chipRepActivo,
+                    valorEditable === num.toString() && styles.chipRepActivo,
                     pressed && { opacity: 0.7 },
                   ]}
                 >
                   <Text
                     style={[
                       styles.chipRepText,
-                      valorActual === num.toString() && styles.chipRepTextActivo,
+                      valorEditable === num.toString() && styles.chipRepTextActivo,
                     ]}
                   >
                     {num}
@@ -519,7 +655,7 @@ export default function TecladoEntrenamientoInteligente({
                 <Pressable
                   onPress={() => {
                     vibrarBoton(12);
-                    if (valorPrevioSugerido) onChangeValor(valorPrevioSugerido);
+                    if (valorPrevioSugerido) actualizarValorEditable(valorPrevioSugerido);
                   }}
                   style={({ pressed }) => [styles.btnAccionEspecial, pressed && { opacity: 0.7 }]}
                 >
@@ -649,23 +785,19 @@ export default function TecladoEntrenamientoInteligente({
           <View style={[styles.columnaFlujo, !mostrarTecladoNumerico && styles.columnaFlujoAncha]}>
             {/* BOTÓN SIGUIENTE */}
             <Pressable
-              onPress={() => {
-                vibrarBoton(15);
-                onNext();
-              }}
+              onPress={manejarSiguiente}
               style={({ pressed }) => [styles.btnFlujoSiguiente, pressed && styles.btnFlujoPressed]}
-              accessibilityLabel="Siguiente campo"
+              accessibilityLabel={esModoRango && campoRangoActivo !== 'reps' ? 'Editar repeticiones realizadas' : 'Siguiente campo'}
             >
               <Ionicons name="arrow-forward" size={17} color={noir.info} />
-              <Text style={styles.btnFlujoSiguienteText}>Sig.</Text>
+              <Text style={styles.btnFlujoSiguienteText}>
+                {esModoRango && campoRangoActivo !== 'reps' ? 'Reales' : 'Sig.'}
+              </Text>
             </Pressable>
 
             {/* BOTÓN CONFIRMAR Y COMPLETAR SERIE */}
             <Pressable
-              onPress={() => {
-                vibrarBoton(20);
-                onCompletarSerie();
-              }}
+              onPress={manejarCompletar}
               style={({ pressed }) => [styles.btnFlujoCompletar, pressed && styles.btnFlujoPressed]}
               accessibilityLabel="Completar serie"
             >
@@ -853,6 +985,72 @@ const styles = StyleSheet.create({
     fontFamily: fuentes.black,
     fontSize: 11,
     fontVariant: ['tabular-nums'],
+  },
+
+  /* RANGO OBJETIVO */
+  rangoEditor: {
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(63, 242, 176, 0.16)',
+    backgroundColor: 'rgba(63, 242, 176, 0.035)',
+  },
+  rangoEditorLabel: {
+    color: noir.mint,
+    fontFamily: fuentes.bold,
+    fontSize: 7.2,
+    letterSpacing: 0.65,
+    marginBottom: 5,
+  },
+  rangoEditorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  rangoCampo: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.09)',
+    backgroundColor: 'rgba(0, 0, 0, 0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 3,
+  },
+  rangoCampoReales: {
+    borderColor: 'rgba(92, 200, 255, 0.16)',
+    backgroundColor: 'rgba(92, 200, 255, 0.035)',
+  },
+  rangoCampoActivo: {
+    borderColor: 'rgba(63, 242, 176, 0.55)',
+    backgroundColor: 'rgba(63, 242, 176, 0.1)',
+  },
+  rangoCampoLabel: {
+    color: noir.muted,
+    fontFamily: fuentes.bold,
+    fontSize: 6.6,
+    letterSpacing: 0.5,
+  },
+  rangoCampoValor: {
+    color: noir.text,
+    fontFamily: fuentes.black,
+    fontSize: 16,
+    lineHeight: 18,
+    fontVariant: ['tabular-nums'],
+  },
+  rangoSeparador: {
+    color: noir.muted2,
+    fontFamily: fuentes.bold,
+    fontSize: 13,
+  },
+  rangoError: {
+    color: '#F08A9B',
+    fontFamily: fuentes.medium,
+    fontSize: 7.2,
+    marginTop: 4,
   },
 
   /* BARRA DISCOS */
