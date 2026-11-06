@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { fuentes, noir } from '../../constantes/colores';
 import { vibrarBoton } from '../../utilidades/hapticos';
 import { DROPSET_MAX_DROPS, calcularKgSugeridoDrop } from '../../constantes/entrenamiento';
-import type { CargaSerie } from '../../tipos';
+import type { CargaSerie, TipoCarga } from '../../tipos';
 import { formatearDetalleCarga } from '../../utilidades/cargasEjercicio';
 import { debeSugerirSubirCarga, estadoRangoRepeticiones, parsearRangoRepeticiones } from '../../utilidades/calculadoraFuerza';
 
@@ -61,6 +61,17 @@ interface Props {
   onActualizarSerie: (sIdx: number, patch: Partial<SerieItem>) => void;
   onIntercambiarEjercicio?: (modo: 'solo_hoy' | 'rutina') => void;
   onToggleUnilateral?: () => void;
+  /**
+   * Registra el nodo de la fila que contiene el campo activo para que el
+   * contenedor pueda desplazar la tabla y mantenerlo visible sobre el teclado.
+   */
+  registrarNodoFoco?: (nodo: View | null) => void;
+  modoKg?: TipoCarga;
+  modoReps?: 'reps' | 'rango';
+  resumenEquipo?: string;
+  onConfigurarCarga?: () => void;
+  onCambiarModoKg?: (modo: TipoCarga) => void;
+  onCambiarModoReps?: (modo: 'reps' | 'rango') => void;
 }
 
 export default function TablaSeriesFocus({
@@ -75,9 +86,17 @@ export default function TablaSeriesFocus({
   onActualizarSerie,
   onIntercambiarEjercicio,
   onToggleUnilateral,
+  registrarNodoFoco,
+  modoKg = 'kg',
+  modoReps = 'reps',
+  resumenEquipo,
+  onConfigurarCarga,
+  onCambiarModoKg,
+  onCambiarModoReps,
 }: Props) {
   const [menuSerieIdx, setMenuSerieIdx] = useState<number | null>(null);
   const [rangoTexto, setRangoTexto] = useState('');
+  const [dropdownColumna, setDropdownColumna] = useState<'kg' | 'reps' | null>(null);
 
   const abrirMenu = (idx: number) => {
     vibrarBoton(12);
@@ -109,6 +128,7 @@ export default function TablaSeriesFocus({
       return;
     }
     onActualizarSerie(menuSerieIdx, rango);
+    onCambiarModoReps?.('rango');
   };
 
   const handleAnadirDrop = () => {
@@ -189,6 +209,24 @@ export default function TablaSeriesFocus({
     cerrarMenu();
   };
 
+  // ── Helpers para etiquetas de modo ───────────────────────────────────────────
+  const labelModoKg: Record<TipoCarga, string> = {
+    kg: 'KG',
+    placas: 'Placas',
+    discos_barra: 'Discos B.',
+    discos_maquina: 'Discos M.',
+  };
+  const labelModoCargaCorta: Record<TipoCarga, string> = {
+    kg: 'KG',
+    placas: 'PL',
+    discos_barra: 'DB',
+    discos_maquina: 'DM',
+  };
+  const labelModoReps: Record<'reps' | 'rango', string> = {
+    reps: 'REPS',
+    rango: 'Rango',
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.tableCard}>
@@ -232,10 +270,70 @@ export default function TablaSeriesFocus({
           <View style={styles.headerRow}>
             <Text style={[styles.headerCol, styles.colSet]}>SET</Text>
             <Text style={[styles.headerCol, styles.colPrevia]}>PREVIA</Text>
-            <Text style={[styles.headerCol, styles.colInput]}>KG-D</Text>
-            <Text style={[styles.headerCol, styles.colInput]}>R-D</Text>
-            <Text style={[styles.headerCol, styles.colInput]}>KG-I</Text>
-            <Text style={[styles.headerCol, styles.colInput]}>R-I</Text>
+            <Pressable
+              style={[styles.colInput, styles.headerColBtn, modoKg !== 'kg' && styles.headerColBtnActivo]}
+              onPress={() => setDropdownColumna(dropdownColumna === 'kg' ? null : 'kg')}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel="Cambiar modo de carga"
+            >
+              <Text style={[styles.headerCol, modoKg !== 'kg' && styles.headerColTextActivo]}>
+                {labelModoCargaCorta[modoKg]}-D
+              </Text>
+              <Ionicons
+                name={dropdownColumna === 'kg' ? 'chevron-up' : 'chevron-down'}
+                size={8}
+                color={modoKg !== 'kg' ? noir.mint : 'rgba(255,255,255,0.4)'}
+              />
+            </Pressable>
+            <Pressable
+              style={[styles.colInput, styles.headerColBtn, modoReps !== 'reps' && styles.headerColBtnActivo]}
+              onPress={() => setDropdownColumna(dropdownColumna === 'reps' ? null : 'reps')}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel="Cambiar modo de repeticiones"
+            >
+              <Text style={[styles.headerCol, modoReps !== 'reps' && styles.headerColTextActivo]}>
+                {modoReps === 'rango' ? 'RGO' : 'R'}-D
+              </Text>
+              <Ionicons
+                name={dropdownColumna === 'reps' ? 'chevron-up' : 'chevron-down'}
+                size={8}
+                color={modoReps !== 'reps' ? noir.mint : 'rgba(255,255,255,0.4)'}
+              />
+            </Pressable>
+            <Pressable
+              style={[styles.colInput, styles.headerColBtn, modoKg !== 'kg' && styles.headerColBtnActivo]}
+              onPress={() => setDropdownColumna(dropdownColumna === 'kg' ? null : 'kg')}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel="Cambiar modo de carga"
+            >
+              <Text style={[styles.headerCol, modoKg !== 'kg' && styles.headerColTextActivo]}>
+                {labelModoCargaCorta[modoKg]}-I
+              </Text>
+              <Ionicons
+                name={dropdownColumna === 'kg' ? 'chevron-up' : 'chevron-down'}
+                size={8}
+                color={modoKg !== 'kg' ? noir.mint : 'rgba(255,255,255,0.4)'}
+              />
+            </Pressable>
+            <Pressable
+              style={[styles.colInput, styles.headerColBtn, modoReps !== 'reps' && styles.headerColBtnActivo]}
+              onPress={() => setDropdownColumna(dropdownColumna === 'reps' ? null : 'reps')}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel="Cambiar modo de repeticiones"
+            >
+              <Text style={[styles.headerCol, modoReps !== 'reps' && styles.headerColTextActivo]}>
+                {modoReps === 'rango' ? 'RGO' : 'R'}-I
+              </Text>
+              <Ionicons
+                name={dropdownColumna === 'reps' ? 'chevron-up' : 'chevron-down'}
+                size={8}
+                color={modoReps !== 'reps' ? noir.mint : 'rgba(255,255,255,0.4)'}
+              />
+            </Pressable>
             <View style={styles.colCheckHeader}>
               <Ionicons name="sparkles" size={11} color={noir.mint} />
             </View>
@@ -245,13 +343,123 @@ export default function TablaSeriesFocus({
           <View style={styles.headerRow}>
             <Text style={[styles.headerCol, styles.colSet]}>SET</Text>
             <Text style={[styles.headerCol, styles.colPrevia]}>PREVIA</Text>
-            <Text style={[styles.headerCol, styles.colInput]}>KG</Text>
-            <Text style={[styles.headerCol, styles.colInput]}>REPS</Text>
+
+            {/* KG column header — dropdown picker */}
+            <Pressable
+              style={[styles.colInput, styles.headerColBtn, modoKg !== 'kg' && styles.headerColBtnActivo]}
+              onPress={() => setDropdownColumna(dropdownColumna === 'kg' ? null : 'kg')}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel="Cambiar modo de carga"
+            >
+              <Text style={[styles.headerCol, modoKg !== 'kg' && styles.headerColTextActivo]}>
+                {labelModoKg[modoKg]}
+              </Text>
+              <Ionicons
+                name={dropdownColumna === 'kg' ? 'chevron-up' : 'chevron-down'}
+                size={8}
+                color={modoKg !== 'kg' ? noir.mint : 'rgba(255,255,255,0.4)'}
+              />
+            </Pressable>
+
+            {/* REPS column header — dropdown picker */}
+            <Pressable
+              style={[styles.colInput, styles.headerColBtn, modoReps !== 'reps' && styles.headerColBtnActivo]}
+              onPress={() => setDropdownColumna(dropdownColumna === 'reps' ? null : 'reps')}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel="Cambiar modo de repeticiones"
+            >
+              <Text style={[styles.headerCol, modoReps !== 'reps' && styles.headerColTextActivo]}>
+                {labelModoReps[modoReps]}
+              </Text>
+              <Ionicons
+                name={dropdownColumna === 'reps' ? 'chevron-up' : 'chevron-down'}
+                size={8}
+                color={modoReps !== 'reps' ? noir.mint : 'rgba(255,255,255,0.4)'}
+              />
+            </Pressable>
+
             <Text style={[styles.headerCol, styles.colRir]}>RIR</Text>
             <View style={styles.colCheckHeader}>
               <Ionicons name="sparkles" size={11} color={noir.mint} />
             </View>
             <View style={styles.colMenuHeader} />
+          </View>
+        )}
+
+        {/* ── Dropdowns de columna ─────────────────────────────────────────────────── */}
+        {dropdownColumna === 'kg' && (
+          <View style={styles.colDropdown}>
+            {([
+              { tipo: 'kg' as TipoCarga, label: 'Kilogramos', sub: 'Entrada directa en kg' },
+              { tipo: 'placas' as TipoCarga, label: 'Placas', sub: 'Calcula el total con el kg por placa' },
+              { tipo: 'discos_barra' as TipoCarga, label: 'Discos · barra', sub: 'Muestra discos de cada lado' },
+              { tipo: 'discos_maquina' as TipoCarga, label: 'Discos · máquina', sub: 'Selector de discos para máquina' },
+            ] as const).map(({ tipo, label, sub }) => (
+              <Pressable
+                key={tipo}
+                style={[styles.colDropdownItem, modoKg === tipo && styles.colDropdownItemActivo]}
+                onPress={() => {
+                  vibrarBoton(10);
+                  onCambiarModoKg?.(tipo);
+                  setDropdownColumna(null);
+                }}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.colDropdownItemText, modoKg === tipo && styles.colDropdownItemTextActivo]}>{label}</Text>
+                  <Text style={styles.colDropdownItemSub}>{sub}</Text>
+                </View>
+                {modoKg === tipo && <Ionicons name="checkmark" size={14} color={noir.mint} />}
+              </Pressable>
+            ))}
+            {onConfigurarCarga && (
+              <>
+                <View style={styles.colDropdownDivider} />
+                <Pressable
+                  style={styles.colDropdownItem}
+                  onPress={() => {
+                    vibrarBoton(10);
+                    setDropdownColumna(null);
+                    onConfigurarCarga();
+                  }}
+                >
+                  <Ionicons name="options-outline" size={15} color={noir.info} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.colDropdownItemText}>Configurar equipo</Text>
+                    <Text style={styles.colDropdownItemSub}>
+                      {resumenEquipo || 'Barra, base, placas y discos disponibles'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={13} color={noir.muted} />
+                </Pressable>
+              </>
+            )}
+          </View>
+        )}
+
+        {dropdownColumna === 'reps' && (
+          <View style={styles.colDropdown}>
+            {([
+              { modo: 'reps' as const, label: 'Repeticiones', sub: 'Número entero de reps realizadas' },
+              { modo: 'rango' as const, label: 'Rango objetivo', sub: 'Ej. 8-12 · define el rango antes de empezar' },
+            ]).map(({ modo, label, sub }) => (
+              <Pressable
+                key={modo}
+                style={[styles.colDropdownItem, modoReps === modo && styles.colDropdownItemActivo]}
+                onPress={() => {
+                  vibrarBoton(10);
+                  onCambiarModoReps?.(modo);
+                  setDropdownColumna(null);
+                }}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.colDropdownItemText, modoReps === modo && styles.colDropdownItemTextActivo]}>{label}</Text>
+                  <Text style={styles.colDropdownItemSub}>{sub}</Text>
+                </View>
+                {modoReps === modo && <Ionicons name="checkmark" size={14} color={noir.mint} />}
+              </Pressable>
+            ))}
           </View>
         )}
 
@@ -268,19 +476,38 @@ export default function TablaSeriesFocus({
             const esObjetivo = primeraIncompleta === sIdx;
             const tieneParciales = Boolean(s.repsParciales && s.repsParciales > 0);
             const repsIDisplay = s.repsI !== undefined && s.repsI !== '' ? s.repsI : s.reps;
-            const rangoVisible = s.repsMin && s.repsMax
+            const detalleCarga = formatearDetalleCarga(s.carga);
+            const detalleCargaI = formatearDetalleCarga(s.cargaI);
+            const mostrarDetalleCarga = Boolean(detalleCarga || detalleCargaI);
+            const rangoVisible = modoReps === 'rango' && s.repsMin && s.repsMax
               ? `${s.repsMin}${s.repsMin === s.repsMax ? '' : `–${s.repsMax}`}`
               : '';
-            const estadoReps = estadoRangoRepeticiones(s.reps || repsIDisplay || '', s.repsMin, s.repsMax);
+            const estadoReps = rangoVisible
+              ? estadoRangoRepeticiones(s.reps || repsIDisplay || '', s.repsMin, s.repsMax)
+              : null;
             const repsSobreObjetivo = estadoReps === 'sobre' && s.estado !== 'fallo';
 
             // Valores lado izquierdo: si están vacíos se muestra el mismo valor que el lado derecho
             const pesoIDisplay = s.pesoI !== undefined && s.pesoI !== '' ? s.pesoI : s.peso;
+            const placasD = s.carga?.tipo === 'placas' ? s.carga.placas || 0 : 0;
+            // En sesiones antiguas unilaterales puede faltar cargAI; igual que
+            // con el peso, se asume el mismo valor del lado derecho.
+            const placasI = s.cargaI?.tipo === 'placas' ? s.cargaI.placas || 0 : s.cargaI ? 0 : placasD;
+            const cargaDDisplay =
+              modoKg === 'placas' ? `${Math.max(0, Math.floor(placasD))} pl` : s.peso || '0';
+            const cargaIDisplay =
+              modoKg === 'placas' ? `${Math.max(0, Math.floor(placasI))} pl` : pesoIDisplay || '0';
+            const cargaBilateralDisplay =
+              modoKg === 'placas'
+                ? `${Math.max(0, Math.floor(placasD))} pl`
+                : s.peso ||
+                  (modoKg === 'discos_barra' || modoKg === 'discos_maquina' ? '—' : '0');
 
             return (
               <View key={s.id || `set-${sIdx}`} style={styles.serieBlock}>
                 {/* Fila Principal de la Serie */}
                 <View
+                  ref={filaEnfocada && focusCampoActivo?.dropIdx === undefined ? registrarNodoFoco : undefined}
                   style={[
                     styles.serieRow,
                     esObjetivo && styles.serieRowObjetivo,
@@ -329,8 +556,8 @@ export default function TablaSeriesFocus({
                         onPress={() => onFocusCampo(sIdx, 'kg')}
                         style={[styles.inputBox, esFocusKg && styles.inputBoxActivo]}
                       >
-                        <Text style={[styles.inputText, !s.peso && styles.inputPlaceholder, esFocusKg && styles.inputTextActivo]}>
-                          {s.peso || '0'}
+                        <Text style={[styles.inputText, !s.peso && !s.carga?.placas && styles.inputPlaceholder, esFocusKg && styles.inputTextActivo]}>
+                          {cargaDDisplay}
                         </Text>
                       </Pressable>
 
@@ -359,8 +586,8 @@ export default function TablaSeriesFocus({
                         onPress={() => onFocusCampo(sIdx, 'pesoI')}
                         style={[styles.inputBox, esFocusPesoI && styles.inputBoxActivo, styles.inputBoxUnilateralI]}
                       >
-                        <Text style={[styles.inputText, !s.pesoI && styles.inputPlaceholder, esFocusPesoI && styles.inputTextActivo]}>
-                          {s.cargaI?.tipo === 'placas' && !s.pesoI ? `${s.cargaI.placas || 0} pl` : pesoIDisplay || '0'}
+                        <Text style={[styles.inputText, !s.pesoI && !s.cargaI?.placas && styles.inputPlaceholder, esFocusPesoI && styles.inputTextActivo]}>
+                          {cargaIDisplay}
                         </Text>
                       </Pressable>
 
@@ -385,11 +612,11 @@ export default function TablaSeriesFocus({
                         <Text
                           style={[
                             styles.inputText,
-                            !s.peso && styles.inputPlaceholder,
+                            !s.peso && !s.carga?.placas && styles.inputPlaceholder,
                             esFocusKg && styles.inputTextActivo,
                           ]}
                         >
-                            {s.carga?.tipo === 'placas' && !s.peso ? `${s.carga.placas || 0} pl` : s.peso || '0'}
+                          {cargaBilateralDisplay}
                         </Text>
                       </Pressable>
 
@@ -492,7 +719,7 @@ export default function TablaSeriesFocus({
                   {s.estado === 'no_hecha' && <View pointerEvents="none" style={styles.serieStrike} />}
                 </View>
 
-                {(s.estado === 'fallo' || s.estado === 'no_hecha' || rangoVisible || sugerirSubirCarga) && (
+                {(s.estado === 'fallo' || s.estado === 'no_hecha' || Boolean(rangoVisible) || (modoReps === 'rango' && esObjetivo && !rangoVisible) || (modoReps === 'rango' && sugerirSubirCarga)) && (
                   <View style={styles.serieMetaRow}>
                     {s.estado === 'fallo' && (
                       <View style={[styles.serieEstadoBadge, styles.serieFalloBadge]}>
@@ -505,18 +732,29 @@ export default function TablaSeriesFocus({
                         <Text style={[styles.serieEstadoText, { color: noir.muted }]}>NO HECHA</Text>
                       </View>
                     )}
+                    {modoReps === 'rango' && esObjetivo && !rangoVisible && (
+                      <Pressable onPress={() => abrirMenu(sIdx)} hitSlop={4}>
+                        <Text style={styles.rangoFeedback}>Define el rango objetivo</Text>
+                      </Pressable>
+                    )}
                     {Boolean(rangoVisible) && (
                       <Text style={[styles.rangoFeedback, estadoReps === 'en_rango' && styles.repsEnRango, estadoReps === 'bajo' && styles.repsBajoRango, repsSobreObjetivo && styles.repsSobreRango]}>
                         {repsSobreObjetivo ? 'Sube carga' : `Objetivo ${rangoVisible} reps${estadoReps === 'en_rango' ? ' · En rango' : estadoReps === 'bajo' ? ' · Bajo' : ''}`}
                       </Text>
                     )}
-                    {sugerirSubirCarga && sIdx === indiceUltimaTrabajada && (
+                    {modoReps === 'rango' && sugerirSubirCarga && sIdx === indiceUltimaTrabajada && (
                       <Text style={[styles.rangoFeedback, styles.repsEnRango]}>Todas al máximo · sube carga</Text>
                     )}
                   </View>
                 )}
 
-                {(s.carga || s.cargaI) && <Text style={{ color: noir.muted, fontSize: 9, marginLeft: 50, marginTop: 3 }}>{formatearDetalleCarga(s.carga)}{s.cargaI ? ` · I: ${formatearDetalleCarga(s.cargaI)}` : ''}</Text>}
+                {mostrarDetalleCarga && (
+                  <Text style={styles.cargaDetalle}>
+                    {detalleCarga && `${detalleCarga}${s.peso ? ` · ${s.peso} kg` : ''}`}
+                    {detalleCarga && detalleCargaI ? ' · ' : ''}
+                    {detalleCargaI && `I: ${detalleCargaI}${(s.pesoI || s.peso) ? ` · ${s.pesoI || s.peso} kg` : ''}`}
+                  </Text>
+                )}
 
                 {/* Subfilas de Drop Sets subordinadas */}
                 {s.drops && s.drops.map((drop, dIdx) => {
@@ -524,12 +762,16 @@ export default function TablaSeriesFocus({
                   const esFocusDropReps = focusCampoActivo?.sIdx === sIdx && focusCampoActivo?.campo === 'reps' && focusCampoActivo?.dropIdx === dIdx;
 
                   return (
-                    <View key={`drop-${dIdx}`} style={styles.dropRow}>
+                    <View
+                      key={`drop-${dIdx}`}
+                      ref={esFocusDropKg || esFocusDropReps ? registrarNodoFoco : undefined}
+                      style={styles.dropRow}
+                    >
                       <View style={styles.dropBadge}>
                         <Text style={styles.dropBadgeText}>D{dIdx + 1}</Text>
                       </View>
 
-                      <Text style={styles.colPreviaText}>↓ Drop</Text>
+                      <Text style={styles.colPreviaText}>↓ Drop kg</Text>
 
                       <Pressable
                         onPress={() => onFocusCampo(sIdx, 'kg', dIdx)}
@@ -651,7 +893,10 @@ export default function TablaSeriesFocus({
                         return;
                       }
                       const rango = parsearRangoRepeticiones(value);
-                      if (rango) onActualizarSerie(menuSerieIdx, rango);
+                      if (rango) {
+                        onActualizarSerie(menuSerieIdx, rango);
+                        onCambiarModoReps?.('rango');
+                      }
                     }}
                     onEndEditing={confirmarRango}
                     placeholder="8-12"
@@ -1578,5 +1823,69 @@ const styles = StyleSheet.create({
   },
   chipParcialTextActivo: {
     color: noir.champagne,
+  },
+  // ── Column header dropdown styles ───────────────────────────────────────────────────
+  headerColBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    paddingVertical: 3,
+    borderRadius: 5,
+  },
+  headerColBtnActivo: {
+    backgroundColor: 'rgba(63, 242, 176, 0.09)',
+    borderWidth: 1,
+    borderColor: 'rgba(63, 242, 176, 0.25)',
+  },
+  headerColTextActivo: {
+    color: noir.mint,
+  },
+  cargaDetalle: {
+    color: noir.muted,
+    fontFamily: fuentes.medium,
+    fontSize: 9,
+    marginLeft: 50,
+    marginTop: 3,
+  },
+  colDropdown: {
+    marginHorizontal: 6,
+    marginBottom: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.09)',
+    backgroundColor: 'rgba(10, 12, 17, 0.9)',
+    overflow: 'hidden',
+  },
+  colDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+    gap: 8,
+  },
+  colDropdownItemActivo: {
+    backgroundColor: 'rgba(63, 242, 176, 0.07)',
+  },
+  colDropdownItemText: {
+    color: noir.text,
+    fontFamily: fuentes.bold,
+    fontSize: 12,
+  },
+  colDropdownItemTextActivo: {
+    color: noir.mint,
+  },
+  colDropdownItemSub: {
+    color: noir.muted,
+    fontFamily: fuentes.medium,
+    fontSize: 9,
+    marginTop: 1,
+  },
+  colDropdownDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginVertical: 2,
   },
 });

@@ -41,6 +41,8 @@ export type EjercicioStateDraft = {
   notaEjercicio?: string;
   origenSesion?: 'rutina' | 'solo_hoy';
   ordenSesion?: number;
+  modoKg?: CargaSerie['tipo'];
+  modoReps?: 'reps' | 'rango';
 };
 
 

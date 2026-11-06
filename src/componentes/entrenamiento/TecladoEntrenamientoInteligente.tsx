@@ -30,6 +30,7 @@ type Props = {
   estadoSerie?: 'normal' | 'fallo' | 'no_hecha';
   valorPrevioSugerido?: string;
   carga?: CargaSerie;
+  tipoCarga?: TipoCarga;
   preferenciaCarga?: PreferenciaCargaEjercicio;
   onChangeCarga?: (carga: CargaSerie, pesoKg: number | null) => void;
   esUnilateral?: boolean;
@@ -38,6 +39,8 @@ type Props = {
   onNext: () => void;
   onCompletarSerie: () => void;
   onClose: () => void;
+  /** Notifica la altura real del panel para mantener el campo activo visible. */
+  onMedirAltura?: (altura: number) => void;
 };
 
 export default function TecladoEntrenamientoInteligente({
@@ -53,6 +56,7 @@ export default function TecladoEntrenamientoInteligente({
   estadoSerie = 'normal',
   valorPrevioSugerido,
   carga,
+  tipoCarga: tipoCargaProp = 'kg',
   preferenciaCarga = PREFERENCIA_CARGA_POR_DEFECTO,
   onChangeCarga,
   esUnilateral = false,
@@ -61,40 +65,69 @@ export default function TecladoEntrenamientoInteligente({
   onNext,
   onCompletarSerie,
   onClose,
+  onMedirAltura,
 }: Props) {
   const { barBottomPadding, isLandscape, isTablet } = useLayout();
-  const tipoCarga: TipoCarga = carga?.tipo || preferenciaCarga.tipo;
-  const cargaDiscos = carga?.discosPorLado || [];
-  const placas = carga?.placas || 0;
+  // La unidad la decide el encabezado de la tabla; el teclado solo introduce valores.
+  const tipoCarga: TipoCarga = tipoCargaProp;
+  const esPeso = modo === 'peso' || modo === 'pesoI';
+  const esRIR = modo === 'rir';
+  const esParciales = modo === 'parciales';
+  const esPlacas = esPeso && tipoCarga === 'placas';
+  const esDiscos = esPeso && (tipoCarga === 'discos_barra' || tipoCarga === 'discos_maquina');
+  const aceptaDecimales = esPeso && tipoCarga === 'kg';
+  const mostrarTecladoNumerico = !esPeso || tipoCarga === 'kg' || tipoCarga === 'placas';
+
+  const cargaDiscos = carga?.tipo === tipoCarga ? carga.discosPorLado || [] : [];
+  const baseDiscos =
+    tipoCarga === 'discos_barra' ? preferenciaCarga.pesoBarra : preferenciaCarga.pesoBase;
+  const cargaDiscosActual: CargaSerie = {
+    tipo: tipoCarga,
+    pesoBase: baseDiscos,
+    discosPorLado: cargaDiscos,
+  };
+  const totalDiscos = calcularKgDesdeCarga(cargaDiscosActual, preferenciaCarga);
+  const totalPlacasKg =
+    preferenciaCarga.kgPorPlaca != null
+      ? Math.round(
+          Math.max(0, parseInt(valorActual, 10) || 0) * preferenciaCarga.kgPorPlaca * 100
+        ) / 100
+      : null;
+
   const agregarDisco = (disco: number) => {
-    const lista = [...cargaDiscos];
+    const lista = cargaDiscos.map((item) => ({ ...item }));
     const existente = lista.find((item) => item.disco === disco);
     if (existente) existente.cantidadPorLado += 1;
     else lista.push({ disco, cantidadPorLado: 1 });
-    const nueva: CargaSerie = { tipo: tipoCarga, pesoBase: tipoCarga === 'discos_barra' ? preferenciaCarga.pesoBarra : preferenciaCarga.pesoBase, discosPorLado: lista };
+    const nueva: CargaSerie = { tipo: tipoCarga, pesoBase: baseDiscos, discosPorLado: lista };
+    vibrarBoton(10);
     onChangeCarga?.(nueva, calcularKgDesdeCarga(nueva, preferenciaCarga));
   };
-  const cambiarModoCarga = (tipo: TipoCarga) => {
-    const nueva: CargaSerie = tipo === 'placas'
-      ? { tipo, placas: 0 }
-      : tipo === 'discos_barra' || tipo === 'discos_maquina'
-      ? { tipo, pesoBase: tipo === 'discos_barra' ? preferenciaCarga.pesoBarra : preferenciaCarga.pesoBase, discosPorLado: [] }
-      : { tipo: 'kg' };
-    onChangeCarga?.(nueva, tipo === 'kg' ? null : calcularKgDesdeCarga(nueva, preferenciaCarga));
+  const quitarDisco = (disco: number) => {
+    const lista = cargaDiscos.map((item) => ({ ...item }));
+    const indice = lista.findIndex((item) => item.disco === disco);
+    if (indice < 0) return;
+    if (lista[indice].cantidadPorLado > 1) lista[indice].cantidadPorLado -= 1;
+    else lista.splice(indice, 1);
+    const nueva: CargaSerie = { tipo: tipoCarga, pesoBase: baseDiscos, discosPorLado: lista };
+    vibrarBoton(12);
+    onChangeCarga?.(nueva, calcularKgDesdeCarga(nueva, preferenciaCarga));
+  };
+  const cambiarPlacas = (delta: number) => {
+    const actual = Math.max(0, parseInt(valorActual, 10) || 0);
+    const placasNuevas = Math.max(0, actual + delta);
+    const nueva: CargaSerie = { tipo: 'placas', placas: placasNuevas };
+    vibrarBoton(12);
+    onChangeCarga?.(nueva, calcularKgDesdeCarga(nueva, preferenciaCarga));
   };
 
-  // Determinar si el campo activo admite decimales
-  const esDecimal = modo === 'peso' || modo === 'pesoI';
-  const esRIR = modo === 'rir';
-  const esParciales = modo === 'parciales';
-
-  // 1RM estimado en tiempo real
+  // 1RM estimado en tiempo real. En placas/discos se calcula con el total en kg.
   const estimacion1RM = useMemo(() => {
-    const p = esDecimal ? valorActual : pesoPara1RM;
+    const p = esPeso && tipoCarga === 'kg' ? valorActual : pesoPara1RM;
     const r = modo === 'reps' || modo === 'repsI' ? valorActual : repsPara1RM;
     if (!p || !r || estadoSerie === 'no_hecha') return null;
     return calcular1RMEstimado(p, r);
-  }, [valorActual, pesoPara1RM, repsPara1RM, esDecimal, modo, estadoSerie]);
+  }, [valorActual, pesoPara1RM, repsPara1RM, esPeso, tipoCarga, modo, estadoSerie]);
   const estadoReps = estadoRangoRepeticiones(modo === 'reps' || modo === 'repsI' ? valorActual : '', repsMin, repsMax);
 
   // Cálculo de discos olímpicos
@@ -108,10 +141,11 @@ export default function TecladoEntrenamientoInteligente({
         return;
       }
       if (esParciales && valorActual.length >= 2) return; // Limitar reps parciales a 2 dígitos
+      if (esPlacas && valorActual.length >= 3) return; // Placas: máximo 3 dígitos
       if (valorActual.length >= 6) return; // Limitar longitud
       onChangeValor(valorActual + d);
     },
-    [valorActual, esParciales, onChangeValor]
+    [valorActual, esParciales, esPlacas, onChangeValor]
   );
 
   const presionarPunto = useCallback(() => {
@@ -152,7 +186,7 @@ export default function TecladoEntrenamientoInteligente({
         presionarDigito(e.key);
       } else if (e.key === '.' || e.key === ',') {
         e.preventDefault();
-        if (esDecimal) presionarPunto();
+        if (aceptaDecimales) presionarPunto();
       } else if (e.key === 'Backspace') {
         e.preventDefault();
         presionarBackspace();
@@ -170,7 +204,7 @@ export default function TecladoEntrenamientoInteligente({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [visible, esDecimal, onNext, onClose, presionarDigito, presionarPunto, presionarBackspace]);
+  }, [visible, aceptaDecimales, onNext, onClose, presionarDigito, presionarPunto, presionarBackspace]);
 
   // Ajustes rápidos (+/- kilos)
   const ajustarPeso = (delta: number) => {
@@ -196,9 +230,19 @@ export default function TecladoEntrenamientoInteligente({
   const etiquetaCampo = () => {
     switch (modo) {
       case 'peso':
-        return tipoCarga === 'placas' ? 'PESO DERECHO (PLACAS)' : tipoCarga.startsWith('discos_') ? 'DISCOS POR LADO' : esUnilateral ? 'PESO DERECHO (KG)' : 'CARGA / PESO (KG)';
+        return esPlacas
+          ? 'PESO DERECHO (PLACAS)'
+          : esDiscos
+          ? 'DISCOS POR LADO · TOTAL'
+          : esUnilateral
+          ? 'PESO DERECHO (KG)'
+          : 'CARGA / PESO (KG)';
       case 'pesoI':
-        return tipoCarga === 'placas' ? 'PESO IZQUIERDO (PLACAS)' : tipoCarga.startsWith('discos_') ? 'DISCOS POR LADO · I' : 'PESO IZQUIERDO (KG)';
+        return esPlacas
+          ? 'PESO IZQUIERDO (PLACAS)'
+          : esDiscos
+          ? 'DISCOS POR LADO · I · TOTAL'
+          : 'PESO IZQUIERDO (KG)';
       case 'reps':
         return esUnilateral ? 'REPS DERECHO' : 'REPETICIONES';
       case 'repsI':
@@ -212,7 +256,22 @@ export default function TecladoEntrenamientoInteligente({
     }
   };
 
-  const unidad = esDecimal ? tipoCarga === 'placas' ? 'placas' : tipoCarga.startsWith('discos_') ? 'por lado' : 'kg' : esRIR ? 'RIR' : esParciales ? '+ reps' : 'reps';
+  const unidad = esPeso
+    ? tipoCarga === 'placas'
+      ? 'placas'
+      : 'kg'
+    : esRIR
+    ? 'RIR'
+    : esParciales
+    ? '+ reps'
+    : 'reps';
+  const mostrarToolbar =
+    (esPeso && (tipoCarga === 'kg' || tipoCarga === 'placas')) ||
+    modo === 'reps' ||
+    modo === 'repsI' ||
+    esRIR ||
+    esParciales;
+  const unidadPrevia = esPlacas ? ' pl' : esPeso ? ' kg' : esParciales ? 'p' : ' reps';
 
   if (!visible) return null;
 
@@ -224,6 +283,7 @@ export default function TecladoEntrenamientoInteligente({
           paddingBottom: Math.max(barBottomPadding, 8),
         },
       ]}
+      onLayout={(event) => onMedirAltura?.(event.nativeEvent.layout.height)}
     >
       <View
         style={[
@@ -232,16 +292,6 @@ export default function TecladoEntrenamientoInteligente({
         ]}
       >
         <View style={styles.kbHandle} />
-
-        {(modo === 'peso' || modo === 'pesoI') && (
-          <View style={{ flexDirection: 'row', gap: 6, marginHorizontal: 18, marginBottom: 8 }}>
-            {([{ id: 'kg', label: 'kg' }, { id: 'placas', label: 'Placas' }, { id: tipoCarga === 'discos_maquina' ? 'discos_maquina' : 'discos_barra', label: 'Discos' }] as const).map((opcion) => (
-              <Pressable key={opcion.id} onPress={() => cambiarModoCarga(opcion.id)} style={{ paddingVertical: 7, paddingHorizontal: 13, borderRadius: 16, backgroundColor: tipoCarga === opcion.id ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.06)' }}>
-                <Text style={{ color: noir.platinum, fontFamily: fuentes.bold, fontSize: 12 }}>{opcion.label}</Text>
-              </Pressable>
-            ))}
-          </View>
-        )}
 
         {/* BARRA SUPERIOR: contexto de la serie */}
         <View style={styles.headerBar}>
@@ -285,8 +335,14 @@ export default function TecladoEntrenamientoInteligente({
             <Text style={styles.kbDisplayHint} numberOfLines={1}>
               {modo === 'reps' && repsMin && repsMax
                 ? `Objetivo ${repsMin}${repsMin === repsMax ? '' : `–${repsMax}`} reps${estadoSerie === 'no_hecha' ? ' · NO HECHA' : estadoSerie === 'fallo' ? ' · FALLO' : estadoReps === 'en_rango' ? ' · En rango' : estadoReps === 'bajo' ? ' · Bajo' : estadoReps === 'sobre' ? ' · Sube carga' : ''}`
+                : esPlacas
+                ? `Total ${
+                    totalPlacasKg != null ? `${totalPlacasKg} kg` : 'sin equivalencia kg'
+                  }${valorPrevioSugerido ? ` · Previa ${valorPrevioSugerido} pl` : ''}`
+                : esDiscos
+                ? `${tipoCarga === 'discos_barra' ? 'Barra' : 'Base'} ${baseDiscos} kg + ${formatearComposicionDiscos(cargaDiscos)} = ${totalDiscos ?? '—'} kg`
                 : valorPrevioSugerido
-                ? `Previa ${valorPrevioSugerido}${esDecimal ? ' kg' : esParciales ? 'p' : ' reps'}`
+                ? `Previa ${valorPrevioSugerido}${unidadPrevia}`
                 : 'Ajusta el valor con el teclado'}
             </Text>
           </View>
@@ -302,74 +358,138 @@ export default function TecladoEntrenamientoInteligente({
           )}
         </View>
 
-        {/* CALCULADORA DE DISCOS (Si está desplegada) */}
-        {esDecimal && tipoCarga === 'placas' && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18, paddingVertical: 8 }}>
-            <Pressable onPress={() => { const n = Math.max(0, placas - 1); const c: CargaSerie = { tipo: 'placas', placas: n }; onChangeCarga?.(c, calcularKgDesdeCarga(c, preferenciaCarga)); }}><Text style={styles.btnStepperText}>−</Text></Pressable>
-            <Text style={styles.kbDisplayValue}>{placas} placas{preferenciaCarga.kgPorPlaca ? ` · ${placas * preferenciaCarga.kgPorPlaca} kg` : ''}</Text>
-            <Pressable onPress={() => { const c: CargaSerie = { tipo: 'placas', placas: placas + 1 }; onChangeCarga?.(c, calcularKgDesdeCarga(c, preferenciaCarga)); }}><Text style={styles.btnStepperText}>+</Text></Pressable>
-          </View>
-        )}
-        {esDecimal && (tipoCarga === 'discos_barra' || tipoCarga === 'discos_maquina') && (
-          <View style={{ paddingHorizontal: 18, paddingBottom: 8 }}>
-            <Text style={styles.kbDisplayHint}>{tipoCarga === 'discos_barra' ? `Barra ${preferenciaCarga.pesoBarra} kg + ` : `Base ${preferenciaCarga.pesoBase} kg + `}{formatearComposicionDiscos(cargaDiscos)} = {carga ? calcularKgDesdeCarga(carga, preferenciaCarga) ?? '—' : '—'} kg</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 7 }}>
-              {preferenciaCarga.discosDisponibles.map((disco) => <Pressable key={disco} onPress={() => agregarDisco(disco)} style={styles.chipDisco}><Text style={styles.chipDiscoPeso}>{disco} kg +</Text></Pressable>)}
+        {/* COMPOSITOR DE DISCOS: solo introduce la carga; la configuración vive en el encabezado */}
+        {esDiscos && (
+          <View style={styles.barraDiscos}>
+            <View style={styles.barraDiscosHeader}>
+              <Ionicons name="disc-outline" size={11} color={noir.info} />
+              <Text style={styles.barraDiscosTitulo}>DISCOS POR LADO</Text>
+              <Text style={styles.barraDiscosTotal} numberOfLines={1}>
+                {tipoCarga === 'discos_barra'
+                  ? `Barra ${preferenciaCarga.pesoBarra} kg`
+                  : `Base ${preferenciaCarga.pesoBase} kg`}
+                {' · '}
+                {formatearComposicionDiscos(cargaDiscos)}
+                {' · '}
+                {totalDiscos ?? '—'} kg
+              </Text>
             </View>
-            {preferenciaCarga.discosDisponibles.length > 0 && (
-              <Pressable onPress={() => agregarDisco(Math.min(...preferenciaCarga.discosDisponibles))} style={{ alignSelf: 'flex-start', marginTop: 8, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 12, backgroundColor: 'rgba(92, 200, 255, 0.1)' }}>
-                <Text style={{ color: noir.info, fontFamily: fuentes.bold, fontSize: 10 }}>Siguiente paso: +{Math.min(...preferenciaCarga.discosDisponibles)} kg por lado</Text>
-              </Pressable>
+            {preferenciaCarga.discosDisponibles.length > 0 ? (
+              <View style={styles.discosRow}>
+                {preferenciaCarga.discosDisponibles.map((disco) => (
+                  <Pressable
+                    key={disco}
+                    onPress={() => agregarDisco(disco)}
+                    style={({ pressed }) => [styles.chipDisco, pressed && { opacity: 0.7 }]}
+                    accessibilityLabel={`Añadir disco de ${disco} kilos por lado`}
+                  >
+                    <Text style={styles.chipDiscoPeso}>+{disco}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.discosVacio}>
+                Configura los discos disponibles desde el encabezado de Carga.
+              </Text>
+            )}
+            {cargaDiscos.length > 0 && (
+              <View style={[styles.discosRow, { marginTop: 6 }]}>
+                <Text style={styles.discosVacio}>Quitar:</Text>
+                {cargaDiscos.map((item) => (
+                  <Pressable
+                    key={item.disco}
+                    onPress={() => quitarDisco(item.disco)}
+                    style={({ pressed }) => [
+                      styles.chipDisco,
+                      styles.chipDiscoQuitar,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                    accessibilityLabel={`Quitar un disco de ${item.disco} kilos por lado`}
+                  >
+                    <Text style={styles.chipDiscoCant}>{item.cantidadPorLado}×</Text>
+                    <Text style={styles.chipDiscoPeso}>{item.disco}</Text>
+                  </Pressable>
+                ))}
+              </View>
             )}
           </View>
         )}
 
         {/* BARRA DE HERRAMIENTAS RÁPIDAS (SEGÚN MODO) */}
-        <View style={styles.toolbarRapida}>
-          {esDecimal && (
-            <>
-              {/* Botones de incremento / decremento rápido */}
+        {mostrarToolbar && (
+          <View style={styles.toolbarRapida}>
+            {esPeso && tipoCarga === 'kg' && (
+              <>
+                {/* Botones de incremento / decremento rápido */}
+                <View style={styles.steppersRow}>
+                  <Pressable
+                    onPress={() => ajustarPeso(-2.5)}
+                    style={({ pressed }) => [styles.btnStepper, pressed && styles.btnStepperPressed]}
+                  >
+                    <Text style={styles.btnStepperText}>-2.5</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => ajustarPeso(1.25)}
+                    style={({ pressed }) => [styles.btnStepper, pressed && styles.btnStepperPressed]}
+                  >
+                    <Text style={styles.btnStepperText}>+1.25</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => ajustarPeso(2.5)}
+                    style={({ pressed }) => [styles.btnStepper, styles.btnStepperAccent, pressed && styles.btnStepperPressed]}
+                  >
+                    <Text style={[styles.btnStepperText, { color: noir.info }]}>+2.5</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => ajustarPeso(5)}
+                    style={({ pressed }) => [styles.btnStepper, pressed && styles.btnStepperPressed]}
+                  >
+                    <Text style={styles.btnStepperText}>+5</Text>
+                  </Pressable>
+                </View>
+
+                {/* Botón Copiar Previo */}
+                {Boolean(valorPrevioSugerido) && (
+                  <Pressable
+                    onPress={() => {
+                      vibrarBoton(12);
+                      if (valorPrevioSugerido) onChangeValor(valorPrevioSugerido);
+                    }}
+                    style={({ pressed }) => [styles.btnAccionEspecial, pressed && { opacity: 0.7 }]}
+                  >
+                    <Text style={styles.btnCopiarText}>= {valorPrevioSugerido}kg</Text>
+                  </Pressable>
+                )}
+              </>
+            )}
+
+            {esPlacas && (
               <View style={styles.steppersRow}>
                 <Pressable
-                  onPress={() => ajustarPeso(-2.5)}
+                  onPress={() => cambiarPlacas(-1)}
                   style={({ pressed }) => [styles.btnStepper, pressed && styles.btnStepperPressed]}
                 >
-                  <Text style={styles.btnStepperText}>-2.5</Text>
+                  <Text style={styles.btnStepperText}>−1 placa</Text>
                 </Pressable>
                 <Pressable
-                  onPress={() => ajustarPeso(1.25)}
-                  style={({ pressed }) => [styles.btnStepper, pressed && styles.btnStepperPressed]}
-                >
-                  <Text style={styles.btnStepperText}>+1.25</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => ajustarPeso(2.5)}
+                  onPress={() => cambiarPlacas(1)}
                   style={({ pressed }) => [styles.btnStepper, styles.btnStepperAccent, pressed && styles.btnStepperPressed]}
                 >
-                  <Text style={[styles.btnStepperText, { color: noir.info }]}>+2.5</Text>
+                  <Text style={[styles.btnStepperText, { color: noir.info }]}>+1 placa</Text>
                 </Pressable>
-                <Pressable
-                  onPress={() => ajustarPeso(5)}
-                  style={({ pressed }) => [styles.btnStepper, pressed && styles.btnStepperPressed]}
-                >
-                  <Text style={styles.btnStepperText}>+5</Text>
-                </Pressable>
+                {Boolean(valorPrevioSugerido) && (
+                  <Pressable
+                    onPress={() => {
+                      vibrarBoton(12);
+                      if (valorPrevioSugerido) onChangeValor(valorPrevioSugerido);
+                    }}
+                    style={({ pressed }) => [styles.btnAccionEspecial, pressed && { opacity: 0.7 }]}
+                  >
+                    <Text style={styles.btnCopiarText}>= {valorPrevioSugerido} pl</Text>
+                  </Pressable>
+                )}
               </View>
-
-              {/* Botón Copiar Previo */}
-              {Boolean(valorPrevioSugerido) && (
-                <Pressable
-                  onPress={() => {
-                    vibrarBoton(12);
-                    if (valorPrevioSugerido) onChangeValor(valorPrevioSugerido);
-                  }}
-                  style={({ pressed }) => [styles.btnAccionEspecial, pressed && { opacity: 0.7 }]}
-                >
-                  <Text style={styles.btnCopiarText}>= {valorPrevioSugerido}k</Text>
-                </Pressable>
-              )}
-            </>
-          )}
+            )}
 
           {/* MODO REPS: Chips de repeticiones frecuentes */}
           {(modo === 'reps' || modo === 'repsI') && (
@@ -465,11 +585,13 @@ export default function TecladoEntrenamientoInteligente({
               ))}
             </View>
           )}
-        </View>
+          </View>
+        )}
 
         {/* TECLADO NUMÉRICO TÁCTIL (GRID 3x4 + COLUMNA DE ACCIÓN) */}
-        <View style={[styles.gridContenedor, esDecimal && tipoCarga !== 'kg' && { display: 'none' }]}>
-          <View style={styles.gridNumerico}>
+        <View style={styles.gridContenedor}>
+          {mostrarTecladoNumerico && (
+            <View style={styles.gridNumerico}>
             {/* FILA 1 */}
             <View style={styles.tecladoFila}>
               <TeclaNum digito="1" onPress={presionarDigito} />
@@ -493,7 +615,7 @@ export default function TecladoEntrenamientoInteligente({
 
             {/* FILA 4 */}
             <View style={styles.tecladoFila}>
-              {esDecimal ? (
+              {aceptaDecimales ? (
                 <Pressable
                   onPress={presionarPunto}
                   style={({ pressed }) => [styles.teclaBtn, pressed && styles.teclaBtnPressed]}
@@ -521,9 +643,10 @@ export default function TecladoEntrenamientoInteligente({
               </Pressable>
             </View>
           </View>
+          )}
 
           {/* COLUMNA DE ACCIONES DE FLUJO */}
-          <View style={styles.columnaFlujo}>
+          <View style={[styles.columnaFlujo, !mostrarTecladoNumerico && styles.columnaFlujoAncha]}>
             {/* BOTÓN SIGUIENTE */}
             <Pressable
               onPress={() => {
@@ -754,6 +877,13 @@ const styles = StyleSheet.create({
     fontFamily: fuentes.bold,
     letterSpacing: 0.15,
   },
+  barraDiscosTotal: {
+    flex: 1,
+    color: noir.muted,
+    fontSize: 7.4,
+    fontFamily: fuentes.medium,
+    textAlign: 'right',
+  },
   discosRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -769,6 +899,10 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     borderWidth: 1,
     borderColor: 'rgba(92, 200, 255, 0.2)',
+  },
+  chipDiscoQuitar: {
+    backgroundColor: 'rgba(240, 138, 155, 0.08)',
+    borderColor: 'rgba(240, 138, 155, 0.28)',
   },
   chipDiscoCant: {
     color: noir.platinum,
@@ -958,6 +1092,10 @@ const styles = StyleSheet.create({
   columnaFlujo: {
     flex: 1,
     gap: 5,
+  },
+  columnaFlujoAncha: {
+    flexDirection: 'row',
+    minHeight: 44,
   },
   btnFlujoSiguiente: {
     flex: 1,

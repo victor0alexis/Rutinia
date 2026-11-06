@@ -933,7 +933,9 @@ function construirSesionHistorial(
   );
   if (!tieneDatos && !notaEjercicio) return null;
 
-  const seriesCompletadas = series.filter((serie) => serie.completado).length;
+  const seriesCompletadas = series.filter(
+    (serie) => serie.completado && serie.estado !== 'no_hecha'
+  ).length;
 
   // Las filas de ejercicios que se saltaron en una sesión completada conservan
   // la prescripción (peso/reps de la rutina) pero ninguna serie con ✓. No son
