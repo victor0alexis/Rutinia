@@ -23,14 +23,20 @@ import { differenceInCalendarDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { noir } from '../../constantes/colores';
 import { useLayout } from '../../hooks/useLayout';
-import { formatearDetalleCarga, leerPreferenciasCarga, normalizarNombreParaPreferencia } from '../../utilidades/cargasEjercicio';
+import {
+  formatearDetalleCarga,
+  leerPreferenciasCarga,
+  normalizarNombreParaPreferencia,
+} from '../../utilidades/cargasEjercicio';
 import { vibrarBoton } from '../../utilidades/hapticos';
 import {
   SesionHistorialEjercicio,
   SerieHistorialEjercicio,
   obtenerHistorialEjercicio,
 } from '../../servicios/registros';
+
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
 type Props = {
   visible: boolean;
   nombreEjercicio: string;
@@ -38,70 +44,65 @@ type Props = {
   onClose: () => void;
   onUsarSesion?: (sesion: SesionHistorialEjercicio) => void;
 };
-type MetricaGrafica =
-  | 'e1rm'
-  | 'peso'
-  | 'volumen'
-  | 'reps'
-  | 'totalReps';
+
+type MetricaGrafica = 'e1rm' | 'peso' | 'volumen' | 'reps' | 'totalReps';
+
 const METRICAS: {
   id: MetricaGrafica;
   etiqueta: string;
   titulo: string;
-  descripcion: string;
   unidad: 'kg' | 'reps';
 }[] = [
   {
     id: 'e1rm',
     etiqueta: '1RM',
     titulo: '1RM estimado',
-    descripcion: 'Mejor serie de cada sesión · fórmula de Epley',
     unidad: 'kg',
   },
   {
     id: 'peso',
     etiqueta: 'Peso',
     titulo: 'Peso máximo',
-    descripcion: 'Carga más alta registrada en cada sesión',
     unidad: 'kg',
   },
   {
     id: 'volumen',
     etiqueta: 'Vol.',
-    titulo: 'Volumen de trabajo',
-    descripcion: 'Kg totales movidos, incluyendo dropsets',
+    titulo: 'Volumen total',
     unidad: 'kg',
   },
   {
     id: 'reps',
     etiqueta: 'Reps',
     titulo: 'Repeticiones máximas',
-    descripcion: 'Máximo de reps en una sola serie de cada sesión',
     unidad: 'reps',
   },
   {
     id: 'totalReps',
     etiqueta: 'Total',
     titulo: 'Repeticiones totales',
-    descripcion: 'Reps completadas en toda la sesión, incluyendo dropsets',
     unidad: 'reps',
   },
 ];
+
 function fechaComoDate(fecha: string): Date {
   return new Date(`${fecha}T12:00:00`);
 }
+
 function capitalizar(texto: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
+
 function formatearFecha(fecha: string): string {
   try {
     return capitalizar(
-      format(fechaComoDate(fecha), "EEE d MMM yyyy", { locale: es })
+      format(fechaComoDate(fecha), 'EEE d MMM yyyy', { locale: es })
     );
   } catch {
     return fecha;
   }
 }
+
 function formatearFechaCorta(fecha: string): string {
   try {
     return format(fechaComoDate(fecha), 'd MMM', { locale: es });
@@ -109,35 +110,18 @@ function formatearFechaCorta(fecha: string): string {
     return fecha;
   }
 }
-function formatearMes(fecha: string): string {
-  try {
-    return capitalizar(
-      format(fechaComoDate(fecha), 'MMM yyyy', { locale: es })
-    );
-  } catch {
-    return fecha;
-  }
-}
-function fechaRelativa(fecha: string): string {
+
+function textoDiasRelativo(fecha: string): string {
   try {
     const dias = differenceInCalendarDays(new Date(), fechaComoDate(fecha));
     if (dias <= 0) return 'Hoy';
-    if (dias === 1) return 'Ayer';
-    if (dias < 7) return `Hace ${dias} días`;
-    if (dias < 30) {
-      const semanas = Math.floor(dias / 7);
-      return `Hace ${semanas} sem`;
-    }
-    if (dias < 365) {
-      const meses = Math.floor(dias / 30);
-      return `Hace ${meses} ${meses === 1 ? 'mes' : 'meses'}`;
-    }
-    const anios = Math.floor(dias / 365);
-    return `Hace ${anios} ${anios === 1 ? 'año' : 'años'}`;
+    if (dias === 1) return 'Ayer · Hace 1 día';
+    return `Hace ${dias} días`;
   } catch {
     return '';
   }
 }
+
 function formatearNumero(valor: number, decimales = 1): string {
   if (!Number.isFinite(valor)) return '—';
   const redondeado = Math.round(valor * 10 ** decimales) / 10 ** decimales;
@@ -145,20 +129,24 @@ function formatearNumero(valor: number, decimales = 1): string {
     ? String(redondeado)
     : redondeado.toFixed(decimales).replace('.', ',');
 }
+
 function formatearKg(valor: number, decimales = 1): string {
   return valor > 0 ? formatearNumero(valor, decimales) : '—';
 }
+
 function formatearCompacto(valor: number): string {
   if (valor <= 0) return '—';
   if (valor >= 1000) return `${formatearNumero(valor / 1000, 1)}k`;
   return formatearNumero(valor, 0);
 }
+
 function formatearSerie(kg: number, reps: number): string {
   if (kg > 0 && reps > 0) return `${formatearKg(kg)} kg × ${reps}`;
   if (reps > 0) return `${reps} reps`;
   if (kg > 0) return `${formatearKg(kg)} kg`;
   return '—';
 }
+
 function valorMetrica(
   sesion: SesionHistorialEjercicio,
   metrica: MetricaGrafica
@@ -169,14 +157,7 @@ function valorMetrica(
   if (metrica === 'totalReps') return sesion.totalReps;
   return sesion.mejorE1RM;
 }
-function contextoDeSesion(sesion: SesionHistorialEjercicio): string {
-  const rutina = sesion.rutinaNombre?.trim();
-  const plan =
-    sesion.planNombre?.trim() && sesion.planNombre !== rutina
-      ? sesion.planNombre.trim()
-      : null;
-  return [rutina, plan].filter(Boolean).join(' · ');
-}
+
 function mejorMarcaTexto(sesion: SesionHistorialEjercicio): string {
   if (sesion.mejorPeso > 0 && sesion.repsMejorPeso > 0) {
     return `${formatearKg(sesion.mejorPeso)} kg × ${sesion.repsMejorPeso}`;
@@ -190,54 +171,8 @@ function mejorMarcaTexto(sesion: SesionHistorialEjercicio): string {
   );
   return maxReps > 0 ? `${maxReps} reps` : '—';
 }
-function IconoMetrica({
-  icono,
-  color,
-}: {
-  icono: IoniconName;
-  color: string;
-}) {
-  return (
-    <View
-      style={[
-        styles.statIcon,
-        { backgroundColor: `${color}14`, borderColor: `${color}2E` },
-      ]}
-    >
-      <Ionicons name={icono} size={14} color={color} />
-    </View>
-  );
-}
-function StatCard({
-  icono,
-  label,
-  valor,
-  detalle,
-  color = noir.info,
-}: {
-  icono: IoniconName;
-  label: string;
-  valor: string;
-  detalle?: string;
-  color?: string;
-}) {
-  return (
-    <View style={styles.statCard}>
-      <View style={styles.statTop}>
-        <IconoMetrica icono={icono} color={color} />
-        <Text style={styles.statLabel}>{label}</Text>
-      </View>
-      <Text style={styles.statValue} numberOfLines={1}>
-        {valor}
-      </Text>
-      {Boolean(detalle) && (
-        <Text style={styles.statDetail} numberOfLines={1}>
-          {detalle}
-        </Text>
-      )}
-    </View>
-  );
-}
+
+// ── Gráfico de Evolución Compacto y Profesional ─────────────────────────────
 function GraficoEvolucion({
   sesiones,
   metrica,
@@ -248,7 +183,7 @@ function GraficoEvolucion({
   unidad: 'kg' | 'reps';
 }) {
   const [ancho, setAncho] = useState(0);
-  const alto = 132;
+  const alto = 120;
   const puntos = useMemo(
     () =>
       sesiones
@@ -259,51 +194,50 @@ function GraficoEvolucion({
         .filter((punto) => punto.valor > 0),
     [sesiones, metrica]
   );
+
   if (puntos.length === 0) {
     return (
       <View style={styles.chartEmpty}>
-        <Ionicons name="analytics-outline" size={19} color={noir.muted2} />
+        <Ionicons name="analytics-outline" size={18} color={noir.muted2} />
         <Text style={styles.chartEmptyText}>
-          Aún no hay datos de{' '}
-          {metrica === 'volumen'
-            ? 'volumen'
-            : metrica === 'reps' || metrica === 'totalReps'
-              ? 'repeticiones'
-              : 'carga'}{' '}
-          registrados para este ejercicio.
+          Aún no hay registros de{' '}
+          {metrica === 'volumen' ? 'volumen' : 'carga'} para mostrar la curva.
         </Text>
       </View>
     );
   }
+
   const valores = puntos.map((punto) => punto.valor);
   const maximo = Math.max(...valores);
   const minimo = Math.min(...valores);
   const rango = maximo - minimo;
-  const paddingX = 8;
+  const paddingX = 10;
   const paddingY = 12;
+
   const x = (indice: number) => {
     if (puntos.length === 1) return ancho / 2;
     return paddingX + (indice / (puntos.length - 1)) * (ancho - paddingX * 2);
   };
+
   const y = (valor: number) => {
     if (rango <= 0) return alto / 2;
-    return (
-      paddingY +
-      (1 - (valor - minimo) / rango) * (alto - paddingY * 2)
-    );
+    return paddingY + (1 - (valor - minimo) / rango) * (alto - paddingY * 2);
   };
+
   const linePath = puntos
     .map(
       (punto, indice) =>
         `${indice === 0 ? 'M' : 'L'} ${x(indice)} ${y(punto.valor)}`
     )
     .join(' ');
+
   const areaPath =
     puntos.length > 1
-      ? `${linePath} L ${x(puntos.length - 1)} ${alto - 4} L ${x(
+      ? `${linePath} L ${x(puntos.length - 1)} ${alto - 2} L ${x(
           0
-        )} ${alto - 4} Z`
+        )} ${alto - 2} Z`
       : '';
+
   return (
     <View>
       <View style={styles.chartScaleRow}>
@@ -328,8 +262,8 @@ function GraficoEvolucion({
                 x2="0"
                 y2="1"
               >
-                <Stop offset="0" stopColor={noir.info} stopOpacity={0.26} />
-                <Stop offset="1" stopColor={noir.info} stopOpacity={0} />
+                <Stop offset="0" stopColor={noir.info} stopOpacity={0.25} />
+                <Stop offset="1" stopColor={noir.info} stopOpacity={0.01} />
               </SvgLinearGradient>
             </Defs>
             {[0, 0.5, 1].map((posicion) => (
@@ -339,7 +273,7 @@ function GraficoEvolucion({
                 y1={paddingY + posicion * (alto - paddingY * 2)}
                 x2={ancho - paddingX}
                 y2={paddingY + posicion * (alto - paddingY * 2)}
-                stroke="rgba(255, 255, 255, 0.06)"
+                stroke="rgba(255, 255, 255, 0.05)"
                 strokeWidth={1}
               />
             ))}
@@ -351,7 +285,7 @@ function GraficoEvolucion({
                 d={linePath}
                 fill="none"
                 stroke={noir.info}
-                strokeWidth={2}
+                strokeWidth={2.2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
@@ -363,7 +297,7 @@ function GraficoEvolucion({
                   key={`punto-${punto.fecha}-${indice}`}
                   cx={x(indice)}
                   cy={y(punto.valor)}
-                  r={esUltimo ? 4.5 : 2.8}
+                  r={esUltimo ? 4.5 : 2.6}
                   fill={esUltimo ? noir.mint : noir.info}
                   stroke={esUltimo ? noir.bg : 'transparent'}
                   strokeWidth={esUltimo ? 2 : 0}
@@ -386,12 +320,14 @@ function GraficoEvolucion({
     </View>
   );
 }
+
+// ── Etiqueta compacta de serie ──────────────────────────────────────────────
 function EtiquetaSerie({
   texto,
   icono,
   color = noir.muted,
-  borde = 'rgba(255, 255, 255, 0.1)',
-  fondo = 'rgba(255, 255, 255, 0.045)',
+  borde = 'rgba(255, 255, 255, 0.08)',
+  fondo = 'rgba(255, 255, 255, 0.035)',
 }: {
   texto: string;
   icono?: IoniconName;
@@ -400,17 +336,14 @@ function EtiquetaSerie({
   fondo?: string;
 }) {
   return (
-    <View
-      style={[
-        styles.serieTag,
-        { borderColor: borde, backgroundColor: fondo },
-      ]}
-    >
-      {icono && <Ionicons name={icono} size={9} color={color} />}
+    <View style={[styles.serieTag, { borderColor: borde, backgroundColor: fondo }]}>
+      {icono && <Ionicons name={icono} size={8} color={color} />}
       <Text style={[styles.serieTagText, { color }]}>{texto}</Text>
     </View>
   );
 }
+
+// ── Fila de Serie ───────────────────────────────────────────────────────────
 function FilaSerie({
   serie,
   esUnilateral,
@@ -422,78 +355,98 @@ function FilaSerie({
   convertirPlacasKg: boolean;
   kgPorPlaca: number | null;
 }) {
-  const formatoLado = (peso: number, reps: number, carga?: SerieHistorialEjercicio['carga']) =>
+  const formatoLado = (
+    peso: number,
+    reps: number,
+    carga?: SerieHistorialEjercicio['carga']
+  ) =>
     carga?.tipo === 'placas' && convertirPlacasKg && kgPorPlaca
       ? `${formatearNumero((carga.placas || 0) * kgPorPlaca)} kg × ${reps || '—'}`
       : carga?.tipo === 'placas' && peso <= 0
-      ? `${carga.placas || 0} placas × ${reps || '—'} reps`
+      ? `${carga.placas || 0} pl × ${reps || '—'}`
       : formatearSerie(peso, reps);
+
   return (
     <View style={styles.serieRow}>
       <View
         style={[
-          styles.serieNumber,
-          serie.completado && styles.serieNumberDone,
+          styles.serieNumBadge,
+          serie.completado && styles.serieNumBadgeDone,
         ]}
       >
         <Text
           style={[
-            styles.serieNumberText,
-            serie.completado && styles.serieNumberTextDone,
+            styles.serieNumText,
+            serie.completado && styles.serieNumTextDone,
           ]}
         >
-          S{serie.setNum}
+          {String(serie.setNum).padStart(2, '0')}
         </Text>
       </View>
-      <View style={styles.serieBody}>
-        <View style={styles.serieValues}>
-          {esUnilateral ? (
-            <>
-              <Text style={styles.serieValue}>
-                D {formatoLado(serie.pesoD, serie.repsD, serie.carga)}
-              </Text>
-              <Text style={styles.serieSeparator}>·</Text>
-              <Text style={styles.serieValue}>
-                I {formatoLado(serie.pesoI, serie.repsI, serie.cargaI)}
-              </Text>
-            </>
-          ) : (
-            <Text style={styles.serieValue}>
-              {formatoLado(serie.pesoD, serie.repsD, serie.carga)}
+      <View style={styles.serieValuesWrap}>
+        {esUnilateral ? (
+          <>
+            <Text style={styles.serieBrandValue}>
+              D: {formatoLado(serie.pesoD, serie.repsD, serie.carga)}
             </Text>
-          )}
-          {serie.rir !== null && (
-            <EtiquetaSerie texto={`RIR ${serie.rir}`} />
-          )}
-          {serie.estado === 'fallo' && (
-            <EtiquetaSerie texto="FALLO" icono="flame" color={noir.champagne} borde="rgba(255,209,102,0.2)" fondo="rgba(255,209,102,0.065)" />
-          )}
-          {serie.estado === 'no_hecha' && (
-            <EtiquetaSerie texto="NO HECHA" color={noir.muted} borde="rgba(255,255,255,0.1)" fondo="rgba(255,255,255,0.035)" />
-          )}
-          {serie.repsMin && serie.repsMax && (
-            <EtiquetaSerie texto={`Objetivo ${serie.repsMin}${serie.repsMax === serie.repsMin ? '' : `–${serie.repsMax}`}`} color={noir.info} />
-          )}
-          {serie.repsParciales > 0 && (
-            <EtiquetaSerie
-              texto={`+${serie.repsParciales}p`}
-              color={noir.champagne}
-              borde="rgba(255, 209, 102, 0.2)"
-              fondo="rgba(255, 209, 102, 0.065)"
-            />
-          )}
-          {serie.esDropset && (
-            <EtiquetaSerie
-              texto="DROP"
-              color={noir.info}
-              borde="rgba(92, 200, 255, 0.2)"
-              fondo="rgba(92, 200, 255, 0.065)"
-            />
-          )}
-        </View>
+            <Text style={styles.serieSeparator}>·</Text>
+            <Text style={styles.serieBrandValue}>
+              I: {formatoLado(serie.pesoI, serie.repsI, serie.cargaI)}
+            </Text>
+          </>
+        ) : (
+          <Text style={styles.serieBrandValue}>
+            {formatoLado(serie.pesoD, serie.repsD, serie.carga)}
+          </Text>
+        )}
+        {serie.rir !== null && (
+          <EtiquetaSerie texto={`RIR ${serie.rir}`} />
+        )}
+        {serie.estado === 'fallo' && (
+          <EtiquetaSerie
+            texto="FALLO"
+            icono="flame"
+            color={noir.champagne}
+            borde="rgba(255,209,102,0.25)"
+            fondo="rgba(255,209,102,0.08)"
+          />
+        )}
+        {serie.estado === 'no_hecha' && (
+          <EtiquetaSerie
+            texto="NO HECHA"
+            color={noir.muted}
+            borde="rgba(255,255,255,0.08)"
+            fondo="rgba(255,255,255,0.03)"
+          />
+        )}
+        {Boolean(serie.repsMin && serie.repsMax) && (
+          <EtiquetaSerie
+            texto={`Obj ${serie.repsMin}${
+              serie.repsMax === serie.repsMin ? '' : `–${serie.repsMax}`
+            }`}
+            color={noir.info}
+          />
+        )}
+        {serie.repsParciales > 0 && (
+          <EtiquetaSerie
+            texto={`+${serie.repsParciales}p`}
+            color={noir.champagne}
+            borde="rgba(255, 209, 102, 0.2)"
+            fondo="rgba(255, 209, 102, 0.065)"
+          />
+        )}
+        {serie.esDropset && (
+          <EtiquetaSerie
+            texto="DROP"
+            color={noir.info}
+            borde="rgba(92, 200, 255, 0.2)"
+            fondo="rgba(92, 200, 255, 0.065)"
+          />
+        )}
         {(serie.carga || serie.cargaI) && (
-          <Text style={{ color: noir.muted, fontSize: 10, marginTop: 3 }}>
-            {formatearDetalleCarga(serie.carga)}{serie.cargaI ? ` · I: ${formatearDetalleCarga(serie.cargaI)}` : ''}
+          <Text style={{ color: noir.muted, fontSize: 9.5, width: '100%' }}>
+            {formatearDetalleCarga(serie.carga)}
+            {serie.cargaI ? ` · I: ${formatearDetalleCarga(serie.cargaI)}` : ''}
           </Text>
         )}
         {serie.drops.length > 0 && (
@@ -503,10 +456,10 @@ function FilaSerie({
               .map(
                 (drop) =>
                   `${formatearSerie(drop.kg, drop.reps)}${
-                    drop.rir !== null ? ` · RIR ${drop.rir}` : ''
+                    drop.rir !== null ? ` (RIR ${drop.rir})` : ''
                   }`
               )
-              .join('  →  ')}
+              .join(' → ')}
           </Text>
         )}
         {Boolean(serie.nota) && (
@@ -514,13 +467,27 @@ function FilaSerie({
         )}
       </View>
       <Ionicons
-        name={serie.estado === 'no_hecha' ? 'remove-circle-outline' : serie.completado ? 'checkmark-circle' : 'ellipse-outline'}
+        name={
+          serie.estado === 'no_hecha'
+            ? 'remove-circle-outline'
+            : serie.completado
+            ? 'checkmark-circle'
+            : 'ellipse-outline'
+        }
         size={13}
-        color={serie.estado === 'no_hecha' ? noir.muted : serie.completado ? noir.mint : noir.muted2}
+        color={
+          serie.estado === 'no_hecha'
+            ? noir.muted
+            : serie.completado
+            ? noir.mint
+            : noir.muted2
+        }
       />
     </View>
   );
 }
+
+// ── Tarjeta de Sesión en la lista ───────────────────────────────────────────
 function TarjetaSesion({
   sesion,
   esUltima,
@@ -542,118 +509,144 @@ function TarjetaSesion({
   kgPorPlaca: number | null;
   onToggleConversion: () => void;
 }) {
-  const contexto = contextoDeSesion(sesion);
+  const rutinaNombre = sesion.rutinaNombre?.trim() || 'Sesión libre';
   const tieneCarga = sesion.mejorE1RM > 0;
   const tieneVolumen = sesion.volumenKg > 0;
+
   const deltaColor =
     deltaProgreso === null || Math.abs(deltaProgreso) < 0.05
       ? noir.muted
       : deltaProgreso > 0
-        ? noir.mint
-        : '#FF7A90';
+      ? noir.mint
+      : '#FF7A90';
+
   const deltaIcon: IoniconName =
     deltaProgreso === null || Math.abs(deltaProgreso) < 0.05
       ? 'remove-outline'
       : deltaProgreso > 0
-        ? 'trending-up'
-        : 'trending-down';
+      ? 'trending-up'
+      : 'trending-down';
+
   const deltaTexto =
     deltaProgreso === null
       ? ''
       : Math.abs(deltaProgreso) < 0.05
-        ? `Sin cambios de ${
-            unidadProgreso === 'kg' ? '1RM' : 'reps'
-          } frente a la sesión anterior`
-        : `${deltaProgreso > 0 ? '+' : '-'}${formatearNumero(
-            Math.abs(deltaProgreso),
-            unidadProgreso === 'kg' ? 1 : 0
-          )} ${
-            unidadProgreso === 'kg' ? 'kg de 1RM' : 'reps'
-          } frente a la sesión anterior`;
+      ? `Sin variación de ${
+          unidadProgreso === 'kg' ? '1RM' : 'reps'
+        } frente a la sesión anterior`
+      : `${deltaProgreso > 0 ? '+' : '-'}${formatearNumero(
+          Math.abs(deltaProgreso),
+          unidadProgreso === 'kg' ? 1 : 0
+        )} ${
+          unidadProgreso === 'kg' ? 'kg de 1RM' : 'reps'
+        } frente a la sesión anterior`;
+
   return (
     <View style={styles.sessionCard}>
+      {/* Cabecera de la sesión */}
       <View style={styles.sessionHeader}>
-        <View style={styles.sessionDateBlock}>
-          <Text style={styles.sessionDate}>
+        <View style={styles.sessionDateBox}>
+          <Text style={styles.sessionDateTitle}>
             {formatearFecha(sesion.fecha)}
           </Text>
-          <Text style={styles.sessionContext} numberOfLines={1}>
-            {fechaRelativa(sesion.fecha)}
-            {contexto ? ` · ${contexto}` : ''}
-          </Text>
+          <View style={styles.sessionRelativeRow}>
+            <Ionicons name="time-outline" size={10} color={noir.mint} />
+            <Text style={styles.sessionRelativeText}>
+              {textoDiasRelativo(sesion.fecha)}
+            </Text>
+          </View>
         </View>
-        <View style={styles.sessionBadges}>
+
+        <View style={styles.sessionBadgesRow}>
+          {/* Chip de Rutina */}
+          <View style={styles.routineBadge}>
+            <Ionicons name="barbell-outline" size={9} color="#D8C7FF" />
+            <Text style={styles.routineBadgeText} numberOfLines={1}>
+              {rutinaNombre}
+            </Text>
+          </View>
+
           {esUltima && (
-            <View style={[styles.badge, styles.badgeLatest]}>
+            <View style={[styles.badgePill, styles.badgeLatest]}>
               <Text style={[styles.badgeText, { color: noir.info }]}>
                 ÚLTIMA
               </Text>
             </View>
           )}
+
           {esRecord && (
-            <View style={[styles.badge, styles.badgeRecord]}>
+            <View style={[styles.badgePill, styles.badgeRecord]}>
               <Ionicons name="trophy" size={8} color={noir.champagne} />
               <Text style={[styles.badgeText, { color: noir.champagne }]}>
-                RÉCORD
+                PR
               </Text>
             </View>
           )}
         </View>
       </View>
-      {(sesion.origenSesion === 'solo_hoy' || sesion.ordenSesion) && (
-        <Text style={{ color: noir.muted, fontSize: 9, marginTop: -3, marginBottom: 7 }}>
-          {`Ejercicio ${sesion.ordenSesion ?? 'de la sesión'}`}{sesion.origenSesion === 'solo_hoy' ? ' · Añadido hoy' : ''}
-        </Text>
-      )}
-      <View style={styles.sessionStats}>
-        <View style={styles.sessionStat}>
-          <Text style={styles.sessionStatLabel}>MEJOR SERIE</Text>
-          <Text style={styles.sessionStatValue}>
+
+      {/* KPIs resumidos de la sesión */}
+      <View style={styles.sessionKpisRow}>
+        <View style={styles.sessionKpiCol}>
+          <Text style={styles.sessionKpiLabel}>MEJOR SERIE</Text>
+          <Text style={styles.sessionKpiValue} numberOfLines={1}>
             {mejorMarcaTexto(sesion)}
           </Text>
         </View>
-        <View style={styles.sessionStatDivider} />
-        <View style={styles.sessionStat}>
-          <Text style={styles.sessionStatLabel}>
-            {tieneCarga ? '1RM EST.' : 'MEJOR REPS'}
+        <View style={styles.sessionKpiDivider} />
+        <View style={styles.sessionKpiCol}>
+          <Text style={styles.sessionKpiLabel}>
+            {tieneCarga ? '1RM ESTIMADO' : 'MEJOR REPS'}
           </Text>
-          <Text style={styles.sessionStatValue}>
+          <Text style={styles.sessionKpiValue} numberOfLines={1}>
             {tieneCarga
               ? `${formatearKg(sesion.mejorE1RM, 0)} kg`
               : sesion.mejorReps > 0
-                ? `${sesion.mejorReps} reps`
-                : '—'}
+              ? `${sesion.mejorReps} reps`
+              : '—'}
           </Text>
         </View>
-        <View style={styles.sessionStatDivider} />
-        <View style={styles.sessionStat}>
-          <Text style={styles.sessionStatLabel}>
-            {tieneVolumen ? 'VOLUMEN' : 'REPS TOTALES'}
+        <View style={styles.sessionKpiDivider} />
+        <View style={styles.sessionKpiCol}>
+          <Text style={styles.sessionKpiLabel}>
+            {tieneVolumen ? 'VOLUMEN' : 'TOTAL REPS'}
           </Text>
-          <Text style={styles.sessionStatValue}>
+          <Text style={styles.sessionKpiValue} numberOfLines={1}>
             {tieneVolumen
               ? `${formatearCompacto(sesion.volumenKg)} kg`
               : sesion.totalReps > 0
-                ? `${sesion.totalReps} reps`
-                : '—'}
+              ? `${sesion.totalReps} reps`
+              : '—'}
           </Text>
         </View>
       </View>
+
+      {/* Delta frente a sesión anterior */}
       {deltaProgreso !== null && (
         <View style={styles.deltaRow}>
-          <Ionicons name={deltaIcon} size={12} color={deltaColor} />
+          <Ionicons name={deltaIcon} size={11} color={deltaColor} />
           <Text style={[styles.deltaText, { color: deltaColor }]}>
             {deltaTexto}
           </Text>
         </View>
       )}
-      <View style={styles.seriesBox}>
-        <View style={styles.seriesBoxHeader}>
-          <Text style={styles.seriesBoxTitle}>SERIES REGISTRADAS</Text>
-          {kgPorPlaca && <Pressable onPress={onToggleConversion}><Text style={{ color: noir.info, fontSize: 10 }}>{convertirPlacasKg ? 'Ver placas' : 'Convertir historial'}</Text></Pressable>}
-          <Text style={styles.seriesBoxCount}>
-            {sesion.seriesCompletadas}/{sesion.series.length} completadas
-          </Text>
+
+      {/* Desglose de series (marcas completadas) */}
+      <View style={styles.seriesContainer}>
+        <View style={styles.seriesContainerHeader}>
+          <Text style={styles.seriesContainerTitle}>SERIES REALIZADAS</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {kgPorPlaca && (
+              <Pressable onPress={onToggleConversion} hitSlop={6}>
+                <Text style={{ color: noir.info, fontSize: 9, fontFamily: 'font-bold' }}>
+                  {convertirPlacasKg ? 'Ver placas' : 'En kg'}
+                </Text>
+              </Pressable>
+            )}
+            <Text style={styles.seriesContainerCount}>
+              {sesion.seriesCompletadas}/{sesion.series.length} completadas
+            </Text>
+          </View>
         </View>
         {sesion.series.map((serie) => (
           <FilaSerie
@@ -665,36 +658,35 @@ function TarjetaSesion({
           />
         ))}
       </View>
+
+      {/* Notas de la sesión o del ejercicio */}
       {Boolean(sesion.notaSesion) && (
         <View
           style={[
             styles.exerciseNote,
             {
-              backgroundColor: 'rgba(92, 200, 255, 0.03)',
+              backgroundColor: 'rgba(92, 200, 255, 0.035)',
               borderColor: 'rgba(92, 200, 255, 0.12)',
             },
           ]}
         >
-          <Ionicons
-            name="document-text-outline"
-            size={12}
-            color={noir.info}
-          />
+          <Ionicons name="document-text-outline" size={11} color={noir.info} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.exerciseNoteLabel, { color: noir.info }]}>
-              NOTA DE LA SESIÓN
+              NOTA DE SESIÓN
             </Text>
-            <Text style={styles.exerciseNoteText} numberOfLines={4}>
+            <Text style={styles.exerciseNoteText} numberOfLines={3}>
               {sesion.notaSesion}
             </Text>
           </View>
         </View>
       )}
+
       {Boolean(sesion.notaEjercicio) && (
         <View style={styles.exerciseNote}>
           <Ionicons
             name="chatbubble-ellipses-outline"
-            size={12}
+            size={11}
             color={noir.champagne}
           />
           <View style={{ flex: 1 }}>
@@ -703,25 +695,25 @@ function TarjetaSesion({
           </View>
         </View>
       )}
+
+      {/* Botón para cargar marcas de esta sesión */}
       {onUsar && (
         <Pressable
           onPress={() => onUsar(sesion)}
           style={({ pressed }) => [
             styles.useButton,
-            pressed && { opacity: 0.78, transform: [{ scale: 0.995 }] },
+            pressed && { opacity: 0.75, transform: [{ scale: 0.995 }] },
           ]}
           accessibilityRole="button"
-          accessibilityLabel={`Usar las series del ${formatearFecha(
-            sesion.fecha
-          )}`}
+          accessibilityLabel={`Usar series del ${formatearFecha(sesion.fecha)}`}
         >
-          <Ionicons name="copy-outline" size={14} color={noir.mint} />
+          <Ionicons name="copy-outline" size={13} color={noir.mint} />
           <Text style={styles.useButtonText}>
-            {esUltima ? 'Repetir esta sesión' : 'Usar esta sesión'}
+            {esUltima ? 'Repetir estas series' : 'Cargar estas series hoy'}
           </Text>
           <Ionicons
             name="arrow-forward"
-            size={13}
+            size={12}
             color={noir.muted}
             style={{ marginLeft: 'auto' }}
           />
@@ -730,6 +722,8 @@ function TarjetaSesion({
     </View>
   );
 }
+
+// ── COMPONENTE PRINCIPAL MODAL ──────────────────────────────────────────────
 export default function HistorialEjercicioModal({
   visible,
   nombreEjercicio,
@@ -745,14 +739,25 @@ export default function HistorialEjercicioModal({
   const [metrica, setMetrica] = useState<MetricaGrafica>('e1rm');
   const [kgPorPlaca, setKgPorPlaca] = useState<number | null>(null);
   const [convertirPlacasKg, setConvertirPlacasKg] = useState(false);
+
   useEffect(() => {
     let activo = true;
-    leerPreferenciasCarga().then((preferencias) => {
-      const equivalencia = preferencias[normalizarNombreParaPreferencia(nombreEjercicio)]?.kgPorPlaca || null;
-      if (activo) { setKgPorPlaca(equivalencia); setConvertirPlacasKg(false); }
-    }).catch(() => undefined);
-    return () => { activo = false; };
+    leerPreferenciasCarga()
+      .then((preferencias) => {
+        const equivalencia =
+          preferencias[normalizarNombreParaPreferencia(nombreEjercicio)]
+            ?.kgPorPlaca || null;
+        if (activo) {
+          setKgPorPlaca(equivalencia);
+          setConvertirPlacasKg(false);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      activo = false;
+    };
   }, [nombreEjercicio]);
+
   useEffect(() => {
     if (!visible || !nombreEjercicio.trim()) return;
     let cancelado = false;
@@ -780,6 +785,7 @@ export default function HistorialEjercicioModal({
       cancelado = true;
     };
   }, [visible, nombreEjercicio, registroActualId, recarga]);
+
   const sesionesDesc = useMemo(
     () =>
       [...sesiones].sort((a, b) => {
@@ -788,7 +794,20 @@ export default function HistorialEjercicioModal({
       }),
     [sesiones]
   );
+
   const sesionesAsc = useMemo(() => [...sesionesDesc].reverse(), [sesionesDesc]);
+
+  // Rutinas únicas en las que se ha realizado
+  const rutinasUnicas = useMemo(() => {
+    const conjunto = new Set<string>();
+    sesionesDesc.forEach((s) => {
+      const r = s.rutinaNombre?.trim();
+      if (r) conjunto.add(r);
+    });
+    return Array.from(conjunto);
+  }, [sesionesDesc]);
+
+  // Resumen métrico global
   const resumen = useMemo(() => {
     const mejorPeso = sesionesDesc.reduce(
       (maximo, sesion) => Math.max(maximo, sesion.mejorPeso),
@@ -819,48 +838,35 @@ export default function HistorialEjercicioModal({
     const totalRepsMedio =
       sesionesDesc.length > 0 ? totalRepsTotal / sesionesDesc.length : 0;
     const usaCarga = mejorPeso > 0;
+
     const valorProgreso = (sesion: SesionHistorialEjercicio) =>
       usaCarga ? sesion.mejorE1RM : sesion.mejorReps;
+
     const primera = sesionesAsc[0] || null;
     const ultima = sesionesAsc[sesionesAsc.length - 1] || null;
-    // Para calcular la evolución usamos la primera y la última sesión que
-    // tengan una marca válida. Así una sesión antigua a peso corporal no
-    // rompe la tendencia cuando después se incorporó carga externa.
+
     const sesionesConMarca = sesionesAsc.filter(
       (sesion) => valorProgreso(sesion) > 0
     );
     const primeraMarca = sesionesConMarca[0] || null;
     const ultimaMarca = sesionesConMarca[sesionesConMarca.length - 1] || null;
+
     const deltaProgreso =
       primeraMarca && ultimaMarca
         ? valorProgreso(ultimaMarca) - valorProgreso(primeraMarca)
         : null;
+
     const deltaPct =
       deltaProgreso !== null &&
       primeraMarca &&
       valorProgreso(primeraMarca) > 0
         ? (deltaProgreso / valorProgreso(primeraMarca)) * 100
         : null;
-    let frecuenciaDias: number | null = null;
-    if (sesionesAsc.length > 1) {
-      const intervalos: number[] = [];
-      for (let i = 1; i < sesionesAsc.length; i += 1) {
-        intervalos.push(
-          differenceInCalendarDays(
-            fechaComoDate(sesionesAsc[i].fecha),
-            fechaComoDate(sesionesAsc[i - 1].fecha)
-          )
-        );
-      }
-      const promedio =
-        intervalos.reduce((total, dias) => total + dias, 0) / intervalos.length;
-      if (Number.isFinite(promedio) && promedio > 0) {
-        frecuenciaDias = Math.round(promedio);
-      }
-    }
+
     const sesionMejorPeso = sesionesDesc.find(
       (sesion) => sesion.mejorPeso === mejorPeso
     );
+
     return {
       mejorPeso,
       repsMejorPeso: sesionMejorPeso?.repsMejorPeso || 0,
@@ -876,70 +882,51 @@ export default function HistorialEjercicioModal({
       primeraMarca,
       deltaProgreso,
       deltaPct,
-      frecuenciaDias,
     };
   }, [sesionesAsc, sesionesDesc]);
+
+  // Sesión con el récord histórico
+  const sesionRecord = useMemo(() => {
+    if (sesionesDesc.length === 0) return null;
+    if (resumen.usaCarga) {
+      return sesionesDesc.reduce((max, s) => {
+        if (!max) return s;
+        if (s.mejorE1RM > max.mejorE1RM) return s;
+        if (s.mejorE1RM === max.mejorE1RM && s.mejorPeso > max.mejorPeso) return s;
+        return max;
+      }, sesionesDesc[0]);
+    }
+    return sesionesDesc.reduce((max, s) => {
+      if (!max) return s;
+      return s.mejorReps > max.mejorReps ? s : max;
+    }, sesionesDesc[0]);
+  }, [sesionesDesc, resumen.usaCarga]);
+
   const metricasDisponibles = resumen.usaCarga
     ? METRICAS.filter(
         (item) =>
           item.id === 'e1rm' || item.id === 'peso' || item.id === 'volumen'
       )
-    : METRICAS.filter(
-        (item) => item.id === 'reps' || item.id === 'totalReps'
-      );
+    : METRICAS.filter((item) => item.id === 'reps' || item.id === 'totalReps');
+
   const metricaActiva =
     metricasDisponibles.find((item) => item.id === metrica) ||
     metricasDisponibles[0] ||
     METRICAS[0];
+
   const deltaPct = resumen.deltaPct;
-  const progresoColor =
-    deltaPct === null || Math.abs(deltaPct) < 0.05
-      ? noir.muted
-      : deltaPct > 0
-        ? noir.mint
-        : '#FF7A90';
-  const progresoIcon: IoniconName =
-    deltaPct === null || Math.abs(deltaPct) < 0.05
-      ? 'remove-outline'
-      : deltaPct > 0
-        ? 'trending-up'
-        : 'trending-down';
-  const insightTitulo =
-    deltaPct === null
-      ? 'Primera referencia registrada'
-      : Math.abs(deltaPct) < 0.05
-        ? resumen.usaCarga
-          ? 'Tu 1RM se mantiene'
-          : 'Tus repeticiones se mantienen'
-        : `${deltaPct > 0 ? '+' : ''}${formatearNumero(
-            deltaPct,
-            1
-          )}% en ${resumen.usaCarga ? '1RM estimado' : 'reps máximas'}`;
-  const deltaValor = resumen.deltaProgreso ?? 0;
-  const signoDelta =
-    deltaValor > 0 ? '+' : deltaValor < 0 ? '-' : '';
-  const insightDetalle =
-    deltaPct === null
-      ? 'Necesitas al menos dos sesiones para medir una tendencia.'
-      : `${signoDelta}${formatearNumero(
-          Math.abs(deltaValor),
-          resumen.usaCarga ? 1 : 0
-        )} ${resumen.usaCarga ? 'kg' : 'reps'} desde ${formatearMes(
-          resumen.primeraMarca?.fecha || ''
-        )}.${
-          resumen.frecuenciaDias
-            ? ` Frecuencia media: cada ~${resumen.frecuenciaDias} días.`
-            : ''
-        }`;
+
   const cerrar = () => {
     vibrarBoton(8);
     onClose();
   };
+
   const usarSesion = (sesion: SesionHistorialEjercicio) => {
     vibrarBoton(14);
     onUsarSesion?.(sesion);
     onClose();
   };
+
   return (
     <Modal
       visible={visible}
@@ -954,6 +941,8 @@ export default function HistorialEjercicioModal({
           end={{ x: 0.7, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
+
+        {/* Cabecera Superior */}
         <View
           style={[
             styles.header,
@@ -970,26 +959,23 @@ export default function HistorialEjercicioModal({
             ]}
           >
             <View style={styles.headerCopy}>
-              <Text style={styles.headerKicker}>PREVIA · EVOLUCIÓN</Text>
+              <View style={styles.headerKickerRow}>
+                <Text style={styles.headerKicker}>PREVIA DEL EJERCICIO</Text>
+                {sesionesDesc.length > 0 && (
+                  <>
+                    <View style={styles.headerKickerDot} />
+                    <Text style={styles.headerKickerBadge}>
+                      {sesionesDesc.length}{' '}
+                      {sesionesDesc.length === 1 ? 'sesión' : 'sesiones'}
+                    </Text>
+                  </>
+                )}
+              </View>
               <Text style={styles.headerTitle} numberOfLines={2}>
                 {nombreEjercicio}
               </Text>
-              <Text style={styles.headerSubtitle}>
-                {cargando
-                  ? 'Leyendo tus registros…'
-                  : sesionesDesc.length > 0
-                    ? `${sesionesDesc.length} ${
-                        sesionesDesc.length === 1
-                          ? 'sesión registrada'
-                          : 'sesiones registradas'
-                      }${
-                        resumen.primera
-                          ? ` · desde ${formatearMes(resumen.primera.fecha)}`
-                          : ''
-                      }`
-                    : 'Historial de sesiones finalizadas'}
-              </Text>
             </View>
+
             <Pressable
               onPress={cerrar}
               style={({ pressed }) => [
@@ -998,12 +984,13 @@ export default function HistorialEjercicioModal({
               ]}
               hitSlop={8}
               accessibilityRole="button"
-              accessibilityLabel="Cerrar historial"
+              accessibilityLabel="Cerrar previa de ejercicio"
             >
-              <Ionicons name="close" size={21} color={noir.text} />
+              <Ionicons name="close" size={20} color={noir.text} />
             </Pressable>
           </View>
         </View>
+
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={[
@@ -1027,9 +1014,9 @@ export default function HistorialEjercicioModal({
                   <ActivityIndicator color={noir.info} size="small" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.loadingTitle}>Cargando tu evolución</Text>
+                  <Text style={styles.loadingTitle}>Cargando evolución</Text>
                   <Text style={styles.loadingText}>
-                    Buscando todas las sesiones finalizadas de este ejercicio…
+                    Consultando registros previos…
                   </Text>
                 </View>
               </View>
@@ -1038,7 +1025,7 @@ export default function HistorialEjercicioModal({
                 <View style={[styles.emptyIcon, styles.errorIcon]}>
                   <Ionicons
                     name="cloud-offline-outline"
-                    size={25}
+                    size={24}
                     color="#FF7A90"
                   />
                 </View>
@@ -1046,8 +1033,7 @@ export default function HistorialEjercicioModal({
                   No pudimos cargar el historial
                 </Text>
                 <Text style={styles.emptyText}>
-                  Revisa tu conexión e inténtalo de nuevo. Tus registros siguen
-                  guardados.
+                  Revisa tu conexión e inténtalo de nuevo.
                 </Text>
                 <Text style={styles.errorDetail} numberOfLines={3}>
                   {error}
@@ -1063,7 +1049,7 @@ export default function HistorialEjercicioModal({
                     pressed && { opacity: 0.75 },
                   ]}
                 >
-                  <Ionicons name="refresh" size={14} color={noir.info} />
+                  <Ionicons name="refresh" size={13} color={noir.info} />
                   <Text style={styles.retryButtonText}>Reintentar</Text>
                 </Pressable>
               </View>
@@ -1071,145 +1057,206 @@ export default function HistorialEjercicioModal({
               <View style={styles.emptyCard}>
                 <View style={styles.emptyIcon}>
                   <Ionicons
-                    name="analytics-outline"
-                    size={27}
+                    name="barbell-outline"
+                    size={25}
                     color={noir.info}
                   />
                 </View>
-                <Text style={styles.emptyTitle}>Aún no hay historial</Text>
+                <Text style={styles.emptyTitle}>Aún no hay registros</Text>
                 <Text style={styles.emptyText}>
-                  Cuando finalices una sesión con{' '}
+                  Cuando completes una sesión con{' '}
                   <Text style={styles.emptyStrong}>{nombreEjercicio}</Text>,
-                  aquí verás todas sus fechas, series, récords y tu evolución a
-                  lo largo del tiempo.
+                  aquí verás tu récord, en cuáles rutinas se realiza y el gráfico
+                  de progreso.
                 </Text>
                 <View style={styles.emptyHint}>
                   <Ionicons
                     name="information-circle-outline"
-                    size={13}
+                    size={12}
                     color={noir.muted}
                   />
                   <Text style={styles.emptyHintText}>
-                    Solo se muestran entrenamientos finalizados.
+                    Aparecerá automáticamente al finalizar tu entrenamiento.
                   </Text>
                 </View>
               </View>
             ) : (
               <>
-                <View style={styles.summaryCard}>
-                  <View style={styles.summaryHeader}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.summaryKicker}>TU HISTORIAL</Text>
-                      <Text style={styles.summaryTitle}>
-                        Evolución de {nombreEjercicio}
+                {/* ── SECCIÓN A: STAT CARDS HERO (Frecuencia, Rutinas, Mejor Registro) ── */}
+                <View style={styles.heroSection}>
+                  <View style={styles.statCardsGrid}>
+                    {/* CARD 1: Total de veces realizado y en cuáles rutinas */}
+                    <View style={styles.statCardHero}>
+                      <View style={styles.statCardTop}>
+                        <Text style={styles.statCardLabel}>TOTAL REALIZADO</Text>
+                        <View
+                          style={[
+                            styles.statCardIconBox,
+                            {
+                              backgroundColor: 'rgba(92, 200, 255, 0.08)',
+                              borderColor: 'rgba(92, 200, 255, 0.2)',
+                            },
+                          ]}
+                        >
+                          <Ionicons
+                            name="layers-outline"
+                            size={14}
+                            color={noir.info}
+                          />
+                        </View>
+                      </View>
+
+                      <View>
+                        <Text style={styles.statCardMainValue}>
+                          {sesionesDesc.length}{' '}
+                          <Text style={styles.statCardUnit}>
+                            {sesionesDesc.length === 1 ? 'sesión' : 'sesiones'}
+                          </Text>
+                        </Text>
+                      </View>
+
+                      <View style={styles.statCardDetailBox}>
+                        <Text style={styles.statCardDetailTitle}>
+                          {rutinasUnicas.length === 0
+                            ? 'Sesiones libres'
+                            : 'En rutinas:'}
+                        </Text>
+                        {rutinasUnicas.length > 0 && (
+                          <View style={styles.statCardRoutinesWrap}>
+                            {rutinasUnicas.slice(0, 3).map((rutina) => (
+                              <View key={rutina} style={styles.routineMiniTag}>
+                                <Text
+                                  style={styles.routineMiniTagText}
+                                  numberOfLines={1}
+                                >
+                                  {rutina}
+                                </Text>
+                              </View>
+                            ))}
+                            {rutinasUnicas.length > 3 && (
+                              <View style={styles.routineMiniTag}>
+                                <Text style={styles.routineMiniTagText}>
+                                  +{rutinasUnicas.length - 3}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    </View>
+
+                    {/* CARD 2: Mejor Registro histórico (PR) */}
+                    <View style={styles.statCardHero}>
+                      <View style={styles.statCardTop}>
+                        <Text style={styles.statCardLabel}>MEJOR REGISTRO</Text>
+                        <View
+                          style={[
+                            styles.statCardIconBox,
+                            {
+                              backgroundColor: 'rgba(255, 209, 102, 0.08)',
+                              borderColor: 'rgba(255, 209, 102, 0.22)',
+                            },
+                          ]}
+                        >
+                          <Ionicons
+                            name="trophy"
+                            size={14}
+                            color={noir.champagne}
+                          />
+                        </View>
+                      </View>
+
+                      <View>
+                        <Text style={styles.statCardMainValue} numberOfLines={1}>
+                          {resumen.usaCarga ? (
+                            <>
+                              {formatearKg(resumen.mejorPeso)}{' '}
+                              <Text style={styles.statCardUnit}>
+                                kg
+                                {resumen.repsMejorPeso > 0
+                                  ? ` × ${resumen.repsMejorPeso}`
+                                  : ''}
+                              </Text>
+                            </>
+                          ) : (
+                            <>
+                              {resumen.mejorReps}{' '}
+                              <Text style={styles.statCardUnit}>reps</Text>
+                            </>
+                          )}
+                        </Text>
+                      </View>
+
+                      <View style={styles.statCardDetailBox}>
+                        <Text style={styles.statCardDetailTitle} numberOfLines={1}>
+                          {resumen.usaCarga && resumen.mejorE1RM > 0 ? (
+                            <>
+                              1RM est:{' '}
+                              <Text style={styles.statCardDetailHighlight}>
+                                {formatearKg(resumen.mejorE1RM, 0)} kg
+                              </Text>
+                            </>
+                          ) : (
+                            'Máximo en una serie'
+                          )}
+                        </Text>
+                        {sesionRecord && (
+                          <Text
+                            style={[styles.statCardDetailTitle, { fontSize: 8.5 }]}
+                            numberOfLines={1}
+                          >
+                            {textoDiasRelativo(sesionRecord.fecha)}
+                            {sesionRecord.rutinaNombre
+                              ? ` · ${sesionRecord.rutinaNombre}`
+                              : ''}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Píldora de Progreso (Limpia y concisa) */}
+                  {deltaPct !== null && (
+                    <View style={styles.trendPill}>
+                      <View
+                        style={[
+                          styles.trendPillIcon,
+                          deltaPct < 0 && {
+                            backgroundColor: 'rgba(255, 122, 144, 0.12)',
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name={deltaPct >= 0 ? 'trending-up' : 'trending-down'}
+                          size={12}
+                          color={deltaPct >= 0 ? noir.mint : '#FF7A90'}
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          styles.trendPillText,
+                          deltaPct < 0 && { color: '#FF7A90' },
+                        ]}
+                      >
+                        {deltaPct > 0 ? '+' : ''}
+                        {formatearNumero(deltaPct, 1)}%{' '}
+                        {resumen.usaCarga ? 'en 1RM estimado' : 'en reps'}
                       </Text>
+                      <Text style={styles.trendPillSub}>vs. primera marca</Text>
                     </View>
-                    <View style={styles.summaryIcon}>
-                      <Ionicons
-                        name="pulse-outline"
-                        size={17}
-                        color={noir.mint}
-                      />
-                    </View>
-                  </View>
-                  <View style={styles.statsGrid}>
-                    <StatCard
-                      icono="layers-outline"
-                      label="SESIONES"
-                      valor={String(sesionesDesc.length)}
-                      detalle={
-                        resumen.primera
-                          ? `Desde ${formatearMes(resumen.primera.fecha)}`
-                          : undefined
-                      }
-                    />
-                    <StatCard
-                      icono={resumen.usaCarga ? 'barbell-outline' : 'repeat'}
-                      label={resumen.usaCarga ? 'MEJOR PESO' : 'MEJOR SERIE'}
-                      valor={
-                        resumen.usaCarga
-                          ? `${formatearKg(resumen.mejorPeso)} kg`
-                          : resumen.mejorReps > 0
-                            ? `${resumen.mejorReps} reps`
-                            : '—'
-                      }
-                      detalle={
-                        resumen.usaCarga
-                          ? `${resumen.repsMejorPeso} reps`
-                          : 'Máximo en una serie'
-                      }
-                      color={noir.champagne}
-                    />
-                    <StatCard
-                      icono="trending-up"
-                      label={
-                        resumen.usaCarga ? '1RM ESTIMADO' : 'REPS TOTALES'
-                      }
-                      valor={
-                        resumen.usaCarga
-                          ? `${formatearKg(resumen.mejorE1RM, 0)} kg`
-                          : resumen.mejorTotalReps > 0
-                            ? `${resumen.mejorTotalReps} reps`
-                            : '—'
-                      }
-                      detalle={
-                        resumen.usaCarga
-                          ? 'Mejor marca estimada'
-                          : 'Mejor sesión completada'
-                      }
-                      color={noir.mint}
-                    />
-                    <StatCard
-                      icono={progresoIcon}
-                      label="PROGRESO"
-                      valor={
-                        deltaPct === null
-                          ? '—'
-                          : `${deltaPct > 0 ? '+' : ''}${formatearNumero(
-                              deltaPct,
-                              1
-                            )}%`
-                      }
-                      detalle={
-                        deltaPct === null
-                          ? 'Falta otra sesión'
-                          : resumen.usaCarga
-                            ? '1RM vs. primera marca'
-                            : 'Reps vs. primera marca'
-                      }
-                      color={progresoColor}
-                    />
-                  </View>
-                  <View style={styles.insightRow}>
-                    <View
-                      style={[
-                        styles.insightIcon,
-                        {
-                          backgroundColor: `${progresoColor}14`,
-                          borderColor: `${progresoColor}2E`,
-                        },
-                      ]}
-                    >
-                      <Ionicons
-                        name={progresoIcon}
-                        size={15}
-                        color={progresoColor}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.insightTitle}>{insightTitulo}</Text>
-                      <Text style={styles.insightText}>{insightDetalle}</Text>
-                    </View>
-                  </View>
+                  )}
                 </View>
+
+                {/* ── SECCIÓN C: GRÁFICO DE PROGRESO ── */}
                 <View style={styles.chartCard}>
                   <View style={styles.chartHeader}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.chartKicker}>EVOLUCIÓN</Text>
+                    <View style={styles.chartTitleBlock}>
+                      <Text style={styles.chartKicker}>PROGRESO</Text>
                       <Text style={styles.chartTitle}>
                         {metricaActiva.titulo}
                       </Text>
                     </View>
+
                     <View style={styles.metricTabs}>
                       {metricasDisponibles.map((item) => {
                         const activa = item.id === metricaActiva.id;
@@ -1238,44 +1285,43 @@ export default function HistorialEjercicioModal({
                       })}
                     </View>
                   </View>
-                  <Text style={styles.chartDescription}>
-                    {metricaActiva.descripcion}
-                  </Text>
+
                   <GraficoEvolucion
                     sesiones={sesionesAsc}
                     metrica={metricaActiva.id}
                     unidad={metricaActiva.unidad}
                   />
+
                   <View style={styles.chartFooter}>
                     <Text style={styles.chartFooterText}>
                       {sesionesAsc.length}{' '}
-                      {sesionesAsc.length === 1 ? 'sesión' : 'sesiones'}
+                      {sesionesAsc.length === 1 ? 'sesión' : 'sesiones'} registradas
                     </Text>
                     {resumen.usaCarga && resumen.volumenMedio > 0 && (
                       <Text style={styles.chartFooterText}>
-                        Media {formatearCompacto(resumen.volumenMedio)} kg por
-                        sesión
+                        Media {formatearCompacto(resumen.volumenMedio)} kg / sesión
                       </Text>
                     )}
                     {!resumen.usaCarga && resumen.totalRepsMedio > 0 && (
                       <Text style={styles.chartFooterText}>
-                        Media {formatearCompacto(resumen.totalRepsMedio)} reps
-                        por sesión
+                        Media {formatearCompacto(resumen.totalRepsMedio)} reps / sesión
                       </Text>
                     )}
                   </View>
                 </View>
+
+                {/* ── SECCIÓN B: TODAS LAS SESIONES DE REALIZACIÓN ── */}
                 <View style={styles.listHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.listKicker}>REGISTROS</Text>
+                  <View style={styles.listTitleRow}>
                     <Text style={styles.listTitle}>Todas las sesiones</Text>
-                  </View>
-                  <View style={styles.listCount}>
-                    <Text style={styles.listCountText}>
-                      {sesionesDesc.length}
-                    </Text>
+                    <View style={styles.listCountBadge}>
+                      <Text style={styles.listCountText}>
+                        {sesionesDesc.length}
+                      </Text>
+                    </View>
                   </View>
                 </View>
+
                 {sesionesDesc.map((sesion, indice) => {
                   const anterior = sesionesDesc[indice + 1] || null;
                   const valorSesion = resumen.usaCarga
@@ -1293,6 +1339,7 @@ export default function HistorialEjercicioModal({
                   const valorRecord = resumen.usaCarga
                     ? resumen.mejorE1RM
                     : resumen.mejorReps;
+
                   return (
                     <TarjetaSesion
                       key={sesion.id}
@@ -1306,20 +1353,22 @@ export default function HistorialEjercicioModal({
                       unidadProgreso={resumen.unidadProgreso}
                       kgPorPlaca={kgPorPlaca}
                       convertirPlacasKg={convertirPlacasKg}
-                      onToggleConversion={() => setConvertirPlacasKg((value) => !value)}
+                      onToggleConversion={() =>
+                        setConvertirPlacasKg((value) => !value)
+                      }
                       onUsar={onUsarSesion ? usarSesion : undefined}
                     />
                   );
                 })}
+
                 <View style={styles.footerNote}>
                   <Ionicons
                     name="shield-checkmark-outline"
-                    size={13}
+                    size={12}
                     color={noir.muted2}
                   />
                   <Text style={styles.footerNoteText}>
-                    Historial construido con tus sesiones finalizadas. Los
-                    registros se ordenan por fecha real de entrenamiento.
+                    Historial cronológico ordenado por fecha de entrenamiento.
                   </Text>
                 </View>
               </>
